@@ -6,6 +6,7 @@ extern Whip::Application* Whip::CreateApplication();
 
 int main(int argc, char** argv)
 {
+	Whip::Log::Init();
 	auto app = Whip::CreateApplication();
 	app->Run();
 	delete app;

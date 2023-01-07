@@ -1,0 +1,3 @@
+[submodule "Whip/vendor/spdlog"]
+	path = Whip/vendor/spdlog
+	url = https://github.com/gabime/spdlog

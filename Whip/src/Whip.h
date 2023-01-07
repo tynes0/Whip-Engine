@@ -3,10 +3,10 @@
 #define _WHIP_
 
 #include "Whip/Application.h"
+#include "Whip/Log.h"
 
-
-// ||||| Giris Noktasi |||||
+// ----- Giris Noktasi -----
 #include "Whip/EntryPoint.h"
-// |||||||||||||||||||||||||
+// -------------------------
 
 #endif // ! _WHIP_

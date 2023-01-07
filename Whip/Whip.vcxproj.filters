@@ -1,36 +1,31 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Kaynak Dosyalar">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="Üst Bilgi Dosyaları">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="Kaynak Dosyaları">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="Whip">
+      <UniqueIdentifier>{DD8C8E7C-C9C3-8F0D-72B0-75105EC60B0F}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Whip\Core.h">
-      <Filter>Üst Bilgi Dosyaları</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Whip.h">
-      <Filter>Üst Bilgi Dosyaları</Filter>
-    </ClInclude>
+    <ClInclude Include="src\Whip.h" />
     <ClInclude Include="src\Whip\Application.h">
-      <Filter>Üst Bilgi Dosyaları</Filter>
+      <Filter>Whip</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core.h">
+      <Filter>Whip</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\EntryPoint.h">
-      <Filter>Üst Bilgi Dosyaları</Filter>
+      <Filter>Whip</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Log.h">
+      <Filter>Whip</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Whip\Application.cpp">
-      <Filter>Kaynak Dosyalar</Filter>
+      <Filter>Whip</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Log.cpp">
+      <Filter>Whip</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

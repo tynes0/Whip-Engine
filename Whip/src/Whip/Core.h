@@ -3,6 +3,8 @@
 #define _WHIP_START namespace Whip {
 #define _WHIP_END }
 
+#define _WHIP ::Whip::
+
 #ifdef WH_PLATFORM_WINDOWS
 	#ifdef WH_BUILD_DLL
 		#define WHIP_API __declspec(dllexport)
