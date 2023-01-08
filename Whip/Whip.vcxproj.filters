@@ -4,6 +4,9 @@
     <Filter Include="Whip">
       <UniqueIdentifier>{DD8C8E7C-C9C3-8F0D-72B0-75105EC60B0F}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Whip\Events">
+      <UniqueIdentifier>{217E83D1-8D33-FCC6-1628-F69D82DCF2CA}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Whip.h" />
@@ -16,9 +19,22 @@
     <ClInclude Include="src\Whip\EntryPoint.h">
       <Filter>Whip</Filter>
     </ClInclude>
+    <ClInclude Include="src\Whip\Events\ApplicationEvent.h">
+      <Filter>Whip\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Events\Event.h">
+      <Filter>Whip\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Events\KeyEvent.h">
+      <Filter>Whip\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Events\MouseEvent.h">
+      <Filter>Whip\Events</Filter>
+    </ClInclude>
     <ClInclude Include="src\Whip\Log.h">
       <Filter>Whip</Filter>
     </ClInclude>
+    <ClInclude Include="src\whippch.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Whip\Application.cpp">
@@ -27,5 +43,6 @@
     <ClCompile Include="src\Whip\Log.cpp">
       <Filter>Whip</Filter>
     </ClCompile>
+    <ClCompile Include="src\whippch.cpp" />
   </ItemGroup>
 </Project>

@@ -1,8 +1,10 @@
 #pragma once
 
-#ifdef WH_PLATFORM_WINDOWS
+#ifdef WHP_PLATFORM_WINDOWS
 
 extern Whip::Application* Whip::CreateApplication();
+
+//#include <iostream>
 
 int main(int argc, char** argv)
 {

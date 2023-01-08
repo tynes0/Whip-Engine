@@ -1,11 +1,10 @@
 #pragma once
 
-#include <memory>
-
 #include "core.h"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/fmt/ostr.h"
 
 _WHIP_START
 
@@ -23,16 +22,17 @@ public:
 _WHIP_END
 
 // Core log macros
-#define WH_CORE_TRACE(...)		::Whip::Log::GetCoreLogger()->trace(__VA_ARGS__)
-#define WH_CORE_INFO(...)		::Whip::Log::GetCoreLogger()->info(__VA_ARGS__)
-#define WH_CORE_WARN(...)		::Whip::Log::GetCoreLogger()->warn(__VA_ARGS__)
-#define WH_CORE_ERROR(...)		::Whip::Log::GetCoreLogger()->error(__VA_ARGS__)
-//#define WH_CORE_FATAL(...)		::Whip::Log::GetCoreLogger()->fatal(__VA_ARGS__)
+#define WHP_CORE_TRACE(...)		::Whip::Log::GetCoreLogger()->trace(__VA_ARGS__)
+#define WHP_CORE_INFO(...)		::Whip::Log::GetCoreLogger()->info(__VA_ARGS__)
+#define WHP_CORE_WARN(...)		::Whip::Log::GetCoreLogger()->warn(__VA_ARGS__)
+#define WHP_CORE_ERROR(...)		::Whip::Log::GetCoreLogger()->error(__VA_ARGS__)
+//#define WH_CORE_FATAL(...)	::Whip::Log::GetCoreLogger()->fatal(__VA_ARGS__)
 
-#define WH_TRACE(...)		::Whip::Log::GetClientLogger()->trace(__VA_ARGS__)
-#define WH_INFO(...)		::Whip::Log::GetClientLogger()->info(__VA_ARGS__)
-#define WH_WARN(...)		::Whip::Log::GetClientLogger()->warn(__VA_ARGS__)
-#define WH_ERROR(...)		::Whip::Log::GetClientLogger()->error(__VA_ARGS__)
-//#define WH_FATAL(...)		::Whip::Log::GetClientLogger()->fatal(__VA_ARGS__)
+// Client log macros
+#define WHP_TRACE(...)			::Whip::Log::GetClientLogger()->trace(__VA_ARGS__)
+#define WHP_INFO(...)			::Whip::Log::GetClientLogger()->info(__VA_ARGS__)
+#define WHP_WARN(...)			::Whip::Log::GetClientLogger()->warn(__VA_ARGS__)
+#define WHP_ERROR(...)			::Whip::Log::GetClientLogger()->error(__VA_ARGS__)
+//#define WH_FATAL(...)			::Whip::Log::GetClientLogger()->fatal(__VA_ARGS__)
 
 

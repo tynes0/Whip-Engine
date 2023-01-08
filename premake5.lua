@@ -18,6 +18,9 @@ project "Whip"
 	targetdir ("bin/" ..outputdir.. "/%{prj.name}")
 	objdir ("bin-int/" ..outputdir.. "/%{prj.name}")
 
+	pchheader "whippch.h"
+	pchsource "Whip/src/whippch.cpp"
+
 	files
 	{
 		"%{prj.name}/src/**.h",
@@ -27,7 +30,8 @@ project "Whip"
 
 	includedirs
 	{
-		"Whip/vendor/spdlog/include"
+		"%{prj.name}/src",
+		"%{prj.name}/vendor/spdlog/include"
 	}
 
 	filter "system:windows"
@@ -37,8 +41,8 @@ project "Whip"
 
 		defines
 		{
-			"WH_PLATFORM_WINDOWS",
-			"WH_BUILD_DLL"
+			"WHP_PLATFORM_WINDOWS",
+			"WHP_BUILD_DLL"
 		}
 
 		postbuildcommands
@@ -47,15 +51,15 @@ project "Whip"
 		}
 
 	filter "configurations:Debug"
-		defines "WH_DEBUG"
+		defines "WHP_DEBUG"
 		symbols "On"
 		
 	filter "configurations:Release"
-		defines "WH_RELEASE"
+		defines "WHP_RELEASE"
 		optimize "On"
 		
 	filter "configurations:Dist"
-		defines "WH_DIST"
+		defines "WHP_DIST"
 		optimize "On"
 
 project "F-Box"
@@ -91,17 +95,17 @@ project "F-Box"
 
 		defines
 		{
-			"WH_PLATFORM_WINDOWS"
+			"WHP_PLATFORM_WINDOWS"
 		}
 
 	filter "configurations:Debug"
-		defines "WH_DEBUG"
+		defines "WHP_DEBUG"
 		symbols "On"
 		
 	filter "configurations:Release"
-		defines "WH_RELEASE"
+		defines "WHP_RELEASE"
 		optimize "On"
 		
 	filter "configurations:Dist"
-		defines "WH_DIST"
+		defines "WHP_DIST"
 		optimize "On"
