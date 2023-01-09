@@ -3,10 +3,6 @@
 
 #include "Whip/Core.h"
 #include "whippch.h"
-<<<<<<< HEAD
-=======
-
->>>>>>> 3abea3cc21f872044f07db878a16eb2251d6f264
 
 _WHIP_START
 
