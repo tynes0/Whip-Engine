@@ -1,3 +1,6 @@
 [submodule "Whip/vendor/spdlog"]
 	path = Whip/vendor/spdlog
 	url = https://github.com/gabime/spdlog
+[submodule "Whip/vendor/GLFW"]
+	path = Whip/vendor/GLFW
+	url = https://github.com/TheCherno/GLFW

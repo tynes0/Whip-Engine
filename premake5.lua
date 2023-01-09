@@ -10,6 +10,12 @@ workspace "Whip"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{}"
 
+--include directories relative to root folder (sln directory)
+IncludeDir = {}
+IncludeDir["GLFW"] = "Whip/vendor/GLFW/include"
+
+include "Whip/vendor/GLFW"
+
 project "Whip"
 	location "Whip"
 	kind "SharedLib"
@@ -31,12 +37,19 @@ project "Whip"
 	includedirs
 	{
 		"%{prj.name}/src",
-		"%{prj.name}/vendor/spdlog/include"
+		"%{prj.name}/vendor/spdlog/include",
+		"%{IncludeDir.GLFW}"
+	}
+
+	links
+	{
+		"GLFW",
+		"opengl32.lib"
 	}
 
 	filter "system:windows"
 		cppdialect "C++17"
-		staticruntime "On"
+		staticruntime "Off"
 		systemversion "latest"
 
 		defines
@@ -85,7 +98,9 @@ project "F-Box"
 
 	links
 	{
-		"Whip"
+		"Whip",
+		"GLFW",
+		"opengl32.lib"
 	}
 
 	filter "system:windows"

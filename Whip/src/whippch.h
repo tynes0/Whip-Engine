@@ -19,6 +19,6 @@
 	#include <Windows.h>
 #endif // WHP_PLATFORM_WINDOWS
 
-
+#include "Whip/Log.h"
 
 #endif // !_WHIPPCH_

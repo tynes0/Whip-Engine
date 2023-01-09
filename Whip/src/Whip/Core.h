@@ -15,4 +15,13 @@
 #error Whip engine only support Windows!
 #endif // WHP_PLATFORM_DLL
 
+
+#ifdef WHP_ENABLE_ASSERTS
+	#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_ERROR("Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+	#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_ERROR("Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+#else //WHP_ENABLE_ASSERTS
+	#define WHP_ASSERT(x, ...) 
+	#define WHP_CORE_ASSERT(x, ...)
+#endif //WHP_ENABLE_ASSERTS
+
 #define BIT(x) (1 << x)

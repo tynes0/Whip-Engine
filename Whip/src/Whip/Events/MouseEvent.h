@@ -53,7 +53,7 @@ protected:
 	MouseButtonEvent(int button) : m_Button(button) {}
 public:
 	inline int GetMouseButton() const { return m_Button; }
-	EVENT_CLASS_CATEGORY(EventCategoryMouse, EventCategoryInput, EventCategoryMouseButton)
+	EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput | EventCategoryMouseButton)
 };
 
 class WHIP_API MouseButtonPressedEvent : public MouseButtonEvent
