@@ -3,13 +3,12 @@
 
 #include "Whip/Core.h"
 #include "whippch.h"
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3abea3cc21f872044f07db878a16eb2251d6f264
 
 _WHIP_START
-
-// Events in Whip are currently blocking, meaning when an event occurs it
-// immadietly gets dispatched and must be dealt with right then an there.
-// For the future, a better strategy might be to buffer events in an event 
-// bus and process them during the "event" part of the uptade stage.
 
 enum class EventType
 {
