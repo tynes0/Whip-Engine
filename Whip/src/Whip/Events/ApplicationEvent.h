@@ -30,6 +30,11 @@ class WHIP_API WindowCloseEvent : public Event
 public:
 	WindowCloseEvent() {}
 
+	std::string ToString() const override
+	{
+		return "WindowClosed";
+	}
+
 	EVENT_CLASS_CATEGORY(EventCategoryApplication)
 	EVENT_CLASS_TYPE(WindowClose)
 };
