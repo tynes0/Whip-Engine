@@ -3,6 +3,7 @@
 #define _WHIP_
 
 #include "Whip/Application.h"
+#include "Whip/Layer.h"
 #include "whippch.h"
 
 // ----- Giris Noktasi -----

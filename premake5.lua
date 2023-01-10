@@ -49,7 +49,7 @@ project "Whip"
 
 	filter "system:windows"
 		cppdialect "C++17"
-		staticruntime "Off"
+		staticruntime "On"
 		systemversion "latest"
 
 		defines
@@ -65,14 +65,17 @@ project "Whip"
 
 	filter "configurations:Debug"
 		defines "WHP_DEBUG"
+		buildoptions "/MDd"
 		symbols "On"
 		
 	filter "configurations:Release"
 		defines "WHP_RELEASE"
+		buildoptions "/MD"
 		optimize "On"
 		
 	filter "configurations:Dist"
 		defines "WHP_DIST"
+		buildoptions "/MD"
 		optimize "On"
 
 project "F-Box"
@@ -115,12 +118,15 @@ project "F-Box"
 
 	filter "configurations:Debug"
 		defines "WHP_DEBUG"
+		buildoptions "/MDd"
 		symbols "On"
 		
 	filter "configurations:Release"
 		defines "WHP_RELEASE"
+		buildoptions "/MD"
 		optimize "On"
 		
 	filter "configurations:Dist"
 		defines "WHP_DIST"
+		buildoptions "/MD"
 		optimize "On"

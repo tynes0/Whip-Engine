@@ -83,7 +83,8 @@
       <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalOptions>/MDd %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
@@ -109,7 +110,8 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <MinimalRebuild>false</MinimalRebuild>
       <StringPooling>true</StringPooling>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalOptions>/MD %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
@@ -136,7 +138,8 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <MinimalRebuild>false</MinimalRebuild>
       <StringPooling>true</StringPooling>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalOptions>/MD %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
@@ -161,6 +164,8 @@
     <ClInclude Include="src\Whip\Events\Event.h" />
     <ClInclude Include="src\Whip\Events\KeyEvent.h" />
     <ClInclude Include="src\Whip\Events\MouseEvent.h" />
+    <ClInclude Include="src\Whip\Layer.h" />
+    <ClInclude Include="src\Whip\LayerStack.h" />
     <ClInclude Include="src\Whip\Log.h" />
     <ClInclude Include="src\Whip\Window.h" />
     <ClInclude Include="src\whippch.h" />
@@ -168,6 +173,8 @@
   <ItemGroup>
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp" />
     <ClCompile Include="src\Whip\Application.cpp" />
+    <ClCompile Include="src\Whip\Layer.cpp" />
+    <ClCompile Include="src\Whip\LayerStack.cpp" />
     <ClCompile Include="src\Whip\Log.cpp" />
     <ClCompile Include="src\whippch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>

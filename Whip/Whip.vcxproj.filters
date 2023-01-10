@@ -40,6 +40,12 @@
     <ClInclude Include="src\Whip\Events\MouseEvent.h">
       <Filter>Whip\Events</Filter>
     </ClInclude>
+    <ClInclude Include="src\Whip\Layer.h">
+      <Filter>Whip</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\LayerStack.h">
+      <Filter>Whip</Filter>
+    </ClInclude>
     <ClInclude Include="src\Whip\Log.h">
       <Filter>Whip</Filter>
     </ClInclude>
@@ -53,6 +59,12 @@
       <Filter>Platform\Windows</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Application.cpp">
+      <Filter>Whip</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Layer.cpp">
+      <Filter>Whip</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\LayerStack.cpp">
       <Filter>Whip</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Log.cpp">
