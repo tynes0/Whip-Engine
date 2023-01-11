@@ -26,13 +26,14 @@ _WHIP_END
 #define WHP_CORE_INFO(...)		::Whip::Log::GetCoreLogger()->info(__VA_ARGS__)
 #define WHP_CORE_WARN(...)		::Whip::Log::GetCoreLogger()->warn(__VA_ARGS__)
 #define WHP_CORE_ERROR(...)		::Whip::Log::GetCoreLogger()->error(__VA_ARGS__)
-//#define WH_CORE_FATAL(...)	::Whip::Log::GetCoreLogger()->fatal(__VA_ARGS__)
+#define WHP_CORE_CRITICAL(...)	::Whip::Log::GetCoreLogger()->critical(__VA_ARGS__)
 
 // Client log macros
 #define WHP_TRACE(...)			::Whip::Log::GetClientLogger()->trace(__VA_ARGS__)
 #define WHP_INFO(...)			::Whip::Log::GetClientLogger()->info(__VA_ARGS__)
 #define WHP_WARN(...)			::Whip::Log::GetClientLogger()->warn(__VA_ARGS__)
 #define WHP_ERROR(...)			::Whip::Log::GetClientLogger()->error(__VA_ARGS__)
-//#define WH_FATAL(...)			::Whip::Log::GetClientLogger()->fatal(__VA_ARGS__)
+#define WHP_CRITICAL(...)		::Whip::Log::GetClientLogger()->critical(__VA_ARGS__)
 
 
+#define INIT_WHP_LOG ::Whip::Log::Init()

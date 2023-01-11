@@ -41,5 +41,3 @@ _WHIP_END
 #define MOUSE_SCROLL_EVENT_CALLBACK_E					Whip::EventCallbackFunctions::MouseScrollEventCallback
 #define MOUSE_MOVED_EVENT_CALLBACK_E					Whip::EventCallbackFunctions::MouseMovedEventCallback
 #define GLFW_ERR_CALLBACK_E								Whip::EventCallbackFunctions::GLFWErrorCallback
-
-

@@ -1,7 +1,7 @@
 #include <Whip.h>
 
 
-class ExLayer : public _WHIP Layer
+class ExLayer : public Whip::Layer
 {
 public:
 	ExLayer() : Layer("Whip Layer") {}
@@ -10,7 +10,7 @@ public:
 	{
 		//WHP_INFO("ExLayer::Update");
 	}
-	void OnEvent(_WHIP Event& event) override
+	void OnEvent(Whip::Event& event) override
 	{
 		//WHP_TRACE("{0}", event);
 	}

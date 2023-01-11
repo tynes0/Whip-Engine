@@ -4,8 +4,11 @@
 #define _WHIP_END }
 
 #define _WHIP ::Whip::
+#define WHP_LOG ::Whip::Log::
 
 #define BIT(x) (1 << x)
+
+#define WHP_SWAP(type, param1, param2) type t = param1; param1 = param2; param2 = t
 
 #ifdef WHP_PLATFORM_WINDOWS
 	#ifdef WHP_BUILD_DLL

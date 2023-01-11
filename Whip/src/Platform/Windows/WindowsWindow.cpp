@@ -24,10 +24,12 @@ WindowsWindow::~WindowsWindow()
 
 void WindowsWindow::Init(const WindowProps& props)
 {
-	SET_WIN_PROPS(m_Data.WinProps, props.Title, props.Width, props.Height);
+	m_Data.WinProps = props;
 
 	WHP_CORE_INFO("Creating Window {0} ({1}, {2})", props.Title, props.Width, props.Height);
 
+
+	// initialize GLFW
 	if (!s_GLFWInitialized)
 	{
 		int success = glfwInit();
@@ -36,6 +38,7 @@ void WindowsWindow::Init(const WindowProps& props)
 		s_GLFWInitialized = true;
 	}
 
+	// create window
 	m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.WinProps.Title.c_str(), nullptr, nullptr);
 	glfwMakeContextCurrent(m_Window);
 	glfwSetWindowUserPointer(m_Window, &m_Data);
