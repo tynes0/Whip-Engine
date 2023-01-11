@@ -155,6 +155,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.h" />
     <ClInclude Include="src\Platform\Windows\WindowsWindow.h" />
     <ClInclude Include="src\Whip.h" />
     <ClInclude Include="src\Whip\Application.h" />
@@ -171,6 +172,7 @@
     <ClInclude Include="src\whippch.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.cpp" />
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp" />
     <ClCompile Include="src\Whip\Application.cpp" />
     <ClCompile Include="src\Whip\Layer.cpp" />

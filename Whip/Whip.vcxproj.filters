@@ -53,6 +53,7 @@
       <Filter>Whip</Filter>
     </ClInclude>
     <ClInclude Include="src\whippch.h" />
+    <ClInclude Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp">
@@ -71,5 +72,6 @@
       <Filter>Whip</Filter>
     </ClCompile>
     <ClCompile Include="src\whippch.cpp" />
+    <ClCompile Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.cpp" />
   </ItemGroup>
 </Project>

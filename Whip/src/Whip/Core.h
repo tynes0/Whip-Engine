@@ -5,6 +5,8 @@
 
 #define _WHIP ::Whip::
 
+#define BIT(x) (1 << x)
+
 #ifdef WHP_PLATFORM_WINDOWS
 	#ifdef WHP_BUILD_DLL
 		#define WHIP_API __declspec(dllexport)
@@ -27,5 +29,3 @@
 	#define WHP_ASSERT(x, ...) 
 	#define WHP_CORE_ASSERT(x, ...)
 #endif //WHP_ENABLE_ASSERTS
-
-#define BIT(x) (1 << x)

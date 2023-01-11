@@ -16,7 +16,6 @@ public:
 	}
 };
 
-
 class F_Box : public Whip::Application
 {
 public:
