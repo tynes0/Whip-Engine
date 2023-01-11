@@ -1,8 +1,8 @@
 #pragma once
 
 
-#include "Whip/Core.h"
-#include "whippch.h"
+#include <Whip/Core.h>
+#include <whippch.h>
 
 _WHIP_START
 

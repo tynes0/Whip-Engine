@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Whip/Window.h"
+#include <Whip/Window.h>
 
 #include <GLFW/glfw3.h>
 

@@ -1,5 +1,5 @@
-#include "whippch.h"
-#include "Layer.h"
+#include <whippch.h>
+#include <Whip/Layer.h>
 
 _WHIP_START
 

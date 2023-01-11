@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Whip/Core.h"
-#include "Whip/Events/Event.h"
-#include "Whip/Window.h"
-#include "Whip/Events/ApplicationEvent.h"
-#include "Whip/LayerStack.h"
+#include <Whip/Core.h>
+#include <Whip/Events/Event.h>
+#include <Whip/Window.h>
+#include <Whip/Events/ApplicationEvent.h>
+#include <Whip/LayerStack.h>
 
 
 _WHIP_START

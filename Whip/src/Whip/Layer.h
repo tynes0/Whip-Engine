@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Whip/Core.h"
-#include "Whip/Events/Event.h"
+#include <Whip/Core.h>
+#include <Whip/Events/Event.h>
 
 _WHIP_START
 

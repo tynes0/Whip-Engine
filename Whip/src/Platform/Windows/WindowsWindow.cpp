@@ -1,9 +1,9 @@
-#include "whippch.h"
+#include <whippch.h>
 #include "WindowsWindow.h"
 
-#include "Whip/Events/ApplicationEvent.h"
-#include "Whip/Events/KeyEvent.h"
-#include "Whip/Events/MouseEvent.h"
+#include <Whip/Events/ApplicationEvent.h>
+#include <Whip/Events/KeyEvent.h>
+#include <Whip/Events/MouseEvent.h>
 
 _WHIP_START
 

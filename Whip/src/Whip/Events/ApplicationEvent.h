@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Event.h"
+#include <Whip/Events/Event.h>
 
 _WHIP_START
 

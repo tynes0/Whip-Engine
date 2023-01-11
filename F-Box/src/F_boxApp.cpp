@@ -8,11 +8,11 @@ public:
 
 	void OnUpdate() override
 	{
-		WHP_INFO("ExLayer::Update");
+		//WHP_INFO("ExLayer::Update");
 	}
 	void OnEvent(_WHIP Event& event) override
 	{
-		WHP_TRACE("{0}", event);
+		//WHP_TRACE("{0}", event);
 	}
 };
 

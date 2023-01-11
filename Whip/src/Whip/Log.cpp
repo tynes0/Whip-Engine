@@ -1,5 +1,5 @@
-#include "whippch.h"
-#include "Log.h"
+#include <whippch.h>
+#include <Whip/Log.h>
 
 _WHIP_START
 

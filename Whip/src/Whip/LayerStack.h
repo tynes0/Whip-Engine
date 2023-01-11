@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Whip/Core.h"
-#include "Layer.h"
+#include <Whip/Core.h>
+#include <Whip/Layer.h>
 
 _WHIP_START
 
