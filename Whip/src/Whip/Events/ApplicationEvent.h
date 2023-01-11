@@ -14,7 +14,7 @@ public:
 	inline unsigned int GetWidth() const { return m_Width; }
 	inline unsigned int GetHeight() const { return m_Height; }
 
-	std::string ToString() const override
+	EVENT_TO_STRING
 	{
 		std::stringstream ss;
 		ss << "WindowResizeEvent: " << m_Width << ", " << m_Height;
@@ -30,7 +30,7 @@ class WHIP_API WindowCloseEvent : public Event
 public:
 	WindowCloseEvent() {}
 
-	std::string ToString() const override
+	EVENT_TO_STRING
 	{
 		return "WindowClosed";
 	}

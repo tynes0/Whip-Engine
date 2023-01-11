@@ -14,7 +14,7 @@ public:
 	inline float GetX() const { return m_MouseX; }
 	inline float GetY() const { return m_MouseY; }
 
-	std::string ToString() const override
+	EVENT_TO_STRING
 	{
 		std::stringstream ss;
 		ss << "MouseMovedEvent: " << m_MouseX << ", " << m_MouseY;
@@ -34,7 +34,7 @@ public:
 	inline float GetOffsetX() const { return m_OffsetX; }
 	inline float GetOffsetY() const { return m_OffsetY; }
 
-	std::string ToString() const override
+	EVENT_TO_STRING
 	{
 		std::stringstream ss;
 		ss << "MouseScrolledEvent: " << m_OffsetX << ", " << m_OffsetY;
@@ -61,7 +61,7 @@ class WHIP_API MouseButtonPressedEvent : public MouseButtonEvent
 public:
 	MouseButtonPressedEvent(int button) : MouseButtonEvent(button) {}
 
-	std::string ToString() const override
+	EVENT_TO_STRING
 	{
 		std::stringstream ss;
 		ss << "MouseButtonPressedEvent: " << m_Button;
@@ -76,7 +76,7 @@ class WHIP_API MouseButtonReleasedEvent : public MouseButtonEvent
 public:
 	MouseButtonReleasedEvent(int button) : MouseButtonEvent(button) {}
 
-	std::string ToString() const override
+	EVENT_TO_STRING
 	{
 		std::stringstream ss;
 		ss << "MouseButtonReleasedEvent: " << m_Button;

@@ -25,7 +25,7 @@ public:
 
 	inline int GetRepeatCount() const { return m_RepeatCount; }
 
-	std::string ToString() const override
+	EVENT_TO_STRING
 	{
 		std::stringstream ss;
 		ss << "KeyPressedEvent: " << m_KeyCode << " (" << m_RepeatCount << " repeats)";
@@ -40,7 +40,7 @@ class WHIP_API KeyReleasedEvent : public KeyEvent
 public:
 	KeyReleasedEvent(int keycode) : KeyEvent(keycode) {}
 
-	std::string ToString() const override
+	EVENT_TO_STRING
 	{
 		std::stringstream ss;
 		ss << "KeyReleasedEvent: " << m_KeyCode;

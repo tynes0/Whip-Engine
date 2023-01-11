@@ -22,8 +22,8 @@ public:
 	void PopLayer(layerptr layer);
 	void PopOverlay(layerptr overlay);
 
-	LayPtrVecIt begin() { return m_Layers.begin(); }
-	LayPtrVecIt end() { return m_Layers.end(); }
+	LayPtrVecIt begin() noexcept { return m_Layers.begin(); }
+	LayPtrVecIt end() noexcept { return m_Layers.end(); }
 };
 
 _WHIP_END

@@ -35,5 +35,9 @@ _WHIP_END
 #define WHP_ERROR(...)			::Whip::Log::GetClientLogger()->error(__VA_ARGS__)
 #define WHP_CRITICAL(...)		::Whip::Log::GetClientLogger()->critical(__VA_ARGS__)
 
+// set log macro
+#define SET_LOG(logger, logger_name, logger_level)		logger = spdlog::stdout_color_mt(logger_name);\
+														logger->set_level(spdlog::level::logger_level)
 
+// init macro for simple usage
 #define INIT_WHP_LOG ::Whip::Log::Init()

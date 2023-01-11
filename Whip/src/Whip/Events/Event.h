@@ -5,6 +5,8 @@
 
 _WHIP_START
 
+// WindowLostFocus - WindowMoved - AppTick - AppUpdate - AppRender <<-- not implamented yet
+
 enum class EventType
 {
 	None = 0,
@@ -33,6 +35,8 @@ enum EventCategory
 								virtual const char* GetName() const override { return #type; }
 
 #define EVENT_CLASS_CATEGORY(category) virtual int GetCategoryFlags() const override { return category; }
+
+#define EVENT_TO_STRING std::string ToString() const override
 
 class WHIP_API Event
 {

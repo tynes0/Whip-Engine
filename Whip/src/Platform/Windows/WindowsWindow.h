@@ -38,6 +38,7 @@ public:
 	bool IsVSync() const override;
 };
 
-#define SET_WIN_PROPS(windowProps, title, width, height) windowProps.Title = title, windowProps.Width = width, windowProps.Height = height
+#define RESIZE_WIN_PROPS(win_props, width, height) win_props.Width = width, win_props.Height = height
+#define SET_WIN_PROPS(win_props, title, width, height) RESIZE_WIN_PROPS(win_props, width, height), win_props.Title = title
 
 _WHIP_END
