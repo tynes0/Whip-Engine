@@ -13,6 +13,9 @@
     <Filter Include="Whip\Events">
       <UniqueIdentifier>{217E83D1-8D33-FCC6-1628-F69D82DCF2CA}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Whip\Events\Event Callback Functions">
+      <UniqueIdentifier>{18C8ECD9-04AF-AED1-ADFF-14EF99C52738}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Platform\Windows\WindowsWindow.h">
@@ -30,6 +33,9 @@
     </ClInclude>
     <ClInclude Include="src\Whip\Events\ApplicationEvent.h">
       <Filter>Whip\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.h">
+      <Filter>Whip\Events\Event Callback Functions</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Events\Event.h">
       <Filter>Whip\Events</Filter>
@@ -53,7 +59,6 @@
       <Filter>Whip</Filter>
     </ClInclude>
     <ClInclude Include="src\whippch.h" />
-    <ClInclude Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp">
@@ -61,6 +66,9 @@
     </ClCompile>
     <ClCompile Include="src\Whip\Application.cpp">
       <Filter>Whip</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.cpp">
+      <Filter>Whip\Events\Event Callback Functions</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Layer.cpp">
       <Filter>Whip</Filter>
@@ -72,6 +80,5 @@
       <Filter>Whip</Filter>
     </ClCompile>
     <ClCompile Include="src\whippch.cpp" />
-    <ClCompile Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.cpp" />
   </ItemGroup>
 </Project>

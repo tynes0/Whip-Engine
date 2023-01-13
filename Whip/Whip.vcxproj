@@ -79,8 +79,8 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>whippch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>WHP_PLATFORM_WINDOWS;WHP_BUILD_DLL;WHP_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WHP_PLATFORM_WINDOWS;WHP_BUILD_DLL;GLFW_INCLUDE_NONE;WHP_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;vendor\Glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -103,8 +103,8 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>whippch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>WHP_PLATFORM_WINDOWS;WHP_BUILD_DLL;WHP_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WHP_PLATFORM_WINDOWS;WHP_BUILD_DLL;GLFW_INCLUDE_NONE;WHP_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;vendor\Glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -131,8 +131,8 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>whippch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>WHP_PLATFORM_WINDOWS;WHP_BUILD_DLL;WHP_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WHP_PLATFORM_WINDOWS;WHP_BUILD_DLL;GLFW_INCLUDE_NONE;WHP_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;vendor\Glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -155,13 +155,13 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.h" />
     <ClInclude Include="src\Platform\Windows\WindowsWindow.h" />
     <ClInclude Include="src\Whip.h" />
     <ClInclude Include="src\Whip\Application.h" />
     <ClInclude Include="src\Whip\Core.h" />
     <ClInclude Include="src\Whip\EntryPoint.h" />
     <ClInclude Include="src\Whip\Events\ApplicationEvent.h" />
+    <ClInclude Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.h" />
     <ClInclude Include="src\Whip\Events\Event.h" />
     <ClInclude Include="src\Whip\Events\KeyEvent.h" />
     <ClInclude Include="src\Whip\Events\MouseEvent.h" />
@@ -172,9 +172,9 @@
     <ClInclude Include="src\whippch.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.cpp" />
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp" />
     <ClCompile Include="src\Whip\Application.cpp" />
+    <ClCompile Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.cpp" />
     <ClCompile Include="src\Whip\Layer.cpp" />
     <ClCompile Include="src\Whip\LayerStack.cpp" />
     <ClCompile Include="src\Whip\Log.cpp" />
@@ -185,6 +185,9 @@
   <ItemGroup>
     <ProjectReference Include="vendor\GLFW\GLFW.vcxproj">
       <Project>{154B857C-0182-860D-AA6E-6C109684020F}</Project>
+    </ProjectReference>
+    <ProjectReference Include="vendor\Glad\Glad.vcxproj">
+      <Project>{BDD6857C-A90D-870D-52FA-6C103E10030F}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

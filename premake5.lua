@@ -13,8 +13,10 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{}"
 --include directories relative to root folder (sln directory)
 IncludeDir = {}
 IncludeDir["GLFW"] = "Whip/vendor/GLFW/include"
+IncludeDir["Glad"] = "Whip/vendor/Glad/include"
 
 include "Whip/vendor/GLFW"
+include "Whip/vendor/Glad"
 
 project "Whip"
 	location "Whip"
@@ -38,12 +40,14 @@ project "Whip"
 	{
 		"%{prj.name}/src",
 		"%{prj.name}/vendor/spdlog/include",
-		"%{IncludeDir.GLFW}"
+		"%{IncludeDir.GLFW}",
+		"%{IncludeDir.Glad}"
 	}
 
 	links
 	{
 		"GLFW",
+		"Glad",
 		"opengl32.lib"
 	}
 
@@ -55,7 +59,8 @@ project "Whip"
 		defines
 		{
 			"WHP_PLATFORM_WINDOWS",
-			"WHP_BUILD_DLL"
+			"WHP_BUILD_DLL",
+			"GLFW_INCLUDE_NONE"
 		}
 
 		postbuildcommands
