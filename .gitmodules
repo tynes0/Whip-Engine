@@ -4,3 +4,6 @@
 [submodule "Whip/vendor/GLFW"]
 	path = Whip/vendor/GLFW
 	url = https://github.com/TheCherno/GLFW
+[submodule "Whip/vendor/imgui"]
+	path = Whip/vendor/imgui
+	url = https://github.com/TheCherno/imgui

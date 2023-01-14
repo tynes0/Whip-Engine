@@ -12,6 +12,7 @@ _WHIP_START
 class WHIP_API Application
 {
 private:
+	static Application* s_Instance;
 	std::unique_ptr<Window> m_Window;
 	bool m_Running = true;
 	LayerStack m_LayerStack;
@@ -26,6 +27,9 @@ public:
 	void OnEvent(Event& e);
 	void PushLayer(layerptr layer);
 	void PushOverlay(layerptr overlay);
+
+	inline static Application& Get() { return *s_Instance; }
+	inline Window& GetWindow() { return *m_Window; }
 };
 
 // to be defined in client

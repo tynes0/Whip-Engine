@@ -22,6 +22,7 @@ public:
 	F_Box()
 	{
 		PushLayer(new ExLayer());
+		PushOverlay(new Whip::ImGuiLayer());
 	}
 	~F_Box()
 	{

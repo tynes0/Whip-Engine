@@ -5,8 +5,12 @@ _WHIP_START
 
 #define BIND_APP_EVENT_FN(x) std::bind(&Application::x, this, std::placeholders::_1)
 
+Application* Application::s_Instance = nullptr;
+
 Application::Application()
 {
+	WHP_CORE_ASSERT(!s_Instance, "Application already exist!");
+	s_Instance = this;
 	m_Window = std::unique_ptr<Window>(Window::Create());
 	m_Window->SetEventCallback(BIND_APP_EVENT_FN(OnEvent));
 }
@@ -48,11 +52,13 @@ void Application::OnEvent(Event& e)
 void Application::PushLayer(layerptr layer)
 {
 	m_LayerStack.PushLayer(layer);
+	layer->OnAttach();
 }
 
 void Application::PushOverlay(layerptr overlay)
 {
 	m_LayerStack.PushOverlay(overlay);
+	overlay->OnAttach();
 }
 
 bool Application::OnWindowClose(WindowCloseEvent& event)

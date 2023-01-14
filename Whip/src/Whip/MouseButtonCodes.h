@@ -1,0 +1,19 @@
+#pragma once
+
+#if !defined WHP_MOUSE_BUTTON_CODES
+#define WHP_MOUSE_BUTTON_CODES
+
+#define WHP_MOUSE_BUTTON_1         0
+#define WHP_MOUSE_BUTTON_2         1
+#define WHP_MOUSE_BUTTON_3         2
+#define WHP_MOUSE_BUTTON_4         3
+#define WHP_MOUSE_BUTTON_5         4
+#define WHP_MOUSE_BUTTON_6         5
+#define WHP_MOUSE_BUTTON_7         6
+#define WHP_MOUSE_BUTTON_8         7
+#define WHP_MOUSE_BUTTON_LAST      WHP_MOUSE_BUTTON_8
+#define WHP_MOUSE_BUTTON_LEFT      WHP_MOUSE_BUTTON_1
+#define WHP_MOUSE_BUTTON_RIGHT     WHP_MOUSE_BUTTON_2 
+#define WHP_MOUSE_BUTTON_MIDDLE    WHP_MOUSE_BUTTON_3
+
+#endif // WHP_MOUSE_BUTTON_CODES
