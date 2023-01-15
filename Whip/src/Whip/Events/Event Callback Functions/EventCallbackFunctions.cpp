@@ -73,6 +73,13 @@ void EventCallbackFunctions::MouseButtonPressedReleasedEventsCallback(GLFWwindow
 	}
 }
 
+void EventCallbackFunctions::KeyTypedEventCallback(GLFWwindow* window, unsigned int keycode)
+{
+	WindowData& data = GLFW_DREF_WIN_PTR(WindowData, window);
+	KeyTypedEvent event(keycode);
+	data.EventCallback(event);
+}
+
 void EventCallbackFunctions::MouseScrollEventCallback(GLFWwindow* window, double OffsetX, double OffsetY)
 {
 	WindowData& data = GLFW_DREF_WIN_PTR(WindowData, window);

@@ -18,7 +18,7 @@ private:
 	
 	bool OnKeyPressedEvent(KeyPressedEvent& event);
 	bool OnKeyReleasedEvent(KeyReleasedEvent& event);
-	bool OnKeyTypedEvent(/**/);
+	bool OnKeyTypedEvent(KeyTypedEvent& event);
 	
 	bool OnWindowResizeEvent(WindowResizeEvent& event);
 
@@ -32,5 +32,7 @@ public:
 	void OnUpdate();
 	void OnEvent(Event& event);
 };
+
+#define GET_IM_IO ImGui::GetIO();
 
 _WHIP_END

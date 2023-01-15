@@ -48,9 +48,10 @@ void WindowsWindow::Init(const WindowProps& props)
 	SetVSync(true);
 
 	// Set GLFW callbacks
-	glfwSetWindowSizeCallback(m_Window, WIN_RESIZE_CALLBACK_E);
-	glfwSetWindowCloseCallback(m_Window, WIN_CLOSE_CALLBACK_E);
+	glfwSetWindowSizeCallback(m_Window, WIN_RESIZE_EVENT_CALLBACK_E);
+	glfwSetWindowCloseCallback(m_Window, WIN_CLOSE_EVENT_CALLBACK_E);
 	glfwSetKeyCallback(m_Window, KEY_EVENT_CALLBACK_E);
+	glfwSetCharCallback(m_Window, KEY_TYPED_EVENT_CALLBACK_E);
 	glfwSetMouseButtonCallback(m_Window, MOUSE_BUTTON_EVENT_CALLBACK_E);
 	glfwSetScrollCallback(m_Window, MOUSE_SCROLL_EVENT_CALLBACK_E);
 	glfwSetCursorPosCallback(m_Window, MOUSE_MOVED_EVENT_CALLBACK_E);
@@ -65,6 +66,7 @@ void WindowsWindow::OnUpdate()
 {
 	glfwPollEvents();
 	glfwSwapBuffers(m_Window);
+	glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void WindowsWindow::SetVSync(bool enabled)

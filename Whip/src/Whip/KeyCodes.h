@@ -130,7 +130,7 @@
 #define WHP_KEY_RIGHT_SHIFT        344
 #define WHP_KEY_RIGHT_CONTROL      345
 #define WHP_KEY_RIGHT_ALT          346
-#define WHP_KEY_RIGHT_SUPER        347
+#define WHP_KEY_RIGHT_OS	      347
 #define WHP_KEY_MENU               348
 
 #define WHP_KEY_LAST               WHP_KEY_MENU

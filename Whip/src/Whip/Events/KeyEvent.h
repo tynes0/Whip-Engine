@@ -50,5 +50,19 @@ public:
 	EVENT_CLASS_TYPE(KeyReleased)
 };
 
+class WHIP_API KeyTypedEvent : public KeyEvent
+{
+public:
+	KeyTypedEvent(int keycode) : KeyEvent(keycode) {}
+
+	EVENT_TO_STRING
+	{
+		std::stringstream ss;
+		ss << "KeyTypedEvent: " << m_KeyCode;
+		return ss.str();
+	}
+
+		EVENT_CLASS_TYPE(KeyTyped)
+};
 
 _WHIP_END

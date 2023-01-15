@@ -1,5 +1,6 @@
 #include <whippch.h>
 #include <Whip/Application.h>
+#include <Platform/OpenGL/ImGuiOpenGLRenderer.h>
 
 _WHIP_START
 
