@@ -3,8 +3,6 @@
 
 _WHIP_START
 
-#define BIND_APP_EVENT_FN(x) std::bind(&Application::x, this, std::placeholders::_1)
-
 Application* Application::s_Instance = nullptr;
 
 Application::Application()
@@ -12,7 +10,7 @@ Application::Application()
 	WHP_CORE_ASSERT(!s_Instance, "Application already exist!");
 	s_Instance = this;
 	m_Window = std::unique_ptr<Window>(Window::Create());
-	m_Window->SetEventCallback(BIND_APP_EVENT_FN(OnEvent));
+	m_Window->SetEventCallback(WHP_BIND_EVENT_FN(Application::OnEvent));
 }
 
 
@@ -36,7 +34,7 @@ void Application::Run()
 void Application::OnEvent(Event& e)
 {
 	EventDispatcher dispatcher(e);
-	dispatcher.Dispatch<WindowCloseEvent>(BIND_APP_EVENT_FN(OnWindowClose));
+	dispatcher.Dispatch<WindowCloseEvent>(WHP_BIND_EVENT_FN(Application::OnWindowClose));
 	WHP_CORE_TRACE("{0}", e);
 
 	for (auto iter = m_LayerStack.end(); iter != m_LayerStack.begin(); )

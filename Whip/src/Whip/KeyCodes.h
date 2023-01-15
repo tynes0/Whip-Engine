@@ -135,34 +135,33 @@
 
 #define WHP_KEY_LAST               WHP_KEY_MENU
 
-#define WHP_MOD_SHIFT           BIT(0)
+#define WHP_MOD_SHIFT           WHP_BIT(0)
 /*! @brief If this bit is set one or more Control keys were held down.
  *
  *  If this bit is set one or more Control keys were held down.
  */
-#define WHP_MOD_CONTROL         BIT(1)
+#define WHP_MOD_CONTROL         WHP_BIT(1)
  /*! @brief If this bit is set one or more Alt keys were held down.
   *
   *  If this bit is set one or more Alt keys were held down.
   */
-#define WHP_MOD_ALT             BIT(2)
+#define WHP_MOD_ALT             WHP_BIT(2)
   /*! @brief If this bit is set one or more Super keys were held down.
    *
    *  If this bit is set one or more Super keys were held down.
    */
-#define WHP_MOD_SUPER           BIT(3)
+#define WHP_MOD_SUPER           WHP_BIT(3)
    /*! @brief If this bit is set the Caps Lock key is enabled.
 	*
 	*  If this bit is set the Caps Lock key is enabled and the @ref
 	*  GLFW_LOCK_KEY_MODS input mode is set.
 	*/
-#define WHP_MOD_CAPS_LOCK       BIT(4)
+#define WHP_MOD_CAPS_LOCK       WHP_BIT(4)
 	/*! @brief If this bit is set the Num Lock key is enabled.
 	 *
 	 *  If this bit is set the Num Lock key is enabled and the @ref
 	 *  GLFW_LOCK_KEY_MODS input mode is set.
 	 */
-#define WHP_MOD_NUM_LOCK        BIT(5)
-
+#define WHP_MOD_NUM_LOCK        WHP_BIT(5)
 
 #endif // WHP_KEYCODES

@@ -14,7 +14,7 @@ ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") {}
 
 ImGuiLayer::~ImGuiLayer()
 {
-	// 
+	//
 }
 
 void ImGuiLayer::OnAttach()
@@ -61,7 +61,7 @@ void ImGuiLayer::OnUpdate()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	Application& app = Application::Get();
-	io.DisplaySize = ImVec2(app.GetWindow().GetWidth(), app.GetWindow().GetHeight());
+	io.DisplaySize = ImVec2((float)app.GetWindow().GetWidth(), (float)app.GetWindow().GetHeight());
 
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui::NewFrame();
@@ -79,7 +79,54 @@ void ImGuiLayer::OnUpdate()
 
 void ImGuiLayer::OnEvent(Event& event)
 {
-	
+	EventDispatcher dispatcher(event);
+	dispatcher.Dispatch<MouseButtonPressedEvent>(WHP_BIND_EVENT_FN(ImGuiLayer::OnMouseButtonPressedEvent));
+	dispatcher.Dispatch<MouseButtonReleasedEvent>(WHP_BIND_EVENT_FN(ImGuiLayer::OnMouseButtonReleasedEvent));
+	dispatcher.Dispatch<MouseMovedEvent>(WHP_BIND_EVENT_FN(ImGuiLayer::OnMouseMovedEvent));
+	dispatcher.Dispatch<MouseScrolledEvent>(WHP_BIND_EVENT_FN(ImGuiLayer::OnMouseScrolledEvent));
+	dispatcher.Dispatch<KeyPressedEvent>(WHP_BIND_EVENT_FN(ImGuiLayer::OnKeyPressedEvent));
+	dispatcher.Dispatch<KeyReleasedEvent>(WHP_BIND_EVENT_FN(ImGuiLayer::OnKeyReleasedEvent));
+	//dispatcher.Dispatch<KeyTypedEvent>(WHP_BIND_EVENT_FN(ImGuiLayer::OnKeyTypedEvent));
+	dispatcher.Dispatch<WindowResizeEvent>(WHP_BIND_EVENT_FN(ImGuiLayer::OnWindowResizeEvent));
 }
+
+bool ImGuiLayer::OnMouseButtonPressedEvent(MouseButtonPressedEvent& event)
+{
+	return false;
+}
+bool ImGuiLayer::OnMouseButtonReleasedEvent(MouseButtonReleasedEvent& event)
+{
+	return false;
+}
+bool ImGuiLayer::OnMouseMovedEvent(MouseMovedEvent& event)
+{
+	return false;
+}
+bool ImGuiLayer::OnMouseScrolledEvent(MouseScrolledEvent& event)
+{
+	return false;
+}
+
+bool ImGuiLayer::OnKeyPressedEvent(KeyPressedEvent& event)
+{
+	return false;
+}
+
+bool ImGuiLayer::OnKeyReleasedEvent(KeyReleasedEvent& event)
+{
+	return false;
+}
+
+bool ImGuiLayer::OnKeyTypedEvent(/**/)
+{
+	return false;
+}
+
+bool ImGuiLayer::OnWindowResizeEvent(WindowResizeEvent& event)
+{
+	return false;
+}
+
+
 
 _WHIP_END

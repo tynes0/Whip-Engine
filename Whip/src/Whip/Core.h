@@ -6,7 +6,9 @@
 #define _WHIP ::Whip::
 #define WHP_LOG ::Whip::Log::
 
-#define BIT(x) (1 << x)
+#define WHP_BIT(x) (1 << x)
+
+#define WHP_BIND_EVENT_FN(FUN) std::bind(&FUN, this, std::placeholders::_1)
 
 #define WHP_SWAP(type, param1, param2) type t = param1; param1 = param2; param2 = t
 
@@ -32,3 +34,4 @@
 	#define WHP_ASSERT(x, ...) 
 	#define WHP_CORE_ASSERT(x, ...)
 #endif //WHP_ENABLE_ASSERTS
+
