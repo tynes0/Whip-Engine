@@ -7,7 +7,7 @@ workspace "Whip"
 		"Release",
 		"Dist"
 	}
-
+	
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{}"
 
 --include directories relative to root folder (sln directory)
@@ -15,10 +15,7 @@ IncludeDir = {}
 IncludeDir["GLFW"] = "Whip/vendor/GLFW/include"
 IncludeDir["Glad"] = "Whip/vendor/Glad/include"
 IncludeDir["ImGui"] = "Whip/vendor/imgui"
-
-include "Whip/vendor/GLFW"
-include "Whip/vendor/Glad"
-include "Whip/vendor/ImGui"
+IncludeDir["glm"] = "Whip/vendor/glm"
 
 project "Whip"
 	location "Whip"
@@ -44,7 +41,8 @@ project "Whip"
 		"%{prj.name}/vendor/spdlog/include",
 		"%{IncludeDir.GLFW}",
 		"%{IncludeDir.Glad}",
-		"%{IncludeDir.ImGui}"
+		"%{IncludeDir.ImGui}",
+		"%{IncludeDir.glm}"
 	}
 
 	links
@@ -98,14 +96,17 @@ project "F-Box"
 	files
 	{
 		"%{prj.name}/src/**.h",
-		"%{prj.name}/src/**.cpp"
+		"%{prj.name}/src/**.cpp",
+		"%{prj.name}/vendor/glm/glm/**.hpp",
+		"%{prj.name}/vendor/glm/glm/**.inl"
 	}
 
 
 	includedirs
 	{
 		"Whip/vendor/spdlog/include",
-		"Whip/src"
+		"Whip/src",
+		"%{IncludeDir.glm}"
 	}
 
 	links
@@ -139,3 +140,9 @@ project "F-Box"
 		defines "WHP_DIST"
 		buildoptions "/MD"
 		optimize "On"
+
+
+group "Additions"
+	include "Whip/vendor/GLFW"
+	include "Whip/vendor/Glad"
+	include "Whip/vendor/ImGui"

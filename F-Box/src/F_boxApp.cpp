@@ -1,6 +1,5 @@
 #include <Whip.h>
 
-
 class ExLayer : public Whip::Layer
 {
 public:

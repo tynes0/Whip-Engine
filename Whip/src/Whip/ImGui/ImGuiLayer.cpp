@@ -10,6 +10,11 @@
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 
+#define SET_IMGUI_CTRL_ALT_SHIFT_SUPER_KEYS(io)		io.KeyCtrl = io.KeysDown[WHP_KEY_LEFT_CONTROL] || io.KeysDown[WHP_KEY_RIGHT_CONTROL]; \
+													io.KeyAlt = io.KeysDown[WHP_KEY_LEFT_ALT] || io.KeysDown[WHP_KEY_RIGHT_ALT];\
+													io.KeyShift = io.KeysDown[WHP_KEY_LEFT_SHIFT] || io.KeysDown[WHP_KEY_RIGHT_SHIFT]; \
+													io.KeySuper = io.KeysDown[WHP_KEY_LEFT_OS] || io.KeysDown[WHP_KEY_RIGHT_OS];
+
 _WHIP_START
 
 ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") {}
@@ -126,11 +131,7 @@ bool ImGuiLayer::OnKeyPressedEvent(KeyPressedEvent& event)
 {
 	ImGuiIO& io = GET_IM_IO;
 	io.KeysDown[event.GetKeycode()] = true;
-	
-	io.KeyCtrl = io.KeysDown[WHP_KEY_LEFT_CONTROL] || io.KeysDown[WHP_KEY_RIGHT_CONTROL];
-	io.KeyAlt = io.KeysDown[WHP_KEY_LEFT_ALT] || io.KeysDown[WHP_KEY_RIGHT_ALT];
-	io.KeyShift = io.KeysDown[WHP_KEY_LEFT_SHIFT] || io.KeysDown[WHP_KEY_RIGHT_SHIFT];
-	io.KeySuper = io.KeysDown[WHP_KEY_LEFT_OS] || io.KeysDown[WHP_KEY_RIGHT_OS];
+	SET_IMGUI_CTRL_ALT_SHIFT_SUPER_KEYS(io);
 	return false;
 }
 

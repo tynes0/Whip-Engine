@@ -7,3 +7,6 @@
 [submodule "Whip/vendor/imgui"]
 	path = Whip/vendor/imgui
 	url = https://github.com/TheCherno/imgui
+[submodule "Whip/vendor/glm"]
+	path = Whip/vendor/glm
+	url = https://github.com/g-truc/glm

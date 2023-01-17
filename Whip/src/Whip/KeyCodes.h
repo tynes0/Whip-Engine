@@ -165,3 +165,7 @@
 #define WHP_MOD_NUM_LOCK        WHP_BIT(5)
 
 #endif // WHP_KEYCODES
+
+#define WHP_RELEASE				0
+#define WHP_PRESS				1
+#define WHP_REPEAT				2

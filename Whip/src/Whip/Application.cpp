@@ -1,6 +1,7 @@
 #include <whippch.h>
 #include <Whip/Application.h>
 #include <Platform/OpenGL/ImGuiOpenGLRenderer.h>
+#include <Whip/Input.h>
 
 _WHIP_START
 
@@ -28,6 +29,7 @@ void Application::Run()
 		{
 			item->OnUpdate();
 		}
+
 		m_Window->OnUpdate();
 	}
 }

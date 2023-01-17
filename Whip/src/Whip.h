@@ -6,7 +6,8 @@
 #include <Whip/Layer.h>
 #include <Whip/ImGui/ImGuiLayer.h>
 
-// key codes and mouse codes
+// input stuff
+#include <Whip/Input.h>
 #include <Whip/KeyCodes.h>
 #include <Whip/MouseButtonCodes.h>
 
