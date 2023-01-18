@@ -3,10 +3,7 @@
 
 _WHIP_START
 
-LayerStack::LayerStack()
-{
-	m_LayerInsert = m_Layers.begin();
-}
+LayerStack::LayerStack() {}
 
 LayerStack::~LayerStack()
 {
@@ -18,7 +15,8 @@ LayerStack::~LayerStack()
 
 void LayerStack::PushLayer(layerptr layer)
 {
-	m_LayerInsert = m_Layers.emplace(m_LayerInsert, layer);
+	m_Layers.emplace(m_Layers.begin() + m_LayerInsertIndex, layer);
+	m_LayerInsertIndex++;
 }
 
 void LayerStack::PushOverlay(layerptr overlay)
@@ -32,7 +30,7 @@ void LayerStack::PopLayer(layerptr layer)
 	if (iterator != m_Layers.end())
 	{
 		m_Layers.erase(iterator);
-		m_LayerInsert--;
+		m_LayerInsertIndex--;
 	}
 }
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Whip/Layer.h>
 
 #include <Whip/Events/MouseEvent.h>
@@ -10,27 +12,17 @@ class WHIP_API ImGuiLayer : public Layer
 {
 private:
 	float m_Time = 0;
-private:
-	bool OnMouseButtonPressedEvent(MouseButtonPressedEvent& event);
-	bool OnMouseButtonReleasedEvent(MouseButtonReleasedEvent& event);
-	bool OnMouseMovedEvent(MouseMovedEvent& event);
-	bool OnMouseScrolledEvent(MouseScrolledEvent& event);
-	
-	bool OnKeyPressedEvent(KeyPressedEvent& event);
-	bool OnKeyReleasedEvent(KeyReleasedEvent& event);
-	bool OnKeyTypedEvent(KeyTypedEvent& event);
-	
-	bool OnWindowResizeEvent(WindowResizeEvent& event);
-
 public:
 	ImGuiLayer();
 	~ImGuiLayer();
 
+	void begin();
+	void end();
 
-	void OnAttach();
-	void OnDetach();
-	void OnUpdate();
-	void OnEvent(Event& event);
+	virtual void OnAttach() override;
+	virtual void OnDetach() override;
+	virtual void OnImGuiRender() override;
+
 };
 
 #define GET_IM_IO ImGui::GetIO();

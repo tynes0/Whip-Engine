@@ -106,6 +106,7 @@ project "F-Box"
 	{
 		"Whip/vendor/spdlog/include",
 		"Whip/src",
+		"Whip/vendor",
 		"%{IncludeDir.glm}"
 	}
 

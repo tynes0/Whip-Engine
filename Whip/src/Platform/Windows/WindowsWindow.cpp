@@ -8,10 +8,14 @@ _WHIP_START
 
 static bool s_GLFWInitialized = false;
 
-Window* Window::Create(const WindowProps& props)
+#ifdef WHP_PLATFORM_WINDOWS
+
+WHP_NODISCARD Window* Window::Create(const WindowProps& props)
 {
 	return new WindowsWindow(props);
 }
+
+#endif // WHP_PLATFORM_WINDOWS
 
 WindowsWindow::WindowsWindow(const WindowProps& props)
 {
@@ -82,7 +86,7 @@ void WindowsWindow::SetVSync(bool enabled)
 	m_Data.VSync = enabled;
 }
 
-bool WindowsWindow::IsVSync() const
+WHP_NODISCARD bool WindowsWindow::IsVSync() const
 {
 	return m_Data.VSync;
 }

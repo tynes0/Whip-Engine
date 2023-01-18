@@ -1,6 +1,5 @@
 #include <whippch.h>
 #include <Whip/Application.h>
-#include <Platform/OpenGL/ImGuiOpenGLRenderer.h>
 #include <Whip/Input.h>
 
 _WHIP_START
@@ -13,6 +12,8 @@ Application::Application()
 	s_Instance = this;
 	m_Window = std::unique_ptr<Window>(Window::Create());
 	m_Window->SetEventCallback(WHP_BIND_EVENT_FN(Application::OnEvent));
+	m_ImGuiLayer = new ImGuiLayer();
+	PushOverlay(m_ImGuiLayer);
 }
 
 
@@ -25,11 +26,12 @@ void Application::Run()
 {
 	while (m_Running)
 	{
+		m_ImGuiLayer->begin();
 		for (layerptr item : m_LayerStack)
 		{
-			item->OnUpdate();
+			item->OnImGuiRender();
 		}
-
+		m_ImGuiLayer->end();
 		m_Window->OnUpdate();
 	}
 }
@@ -38,7 +40,7 @@ void Application::OnEvent(Event& e)
 {
 	EventDispatcher dispatcher(e);
 	dispatcher.Dispatch<WindowCloseEvent>(WHP_BIND_EVENT_FN(Application::OnWindowClose));
-	WHP_CORE_TRACE("{0}", e);
+	WHP_CORE_DEBUG("{0}", e);
 
 	for (auto iter = m_LayerStack.end(); iter != m_LayerStack.begin(); )
 	{

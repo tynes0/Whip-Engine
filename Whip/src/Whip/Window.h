@@ -8,7 +8,6 @@
 
 _WHIP_START
 
-
 // window properties
 struct WindowProps
 {
@@ -31,17 +30,25 @@ public:
 
 	virtual void OnUpdate() = 0;
 
-	virtual unsigned int GetWidth() const = 0;
-	virtual unsigned int GetHeight() const = 0;
+	WHP_NODISCARD virtual unsigned int GetWidth() const = 0;
+	WHP_NODISCARD virtual unsigned int GetHeight() const = 0;
 
 	// Window attributes
 	virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
 	virtual void SetVSync(bool enabled) = 0;
-	virtual bool IsVSync() const = 0;
+	WHP_NODISCARD virtual bool IsVSync() const = 0;
 
-	virtual void* GetNativeWindow() const = 0;
+	WHP_NODISCARD virtual void* GetNativeWindow() const = 0;
 
-	static Window* Create(const WindowProps& props = WindowProps());
+	WHP_NODISCARD static Window* Create(const WindowProps& props = WindowProps());
+};
+
+struct WindowData
+{
+	WindowProps WinProps;
+	bool VSync;
+
+	Window::EventCallbackFn EventCallback;
 };
 
 _WHIP_END

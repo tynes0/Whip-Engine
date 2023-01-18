@@ -15,25 +15,27 @@ private:
 	static std::shared_ptr<spdlog::logger> s_ClientLogger;
 public:
 	static void Init();
-	inline static std::shared_ptr<spdlog::logger>& GetCoreLogger() { return s_CoreLogger; }
-	inline static std::shared_ptr<spdlog::logger>& GetClientLogger() { return s_ClientLogger; }
+	WHP_NODISCARD inline static std::shared_ptr<spdlog::logger>& GetCoreLogger() { return s_CoreLogger; }
+	WHP_NODISCARD inline static std::shared_ptr<spdlog::logger>& GetClientLogger() { return s_ClientLogger; }
 };
 
 _WHIP_END
 
 // Core log macros
-#define WHP_CORE_TRACE(...)		::Whip::Log::GetCoreLogger()->trace(__VA_ARGS__)
-#define WHP_CORE_INFO(...)		::Whip::Log::GetCoreLogger()->info(__VA_ARGS__)
-#define WHP_CORE_WARN(...)		::Whip::Log::GetCoreLogger()->warn(__VA_ARGS__)
-#define WHP_CORE_ERROR(...)		::Whip::Log::GetCoreLogger()->error(__VA_ARGS__)
-#define WHP_CORE_CRITICAL(...)	::Whip::Log::GetCoreLogger()->critical(__VA_ARGS__)
+#define WHP_CORE_TRACE(...)		WHP_LOG GetCoreLogger()->trace(__VA_ARGS__)
+#define WHP_CORE_DEBUG(...)		WHP_LOG GetCoreLogger()->debug(__VA_ARGS__)
+#define WHP_CORE_INFO(...)		WHP_LOG GetCoreLogger()->info(__VA_ARGS__)
+#define WHP_CORE_WARN(...)		WHP_LOG GetCoreLogger()->warn(__VA_ARGS__)
+#define WHP_CORE_ERROR(...)		WHP_LOG GetCoreLogger()->error(__VA_ARGS__)
+#define WHP_CORE_CRITICAL(...)	WHP_LOG GetCoreLogger()->critical(__VA_ARGS__)
 
 // Client log macros
-#define WHP_TRACE(...)			::Whip::Log::GetClientLogger()->trace(__VA_ARGS__)
-#define WHP_INFO(...)			::Whip::Log::GetClientLogger()->info(__VA_ARGS__)
-#define WHP_WARN(...)			::Whip::Log::GetClientLogger()->warn(__VA_ARGS__)
-#define WHP_ERROR(...)			::Whip::Log::GetClientLogger()->error(__VA_ARGS__)
-#define WHP_CRITICAL(...)		::Whip::Log::GetClientLogger()->critical(__VA_ARGS__)
+#define WHP_TRACE(...)			WHP_LOG GetClientLogger()->trace(__VA_ARGS__)
+#define WHP_DEBUG(...)			WHP_LOG GetClientLogger()->debug(__VA_ARGS__)
+#define WHP_INFO(...)			WHP_LOG GetClientLogger()->info(__VA_ARGS__)
+#define WHP_WARN(...)			WHP_LOG GetClientLogger()->warn(__VA_ARGS__)
+#define WHP_ERROR(...)			WHP_LOG GetClientLogger()->error(__VA_ARGS__)
+#define WHP_CRITICAL(...)		WHP_LOG GetClientLogger()->critical(__VA_ARGS__)
 
 // set log macro
 #define SET_LOG(logger, str_logger_name, logger_level)		logger = spdlog::stdout_color_mt(str_logger_name);\

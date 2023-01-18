@@ -12,7 +12,7 @@ class WHIP_API LayerStack
 	using LayPtrVecIt = std::vector<Layer*>::iterator;
 private:
 	LayPtrVec m_Layers;  // katmanlar
-	LayPtrVecIt m_LayerInsert;
+	size_t m_LayerInsertIndex = 0;
 public:
 	LayerStack();
 	~LayerStack();
@@ -22,8 +22,8 @@ public:
 	void PopLayer(layerptr layer);
 	void PopOverlay(layerptr overlay);
 
-	LayPtrVecIt begin() noexcept { return m_Layers.begin(); }
-	LayPtrVecIt end() noexcept { return m_Layers.end(); }
+	WHP_NODISCARD LayPtrVecIt begin() noexcept { return m_Layers.begin(); }
+	WHP_NODISCARD LayPtrVecIt end() noexcept { return m_Layers.end(); }
 };
 
 _WHIP_END

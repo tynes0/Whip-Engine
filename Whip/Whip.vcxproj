@@ -155,8 +155,6 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="src\Platform\OpenGL\ImGuiOpenGLRenderer.h" />
-    <ClInclude Include="src\Platform\OpenGL\ImGuiOpenGLRendererLoader.h" />
     <ClInclude Include="src\Platform\Windows\WindowsInput.h" />
     <ClInclude Include="src\Platform\Windows\WindowsWindow.h" />
     <ClInclude Include="src\Whip.h" />
@@ -175,19 +173,21 @@
     <ClInclude Include="src\Whip\LayerStack.h" />
     <ClInclude Include="src\Whip\Log.h" />
     <ClInclude Include="src\Whip\MouseButtonCodes.h" />
+    <ClInclude Include="src\Whip\Random.h" />
     <ClInclude Include="src\Whip\Window.h" />
     <ClInclude Include="src\whippch.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Platform\OpenGL\ImGuiOpenGLRenderer.cpp" />
     <ClCompile Include="src\Platform\Windows\WindowsInput.cpp" />
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp" />
     <ClCompile Include="src\Whip\Application.cpp" />
     <ClCompile Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.cpp" />
+    <ClCompile Include="src\Whip\ImGui\ImGuiBuild.cpp" />
     <ClCompile Include="src\Whip\ImGui\ImGuiLayer.cpp" />
     <ClCompile Include="src\Whip\Layer.cpp" />
     <ClCompile Include="src\Whip\LayerStack.cpp" />
     <ClCompile Include="src\Whip\Log.cpp" />
+    <ClCompile Include="src\Whip\Random.cpp" />
     <ClCompile Include="src\whippch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>

@@ -30,25 +30,25 @@ enum EventCategory
 	EventCategoryMouseButton	= WHP_BIT(4)
 };
 
-#define EVENT_CLASS_TYPE(type) static EventType GetStaticType() { return EventType::##type; }\
-								virtual EventType GetEventType() const override { return GetStaticType(); }\
-								virtual const char* GetName() const override { return #type; }
+#define EVENT_CLASS_TYPE(type)				WHP_NODISCARD static EventType GetStaticType() { return EventType::##type; }\
+											WHP_NODISCARD virtual EventType GetEventType() const override { return GetStaticType(); }\
+											WHP_NODISCARD const char* GetName() const override { return #type; }
 
-#define EVENT_CLASS_CATEGORY(category) virtual int GetCategoryFlags() const override { return category; }
+#define EVENT_CLASS_CATEGORY(category)		WHP_NODISCARD virtual int GetCategoryFlags() const override { return category; }
 
-#define EVENT_TO_STRING std::string ToString() const override
+#define EVENT_TO_STRING						WHP_NODISCARD std::string ToString() const override
 
 class WHIP_API Event
 {
 public:
 	bool Handled = false;
 
-	virtual EventType GetEventType() const = 0;
-	virtual const char* GetName() const = 0;
-	virtual int GetCategoryFlags() const = 0;
-	virtual std::string ToString() const { return GetName(); }
+	WHP_NODISCARD virtual EventType GetEventType() const = 0;
+	WHP_NODISCARD virtual const char* GetName() const = 0;
+	WHP_NODISCARD virtual int GetCategoryFlags() const = 0;
+	WHP_NODISCARD virtual std::string ToString() const { return GetName(); }
 
-	inline bool IsInCategory(EventCategory category)
+	WHP_NODISCARD inline bool IsInCategory(EventCategory category)
 	{
 		return GetCategoryFlags() & category;
 	}
@@ -75,7 +75,7 @@ public:
 	}
 };
 
-inline std::ostream& operator<<(std::ostream& out, const Event& e)
+WHP_NODISCARD inline std::ostream& operator<<(std::ostream& out, const Event& e)
 {
 	return out << e.ToString();
 }

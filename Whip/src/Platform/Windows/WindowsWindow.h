@@ -6,14 +6,6 @@
 
 _WHIP_START
 
-struct WindowData
-{
-	WindowProps WinProps;
-	bool VSync;
-
-	Window::EventCallbackFn EventCallback;
-};
-
 class WindowsWindow : public Window
 {
 private:
@@ -29,15 +21,15 @@ public:
 
 	void OnUpdate() override;
 
-	inline unsigned int GetWidth() const override { return m_Data.WinProps.Width; }
-	inline unsigned int GetHeight() const override { return m_Data.WinProps.Height; }
+	WHP_NODISCARD inline unsigned int GetWidth() const override { return m_Data.WinProps.Width; }
+	WHP_NODISCARD inline unsigned int GetHeight() const override { return m_Data.WinProps.Height; }
 
-	inline virtual void* GetNativeWindow() const override { return m_Window; }
+	WHP_NODISCARD inline virtual void* GetNativeWindow() const override { return m_Window; }
 
 	// Window attributes
 	inline void SetEventCallback(const EventCallbackFn& callback) override { m_Data.EventCallback = callback; }
 	void SetVSync(bool enabled) override;
-	bool IsVSync() const override;
+	WHP_NODISCARD bool IsVSync() const override;
 };
 
 #define RESIZE_WIN_PROPS(win_props, width, height) win_props.Width = width, win_props.Height = height

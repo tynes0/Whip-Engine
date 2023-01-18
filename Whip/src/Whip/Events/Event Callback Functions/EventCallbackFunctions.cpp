@@ -6,13 +6,14 @@
 
 _WHIP_START
 
-#define GLFW_DREF_WIN_PTR(ptr, w) *(ptr*)glfwGetWindowUserPointer(w)
+#define GET_GLFW_WIN_PTR(ptr, w) DREF(ptr*)glfwGetWindowUserPointer(w)
 
-int EventCallbackFunctions::repeat_time = 1;
+repeat_t EventCallbackFunctions::repeat_time(1);
+repeat_t EventCallbackFunctions::last_repeat_time(1);
 
 void EventCallbackFunctions::WindowResizeEventCallback(GLFWwindow* window, int width, int height)
 {
-	WindowData& data = GLFW_DREF_WIN_PTR(WindowData ,window);
+	WindowData& data = GET_GLFW_WIN_PTR(WindowData ,window);
 	RESIZE_WIN_PROPS(data.WinProps, width, height);
 	WindowResizeEvent event(width, height);
 	data.EventCallback(event);
@@ -20,20 +21,21 @@ void EventCallbackFunctions::WindowResizeEventCallback(GLFWwindow* window, int w
 
 void EventCallbackFunctions::WindowCloseEventCallback(GLFWwindow* window)
 {
-	WindowData& data = GLFW_DREF_WIN_PTR(WindowData, window);
+	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
 	WindowCloseEvent event;
 	data.EventCallback(event);
 }
 
 void EventCallbackFunctions::KeyPressedReleasedEventsCallback(GLFWwindow* window, int key, int scanmode, int action, int mods)
 {
-	WindowData& data = GLFW_DREF_WIN_PTR(WindowData, window);
+	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
 	switch (action)
 	{
 		case GLFW_RELEASE:
 		{
 			KeyReleasedEvent event(key);
 			data.EventCallback(event);
+			last_repeat_time = repeat_time;
 			repeat_time = 1;
 			break;
 		}
@@ -55,7 +57,7 @@ void EventCallbackFunctions::KeyPressedReleasedEventsCallback(GLFWwindow* window
 
 void EventCallbackFunctions::MouseButtonPressedReleasedEventsCallback(GLFWwindow* window, int button, int action, int mods)
 {
-	WindowData& data = GLFW_DREF_WIN_PTR(WindowData, window);
+	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
 	switch (action)
 	{
 		case GLFW_RELEASE:
@@ -75,21 +77,21 @@ void EventCallbackFunctions::MouseButtonPressedReleasedEventsCallback(GLFWwindow
 
 void EventCallbackFunctions::KeyTypedEventCallback(GLFWwindow* window, unsigned int keycode)
 {
-	WindowData& data = GLFW_DREF_WIN_PTR(WindowData, window);
+	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
 	KeyTypedEvent event(keycode);
 	data.EventCallback(event);
 }
 
 void EventCallbackFunctions::MouseScrollEventCallback(GLFWwindow* window, double OffsetX, double OffsetY)
 {
-	WindowData& data = GLFW_DREF_WIN_PTR(WindowData, window);
+	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
 	MouseScrolledEvent event((float)OffsetX, (float)OffsetY);
 	data.EventCallback(event);
 }
 
 void EventCallbackFunctions::MouseMovedEventCallback(GLFWwindow* window, double posX, double posY)
 {
-	WindowData& data = GLFW_DREF_WIN_PTR(WindowData, window);
+	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
 	MouseMovedEvent event((float)posX, (float)posY);
 	data.EventCallback(event);
 }

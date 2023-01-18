@@ -1,11 +1,9 @@
 #pragma once
 
-#include <Whip/Core.h>
-#include <Whip/Events/Event.h>
 #include <Whip/Window.h>
 #include <Whip/Events/ApplicationEvent.h>
 #include <Whip/LayerStack.h>
-
+#include <Whip/ImGui/ImGuiLayer.h>
 
 _WHIP_START
 
@@ -14,8 +12,9 @@ class WHIP_API Application
 private:
 	static Application* s_Instance;
 	std::unique_ptr<Window> m_Window;
-	bool m_Running = true;
+	ImGuiLayer* m_ImGuiLayer;
 	LayerStack m_LayerStack;
+	bool m_Running = true;
 
 	bool OnWindowClose(WindowCloseEvent& event);
 public:
@@ -28,8 +27,8 @@ public:
 	void PushLayer(layerptr layer);
 	void PushOverlay(layerptr overlay);
 
-	inline static Application& Get() { return *s_Instance; }
-	inline Window& GetWindow() { return *m_Window; }
+	WHP_NODISCARD inline static Application& Get() { return DREF(s_Instance); }
+	WHP_NODISCARD inline Window& GetWindow() { return DREF(m_Window); }
 };
 
 // to be defined in client

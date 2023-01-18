@@ -8,11 +8,18 @@
 
 _WHIP_START
 
+// repeat_time type
+using repeat_t = unsigned long long;
+
 class WHIP_API EventCallbackFunctions
 {
 private:
-	static int repeat_time;
+	static repeat_t repeat_time;
+	static repeat_t last_repeat_time;
 public:
+	// get repeat time
+	WHP_NODISCARD static repeat_t GetLastRepeatTime() { return last_repeat_time; }
+
 	static void WindowResizeEventCallback(GLFWwindow* window, int width, int height);
 	static void WindowCloseEventCallback(GLFWwindow* window);
 	static void KeyPressedReleasedEventsCallback(GLFWwindow* window, int key, int scanmode, int action, int mods);

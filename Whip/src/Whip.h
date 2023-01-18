@@ -3,13 +3,15 @@
 #define _WHIP_
 
 #include <Whip/Application.h>
-#include <Whip/Layer.h>
 #include <Whip/ImGui/ImGuiLayer.h>
 
 // input stuff
 #include <Whip/Input.h>
 #include <Whip/KeyCodes.h>
 #include <Whip/MouseButtonCodes.h>
+
+// random class 
+#include <Whip/Random.h>
 
 // ----- Giris Noktasi -----
 #include <Whip/EntryPoint.h>

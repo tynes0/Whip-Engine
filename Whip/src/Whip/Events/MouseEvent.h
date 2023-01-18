@@ -11,8 +11,8 @@ private:
 public:
 	MouseMovedEvent(float x, float y) : m_MouseX(x), m_MouseY(y) {}
 
-	inline float GetX() const { return m_MouseX; }
-	inline float GetY() const { return m_MouseY; }
+	WHP_NODISCARD inline float GetX() const { return m_MouseX; }
+	WHP_NODISCARD inline float GetY() const { return m_MouseY; }
 
 	EVENT_TO_STRING
 	{
@@ -31,8 +31,8 @@ private:
 public:
 	MouseScrolledEvent(float OffsetX, float OffsetY) : m_OffsetX(OffsetX), m_OffsetY(OffsetY) {}
 
-	inline float GetOffsetX() const { return m_OffsetX; }
-	inline float GetOffsetY() const { return m_OffsetY; }
+	WHP_NODISCARD inline float GetOffsetX() const { return m_OffsetX; }
+	WHP_NODISCARD inline float GetOffsetY() const { return m_OffsetY; }
 
 	EVENT_TO_STRING
 	{
@@ -52,7 +52,7 @@ protected:
 
 	MouseButtonEvent(int button) : m_Button(button) {}
 public:
-	inline int GetMouseButton() const { return m_Button; }
+	WHP_NODISCARD inline int GetMouseButton() const { return m_Button; }
 	EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput | EventCategoryMouseButton)
 };
 
