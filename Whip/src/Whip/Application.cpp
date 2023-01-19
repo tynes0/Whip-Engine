@@ -40,7 +40,7 @@ void Application::OnEvent(Event& e)
 {
 	EventDispatcher dispatcher(e);
 	dispatcher.Dispatch<WindowCloseEvent>(WHP_BIND_EVENT_FN(Application::OnWindowClose));
-	WHP_CORE_DEBUG("{0}", e);
+	WHP_CORE_DEBUGL("{0}", e);
 
 	for (auto iter = m_LayerStack.end(); iter != m_LayerStack.begin(); )
 	{

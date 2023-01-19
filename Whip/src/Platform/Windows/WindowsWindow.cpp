@@ -2,7 +2,7 @@
 #include "WindowsWindow.h"
 
 #include <Whip/Events/Event Callback Functions/EventCallbackFunctions.h>
-#include <glad/glad.h>
+#include <Platform/OpenGL/OpenGLContext.h>
 
 _WHIP_START
 
@@ -33,7 +33,6 @@ void WindowsWindow::Init(const WindowProps& props)
 
 	WHP_CORE_INFO("Creating Window {0} ({1}, {2})", props.Title, props.Width, props.Height);
 
-
 	// initialize GLFW
 	if (!s_GLFWInitialized)
 	{
@@ -45,9 +44,9 @@ void WindowsWindow::Init(const WindowProps& props)
 
 	// create window
 	m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.WinProps.Title.c_str(), nullptr, nullptr);
-	glfwMakeContextCurrent(m_Window);
-	int success = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-	WHP_ASSERT(success, "Failed to initialize Glad! ");
+	m_Context = new OpenGLContext(m_Window);
+	m_Context->Init();
+
 	glfwSetWindowUserPointer(m_Window, &m_Data);
 	SetVSync(true);
 
@@ -69,8 +68,7 @@ void WindowsWindow::Shutdown()
 void WindowsWindow::OnUpdate()
 {
 	glfwPollEvents();
-	glfwSwapBuffers(m_Window);
-	glClear(GL_COLOR_BUFFER_BIT);
+	m_Context->SwapBuffers();
 }
 
 void WindowsWindow::SetVSync(bool enabled)

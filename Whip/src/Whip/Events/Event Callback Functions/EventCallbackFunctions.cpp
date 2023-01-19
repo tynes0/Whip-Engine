@@ -48,7 +48,7 @@ void EventCallbackFunctions::KeyPressedReleasedEventsCallback(GLFWwindow* window
 
 		case GLFW_REPEAT:
 		{
-			KeyPressedEvent event(key, repeat_time++);
+			KeyPressedEvent event(key, (int)repeat_time++);
 			data.EventCallback(event);
 			break;
 		}

@@ -17,13 +17,17 @@
 #define WHP_NODISCARD [[nodiscard]]			// nodiscard attribute define
 
 #ifdef WHP_PLATFORM_WINDOWS
-	#ifdef WHP_BUILD_DLL
-		#define WHIP_API __declspec(dllexport)			// Whip api
-	#else // WHP_BUILD_DLL
-		#define WHIP_API __declspec(dllimport)			// Whip api
-	#endif // WH_BUILD_DLL
+	#ifdef WHP_DYNAMIC_LINK
+		#ifdef WHP_BUILD_DLL
+			#define WHIP_API __declspec(dllexport)			// Whip api
+		#else // WHP_BUILD_DLL
+			#define WHIP_API __declspec(dllimport)			// Whip api
+		#endif // WH_BUILD_DLL
+	#else
+		#define WHIP_API
+	#endif
 #else // WHP_PLATFORM_DLL
-#error Whip engine only support Windows! (for now)
+	#error Whip engine only support Windows! (for now)
 #endif // WHP_PLATFORM_DLL
 
 #ifdef WHP_DEBUG
@@ -32,8 +36,8 @@
 
 
 #ifdef WHP_ENABLE_ASSERTS
-	#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_ERROR("Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
-	#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_ERROR("Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+	#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_ERROR("Whip Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+	#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_ERROR("Whip Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
 #else //WHP_ENABLE_ASSERTS
 	#define WHP_ASSERT(x, ...)				// Whip assert not enabled
 	#define WHP_CORE_ASSERT(x, ...)			// Whip core assert not enabled

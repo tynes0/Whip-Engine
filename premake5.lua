@@ -19,8 +19,10 @@ IncludeDir["glm"] = "Whip/vendor/glm"
 
 project "Whip"
 	location "Whip"
-	kind "SharedLib"
+	kind "StaticLib"
+	staticruntime "on"
 	language "C++"
+	cppdialect "C++17"
 
 	targetdir ("bin/" ..outputdir.. "/%{prj.name}")
 	objdir ("bin-int/" ..outputdir.. "/%{prj.name}")
@@ -32,6 +34,11 @@ project "Whip"
 	{
 		"%{prj.name}/src/**.h",
 		"%{prj.name}/src/**.cpp"
+	}
+
+	defines
+	{
+		"_CRT_SECURE_NO_WARNINGS"
 	}
 
 
@@ -54,8 +61,6 @@ project "Whip"
 	}
 
 	filter "system:windows"
-		cppdialect "C++17"
-		staticruntime "On"
 		systemversion "latest"
 
 		defines
@@ -65,30 +70,27 @@ project "Whip"
 			"GLFW_INCLUDE_NONE"
 		}
 
-		postbuildcommands
-		{
-			("{COPY} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/F-Box")
-		}
-
 	filter "configurations:Debug"
 		defines "WHP_DEBUG"
 		buildoptions "/MDd"
-		symbols "On"
+		symbols "on"
 		
 	filter "configurations:Release"
 		defines "WHP_RELEASE"
 		buildoptions "/MD"
-		optimize "On"
+		optimize "on"
 		
 	filter "configurations:Dist"
 		defines "WHP_DIST"
 		buildoptions "/MD"
-		optimize "On"
+		optimize "on"
 
 project "F-Box"
 	location "F-Box"
 	kind "ConsoleApp"
+	staticruntime "On"
 	language "C++"
+	cppdialect "C++17"
 
 	targetdir ("bin/" ..outputdir.. "/%{prj.name}")
 	objdir ("bin-int/" ..outputdir.. "/%{prj.name}")
@@ -101,6 +103,10 @@ project "F-Box"
 		"%{prj.name}/vendor/glm/glm/**.inl"
 	}
 
+	defines
+	{
+		"_CRT_SECURE_NO_WARNINGS"
+	}
 
 	includedirs
 	{
@@ -118,8 +124,6 @@ project "F-Box"
 	}
 
 	filter "system:windows"
-		cppdialect "C++17"
-		staticruntime "On"
 		systemversion "latest"
 
 		defines
@@ -130,17 +134,17 @@ project "F-Box"
 	filter "configurations:Debug"
 		defines "WHP_DEBUG"
 		buildoptions "/MDd"
-		symbols "On"
+		symbols "on"
 		
 	filter "configurations:Release"
 		defines "WHP_RELEASE"
 		buildoptions "/MD"
-		optimize "On"
+		optimize "on"
 		
 	filter "configurations:Dist"
 		defines "WHP_DIST"
 		buildoptions "/MD"
-		optimize "On"
+		optimize "on"
 
 
 group "Additions"

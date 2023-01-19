@@ -1,5 +1,7 @@
 #include <Whip.h>
 
+#include "imgui/imgui.h"
+
 class ExLayer : public Whip::Layer
 {
 public:

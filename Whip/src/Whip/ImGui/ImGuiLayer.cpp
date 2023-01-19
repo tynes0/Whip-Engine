@@ -10,13 +10,11 @@
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 
-#define IMGUI_IMPL_API
+//#define IMGUI_IMPL_API
 
 _WHIP_START
 
-ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") 
-{
-}
+ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") {}
 
 
 ImGuiLayer::~ImGuiLayer()
@@ -34,7 +32,7 @@ void ImGuiLayer::begin()
 void ImGuiLayer::end()
 {
 	ImGuiIO& io = GET_IM_IO;
-	io.DisplaySize = ImVec2(Application::Get().GetWindow().GetWidth(), Application::Get().GetWindow().GetHeight());
+	io.DisplaySize = ImVec2((float)Application::Get().GetWindow().GetWidth(), (float)Application::Get().GetWindow().GetHeight());
 
 	// RENDERING
 	ImGui::Render();
@@ -87,6 +85,10 @@ void ImGuiLayer::OnImGuiRender()
 {
 	static bool show = true;
 	ImGui::ShowDemoWindow(&show);
+
+	ImGui::Begin("Tynes");
+	ImGui::Text("Testing stuff");
+	ImGui::End();
 }
 
 _WHIP_END

@@ -1,8 +1,10 @@
 #pragma once
 
 #include <Whip/Window.h>
+#include <Whip/Render/GraphicsContext.h>
 
 #include <GLFW/glfw3.h>
+
 
 _WHIP_START
 
@@ -10,7 +12,7 @@ class WindowsWindow : public Window
 {
 private:
 	GLFWwindow* m_Window;
-
+	GraphicsContext* m_Context;
 	WindowData m_Data;
 private:
 	virtual void Init(const WindowProps& props);
