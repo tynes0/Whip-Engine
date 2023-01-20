@@ -42,7 +42,7 @@ class WHIP_API Event
 {
 public:
 	bool Handled = false;
-
+public:
 	WHP_NODISCARD virtual EventType GetEventType() const = 0;
 	WHP_NODISCARD virtual const char* GetName() const = 0;
 	WHP_NODISCARD virtual int GetCategoryFlags() const = 0;

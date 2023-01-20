@@ -4,6 +4,9 @@
 
 _WHIP_START
 
+// repeat_time type
+using repeat_t = unsigned long long;
+
 class WHIP_API KeyEvent : public Event
 {
 protected:
@@ -18,12 +21,12 @@ public:
 class WHIP_API KeyPressedEvent : public KeyEvent
 {
 private:
-	int m_RepeatCount;
+	repeat_t m_RepeatCount;
 public:
-	KeyPressedEvent(int keycode, int repeatCount)
+	KeyPressedEvent(int keycode, repeat_t repeatCount)
 		: KeyEvent(keycode), m_RepeatCount(repeatCount) {}
 
-	WHP_NODISCARD inline int GetRepeatCount() const { return m_RepeatCount; }
+	WHP_NODISCARD inline repeat_t GetRepeatCount() const { return m_RepeatCount; }
 
 	EVENT_TO_STRING
 	{

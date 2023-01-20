@@ -146,6 +146,10 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\Platform\OpenGL\OpenGLBuffer.h" />
+    <ClInclude Include="src\Whip\Render\Buffer.h" />
+    <ClInclude Include="src\Whip\Render\Renderer.h" />
+    <ClInclude Include="src\Whip\Render\ShaderSources\ShaderSources.h" />
     <ClInclude Include="src\Platform\OpenGL\OpenGLContext.h" />
     <ClInclude Include="src\Platform\Windows\WindowsInput.h" />
     <ClInclude Include="src\Platform\Windows\WindowsWindow.h" />
@@ -167,10 +171,15 @@
     <ClInclude Include="src\Whip\MouseButtonCodes.h" />
     <ClInclude Include="src\Whip\Random.h" />
     <ClInclude Include="src\Whip\Render\GraphicsContext.h" />
+    <ClInclude Include="src\Whip\Render\Shader.h" />
     <ClInclude Include="src\Whip\Window.h" />
     <ClInclude Include="src\whippch.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp" />
+    <ClCompile Include="src\Whip\Render\Buffer.cpp" />
+    <ClCompile Include="src\Whip\Render\Renderer.cpp" />
+    <ClCompile Include="src\Whip\Render\ShaderSources\ShaderSources.cpp" />
     <ClCompile Include="src\Platform\OpenGL\OpenGLContext.cpp" />
     <ClCompile Include="src\Platform\Windows\WindowsInput.cpp" />
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp" />
@@ -185,6 +194,7 @@
     <ClCompile Include="src\whippch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\Whip\Render\Shader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="vendor\GLFW\GLFW.vcxproj">

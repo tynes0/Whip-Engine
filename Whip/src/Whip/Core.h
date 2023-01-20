@@ -36,9 +36,12 @@
 
 
 #ifdef WHP_ENABLE_ASSERTS
-	#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_ERROR("Whip Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
-	#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_ERROR("Whip Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+	#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_CRITICAL("Whip Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+	#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_CRITICAL("Whip Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
 #else //WHP_ENABLE_ASSERTS
 	#define WHP_ASSERT(x, ...)				// Whip assert not enabled
 	#define WHP_CORE_ASSERT(x, ...)			// Whip core assert not enabled
 #endif //WHP_ENABLE_ASSERTS
+
+
+typedef unsigned int renderer_id_t;

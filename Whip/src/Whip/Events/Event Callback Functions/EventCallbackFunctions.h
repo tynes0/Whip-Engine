@@ -8,9 +8,6 @@
 
 _WHIP_START
 
-// repeat_time type
-using repeat_t = unsigned long long;
-
 class WHIP_API EventCallbackFunctions
 {
 private:

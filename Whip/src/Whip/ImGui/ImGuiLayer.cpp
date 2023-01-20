@@ -85,9 +85,10 @@ void ImGuiLayer::OnImGuiRender()
 {
 	static bool show = true;
 	ImGui::ShowDemoWindow(&show);
-
-	ImGui::Begin("Tynes");
-	ImGui::Text("Testing stuff");
+	ImGui::Begin("Whip Renderer");
+	ImGui::Text("OpenGl Vendor: %s", (const char*)glGetString(GL_VENDOR));
+	ImGui::Text("OpenGl Renderer: %s", (const char*)glGetString(GL_RENDERER));
+	ImGui::Text("OpenGl Version: %s", (const char*)glGetString(GL_VERSION));
 	ImGui::End();
 }
 
