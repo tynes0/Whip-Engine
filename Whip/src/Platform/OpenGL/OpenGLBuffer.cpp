@@ -1,7 +1,7 @@
 #include "whippch.h"
 #include "OpenGLBuffer.h"
 
-#include <Glad/glad.h>
+#include <glad/glad.h>
 
 _WHIP_START
 

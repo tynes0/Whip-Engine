@@ -6,6 +6,7 @@
 #include <Whip/ImGui/ImGuiLayer.h>
 #include <Whip/Render/Shader.h>
 #include <Whip/Render/Buffer.h>
+#include <Whip/Render/VertexArray.h>
 
 _WHIP_START
 
@@ -14,15 +15,15 @@ class WHIP_API Application
 private:
 	static Application* s_Instance;
 	std::unique_ptr<Window> m_Window;
-	std::unique_ptr<Shader> m_Shader;
-	std::unique_ptr<VertexBuffer> m_VertexBuffer;
-	std::unique_ptr<IndexBuffer> m_IndexBuffer;
+	std::shared_ptr<Shader> m_Shader;
+	std::shared_ptr<VertexArray> m_VertexArray;
 	ImGuiLayer* m_ImGuiLayer;
 	LayerStack m_LayerStack;
 	bool m_Running = true;
 
-	unsigned int m_VertexArray;
-
+	std::shared_ptr<Shader> m_SquareShader;
+	std::shared_ptr<VertexArray> m_SquareVertexArray;
+private:
 	bool OnWindowClose(WindowCloseEvent& event);
 public:
 	Application();

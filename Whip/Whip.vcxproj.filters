@@ -97,6 +97,8 @@
     <ClInclude Include="src\Whip\Render\Buffer.h" />
     <ClInclude Include="src\Platform\OpenGL\OpenGLBuffer.h" />
     <ClInclude Include="src\Whip\Render\Renderer.h" />
+    <ClInclude Include="src\Whip\Render\VertexArray.h" />
+    <ClInclude Include="src\Platform\OpenGL\OpenGLVertexArray.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLContext.cpp">
@@ -138,5 +140,7 @@
     <ClCompile Include="src\Whip\Render\Buffer.cpp" />
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp" />
     <ClCompile Include="src\Whip\Render\Renderer.cpp" />
+    <ClCompile Include="src\Whip\Render\VertexArray.cpp" />
+    <ClCompile Include="src\Platform\OpenGL\OpenGLVertexArray.cpp" />
   </ItemGroup>
 </Project>

@@ -9,27 +9,6 @@ _WHIP_START
 
 Application* Application::s_Instance = nullptr;
 
-static GLenum ShaderDataTypeToOpenGLBaseType(ShaderDataType type)
-{
-	switch (type)
-	{
-		case Whip::ShaderDataType::None:		WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
-		case Whip::ShaderDataType::Float:		return GL_FLOAT;
-		case Whip::ShaderDataType::Float2:		return GL_FLOAT;
-		case Whip::ShaderDataType::Float3:		return GL_FLOAT;
-		case Whip::ShaderDataType::Float4:		return GL_FLOAT;
-		case Whip::ShaderDataType::Mat3:		return GL_FLOAT;
-		case Whip::ShaderDataType::Mat4:		return GL_FLOAT;
-		case Whip::ShaderDataType::Bool:		return GL_BOOL;
-		case Whip::ShaderDataType::Int:			return GL_INT;
-		case Whip::ShaderDataType::Int2:		return GL_INT;
-		case Whip::ShaderDataType::Int3:		return GL_INT;
-		case Whip::ShaderDataType::Int4:		return GL_INT;
-	}
-	WHP_CORE_ASSERT(false, "Unknown ShaderDataType!");
-	return 0;
-}
-
 Application::Application()
 {
 	WHP_CORE_ASSERT(!s_Instance, "Application already exist!");
@@ -43,8 +22,7 @@ Application::Application()
 	// Vertex array
 	// Vertex buffer 
 	// Index buffer
-	glGenVertexArrays(1, &m_VertexArray);
-	glBindVertexArray(m_VertexArray);
+
 
 	// x - y - z
 	float vertices[3 * 7] =
@@ -53,32 +31,49 @@ Application::Application()
 		-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
 		 0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f
 	};
+	uint32_t indicies[3] = { 0,1,2 };
 
-	m_VertexBuffer.reset(VertexBuffer::Create(vertices, sizeof(vertices)));
-	
+	BufferLayout layout =
 	{
-		BufferLayout layout =
-		{
-			{ShaderDataType::Float3, "a_Position"},
-			{ShaderDataType::Float4, "a_Color"}
-		};
+		{ShaderDataType::Float3, "a_Position"},
+		{ShaderDataType::Float4, "a_Color"}
+	};
 
-		m_VertexBuffer->SetLayout(layout);
-	}
-	uint32_t index = 0;
-	for (const auto& elem : m_VertexBuffer->GetLayout())
+	m_VertexArray.reset(VertexArray::Create());
+	//
+	std::shared_ptr<VertexBuffer> vertexBuffer;
+	vertexBuffer.reset(VertexBuffer::Create(vertices, sizeof(vertices)));
+	vertexBuffer->SetLayout(layout);
+	m_VertexArray->AddVertexBuffer(vertexBuffer);
+	std::shared_ptr<IndexBuffer> indexBuffer;
+	indexBuffer.reset(IndexBuffer::Create(indicies, sizeof(indicies) / sizeof(uint32_t)));
+	m_VertexArray->SetIndexBuffer(indexBuffer);
+
+	/////////////////// kare //////////////////
+
+	float SquareVertices[4 * 3] =
 	{
-		glEnableVertexAttribArray(index);
-		glVertexAttribPointer(index, elem.GetComponentCount(), ShaderDataTypeToOpenGLBaseType(elem.type), elem.normalized ? GL_TRUE : GL_FALSE, m_VertexBuffer->GetLayout().GetStride(), (const void*)elem.offset);
-		index++;
-	}
+		-0.75f, -0.75f, 0.0f,
+		 0.75f, -0.75f, 0.0f,
+		 0.75f,  0.75f, 0.0f,
+		-0.75f,  0.75f, 0.0f
+	};
+	uint32_t squareIndicies[6] = { 0,1,2,2,3,0 };
 
-	
-	unsigned int indicies[3] = { 0,1,2 };
+	m_SquareVertexArray.reset(VertexArray::Create());
+	std::shared_ptr<VertexBuffer> squareVertexBuffer;
+	squareVertexBuffer.reset(VertexBuffer::Create(SquareVertices, sizeof(SquareVertices)));
+	squareVertexBuffer->SetLayout({
+		{ShaderDataType::Float3, "a_Position"}
+		});
+	m_SquareVertexArray->AddVertexBuffer(squareVertexBuffer);
+	std::shared_ptr<IndexBuffer> squareIndexBuffer;
+	squareIndexBuffer.reset(IndexBuffer::Create(squareIndicies, sizeof(squareIndicies) / sizeof(uint32_t)));
+	m_SquareVertexArray->SetIndexBuffer(squareIndexBuffer);
 
-	m_IndexBuffer.reset(IndexBuffer::Create(indicies, sizeof(indicies) / sizeof(uint32_t)));
-
+	/////////////////////////////////////////////
 	m_Shader.reset(new Shader(WHP_VERTEX_SRC, WHP_FRAGMENT_SRC));
+	m_SquareShader.reset(new Shader(WHP_SECOND_VERTEX_SRC, WHP_SECOND_FRAGMENT_SRC));
 }
 
 
@@ -91,8 +86,13 @@ void Application::Run()
 {
 	while (m_Running)
 	{
+		m_SquareShader->Bind();
+		m_SquareVertexArray->Bind();
+		glDrawElements(GL_TRIANGLES, m_SquareVertexArray->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+
 		m_Shader->Bind();
-		glDrawElements(GL_TRIANGLES, m_IndexBuffer->GetCount(), GL_UNSIGNED_INT, nullptr);
+		m_VertexArray->Bind();
+		glDrawElements(GL_TRIANGLES,m_VertexArray->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
 
 		for (layerptr item : m_LayerStack)
 		{

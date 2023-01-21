@@ -1,7 +1,5 @@
 #pragma once
 
-#include <Whip/Core.h>
-
 
 _WHIP_START
 
