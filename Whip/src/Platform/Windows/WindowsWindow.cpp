@@ -58,6 +58,8 @@ void WindowsWindow::Init(const WindowProps& props)
 	glfwSetMouseButtonCallback(m_Window, MOUSE_BUTTON_EVENT_CALLBACK_E);
 	glfwSetScrollCallback(m_Window, MOUSE_SCROLL_EVENT_CALLBACK_E);
 	glfwSetCursorPosCallback(m_Window, MOUSE_MOVED_EVENT_CALLBACK_E);
+
+	WHP_CORE_INFO("Created Window {0} ({1}, {2})", props.Title, props.Width, props.Height);
 }
 
 void WindowsWindow::Shutdown()

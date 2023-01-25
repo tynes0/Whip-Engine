@@ -2,8 +2,8 @@
 #include <Whip/Application.h>
 #include <Whip/Input.h>
 #include <Whip/Render/ShaderSources/ShaderSources.h>
+#include <Whip/Render/Renderer.h>
 
-#include <glad/glad.h>
 
 _WHIP_START
 
@@ -15,6 +15,7 @@ Application::Application()
 	s_Instance = this;
 	m_Window = std::unique_ptr<Window>(Window::Create());
 	m_Window->SetEventCallback(WHP_BIND_EVENT_FN(Application::OnEvent));
+	m_Window->SetEventCallback(std::bind(&Application::OnEvent, this, std::placeholders::_1));
 	m_ImGuiLayer = new ImGuiLayer();
 	PushOverlay(m_ImGuiLayer);
 
@@ -22,7 +23,6 @@ Application::Application()
 	// Vertex array
 	// Vertex buffer 
 	// Index buffer
-
 
 	// x - y - z
 	float vertices[3 * 7] =
@@ -76,7 +76,6 @@ Application::Application()
 	m_SquareShader.reset(new Shader(WHP_SECOND_VERTEX_SRC, WHP_SECOND_FRAGMENT_SRC));
 }
 
-
 Application::~Application()
 {
 
@@ -86,13 +85,19 @@ void Application::Run()
 {
 	while (m_Running)
 	{
+		RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.0f });
+		RenderCommand::Clear();
+
+		Renderer::BeginScene();
+
 		m_SquareShader->Bind();
-		m_SquareVertexArray->Bind();
-		glDrawElements(GL_TRIANGLES, m_SquareVertexArray->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+		Renderer::Submit(m_SquareVertexArray);
 
 		m_Shader->Bind();
-		m_VertexArray->Bind();
-		glDrawElements(GL_TRIANGLES,m_VertexArray->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+		Renderer::Submit(m_VertexArray);
+
+		Renderer::EndScene();
+
 
 		for (layerptr item : m_LayerStack)
 		{
@@ -113,7 +118,7 @@ void Application::OnEvent(Event& e)
 {
 	EventDispatcher dispatcher(e);
 	dispatcher.Dispatch<WindowCloseEvent>(WHP_BIND_EVENT_FN(Application::OnWindowClose));
-	//WHP_CORE_DEBUGL("{0}", e);
+	//WHP_CORE_DEBUG("{0}", e);
 
 	for (auto iter = m_LayerStack.end(); iter != m_LayerStack.begin(); )
 	{
@@ -140,7 +145,7 @@ void Application::PushOverlay(layerptr overlay)
 bool Application::OnWindowClose(WindowCloseEvent& event)
 {
 	m_Running = false;
-	WHP_CORE_DEBUGL("Window destroyed!");
+	WHP_CORE_DEBUG("Window destroyed!");
 	return true;
 }
 

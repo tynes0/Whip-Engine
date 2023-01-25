@@ -15,6 +15,7 @@
 #define WHP_SWAP(type, param1, param2) type t = param1; param1 = param2; param2 = t			// Whip swap 2 element
 
 #define WHP_NODISCARD [[nodiscard]]			// nodiscard attribute define
+#define WHP_NODISCARD_MSG(msg) [[nodiscard(msg)]]			// nodiscard attribute define
 
 #ifdef WHP_PLATFORM_WINDOWS
 	#ifdef WHP_DYNAMIC_LINK
@@ -36,12 +37,31 @@
 
 
 #ifdef WHP_ENABLE_ASSERTS
-	#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_CRITICAL("Whip Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
-	#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_CRITICAL("Whip Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+	#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_CLIENT_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}",__FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } }
+	#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}",__FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } }
 #else //WHP_ENABLE_ASSERTS
 	#define WHP_ASSERT(x, ...)				// Whip assert not enabled
 	#define WHP_CORE_ASSERT(x, ...)			// Whip core assert not enabled
 #endif //WHP_ENABLE_ASSERTS
 
+_WHIP_START
 
-typedef unsigned int renderer_id_t;
+template <class _Ty, _Ty _Val>
+struct integral_constant
+{
+	using type = _Ty;
+	static constexpr type value = _Val;
+
+	constexpr operator type() { return value; }
+	constexpr type operator()() { return value; }
+};
+
+template <bool _Val>
+using bool_constant = integral_constant<bool, _Val>;
+
+_WHIP_END
+
+#ifndef WHP_RENDERER_ID_DEF
+	#define WHP_RENDERER_ID_DEF
+	typedef unsigned int renderer_id_t;
+#endif // WHP_RENDERER_ID_DEF

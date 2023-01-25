@@ -8,10 +8,10 @@ _WHIP_START
 
 VertexArray* VertexArray::Create()
 {
-	switch (Renderer::GetRendererAPI())
+	switch (Renderer::GetAPI())
 	{
-	case RendererAPI::None:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
-	case RendererAPI::OpenGL:	return new OpenGLVertexArray();
+	case RenderAPI::API::None:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
+	case RenderAPI::API::OpenGL:	return new OpenGLVertexArray();
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI");

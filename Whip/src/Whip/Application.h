@@ -1,9 +1,12 @@
 #pragma once
 
 #include <Whip/Window.h>
+
 #include <Whip/Events/ApplicationEvent.h>
+
 #include <Whip/LayerStack.h>
 #include <Whip/ImGui/ImGuiLayer.h>
+
 #include <Whip/Render/Shader.h>
 #include <Whip/Render/Buffer.h>
 #include <Whip/Render/VertexArray.h>

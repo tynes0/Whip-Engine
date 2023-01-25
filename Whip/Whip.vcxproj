@@ -147,8 +147,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\Platform\OpenGL\OpenGLBuffer.h" />
+    <ClInclude Include="src\Platform\OpenGL\OpenGLRenderAPI.h" />
     <ClInclude Include="src\Platform\OpenGL\OpenGLVertexArray.h" />
     <ClInclude Include="src\Whip\Render\Buffer.h" />
+    <ClInclude Include="src\Whip\Render\RenderAPI.h" />
+    <ClInclude Include="src\Whip\Render\RenderCommand.h" />
     <ClInclude Include="src\Whip\Render\Renderer.h" />
     <ClInclude Include="src\Whip\Render\ShaderSources\ShaderSources.h" />
     <ClInclude Include="src\Platform\OpenGL\OpenGLContext.h" />
@@ -179,8 +182,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp" />
+    <ClCompile Include="src\Platform\OpenGL\OpenGLRenderAPI.cpp" />
     <ClCompile Include="src\Platform\OpenGL\OpenGLVertexArray.cpp" />
     <ClCompile Include="src\Whip\Render\Buffer.cpp" />
+    <ClCompile Include="src\Whip\Render\RenderAPI.cpp" />
+    <ClCompile Include="src\Whip\Render\RenderCommand.cpp" />
     <ClCompile Include="src\Whip\Render\Renderer.cpp" />
     <ClCompile Include="src\Whip\Render\ShaderSources\ShaderSources.cpp" />
     <ClCompile Include="src\Platform\OpenGL\OpenGLContext.cpp" />

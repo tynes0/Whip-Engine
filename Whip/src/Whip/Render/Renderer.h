@@ -1,20 +1,17 @@
 #pragma once
 
-_WHIP_START
+#include "RenderCommand.h"
 
-enum class RendererAPI
-{
-	None = 0,
-	OpenGL = 1
-	// for now 
-};
+_WHIP_START
 
 class Renderer
 {
-private:
-	static RendererAPI s_RendererAPI;
 public:
-	inline static RendererAPI GetRendererAPI() { return s_RendererAPI; }
+	static void BeginScene();
+	static void EndScene();
+	static void Submit(const std::shared_ptr<VertexArray>& vertexArray);
+
+	WHP_NODISCARD inline static RenderAPI::API GetAPI() { return RenderAPI::GetAPI(); }
 };
 
 _WHIP_END

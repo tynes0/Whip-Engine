@@ -15,7 +15,7 @@ private:
 	static repeat_t last_repeat_time;
 public:
 	// get repeat time
-	WHP_NODISCARD static repeat_t GetLastRepeatTime() { return last_repeat_time; }
+	WHP_NODISCARD inline static repeat_t GetLastRepeatTime() { return last_repeat_time; }
 
 	static void WindowResizeEventCallback(GLFWwindow* window, int width, int height);
 	static void WindowCloseEventCallback(GLFWwindow* window);

@@ -1,6 +1,5 @@
 #pragma once
 
-
 _WHIP_START
 
 enum class ShaderDataType : uint16_t
@@ -53,7 +52,7 @@ struct BufferElement
 	BufferElement(ShaderDataType type_in, const std::string& name_in, bool normalized_in = false)
 		: name(name_in), type(type_in), size(ShaderDataTypeSize(type_in)), offset(0), normalized(normalized_in) {}
 
-	uint32_t GetComponentCount() const
+	WHP_NODISCARD uint32_t GetComponentCount() const
 	{
 		switch (type)
 		{
@@ -103,13 +102,13 @@ public:
 		CalculateOffsetsAndStride();
 	}
 
-	inline const uint32_t GetStride() const { return m_Stride; }
-	inline const std::vector<BufferElement>& getElements() const { return m_Elements; }
+	WHP_NODISCARD inline const uint32_t GetStride() const { return m_Stride; }
+	WHP_NODISCARD inline const std::vector<BufferElement>& getElements() const { return m_Elements; }
 	
-	BufferElementVecIt begin() { return m_Elements.begin(); }
-	BufferElementVecIt end() { return m_Elements.end(); }
-	BufferElementVecConIt begin() const { return m_Elements.begin(); }
-	BufferElementVecConIt end() const { return m_Elements.end(); }
+	WHP_NODISCARD BufferElementVecIt begin() { return m_Elements.begin(); }
+	WHP_NODISCARD BufferElementVecIt end() { return m_Elements.end(); }
+	WHP_NODISCARD BufferElementVecConIt begin() const { return m_Elements.begin(); }
+	WHP_NODISCARD BufferElementVecConIt end() const { return m_Elements.end(); }
 };
 
 class VertexBuffer
@@ -123,7 +122,7 @@ public:
 	virtual void SetLayout(const BufferLayout& layout) = 0;
 	virtual const BufferLayout& GetLayout() const = 0;
 	
-	static VertexBuffer* Create(float* vertices, uint32_t size);
+	WHP_NODISCARD static VertexBuffer* Create(float* vertices, uint32_t size);
 };
 
 class IndexBuffer
@@ -137,7 +136,7 @@ public:
 
 	virtual uint32_t GetCount() const = 0;
 
-	static IndexBuffer* Create(renderer_id_t* indices, uint32_t count);
+	WHP_NODISCARD static IndexBuffer* Create(uint32_t* indices, uint32_t count);
 };
 
 

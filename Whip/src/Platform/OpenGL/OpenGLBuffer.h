@@ -17,7 +17,7 @@ public:
 	virtual void Unbind() const override;
 
 	virtual void SetLayout(const BufferLayout& layout) override { m_Layout = layout; }
-	virtual const BufferLayout& GetLayout() const override { return m_Layout; }
+	WHP_NODISCARD virtual const BufferLayout& GetLayout() const override { return m_Layout; }
 };
 
 class OpenGLIndexBuffer : public IndexBuffer
@@ -26,10 +26,10 @@ private:
 	renderer_id_t m_RendererID;
 	uint32_t m_Count;
 public:
-	OpenGLIndexBuffer(renderer_id_t* indices, uint32_t count);
+	OpenGLIndexBuffer(uint32_t* indices, uint32_t count);
 	virtual ~OpenGLIndexBuffer();
 
-	virtual uint32_t GetCount() const override { return m_Count; };
+	WHP_NODISCARD virtual uint32_t GetCount() const override { return m_Count; };
 	virtual void Bind() const override;
 	virtual void Unbind() const override;
 };
