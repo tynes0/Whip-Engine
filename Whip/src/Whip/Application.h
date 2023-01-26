@@ -1,31 +1,22 @@
 #pragma once
 
 #include <Whip/Window.h>
-
 #include <Whip/Events/ApplicationEvent.h>
-
 #include <Whip/LayerStack.h>
 #include <Whip/ImGui/ImGuiLayer.h>
-
-#include <Whip/Render/Shader.h>
-#include <Whip/Render/Buffer.h>
-#include <Whip/Render/VertexArray.h>
+#include <Whip/Core/Timestep.h>
 
 _WHIP_START
 
-class WHIP_API Application
+class Application
 {
 private:
 	static Application* s_Instance;
 	std::unique_ptr<Window> m_Window;
-	std::shared_ptr<Shader> m_Shader;
-	std::shared_ptr<VertexArray> m_VertexArray;
 	ImGuiLayer* m_ImGuiLayer;
 	LayerStack m_LayerStack;
 	bool m_Running = true;
-
-	std::shared_ptr<Shader> m_SquareShader;
-	std::shared_ptr<VertexArray> m_SquareVertexArray;
+	float m_last_frame_time = 0.0f;
 private:
 	bool OnWindowClose(WindowCloseEvent& event);
 public:

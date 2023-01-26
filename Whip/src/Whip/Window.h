@@ -9,13 +9,13 @@
 _WHIP_START
 
 // window properties
-struct WindowProps
+struct window_props
 {
 	std::string Title;
 	unsigned int Width;
 	unsigned int Height;
 
-	WindowProps(const std::string& title = "Whip Engine", unsigned int width = 1280, unsigned int height = 720)
+	window_props(const std::string& title = "Whip Engine", unsigned int width = 1280, unsigned int height = 720)
 		: Title(title), Width(width), Height(height) {}
 
 };
@@ -25,30 +25,30 @@ struct WindowProps
 class WHIP_API Window
 {
 public:
-	using EventCallbackFn = std::function<void(Event&)>;
+	using event_callback_fn = std::function<void(Event&)>;
 	virtual ~Window() {}
 
 	virtual void OnUpdate() = 0;
 
-	WHP_NODISCARD virtual unsigned int GetWidth() const = 0;
-	WHP_NODISCARD virtual unsigned int GetHeight() const = 0;
+	WHP_NODISCARD virtual unsigned int get_width() const = 0;
+	WHP_NODISCARD virtual unsigned int get_height() const = 0;
 
 	// Window attributes
-	virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
-	virtual void SetVSync(bool enabled) = 0;
-	WHP_NODISCARD virtual bool IsVSync() const = 0;
+	virtual void set_event_callback(const event_callback_fn& callback) = 0;
+	virtual void set_vsync(bool enabled) = 0;
+	WHP_NODISCARD virtual bool is_vsync() const = 0;
 
-	WHP_NODISCARD virtual void* GetNativeWindow() const = 0;
+	WHP_NODISCARD virtual void* get_native_window() const = 0;
 
-	WHP_NODISCARD static Window* Create(const WindowProps& props = WindowProps());
+	WHP_NODISCARD static Window* create(const window_props& props = window_props());
 };
 
-struct WindowData
+struct window_data
 {
-	WindowProps WinProps;
+	window_props win_props;
 	bool VSync;
 
-	Window::EventCallbackFn EventCallback;
+	Window::event_callback_fn EventCallback;
 };
 
 _WHIP_END

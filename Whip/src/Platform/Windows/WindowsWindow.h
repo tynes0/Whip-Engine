@@ -11,27 +11,27 @@ _WHIP_START
 class WindowsWindow : public Window
 {
 private:
-	GLFWwindow* m_Window;
-	GraphicsContext* m_Context;
-	WindowData m_Data;
+	GLFWwindow* m_window;
+	GraphicsContext* m_context;
+	window_data m_data;
 private:
-	virtual void Init(const WindowProps& props);
-	virtual void Shutdown();
+	virtual void init(const window_props& props);
+	virtual void shutdown();
 public:
-	WindowsWindow(const WindowProps& props);
+	WindowsWindow(const window_props& props);
 	virtual ~WindowsWindow();
 
 	void OnUpdate() override;
 
-	WHP_NODISCARD inline unsigned int GetWidth() const override { return m_Data.WinProps.Width; }
-	WHP_NODISCARD inline unsigned int GetHeight() const override { return m_Data.WinProps.Height; }
+	WHP_NODISCARD inline unsigned int get_width() const override { return m_data.win_props.Width; }
+	WHP_NODISCARD inline unsigned int get_height() const override { return m_data.win_props.Height; }
 
-	WHP_NODISCARD inline virtual void* GetNativeWindow() const override { return m_Window; }
+	WHP_NODISCARD inline virtual void* get_native_window() const override { return m_window; }
 
 	// Window attributes
-	inline void SetEventCallback(const EventCallbackFn& callback) override { m_Data.EventCallback = callback; }
-	void SetVSync(bool enabled) override;
-	WHP_NODISCARD bool IsVSync() const override;
+	inline void set_event_callback(const event_callback_fn& callback) override { m_data.EventCallback = callback; }
+	void set_vsync(bool enabled) override;
+	WHP_NODISCARD bool is_vsync() const override;
 };
 
 #define RESIZE_WIN_PROPS(win_props, width, height) win_props.Width = width, win_props.Height = height

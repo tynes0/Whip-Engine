@@ -32,7 +32,7 @@ void ImGuiLayer::begin()
 void ImGuiLayer::end()
 {
 	ImGuiIO& io = GET_IM_IO;
-	io.DisplaySize = ImVec2((float)Application::Get().GetWindow().GetWidth(), (float)Application::Get().GetWindow().GetHeight());
+	io.DisplaySize = ImVec2((float)Application::Get().GetWindow().get_width(), (float)Application::Get().GetWindow().get_height());
 
 	// RENDERING
 	ImGui::Render();
@@ -68,7 +68,7 @@ void ImGuiLayer::OnAttach()
 		GuiStyle.WindowRounding = 0.0f;
 		GuiStyle.Colors[ImGuiCol_WindowBg].w = 1.0f;
 	}
-	GLFWwindow* window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+	GLFWwindow* window = static_cast<GLFWwindow*>(Application::Get().GetWindow().get_native_window());
 	// Setup platform/renderer bindings
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 410");

@@ -13,22 +13,22 @@ repeat_t EventCallbackFunctions::last_repeat_time(1);
 
 void EventCallbackFunctions::WindowResizeEventCallback(GLFWwindow* window, int width, int height)
 {
-	WindowData& data = GET_GLFW_WIN_PTR(WindowData ,window);
-	RESIZE_WIN_PROPS(data.WinProps, width, height);
+	window_data& data = GET_GLFW_WIN_PTR(window_data,window);
+	RESIZE_WIN_PROPS(data.win_props, width, height);
 	WindowResizeEvent event(width, height);
 	data.EventCallback(event);
 }
 
 void EventCallbackFunctions::WindowCloseEventCallback(GLFWwindow* window)
 {
-	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
+	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
 	WindowCloseEvent event;
 	data.EventCallback(event);
 }
 
 void EventCallbackFunctions::KeyPressedReleasedEventsCallback(GLFWwindow* window, int key, int scanmode, int action, int mods)
 {
-	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
+	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
 	switch (action)
 	{
 		case GLFW_RELEASE:
@@ -57,7 +57,7 @@ void EventCallbackFunctions::KeyPressedReleasedEventsCallback(GLFWwindow* window
 
 void EventCallbackFunctions::MouseButtonPressedReleasedEventsCallback(GLFWwindow* window, int button, int action, int mods)
 {
-	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
+	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
 	switch (action)
 	{
 		case GLFW_RELEASE:
@@ -77,21 +77,21 @@ void EventCallbackFunctions::MouseButtonPressedReleasedEventsCallback(GLFWwindow
 
 void EventCallbackFunctions::KeyTypedEventCallback(GLFWwindow* window, unsigned int keycode)
 {
-	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
+	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
 	KeyTypedEvent event(keycode);
 	data.EventCallback(event);
 }
 
 void EventCallbackFunctions::MouseScrollEventCallback(GLFWwindow* window, double OffsetX, double OffsetY)
 {
-	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
+	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
 	MouseScrolledEvent event((float)OffsetX, (float)OffsetY);
 	data.EventCallback(event);
 }
 
 void EventCallbackFunctions::MouseMovedEventCallback(GLFWwindow* window, double posX, double posY)
 {
-	WindowData& data = GET_GLFW_WIN_PTR(WindowData, window);
+	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
 	MouseMovedEvent event((float)posX, (float)posY);
 	data.EventCallback(event);
 }

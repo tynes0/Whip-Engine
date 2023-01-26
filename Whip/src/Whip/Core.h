@@ -59,9 +59,15 @@ struct integral_constant
 template <bool _Val>
 using bool_constant = integral_constant<bool, _Val>;
 
-_WHIP_END
+template <class, class>
+inline constexpr bool is_same_v = false;
 
-#ifndef WHP_RENDERER_ID_DEF
-	#define WHP_RENDERER_ID_DEF
-	typedef unsigned int renderer_id_t;
-#endif // WHP_RENDERER_ID_DEF
+template <class _Ty>
+inline constexpr bool is_same_v<_Ty, _Ty> = true;
+
+template <class _Ty1, class _Ty2>
+struct is_same : bool_constant < is_same_v<_Ty1, _Ty2>>{};
+
+typedef unsigned int renderer_id_t;
+
+_WHIP_END

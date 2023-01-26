@@ -10,7 +10,7 @@ Input* Input::s_Instance = new WindowsInput();
 
 WHP_NODISCARD bool WindowsInput::isKeyPressedImpl(int keycode)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().get_native_window());
 	int state = glfwGetKey(window, keycode);
 	bool isPressed = ((state == GLFW_PRESS) || (state == GLFW_REPEAT));
 	return isPressed;
@@ -18,7 +18,7 @@ WHP_NODISCARD bool WindowsInput::isKeyPressedImpl(int keycode)
 
 WHP_NODISCARD bool WindowsInput::isMouseButtonPressedImpl(int button)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().get_native_window());
 	int state = glfwGetMouseButton(window, button);
 	bool isPressed = (state == GLFW_PRESS);
 	return isPressed;
@@ -38,7 +38,7 @@ WHP_NODISCARD float WindowsInput::getMousePosYImpl()
 
 WHP_NODISCARD std::pair<float, float> WindowsInput::getMousePosImpl()
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().get_native_window());
 	double PosX, PosY;
 	glfwGetCursorPos(window, &PosX, &PosY);
 	return { PosX, PosY };

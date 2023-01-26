@@ -3,14 +3,14 @@
 
 _WHIP_START
 
-std::shared_ptr<spdlog::logger> Log::s_CoreLogger;
-std::shared_ptr<spdlog::logger> Log::s_ClientLogger;
+std::shared_ptr<spdlog::logger> Log::s_core_logger;
+std::shared_ptr<spdlog::logger> Log::s_client_logger;
 
-void Log::Init()
+void Log::init()
 {
 	spdlog::set_pattern("%^[%T] %n: %v%$");
-	SET_LOG(s_CoreLogger, "WHIP ENGINE", whp_trace);
-	SET_LOG(s_ClientLogger, "Client", whp_trace);
+	SET_LOG(s_core_logger, "WHIP ENGINE", whp_trace);
+	SET_LOG(s_client_logger, "Client", whp_trace);
 }
 
 WHP_NODISCARD spdlog::level::level_enum Log::whip_log_level_to_spdlog_level(whip_log_level log_level)

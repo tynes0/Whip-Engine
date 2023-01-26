@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Whip/Core.h>
 #include <Whip/Events/Event.h>
+#include <Whip/Core/Timestep.h>
 
 _WHIP_START
 
@@ -15,7 +15,7 @@ public:
 
 	virtual void OnAttach() {}
 	virtual void OnDetach() {}
-	virtual void OnUpdate() {}
+	virtual void OnUpdate(timestep ts) {}
 	virtual void OnImGuiRender() {}
 	virtual void OnEvent(Event& e) {}
 	

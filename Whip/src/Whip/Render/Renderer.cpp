@@ -3,16 +3,23 @@
 
 _WHIP_START
 
-void Renderer::BeginScene()
+scene_data* Renderer::m_scene_data = new scene_data();
+
+void Renderer::begin_scene(orthographic_camera& camera)
+{
+	m_scene_data->view_projection_matrix = camera.get_view_projection_matrix();
+}
+
+void Renderer::end_scene()
 {
 }
 
-void Renderer::EndScene()
+void Renderer::submit(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vertexArray, const glm::mat4& transform)
 {
-}
-
-void Renderer::Submit(const std::shared_ptr<VertexArray>& vertexArray)
-{
+	shader->Bind();
+	shader->upload_uniform_mat4("u_view_projection", m_scene_data->view_projection_matrix);
+	shader->upload_uniform_mat4("u_transform", transform);
+	
 	vertexArray->Bind();
 	RenderCommand::DrawIndexed(vertexArray);
 }

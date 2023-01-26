@@ -1,9 +1,7 @@
 #include <whippch.h>
 #include <Whip/Application.h>
-#include <Whip/Input.h>
-#include <Whip/Render/ShaderSources/ShaderSources.h>
-#include <Whip/Render/Renderer.h>
 
+#include <GLFW/glfw3.h>
 
 _WHIP_START
 
@@ -13,67 +11,11 @@ Application::Application()
 {
 	WHP_CORE_ASSERT(!s_Instance, "Application already exist!");
 	s_Instance = this;
-	m_Window = std::unique_ptr<Window>(Window::Create());
-	m_Window->SetEventCallback(WHP_BIND_EVENT_FN(Application::OnEvent));
-	m_Window->SetEventCallback(std::bind(&Application::OnEvent, this, std::placeholders::_1));
+	m_Window = std::unique_ptr<Window>(Window::create());
+	m_Window->set_event_callback(WHP_BIND_EVENT_FN(Application::OnEvent));
+	m_Window->set_event_callback(std::bind(&Application::OnEvent, this, std::placeholders::_1));
 	m_ImGuiLayer = new ImGuiLayer();
 	PushOverlay(m_ImGuiLayer);
-
-	// We need
-	// Vertex array
-	// Vertex buffer 
-	// Index buffer
-
-	// x - y - z
-	float vertices[3 * 7] =
-	{
-		 0.0f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-		-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-		 0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f
-	};
-	uint32_t indicies[3] = { 0,1,2 };
-
-	BufferLayout layout =
-	{
-		{ShaderDataType::Float3, "a_Position"},
-		{ShaderDataType::Float4, "a_Color"}
-	};
-
-	m_VertexArray.reset(VertexArray::Create());
-	//
-	std::shared_ptr<VertexBuffer> vertexBuffer;
-	vertexBuffer.reset(VertexBuffer::Create(vertices, sizeof(vertices)));
-	vertexBuffer->SetLayout(layout);
-	m_VertexArray->AddVertexBuffer(vertexBuffer);
-	std::shared_ptr<IndexBuffer> indexBuffer;
-	indexBuffer.reset(IndexBuffer::Create(indicies, sizeof(indicies) / sizeof(uint32_t)));
-	m_VertexArray->SetIndexBuffer(indexBuffer);
-
-	/////////////////// kare //////////////////
-
-	float SquareVertices[4 * 3] =
-	{
-		-0.75f, -0.75f, 0.0f,
-		 0.75f, -0.75f, 0.0f,
-		 0.75f,  0.75f, 0.0f,
-		-0.75f,  0.75f, 0.0f
-	};
-	uint32_t squareIndicies[6] = { 0,1,2,2,3,0 };
-
-	m_SquareVertexArray.reset(VertexArray::Create());
-	std::shared_ptr<VertexBuffer> squareVertexBuffer;
-	squareVertexBuffer.reset(VertexBuffer::Create(SquareVertices, sizeof(SquareVertices)));
-	squareVertexBuffer->SetLayout({
-		{ShaderDataType::Float3, "a_Position"}
-		});
-	m_SquareVertexArray->AddVertexBuffer(squareVertexBuffer);
-	std::shared_ptr<IndexBuffer> squareIndexBuffer;
-	squareIndexBuffer.reset(IndexBuffer::Create(squareIndicies, sizeof(squareIndicies) / sizeof(uint32_t)));
-	m_SquareVertexArray->SetIndexBuffer(squareIndexBuffer);
-
-	/////////////////////////////////////////////
-	m_Shader.reset(new Shader(WHP_VERTEX_SRC, WHP_FRAGMENT_SRC));
-	m_SquareShader.reset(new Shader(WHP_SECOND_VERTEX_SRC, WHP_SECOND_FRAGMENT_SRC));
 }
 
 Application::~Application()
@@ -85,23 +27,13 @@ void Application::Run()
 {
 	while (m_Running)
 	{
-		RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.0f });
-		RenderCommand::Clear();
-
-		Renderer::BeginScene();
-
-		m_SquareShader->Bind();
-		Renderer::Submit(m_SquareVertexArray);
-
-		m_Shader->Bind();
-		Renderer::Submit(m_VertexArray);
-
-		Renderer::EndScene();
-
+		float time = (float)glfwGetTime();
+		timestep ts = time - m_last_frame_time;
+		m_last_frame_time = time;
 
 		for (layerptr item : m_LayerStack)
 		{
-			item->OnUpdate();
+			item->OnUpdate(ts);
 		}
 
 		m_ImGuiLayer->begin();

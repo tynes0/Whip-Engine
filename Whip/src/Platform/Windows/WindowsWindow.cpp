@@ -10,26 +10,26 @@ static bool s_GLFWInitialized = false;
 
 #ifdef WHP_PLATFORM_WINDOWS
 
-WHP_NODISCARD Window* Window::Create(const WindowProps& props)
+WHP_NODISCARD Window* Window::create(const window_props& props)
 {
 	return new WindowsWindow(props);
 }
 
 #endif // WHP_PLATFORM_WINDOWS
 
-WindowsWindow::WindowsWindow(const WindowProps& props)
+WindowsWindow::WindowsWindow(const window_props& props)
 {
-	Init(props);
+	init(props);
 }
 
 WindowsWindow::~WindowsWindow()
 {
-	Shutdown();
+	shutdown();
 }
 
-void WindowsWindow::Init(const WindowProps& props)
+void WindowsWindow::init(const window_props& props)
 {
-	m_Data.WinProps = props;
+	m_data.win_props = props;
 
 	WHP_CORE_INFO("Creating Window {0} ({1}, {2})", props.Title, props.Width, props.Height);
 
@@ -43,37 +43,37 @@ void WindowsWindow::Init(const WindowProps& props)
 	}
 
 	// create window
-	m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.WinProps.Title.c_str(), nullptr, nullptr);
-	m_Context = new OpenGLContext(m_Window);
-	m_Context->Init();
+	m_window = glfwCreateWindow((int)props.Width, (int)props.Height, m_data.win_props.Title.c_str(), nullptr, nullptr);
+	m_context = new OpenGLContext(m_window);
+	m_context->Init();
 
-	glfwSetWindowUserPointer(m_Window, &m_Data);
-	SetVSync(true);
+	glfwSetWindowUserPointer(m_window, &m_data);
+	set_vsync(true);
 
 	// Set GLFW callbacks
-	glfwSetWindowSizeCallback(m_Window, WIN_RESIZE_EVENT_CALLBACK_E);
-	glfwSetWindowCloseCallback(m_Window, WIN_CLOSE_EVENT_CALLBACK_E);
-	glfwSetKeyCallback(m_Window, KEY_EVENT_CALLBACK_E);
-	glfwSetCharCallback(m_Window, KEY_TYPED_EVENT_CALLBACK_E);
-	glfwSetMouseButtonCallback(m_Window, MOUSE_BUTTON_EVENT_CALLBACK_E);
-	glfwSetScrollCallback(m_Window, MOUSE_SCROLL_EVENT_CALLBACK_E);
-	glfwSetCursorPosCallback(m_Window, MOUSE_MOVED_EVENT_CALLBACK_E);
+	glfwSetWindowSizeCallback(m_window, WIN_RESIZE_EVENT_CALLBACK_E);
+	glfwSetWindowCloseCallback(m_window, WIN_CLOSE_EVENT_CALLBACK_E);
+	glfwSetKeyCallback(m_window, KEY_EVENT_CALLBACK_E);
+	glfwSetCharCallback(m_window, KEY_TYPED_EVENT_CALLBACK_E);
+	glfwSetMouseButtonCallback(m_window, MOUSE_BUTTON_EVENT_CALLBACK_E);
+	glfwSetScrollCallback(m_window, MOUSE_SCROLL_EVENT_CALLBACK_E);
+	glfwSetCursorPosCallback(m_window, MOUSE_MOVED_EVENT_CALLBACK_E);
 
 	WHP_CORE_INFO("Created Window {0} ({1}, {2})", props.Title, props.Width, props.Height);
 }
 
-void WindowsWindow::Shutdown()
+void WindowsWindow::shutdown()
 {
-	glfwDestroyWindow(m_Window);
+	glfwDestroyWindow(m_window);
 }
 
 void WindowsWindow::OnUpdate()
 {
 	glfwPollEvents();
-	m_Context->SwapBuffers();
+	m_context->SwapBuffers();
 }
 
-void WindowsWindow::SetVSync(bool enabled)
+void WindowsWindow::set_vsync(bool enabled)
 {
 	if (enabled)
 	{
@@ -83,12 +83,12 @@ void WindowsWindow::SetVSync(bool enabled)
 	{
 		glfwSwapInterval(0);
 	}
-	m_Data.VSync = enabled;
+	m_data.VSync = enabled;
 }
 
-WHP_NODISCARD bool WindowsWindow::IsVSync() const
+WHP_NODISCARD bool WindowsWindow::is_vsync() const
 {
-	return m_Data.VSync;
+	return m_data.VSync;
 }
 
 _WHIP_END

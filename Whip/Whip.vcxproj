@@ -146,6 +146,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\Whip\Render\Camera.h" />
     <ClInclude Include="src\Platform\OpenGL\OpenGLBuffer.h" />
     <ClInclude Include="src\Platform\OpenGL\OpenGLRenderAPI.h" />
     <ClInclude Include="src\Platform\OpenGL\OpenGLVertexArray.h" />
@@ -177,10 +178,12 @@
     <ClInclude Include="src\Whip\Render\GraphicsContext.h" />
     <ClInclude Include="src\Whip\Render\Shader.h" />
     <ClInclude Include="src\Whip\Render\VertexArray.h" />
+    <ClInclude Include="src\Whip\Core\Timestep.h" />
     <ClInclude Include="src\Whip\Window.h" />
     <ClInclude Include="src\whippch.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Whip\Render\Camera.cpp" />
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp" />
     <ClCompile Include="src\Platform\OpenGL\OpenGLRenderAPI.cpp" />
     <ClCompile Include="src\Platform\OpenGL\OpenGLVertexArray.cpp" />

@@ -11,6 +11,9 @@ const std::string ShaderSources::VertexSrc =
 		layout(location = 0) in vec3 a_Position;
 		layout(location = 1) in vec4 a_Color;
 
+		uniform mat4 u_view_projection;
+		uniform mat4 u_transform;
+
 		out vec3 v_Position;
 		out vec4 v_Color;
 		
@@ -18,7 +21,7 @@ const std::string ShaderSources::VertexSrc =
 		{
 			v_Position = a_Position;
 			v_Color = a_Color;
-			gl_Position = vec4(a_Position, 1.0);
+			gl_Position = u_view_projection * u_transform * vec4(a_Position, 1.0);
 		}
 	)";
 
@@ -44,12 +47,15 @@ R"(
 
 		layout(location = 0) in vec3 a_Position;
 
+		uniform mat4 u_view_projection;
+		uniform mat4 u_transform;
+		
 		out vec3 v_Position;
 		
 		void main()
 		{
 			v_Position = a_Position;
-			gl_Position = vec4(a_Position, 1.0);
+			gl_Position = u_view_projection * u_transform * vec4(a_Position, 1.0);
 		}
 	)";
 
@@ -63,7 +69,7 @@ R"(
 
 		void main()
 		{
-			color = vec4(0.3, 0.5, 0.7, 1.0);
+			color = vec4(0.4, 0.1, 0.4, 1.0);
 		}
 	)";
 
