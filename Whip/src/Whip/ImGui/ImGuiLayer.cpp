@@ -83,8 +83,6 @@ void ImGuiLayer::OnDetach()
 
 void ImGuiLayer::OnImGuiRender()
 {
-	static bool show = true;
-	ImGui::ShowDemoWindow(&show);
 	ImGui::Begin("Whip Renderer");
 	ImGui::Text("OpenGl Vendor: %s", (const char*)glGetString(GL_VENDOR));
 	ImGui::Text("OpenGl Renderer: %s", (const char*)glGetString(GL_RENDERER));

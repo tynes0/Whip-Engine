@@ -47,6 +47,7 @@ public:
 	WHP_NODISCARD virtual const char* GetName() const = 0;
 	WHP_NODISCARD virtual int GetCategoryFlags() const = 0;
 	WHP_NODISCARD virtual std::string ToString() const { return GetName(); }
+	WHP_NODISCARD Event* get() { return this; }
 
 	WHP_NODISCARD inline bool IsInCategory(event_category category)
 	{
@@ -66,10 +67,9 @@ public:
 	template <class T>
 	bool Dispatch(EventFn<T> func)
 	{
-		;
 		if (m_Event.GetEventType() == T::GetStaticType())
 		{
-			m_Event.Handled = func(*(T*)&m_Event);
+			m_Event.Handled = func(DREF(T*) & m_Event);
 			return true;
 		}
 		return false;

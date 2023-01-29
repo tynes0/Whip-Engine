@@ -16,13 +16,14 @@ IncludeDir["GLFW"] = "Whip/vendor/GLFW/include"
 IncludeDir["Glad"] = "Whip/vendor/Glad/include"
 IncludeDir["ImGui"] = "Whip/vendor/imgui"
 IncludeDir["glm"] = "Whip/vendor/glm"
+IncludeDir["stb_image"] = "Whip/vendor/stb_image"
 
 project "Whip"
 	location "Whip"
 	kind "StaticLib"
 	staticruntime "on"
 	language "C++"
-	cppdialect "C++17"
+	cppdialect "C++20"
 
 	targetdir ("bin/" ..outputdir.. "/%{prj.name}")
 	objdir ("bin-int/" ..outputdir.. "/%{prj.name}")
@@ -33,7 +34,11 @@ project "Whip"
 	files
 	{
 		"%{prj.name}/src/**.h",
-		"%{prj.name}/src/**.cpp"
+		"%{prj.name}/src/**.cpp",
+		"%{prj.name}/vendor/stb_image/**.h",
+		"%{prj.name}/vendor/stb_image/**.cpp",
+		"%{prj.name}/vendor/glm/glm/**.hpp",
+		"%{prj.name}/vendor/glm/glm/**.inl"
 	}
 
 	defines
@@ -49,7 +54,8 @@ project "Whip"
 		"%{IncludeDir.GLFW}",
 		"%{IncludeDir.Glad}",
 		"%{IncludeDir.ImGui}",
-		"%{IncludeDir.glm}"
+		"%{IncludeDir.glm}",
+		"%{IncludeDir.stb_image}"
 	}
 
 	links

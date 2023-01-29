@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Whip/Core.h>
+
 _WHIP_START
 
 enum class ShaderDataType : uint16_t
@@ -43,8 +45,8 @@ struct BufferElement
 {
 	std::string name;
 	ShaderDataType type;
-	uint32_t size;
-	uint32_t offset;
+	uint64_t size;
+	uint64_t offset;
 	bool normalized;
 
 	BufferElement() {}
@@ -80,11 +82,11 @@ class BufferLayout
 	using BufferElementVecConIt = std::vector<BufferElement>::const_iterator;
 private:
 	std::vector<BufferElement> m_Elements;
-	uint32_t m_Stride = 0;
+	uint64_t m_Stride = 0;
 private:
 	void CalculateOffsetsAndStride()
 	{
-		uint32_t offset = 0;
+		uint64_t offset = 0;
 		m_Stride = 0;
 		for (auto& elem : m_Elements)
 		{
@@ -102,7 +104,7 @@ public:
 		CalculateOffsetsAndStride();
 	}
 
-	WHP_NODISCARD inline const uint32_t GetStride() const { return m_Stride; }
+	WHP_NODISCARD inline const uint64_t GetStride() const { return m_Stride; }
 	WHP_NODISCARD inline const std::vector<BufferElement>& getElements() const { return m_Elements; }
 	
 	WHP_NODISCARD BufferElementVecIt begin() { return m_Elements.begin(); }
@@ -122,7 +124,7 @@ public:
 	virtual void SetLayout(const BufferLayout& layout) = 0;
 	virtual const BufferLayout& GetLayout() const = 0;
 	
-	WHP_NODISCARD static VertexBuffer* Create(float* vertices, uint32_t size);
+	WHP_NODISCARD static ref<VertexBuffer> Create(float* vertices, uint32_t size);
 };
 
 class IndexBuffer
@@ -136,7 +138,7 @@ public:
 
 	virtual uint32_t GetCount() const = 0;
 
-	WHP_NODISCARD static IndexBuffer* Create(uint32_t* indices, uint32_t count);
+	WHP_NODISCARD static ref<IndexBuffer> Create(uint32_t* indices, uint32_t count);
 };
 
 

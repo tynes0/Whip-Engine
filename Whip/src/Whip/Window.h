@@ -2,7 +2,6 @@
 
 #include <whippch.h>
 
-#include <Whip/Core.h>
 #include <Whip/Events/Event.h>
 
 

@@ -13,7 +13,7 @@ void Log::init()
 	SET_LOG(s_client_logger, "Client", whp_trace);
 }
 
-WHP_NODISCARD spdlog::level::level_enum Log::whip_log_level_to_spdlog_level(whip_log_level log_level)
+spdlog::level::level_enum Log::whip_log_level_to_spdlog_level(whip_log_level log_level)
 {
 	switch (log_level)
 	{

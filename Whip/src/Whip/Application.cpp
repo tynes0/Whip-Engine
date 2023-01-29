@@ -22,6 +22,13 @@ Application::~Application()
 {
 
 }
+void swapx(int& t, int& y)
+{
+	int& u = t;
+	t = y;
+	y = u;
+}
+
 
 void Application::Run()
 {
@@ -30,7 +37,7 @@ void Application::Run()
 		float time = (float)glfwGetTime();
 		timestep ts = time - m_last_frame_time;
 		m_last_frame_time = time;
-
+		//WHP_CORE_DEBUG("Delta time = {0}s ({1}ms)", ts, ts.get_milliseconds());
 		for (layerptr item : m_LayerStack)
 		{
 			item->OnUpdate(ts);
@@ -54,7 +61,7 @@ void Application::OnEvent(Event& e)
 
 	for (auto iter = m_LayerStack.end(); iter != m_LayerStack.begin(); )
 	{
-		(*--iter)->OnEvent(e);
+		(DREF(--iter))->OnEvent(e);
 		if (e.Handled)
 		{
 			break;

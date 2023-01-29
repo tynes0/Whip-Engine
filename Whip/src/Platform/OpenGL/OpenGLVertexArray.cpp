@@ -47,26 +47,25 @@ void OpenGLVertexArray::Unbind() const
 	glBindVertexArray(0);
 }
 
-void OpenGLVertexArray::AddVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer)
+void OpenGLVertexArray::AddVertexBuffer(const ref<VertexBuffer>& vertexBuffer)
 {
 	WHP_CORE_ASSERT(vertexBuffer->GetLayout().getElements().size(), "Vertex Buffer has no layout");
 	
 	glBindVertexArray(m_RendererID);
 	vertexBuffer->Bind();
 
-
 	uint32_t index = 0;
 	for (const auto& elem : vertexBuffer->GetLayout())
 	{
 		glEnableVertexAttribArray(index);
-		glVertexAttribPointer(index, elem.GetComponentCount(), ShaderDataTypeToOpenGLBaseType(elem.type), elem.normalized ? GL_TRUE : GL_FALSE, vertexBuffer->GetLayout().GetStride(), (const void*)elem.offset);
+		glVertexAttribPointer(index, elem.GetComponentCount(), ShaderDataTypeToOpenGLBaseType(elem.type), elem.normalized ? GL_TRUE : GL_FALSE, (GLsizei)vertexBuffer->GetLayout().GetStride(), (const void*)elem.offset);
 		index++;
 	}
 
 	m_VertexBuffers.push_back(vertexBuffer);
 }
 
-void OpenGLVertexArray::SetIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer)
+void OpenGLVertexArray::SetIndexBuffer(const ref<IndexBuffer>& indexBuffer)
 {
 	glBindVertexArray(m_RendererID);
 	indexBuffer->Bind();

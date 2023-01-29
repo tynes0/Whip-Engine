@@ -39,20 +39,20 @@ public:
 _WHIP_END
 
 // Core log macros
-#define WHP_CORE_TRACE(...)				WHP_LOG get_core_logger()->trace(__VA_ARGS__)
-#define WHP_CORE_DEBUG(...)				WHP_LOG get_core_logger()->debug(__VA_ARGS__)
-#define WHP_CORE_INFO(...)				WHP_LOG get_core_logger()->info(__VA_ARGS__)
-#define WHP_CORE_WARN(...)				WHP_LOG get_core_logger()->warn(__VA_ARGS__)
-#define WHP_CORE_ERROR(...)				WHP_LOG get_core_logger()->error(__VA_ARGS__)
-#define WHP_CORE_CRITICAL(...)			WHP_LOG get_core_logger()->critical(__VA_ARGS__)
+#define WHP_CORE_TRACE(...)				::Whip::Log::get_core_logger()->trace(__VA_ARGS__)
+#define WHP_CORE_DEBUG(...)				::Whip::Log::get_core_logger()->debug(__VA_ARGS__)
+#define WHP_CORE_INFO(...)				::Whip::Log::get_core_logger()->info(__VA_ARGS__)
+#define WHP_CORE_WARN(...)				::Whip::Log::get_core_logger()->warn(__VA_ARGS__)
+#define WHP_CORE_ERROR(...)				::Whip::Log::get_core_logger()->error(__VA_ARGS__)
+#define WHP_CORE_CRITICAL(...)			::Whip::Log::get_core_logger()->critical(__VA_ARGS__)
 
 // Client log macros
-#define WHP_CLIENT_TRACE(...)			WHP_LOG get_client_logger()->trace(__VA_ARGS__)
-#define WHP_CLIENT_DEBUG(...)			WHP_LOG get_client_logger()->debug(__VA_ARGS__)
-#define WHP_CLIENT_INFO(...)			WHP_LOG get_client_logger()->info(__VA_ARGS__)
-#define WHP_CLIENT_WARN(...)			WHP_LOG get_client_logger()->warn(__VA_ARGS__)
-#define WHP_CLIENT_ERROR(...)			WHP_LOG get_client_logger()->error(__VA_ARGS__)
-#define WHP_CLIENT_CRITICAL(...)		WHP_LOG get_client_logger()->critical(__VA_ARGS__)
+#define WHP_CLIENT_TRACE(...)			::Whip::Log::get_client_logger()->trace(__VA_ARGS__)
+#define WHP_CLIENT_DEBUG(...)			::Whip::Log::get_client_logger()->debug(__VA_ARGS__)
+#define WHP_CLIENT_INFO(...)			::Whip::Log::get_client_logger()->info(__VA_ARGS__)
+#define WHP_CLIENT_WARN(...)			::Whip::Log::get_client_logger()->warn(__VA_ARGS__)
+#define WHP_CLIENT_ERROR(...)			::Whip::Log::get_client_logger()->error(__VA_ARGS__)
+#define WHP_CLIENT_CRITICAL(...)		::Whip::Log::get_client_logger()->critical(__VA_ARGS__)
 
 // Empty log macros
 #define WHP_LOG_TRACE(logger, ...)		logger->trace(__VA_ARGS__)

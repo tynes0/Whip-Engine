@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Whip/Core.h>
+
 #include <glm/glm.hpp>
 
 _WHIP_START

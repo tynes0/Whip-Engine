@@ -23,9 +23,10 @@
 #include <Whip/Render/Renderer.h>
 #include <Whip/Render/RenderCommand.h>
 
-// Whip shaderr - buffer - vertexArray
-#include <Whip/Render/Shader.h>
+// Whip shader - texture - buffer - vertexArray
 #include <Whip/Render/Buffer.h>
+#include <Whip/Render/Shader.h>
+#include <Whip/Render/Texture.h>
 #include <Whip/Render/VertexArray.h>
 
 // Whip camera

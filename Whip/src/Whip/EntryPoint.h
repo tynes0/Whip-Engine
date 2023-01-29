@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Whip/Core.h>
+
 #ifdef WHP_PLATFORM_WINDOWS
 
 extern Whip::Application* Whip::CreateApplication();

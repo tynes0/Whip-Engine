@@ -19,7 +19,7 @@ public:
 	virtual const std::vector<std::shared_ptr<VertexBuffer>>& GetVertexBuffers() const = 0;
 	virtual const std::shared_ptr<IndexBuffer>& GetIndexBuffer() const = 0;
 
-	WHP_NODISCARD static VertexArray* Create();
+	WHP_NODISCARD static ref<VertexArray> Create();
 };
 
 _WHIP_END

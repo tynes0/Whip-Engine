@@ -7,24 +7,24 @@
 _WHIP_START
 
 
-VertexBuffer* VertexBuffer::Create(float* vertices, uint32_t size)
+ref<VertexBuffer> VertexBuffer::Create(float* vertices, uint32_t size)
 {
 	switch (Renderer::GetAPI())
 	{
 		case RenderAPI::API::None:			WHP_CORE_ASSERT(false, "RendererAPI is none!"); return nullptr;
-		case RenderAPI::API::OpenGL:		return new OpenGLVertexBuffer(vertices, size);
+		case RenderAPI::API::OpenGL:		return make_ref<OpenGLVertexBuffer>(vertices, size);
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI!");
 	return nullptr;
 }
 
-IndexBuffer* IndexBuffer::Create(uint32_t* indices, uint32_t size)
+ref<IndexBuffer> IndexBuffer::Create(uint32_t* indices, uint32_t size)
 {
 	switch (Renderer::GetAPI())
 	{
 	case RenderAPI::API::None:			WHP_CORE_ASSERT(false, "RendererAPI is none!"); return nullptr;
-	case RenderAPI::API::OpenGL:		return new OpenGLIndexBuffer(indices, size);
+	case RenderAPI::API::OpenGL:		return make_ref<OpenGLIndexBuffer>(indices, size);
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI!");
