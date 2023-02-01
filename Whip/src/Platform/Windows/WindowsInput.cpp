@@ -36,12 +36,12 @@ WHP_NODISCARD float WindowsInput::getMousePosYImpl()
 	return PosY;
 }
 
-WHP_NODISCARD std::pair<float, float> WindowsInput::getMousePosImpl()
+WHP_NODISCARD pair<float, float> WindowsInput::getMousePosImpl()
 {
 	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().get_native_window());
 	double PosX, PosY;
 	glfwGetCursorPos(window, &PosX, &PosY);
-	return { PosX, PosY };
+	return { (float)PosX, (float)PosY };
 }
 
 _WHIP_END

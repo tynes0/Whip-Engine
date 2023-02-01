@@ -17,13 +17,27 @@ OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
 	m_width = width;
 	m_height = height;
 
+	GLenum internal_format = 0, data_format = 0;
+	if (channels == 4)
+	{
+		internal_format = GL_RGBA8;
+		data_format = GL_RGBA;
+	}
+	else if (channels == 3)
+	{
+		internal_format = GL_RGB8;
+		data_format = GL_RGB;
+	}
+
+	WHP_CORE_ASSERT(internal_format && data_format, "Format not supported!");
+
 	glCreateTextures(GL_TEXTURE_2D, 1, &m_rendererID);
-	glTextureStorage2D(m_rendererID, 1, GL_RGBA8, m_width, m_height);
+	glTextureStorage2D(m_rendererID, 1, internal_format, m_width, m_height);
 
 	glTextureParameteri(m_rendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTextureParameteri(m_rendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	glTextureSubImage2D(m_rendererID, 0, 0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glTextureSubImage2D(m_rendererID, 0, 0, 0, m_width, m_height, data_format, GL_UNSIGNED_BYTE, data);
 
 	stbi_image_free(data);
 }

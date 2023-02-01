@@ -4,14 +4,23 @@
 
 #include <glm/glm.hpp>
 
+//temp
+typedef unsigned int GLenum;
+
 _WHIP_START
 
 class OpenGLShader : public Shader
 {
 private:
 	renderer_id_t m_RendererID;
+private:
+	std::string read_file(const std::string& filepath);
+	std::unordered_map<GLenum, std::string> pre_process(const std::string& source);
+	void compile(const std::unordered_map<GLenum, std::string>& shader_sources);
 public:
-	OpenGLShader(const std::string& vertexSrc, const std::string& fragmentSrc);
+	OpenGLShader(const std::string& filepath);
+	OpenGLShader(const std::string& vertexSrc, const std::string& fragmentSrc, short _Test);
+	OpenGLShader(const std::string& vertex_filepath, const std::string& fragment_filepath);
 	virtual ~OpenGLShader();
 
 	virtual void Bind() const override;

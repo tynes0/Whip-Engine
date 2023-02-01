@@ -44,6 +44,7 @@ public:
 			-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
 			 0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f
 		};
+
 		uint32_t indicies[3] = { 0,1,2 };
 
 		Whip::BufferLayout layout =
@@ -53,11 +54,11 @@ public:
 		};
 
 		m_VertexArray = Whip::VertexArray::Create();
-		std::shared_ptr<Whip::VertexBuffer> vertexBuffer;
+		Whip::ref<Whip::VertexBuffer> vertexBuffer;
 		vertexBuffer = Whip::VertexBuffer::Create(vertices, sizeof(vertices));
 		vertexBuffer->SetLayout(layout);
 		m_VertexArray->AddVertexBuffer(vertexBuffer);
-		std::shared_ptr<Whip::IndexBuffer> indexBuffer;
+		Whip::ref<Whip::IndexBuffer> indexBuffer;
 		indexBuffer = Whip::IndexBuffer::Create(indicies, sizeof(indicies) / sizeof(uint32_t));
 		m_VertexArray->SetIndexBuffer(indexBuffer);
 
@@ -73,26 +74,27 @@ public:
 		uint32_t squareIndicies[6] = { 0,1,2,2,3,0 };
 
 		m_SquareVertexArray = Whip::VertexArray::Create();
-		std::shared_ptr<Whip::VertexBuffer> squareVertexBuffer;
+		Whip::ref<Whip::VertexBuffer> squareVertexBuffer;
 		squareVertexBuffer = Whip::VertexBuffer::Create(SquareVertices, sizeof(SquareVertices));
 		squareVertexBuffer->SetLayout({
 			{Whip::ShaderDataType::Float3, "a_Position"},
 			{Whip::ShaderDataType::Float2, "a_texture_coord"}
 			});
 		m_SquareVertexArray->AddVertexBuffer(squareVertexBuffer);
-		std::shared_ptr<Whip::IndexBuffer> squareIndexBuffer;
+		Whip::ref<Whip::IndexBuffer> squareIndexBuffer;
 		squareIndexBuffer = Whip::IndexBuffer::Create(squareIndicies, sizeof(squareIndicies) / sizeof(uint32_t));
 		m_SquareVertexArray->SetIndexBuffer(squareIndexBuffer);
 
 		/////////////////////////////////////////////
-		m_Shader = Whip::Shader::create(WHP_VERTEX_SRC, WHP_FRAGMENT_SRC);
-		m_SquareShader = Whip::Shader::create(WHP_SECOND_VERTEX_SRC, WHP_SECOND_FRAGMENT_SRC);
-		m_texture_shader = Whip::Shader::create(WHP_THIRD_VERTEX_SRC, WHP_THIRD_FRAGMENT_SRC);
-		m_texture = Whip::Texture2D::create("assets/textures/test3.png");
+		m_Shader = Whip::Shader::create(WHP_VERTEX_SRC, WHP_FRAGMENT_SRC, 0);
+		m_SquareShader = Whip::Shader::create("C:\\Dev\\Whip\\F-Box\\assets\\shaders\\square_vertex_shader.glsl", "C:\\Dev\\Whip\\F-Box\\assets\\shaders\\square_fragment_shader.glsl");
+
+		m_texture_shader = Whip::Shader::create("C:\\Dev\\Whip\\F-Box\\assets\\shaders\\texture.glsl");
+		m_texture = Whip::Texture2D::create("C:\\Dev\\Whip\\F-Box\\assets\\textures\\test3.png");
 
 		std::dynamic_pointer_cast<Whip::OpenGLShader>(m_texture_shader)->Bind();
 		std::dynamic_pointer_cast<Whip::OpenGLShader>(m_texture_shader)->upload_uniform_int("u_texture", 0);
-	}
+	} 
 
 	void OnUpdate(Whip::timestep ts) override
 	{

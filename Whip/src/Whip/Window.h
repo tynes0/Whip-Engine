@@ -16,7 +16,6 @@ struct window_props
 
 	window_props(const std::string& title = "Whip Engine", unsigned int width = 1280, unsigned int height = 720)
 		: Title(title), Width(width), Height(height) {}
-
 };
 
 // interface representing a desktop system  based window

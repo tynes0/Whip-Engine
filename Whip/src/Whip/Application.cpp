@@ -1,6 +1,8 @@
 #include <whippch.h>
 #include <Whip/Application.h>
 
+#include <Whip/Render/Renderer.h>
+
 #include <GLFW/glfw3.h>
 
 _WHIP_START
@@ -11,9 +13,12 @@ Application::Application()
 {
 	WHP_CORE_ASSERT(!s_Instance, "Application already exist!");
 	s_Instance = this;
-	m_Window = std::unique_ptr<Window>(Window::create());
+	m_Window = scope<Window>(Window::create());
 	m_Window->set_event_callback(WHP_BIND_EVENT_FN(Application::OnEvent));
 	m_Window->set_event_callback(std::bind(&Application::OnEvent, this, std::placeholders::_1));
+
+	Renderer::init();
+
 	m_ImGuiLayer = new ImGuiLayer();
 	PushOverlay(m_ImGuiLayer);
 }
@@ -22,13 +27,6 @@ Application::~Application()
 {
 
 }
-void swapx(int& t, int& y)
-{
-	int& u = t;
-	t = y;
-	y = u;
-}
-
 
 void Application::Run()
 {
