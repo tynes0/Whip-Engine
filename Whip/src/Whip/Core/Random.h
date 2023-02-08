@@ -1,11 +1,11 @@
 #pragma once
 
 #include <random>
-#include <Whip/Core.h>
+#include <Whip/Core/Core.h>
 
 _WHIP_START
 
-class WHIP_API Random
+class WHIP_API random
 {
 private:
 	template <typename T>
@@ -36,7 +36,7 @@ public:
 };
 
 template<typename T>
-WHP_NODISCARD inline T Random::int_type_randomizer(T min_val, T max_val)
+WHP_NODISCARD inline T random::int_type_randomizer(T min_val, T max_val)
 {
 	if (min_val > max_val) { return 0; }
 	std::random_device rd;
@@ -46,7 +46,7 @@ WHP_NODISCARD inline T Random::int_type_randomizer(T min_val, T max_val)
 }
 
 template<typename T>
-WHP_NODISCARD inline T Random::real_type_randomizer(T min_val, T max_val)
+WHP_NODISCARD inline T random::real_type_randomizer(T min_val, T max_val)
 {
 	if (min_val > max_val) { return 0; }
 	std::random_device rd;

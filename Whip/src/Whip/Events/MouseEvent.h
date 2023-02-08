@@ -4,86 +4,86 @@
 
 _WHIP_START
 
-class WHIP_API MouseMovedEvent : public Event
+class mouse_moved_event : public Event
 {
 private:
-	float m_MouseX, m_MouseY;
+	float m_mouse_x, m_mouse_y;
 public:
-	MouseMovedEvent(float x, float y) : m_MouseX(x), m_MouseY(y) {}
+	mouse_moved_event(float x, float y) : m_mouse_x(x), m_mouse_y(y) {}
 
-	WHP_NODISCARD inline float GetX() const { return m_MouseX; }
-	WHP_NODISCARD inline float GetY() const { return m_MouseY; }
+	WHP_NODISCARD inline float get_x() const { return m_mouse_x; }
+	WHP_NODISCARD inline float get_y() const { return m_mouse_y; }
 
 	EVENT_TO_STRING
 	{
 		std::stringstream ss;
-		ss << "MouseMovedEvent: " << m_MouseX << ", " << m_MouseY;
+		ss << "mouse_moved_event: " << m_mouse_x << ", " << m_mouse_y;
 		return ss.str();
 	}
-	EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput)
-	EVENT_CLASS_TYPE(MouseMoved)
+	EVENT_CLASS_CATEGORY(event_category_mouse | event_category_input)
+	EVENT_CLASS_TYPE(mouse_moved)
 };
 
-class WHIP_API MouseScrolledEvent : public Event
+class mouse_scrolled_event : public Event
 {
 private:
-	float m_OffsetX, m_OffsetY;
+	float m_offset_x, m_offset_y;
 public:
-	MouseScrolledEvent(float OffsetX, float OffsetY) : m_OffsetX(OffsetX), m_OffsetY(OffsetY) {}
+	mouse_scrolled_event(float offset_x, float offset_y) : m_offset_x(offset_x), m_offset_y(offset_y) {}
 
-	WHP_NODISCARD inline float GetOffsetX() const { return m_OffsetX; }
-	WHP_NODISCARD inline float GetOffsetY() const { return m_OffsetY; }
+	WHP_NODISCARD inline float get_offset_x() const { return m_offset_x; }
+	WHP_NODISCARD inline float get_offset_y() const { return m_offset_y; }
 
 	EVENT_TO_STRING
 	{
 		std::stringstream ss;
-		ss << "MouseScrolledEvent: " << m_OffsetX << ", " << m_OffsetY;
+		ss << "mouse_scrolled_event: " << m_offset_x << ", " << m_offset_y;
 		return ss.str();
 	}
 
-	EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput)
-	EVENT_CLASS_TYPE(MouseScrolled)
+	EVENT_CLASS_CATEGORY(event_category_mouse | event_category_input)
+	EVENT_CLASS_TYPE(mouse_scrolled)
 };
 
-class WHIP_API MouseButtonEvent : public Event
+class mouse_button_event : public Event
 {
 protected:
-	int m_Button;
+	int m_button;
 
-	MouseButtonEvent(int button) : m_Button(button) {}
+	mouse_button_event(int button) : m_button(button) {}
 public:
-	WHP_NODISCARD inline int GetMouseButton() const { return m_Button; }
-	EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput | EventCategoryMouseButton)
+	WHP_NODISCARD inline int get_mouse_button() const { return m_button; }
+	EVENT_CLASS_CATEGORY(event_category_mouse | event_category_input | event_category_mouse_button)
 };
 
-class WHIP_API MouseButtonPressedEvent : public MouseButtonEvent
+class mouse_button_pressed_event : public mouse_button_event
 {
 public:
-	MouseButtonPressedEvent(int button) : MouseButtonEvent(button) {}
+	mouse_button_pressed_event(int button) : mouse_button_event(button) {}
 
 	EVENT_TO_STRING
 	{
 		std::stringstream ss;
-		ss << "MouseButtonPressedEvent: " << m_Button;
+		ss << "mouse_button_pressed_event: " << m_button;
 		return ss.str();
 	}
 
-	EVENT_CLASS_TYPE(MouseButtonPressed)
+	EVENT_CLASS_TYPE(mouse_button_pressed)
 };
 
-class WHIP_API MouseButtonReleasedEvent : public MouseButtonEvent
+class mouse_button_released_event : public mouse_button_event
 {
 public:
-	MouseButtonReleasedEvent(int button) : MouseButtonEvent(button) {}
+	mouse_button_released_event(int button) : mouse_button_event(button) {}
 
 	EVENT_TO_STRING
 	{
 		std::stringstream ss;
-		ss << "MouseButtonReleasedEvent: " << m_Button;
+		ss << "mouse_button_released_event: " << m_button;
 		return ss.str();
 	}
 	
-	EVENT_CLASS_TYPE(MouseButtonReleased)
+	EVENT_CLASS_TYPE(mouse_button_released)
 };
 
 _WHIP_END

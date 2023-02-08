@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Whip/Layer.h>
+#include <Whip/Core/Layer.h>
 
 #include <Whip/Events/MouseEvent.h>
 #include <Whip/Events/KeyEvent.h>
@@ -8,20 +8,20 @@
 
 _WHIP_START
 
-class WHIP_API ImGuiLayer : public Layer
+class imgui_layer : public layer
 {
 private:
 	float m_Time = 0;
 public:
-	ImGuiLayer();
-	~ImGuiLayer();
+	imgui_layer();
+	~imgui_layer();
 
 	void begin();
 	void end();
 
-	virtual void OnAttach() override;
-	virtual void OnDetach() override;
-	virtual void OnImGuiRender() override;
+	virtual void on_attach() override;
+	virtual void on_detach() override;
+	virtual void on_imgui_render() override;
 
 };
 

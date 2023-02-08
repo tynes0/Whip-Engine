@@ -1,19 +1,19 @@
-#include <whippch.h>
-#include <Whip/Log.h>
+#include "whippch.h"
+#include "Log.h"
 
 _WHIP_START
 
-std::shared_ptr<spdlog::logger> Log::s_core_logger;
-std::shared_ptr<spdlog::logger> Log::s_client_logger;
+std::shared_ptr<spdlog::logger> log::s_core_logger;
+std::shared_ptr<spdlog::logger> log::s_client_logger;
 
-void Log::init()
+void log::init()
 {
 	spdlog::set_pattern("%^[%T] %n: %v%$");
 	SET_LOG(s_core_logger, "WHIP ENGINE", whp_trace);
 	SET_LOG(s_client_logger, "Client", whp_trace);
 }
 
-spdlog::level::level_enum Log::whip_log_level_to_spdlog_level(whip_log_level log_level)
+spdlog::level::level_enum log::whip_log_level_to_spdlog_level(whip_log_level log_level)
 {
 	switch (log_level)
 	{

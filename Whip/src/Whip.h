@@ -3,10 +3,10 @@
 #define _WHIP_
 
 // Whip application
-#include <Whip/Application.h>
+#include <Whip/Core/Application.h>
 
 // Whip logging system
-#include <Whip/Log.h>
+#include <Whip/Core/Log.h>
 
 // Layer stuff and imGui layer
 #include <Whip/ImGui/ImGuiLayer.h>
@@ -15,9 +15,9 @@
 #include <Whip/Core/Timestep.h>
 
 // input stuff
-#include <Whip/Input.h>
-#include <Whip/KeyCodes.h>
-#include <Whip/MouseButtonCodes.h>
+#include <Whip/Core/Input.h>
+#include <Whip/Core/KeyCodes.h>
+#include <Whip/Core/MouseButtonCodes.h>
 
 // -------- Whip render works ----------
 #include <Whip/Render/Renderer.h>
@@ -31,16 +31,14 @@
 
 // Whip camera
 #include <Whip/Render/Camera.h>
+#include <Whip/Render/OrthographicCameraController.h>
 // -------------------------------------
 
 // random class 
-#include <Whip/Random.h>
+#include <Whip/Core/Random.h>
 
 // ----- Giris Noktasi -----
-#include <Whip/EntryPoint.h>
+#include <Whip/Core/EntryPoint.h>
 // -------------------------
-
-// TEMPORARY
-#include <Whip/Render/ShaderSources/ShaderSources.h>
 
 #endif // ! _WHIP_

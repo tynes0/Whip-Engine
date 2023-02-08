@@ -4,7 +4,7 @@
 
 _WHIP_START
 
-class OpenGLTexture2D : public Texture2D
+class opengl_texture2D : public texture2D
 {
 private:
 	std::string	m_path;
@@ -12,11 +12,11 @@ private:
 	uint32_t m_height = 0;
 	renderer_id_t m_rendererID = 0;
 public:
-	OpenGLTexture2D(const std::string& path);
-	virtual ~OpenGLTexture2D();
+	opengl_texture2D(const std::string& path);
+	virtual ~opengl_texture2D();
 
-	virtual uint32_t get_width() const override { return m_width; }
-	virtual uint32_t get_height() const override { return m_height; }
+	WHP_NODISCARD virtual uint32_t get_width() const override { return m_width; }
+	WHP_NODISCARD virtual uint32_t get_height() const override { return m_height; }
 	virtual void bind(uint32_t slot = 0) const override;
 };
 

@@ -7,65 +7,65 @@ _WHIP_START
 // repeat_time type
 using repeat_t = unsigned long long;
 
-class WHIP_API KeyEvent : public Event
+class key_event : public Event
 {
 protected:
-	KeyEvent(int keycode) : m_KeyCode(keycode) {}
+	key_event(int keycode) : m_key_code(keycode) {}
 
-	int m_KeyCode;
+	int m_key_code;
 public:
-	WHP_NODISCARD inline int GetKeycode() const { return m_KeyCode; }
-	EVENT_CLASS_CATEGORY(EventCategoryKeyboard | EventCategoryInput)
+	WHP_NODISCARD inline int get_keycode() const { return m_key_code; }
+	EVENT_CLASS_CATEGORY(event_category_keyboard | event_category_input)
 };
 
-class WHIP_API KeyPressedEvent : public KeyEvent
+class key_pressed_event : public key_event
 {
 private:
-	repeat_t m_RepeatCount;
+	repeat_t m_repeat_count;
 public:
-	KeyPressedEvent(int keycode, repeat_t repeatCount)
-		: KeyEvent(keycode), m_RepeatCount(repeatCount) {}
+	key_pressed_event(int keycode, repeat_t repeatCount)
+		: key_event(keycode), m_repeat_count(repeatCount) {}
 
-	WHP_NODISCARD inline repeat_t GetRepeatCount() const { return m_RepeatCount; }
+	WHP_NODISCARD inline repeat_t get_repeat_count() const { return m_repeat_count; }
 
 	EVENT_TO_STRING
 	{
 		std::stringstream ss;
-		ss << "KeyPressedEvent: " << m_KeyCode << " (" << m_RepeatCount << " repeats)";
+		ss << "key_pressed_event: " << m_key_code << " (" << m_repeat_count << " repeats)";
 		return ss.str();
 	}
 
-	EVENT_CLASS_TYPE(KeyPressed)
+	EVENT_CLASS_TYPE(key_pressed)
 };
 
-class WHIP_API KeyReleasedEvent : public KeyEvent
+class key_released_event : public key_event
 {
 public:
-	KeyReleasedEvent(int keycode) : KeyEvent(keycode) {}
+	key_released_event(int keycode) : key_event(keycode) {}
 
 	EVENT_TO_STRING
 	{
 		std::stringstream ss;
-		ss << "KeyReleasedEvent: " << m_KeyCode;
+		ss << "key_released_event: " << m_key_code;
 		return ss.str();
 	}
 
-	EVENT_CLASS_TYPE(KeyReleased)
+	EVENT_CLASS_TYPE(key_released)
 };
 
-class WHIP_API KeyTypedEvent : public KeyEvent
+class key_typed_event : public key_event
 {
 public:
-	KeyTypedEvent(int keycode) : KeyEvent(keycode) {}
+	key_typed_event(int keycode) : key_event(keycode) {}
 
 	EVENT_TO_STRING
 	{
 		std::stringstream ss;
-		ss << "KeyTypedEvent: " << m_KeyCode;
+		ss << "key_typed_event: " << m_key_code;
 		return ss.str();
 	}
 
-		EVENT_CLASS_TYPE(KeyTyped)
+		EVENT_CLASS_TYPE(key_typed)
 };
 
 _WHIP_END

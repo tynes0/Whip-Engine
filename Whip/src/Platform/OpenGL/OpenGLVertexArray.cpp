@@ -6,70 +6,70 @@
 
 _WHIP_START
 
-static GLenum ShaderDataTypeToOpenGLBaseType(ShaderDataType type)
+static GLenum shader_data_type_to_opengl_base_type(shader_data_type type)
 {
 	switch (type)
 	{
-		case Whip::ShaderDataType::None:		WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
-		case Whip::ShaderDataType::Float:		return GL_FLOAT;
-		case Whip::ShaderDataType::Float2:		return GL_FLOAT;
-		case Whip::ShaderDataType::Float3:		return GL_FLOAT;
-		case Whip::ShaderDataType::Float4:		return GL_FLOAT;
-		case Whip::ShaderDataType::Mat3:		return GL_FLOAT;
-		case Whip::ShaderDataType::Mat4:		return GL_FLOAT;
-		case Whip::ShaderDataType::Bool:		return GL_BOOL;
-		case Whip::ShaderDataType::Int:			return GL_INT;
-		case Whip::ShaderDataType::Int2:		return GL_INT;
-		case Whip::ShaderDataType::Int3:		return GL_INT;
-		case Whip::ShaderDataType::Int4:		return GL_INT;
+		case whip::shader_data_type::none:			WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
+		case whip::shader_data_type::Float:			return GL_FLOAT;
+		case whip::shader_data_type::Float2:		return GL_FLOAT;
+		case whip::shader_data_type::Float3:		return GL_FLOAT;
+		case whip::shader_data_type::Float4:		return GL_FLOAT;
+		case whip::shader_data_type::Mat3:			return GL_FLOAT;
+		case whip::shader_data_type::Mat4:			return GL_FLOAT;
+		case whip::shader_data_type::Bool:			return GL_BOOL;
+		case whip::shader_data_type::Int:			return GL_INT;
+		case whip::shader_data_type::Int2:			return GL_INT;
+		case whip::shader_data_type::Int3:			return GL_INT;
+		case whip::shader_data_type::Int4:			return GL_INT;
 	}
 	WHP_CORE_ASSERT(false, "Unknown ShaderDataType!");
 	return 0;
 }
 
-OpenGLVertexArray::OpenGLVertexArray()
+opengl_vertex_array::opengl_vertex_array()
 {
-	glCreateVertexArrays(1, &m_RendererID);
+	glCreateVertexArrays(1, &m_rendererID);
 }
 
-OpenGLVertexArray::~OpenGLVertexArray()
+opengl_vertex_array::~opengl_vertex_array()
 {
-	glDeleteVertexArrays(1, &m_RendererID);
+	glDeleteVertexArrays(1, &m_rendererID);
 }
 
-void OpenGLVertexArray::Bind() const
+void opengl_vertex_array::bind() const
 {
-	glBindVertexArray(m_RendererID);
+	glBindVertexArray(m_rendererID);
 }
 
-void OpenGLVertexArray::Unbind() const
+void opengl_vertex_array::unbind() const
 {
 	glBindVertexArray(0);
 }
 
-void OpenGLVertexArray::AddVertexBuffer(const ref<VertexBuffer>& vertexBuffer)
+void opengl_vertex_array::add_vertex_buffer(const ref<vertex_buffer>& vertexBuffer)
 {
-	WHP_CORE_ASSERT(vertexBuffer->GetLayout().getElements().size(), "Vertex Buffer has no layout");
+	WHP_CORE_ASSERT(vertexBuffer->get_layout().get_elements().size(), "Vertex Buffer has no layout");
 	
-	glBindVertexArray(m_RendererID);
-	vertexBuffer->Bind();
+	glBindVertexArray(m_rendererID);
+	vertexBuffer->bind();
 
 	uint32_t index = 0;
-	for (const auto& elem : vertexBuffer->GetLayout())
+	for (const auto& elem : vertexBuffer->get_layout())
 	{
 		glEnableVertexAttribArray(index);
-		glVertexAttribPointer(index, elem.GetComponentCount(), ShaderDataTypeToOpenGLBaseType(elem.type), elem.normalized ? GL_TRUE : GL_FALSE, (GLsizei)vertexBuffer->GetLayout().GetStride(), (const void*)elem.offset);
+		glVertexAttribPointer(index, elem.get_component_count(), shader_data_type_to_opengl_base_type(elem.type), elem.normalized ? GL_TRUE : GL_FALSE, (GLsizei)vertexBuffer->get_layout().get_stride(), (const void*)elem.offset);
 		index++;
 	}
 
-	m_VertexBuffers.push_back(vertexBuffer);
+	m_vertex_buffers.push_back(vertexBuffer);
 }
 
-void OpenGLVertexArray::SetIndexBuffer(const ref<IndexBuffer>& indexBuffer)
+void opengl_vertex_array::set_index_buffer(const ref<index_buffer>& indexBuffer)
 {
-	glBindVertexArray(m_RendererID);
-	indexBuffer->Bind();
-	m_IndexBuffer = indexBuffer;
+	glBindVertexArray(m_rendererID);
+	indexBuffer->bind();
+	m_index_buffers = indexBuffer;
 }
 
 

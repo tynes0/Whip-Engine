@@ -1,12 +1,12 @@
 #pragma once
 
-#include <Whip/Core.h>
+#include <Whip/Core/Core.h>
 
 _WHIP_START
 
-enum class ShaderDataType : uint16_t
+enum class shader_data_type : uint16_t
 {
-	None = 0,
+	none = 0,
 	Float,
 	Float2,
 	Float3,
@@ -20,125 +20,125 @@ enum class ShaderDataType : uint16_t
 	Int4,
 };
 
-WHP_NODISCARD static uint32_t ShaderDataTypeSize(ShaderDataType type)
+WHP_NODISCARD static uint32_t shader_data_type_size(shader_data_type type)
 {
 	switch (type)
 	{
-		case Whip::ShaderDataType::None:		WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
-		case Whip::ShaderDataType::Float:		return sizeof(float);
-		case Whip::ShaderDataType::Float2:		return sizeof(float) * 2;
-		case Whip::ShaderDataType::Float3:		return sizeof(float) * 3;
-		case Whip::ShaderDataType::Float4:		return sizeof(float) * 4;
-		case Whip::ShaderDataType::Mat3:		return sizeof(float) * 3 * 3;
-		case Whip::ShaderDataType::Mat4:		return sizeof(float) * 4 * 4;
-		case Whip::ShaderDataType::Bool:		return sizeof(bool);
-		case Whip::ShaderDataType::Int:			return sizeof(int);
-		case Whip::ShaderDataType::Int2:		return sizeof(int) * 2;
-		case Whip::ShaderDataType::Int3:		return sizeof(int) * 3;
-		case Whip::ShaderDataType::Int4:		return sizeof(int) * 4;
+		case whip::shader_data_type::none:			WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
+		case whip::shader_data_type::Float:			return sizeof(float);
+		case whip::shader_data_type::Float2:		return sizeof(float) * 2;
+		case whip::shader_data_type::Float3:		return sizeof(float) * 3;
+		case whip::shader_data_type::Float4:		return sizeof(float) * 4;
+		case whip::shader_data_type::Mat3:			return sizeof(float) * 3 * 3;
+		case whip::shader_data_type::Mat4:			return sizeof(float) * 4 * 4;
+		case whip::shader_data_type::Bool:			return sizeof(bool);
+		case whip::shader_data_type::Int:			return sizeof(int);
+		case whip::shader_data_type::Int2:			return sizeof(int) * 2;
+		case whip::shader_data_type::Int3:			return sizeof(int) * 3;
+		case whip::shader_data_type::Int4:			return sizeof(int) * 4;
 	}
-	WHP_CORE_ASSERT(false, "Unknown ShaderDataType!");
+	WHP_CORE_ASSERT(false, "Unknown shader_data_type!");
 	return 0;
 }
 
-struct BufferElement
+struct buffer_element
 {
 	std::string name;
-	ShaderDataType type;
+	shader_data_type type;
 	uint64_t size;
 	uint64_t offset;
 	bool normalized;
 
-	BufferElement() {}
+	buffer_element() {}
 	
-	BufferElement(ShaderDataType type_in, const std::string& name_in, bool normalized_in = false)
-		: name(name_in), type(type_in), size(ShaderDataTypeSize(type_in)), offset(0), normalized(normalized_in) {}
+	buffer_element(shader_data_type type_in, const std::string& name_in, bool normalized_in = false)
+		: name(name_in), type(type_in), size(shader_data_type_size(type_in)), offset(0), normalized(normalized_in) {}
 
-	WHP_NODISCARD uint32_t GetComponentCount() const
+	WHP_NODISCARD uint32_t get_component_count() const
 	{
 		switch (type)
 		{
-			case Whip::ShaderDataType::None:		WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
-			case Whip::ShaderDataType::Float:		return 1;
-			case Whip::ShaderDataType::Float2:		return 2;
-			case Whip::ShaderDataType::Float3:		return 3;
-			case Whip::ShaderDataType::Float4:		return 4;
-			case Whip::ShaderDataType::Mat3:		return 3 * 3;
-			case Whip::ShaderDataType::Mat4:		return 4 * 4;
-			case Whip::ShaderDataType::Bool:		return 1;
-			case Whip::ShaderDataType::Int:			return 1;
-			case Whip::ShaderDataType::Int2:		return 2;
-			case Whip::ShaderDataType::Int3:		return 3;
-			case Whip::ShaderDataType::Int4:		return 4;
+			case whip::shader_data_type::none:			WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
+			case whip::shader_data_type::Float:			return 1;
+			case whip::shader_data_type::Float2:		return 2;
+			case whip::shader_data_type::Float3:		return 3;
+			case whip::shader_data_type::Float4:		return 4;
+			case whip::shader_data_type::Mat3:			return 3 * 3;
+			case whip::shader_data_type::Mat4:			return 4 * 4;
+			case whip::shader_data_type::Bool:			return 1;
+			case whip::shader_data_type::Int:			return 1;
+			case whip::shader_data_type::Int2:			return 2;
+			case whip::shader_data_type::Int3:			return 3;
+			case whip::shader_data_type::Int4:			return 4;
 		}
-		WHP_CORE_ASSERT(false, "Unknown ShaderDataType!");
+		WHP_CORE_ASSERT(false, "Unknown shader_data_type!");
 		return 0;
 	}
 };
 
-class BufferLayout
+class buffer_layout
 {
-	using BufferElementVecIt = std::vector<BufferElement>::iterator;
-	using BufferElementVecConIt = std::vector<BufferElement>::const_iterator;
+	using buffer_element_iter = std::vector<buffer_element>::iterator;
+	using buffer_element_const_iter = std::vector<buffer_element>::const_iterator;
 private:
-	std::vector<BufferElement> m_Elements;
-	uint64_t m_Stride = 0;
+	std::vector<buffer_element> m_elements;
+	uint64_t m_stride = 0;
 private:
-	void CalculateOffsetsAndStride()
+	void calculate_offsets_and_stride()
 	{
 		uint64_t offset = 0;
-		m_Stride = 0;
-		for (auto& elem : m_Elements)
+		m_stride = 0;
+		for (auto& elem : m_elements)
 		{
 			elem.offset = offset;
 			offset += elem.size;
-			m_Stride += elem.size;
+			m_stride += elem.size;
 		}
 	}
 public:
-	BufferLayout() {}
+	buffer_layout() {}
 
-	BufferLayout(const std::initializer_list<BufferElement>& elements) 
-		: m_Elements(elements) 
+	buffer_layout(const std::initializer_list<buffer_element>& elements) 
+		: m_elements(elements) 
 	{
-		CalculateOffsetsAndStride();
+		calculate_offsets_and_stride();
 	}
 
-	WHP_NODISCARD inline const uint64_t GetStride() const { return m_Stride; }
-	WHP_NODISCARD inline const std::vector<BufferElement>& getElements() const { return m_Elements; }
+	WHP_NODISCARD inline const uint64_t get_stride() const { return m_stride; }
+	WHP_NODISCARD inline const std::vector<buffer_element>& get_elements() const { return m_elements; }
 	
-	WHP_NODISCARD BufferElementVecIt begin() { return m_Elements.begin(); }
-	WHP_NODISCARD BufferElementVecIt end() { return m_Elements.end(); }
-	WHP_NODISCARD BufferElementVecConIt begin() const { return m_Elements.begin(); }
-	WHP_NODISCARD BufferElementVecConIt end() const { return m_Elements.end(); }
+	WHP_NODISCARD buffer_element_iter begin() { return m_elements.begin(); }
+	WHP_NODISCARD buffer_element_iter end() { return m_elements.end(); }
+	WHP_NODISCARD buffer_element_const_iter begin() const { return m_elements.begin(); }
+	WHP_NODISCARD buffer_element_const_iter end() const { return m_elements.end(); }
 };
 
-class VertexBuffer
+class vertex_buffer
 {
 public:
-	virtual ~VertexBuffer() {}
+	virtual ~vertex_buffer() {}
 
-	virtual void Bind() const = 0;
-	virtual void Unbind() const = 0;
+	virtual void bind() const = 0;
+	virtual void unbind() const = 0;
 
-	virtual void SetLayout(const BufferLayout& layout) = 0;
-	virtual const BufferLayout& GetLayout() const = 0;
+	virtual void set_layout(const buffer_layout& layout) = 0;
+	virtual const buffer_layout& get_layout() const = 0;
 	
-	WHP_NODISCARD static ref<VertexBuffer> Create(float* vertices, uint32_t size);
+	WHP_NODISCARD static ref<vertex_buffer> create(float* vertices, uint32_t size);
 };
 
-class IndexBuffer
+class index_buffer
 {
 public:
-	virtual ~IndexBuffer() {}
+	virtual ~index_buffer() {}
 
-	virtual void Bind() const = 0;
-	virtual void Unbind() const = 0;
+	virtual void bind() const = 0;
+	virtual void unbind() const = 0;
 
 
-	virtual uint32_t GetCount() const = 0;
+	virtual uint32_t get_count() const = 0;
 
-	WHP_NODISCARD static ref<IndexBuffer> Create(uint32_t* indices, uint32_t count);
+	WHP_NODISCARD static ref<index_buffer> create(uint32_t* indices, uint32_t count);
 };
 
 

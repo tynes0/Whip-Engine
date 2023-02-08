@@ -5,21 +5,21 @@
 
 _WHIP_START
 
-class VertexArray
+class vertex_array
 {
 public:
-	virtual ~VertexArray() {}
+	virtual ~vertex_array() {}
 
-	virtual void Bind() const = 0;
-	virtual void Unbind() const = 0;
+	virtual void bind() const = 0;
+	virtual void unbind() const = 0;
 
-	virtual void AddVertexBuffer(const Whip::ref<VertexBuffer>& vertexBuffer) = 0;
-	virtual void SetIndexBuffer(const Whip::ref<IndexBuffer>& indexBuffer) = 0;
+	virtual void add_vertex_buffer(const whip::ref<vertex_buffer>& vertexBuffer) = 0;
+	virtual void set_index_buffer(const whip::ref<index_buffer>& indexBuffer) = 0;
 
-	virtual const std::vector<Whip::ref<VertexBuffer>>& GetVertexBuffers() const = 0;
-	virtual const Whip::ref<IndexBuffer>& GetIndexBuffer() const = 0;
+	virtual const std::vector<whip::ref<vertex_buffer>>& get_vertex_buffer() const = 0;
+	virtual const whip::ref<index_buffer>& get_index_buffer() const = 0;
 
-	WHP_NODISCARD static ref<VertexArray> Create();
+	WHP_NODISCARD static ref<vertex_array> create();
 };
 
 _WHIP_END

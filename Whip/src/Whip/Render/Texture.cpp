@@ -6,12 +6,12 @@
 
 _WHIP_START
 
-ref<Texture2D> Texture2D::create(const std::string& path)
+ref<texture2D> texture2D::create(const std::string& path)
 {
-	switch (Renderer::GetAPI())
+	switch (renderer::get_API())
 	{
-	case RenderAPI::API::None:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
-	case RenderAPI::API::OpenGL:	return make_ref<OpenGLTexture2D>(path);
+	case render_API::API::none:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
+	case render_API::API::opengl:	return make_ref<opengl_texture2D>(path);
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI");

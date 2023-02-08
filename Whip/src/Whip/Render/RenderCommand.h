@@ -4,27 +4,32 @@
 
 _WHIP_START
 
-class RenderCommand
+class render_command
 {
 private:
-	static RenderAPI* s_RenderAPI;
+	static render_API* s_render_API;
 public:
 	inline static void init()
 	{
-		s_RenderAPI->init();
+		s_render_API->init();
 	}
 
-	inline static void SetClearColor(const glm::vec4& color)
+	inline static void set_viewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
 	{
-		s_RenderAPI->SetClearColor(color);
+		s_render_API->set_viewport(x, y, width, height);
 	}
-	inline static void Clear()
+
+	inline static void set_clear_color(const glm::vec4& color)
 	{
-		s_RenderAPI->Clear();
+		s_render_API->set_clear_color(color);
 	}
-	inline static void DrawIndexed(const Whip::ref<VertexArray>& vertexArray)
+	inline static void clear()
 	{
-		s_RenderAPI->DrawIndexed(vertexArray);
+		s_render_API->clear();
+	}
+	inline static void draw_indexed(const whip::ref<vertex_array>& vertexArray)
+	{
+		s_render_API->draw_indexed(vertexArray);
 	}
 };
 

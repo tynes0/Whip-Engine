@@ -4,66 +4,66 @@
 
 _WHIP_START
 
-class WHIP_API WindowResizeEvent : public Event
+class window_resize_event : public Event
 {
 private:
-	unsigned int m_Width, m_Height;
+	uint32_t m_width, m_height;
 public:
-	WindowResizeEvent(unsigned int width, unsigned int height) : m_Width(width), m_Height(height) {}
+	window_resize_event(uint32_t width, uint32_t height) : m_width(width), m_height(height) {}
 
-	WHP_NODISCARD inline unsigned int GetWidth() const { return m_Width; }
-	WHP_NODISCARD inline unsigned int GetHeight() const { return m_Height; }
+	WHP_NODISCARD inline uint32_t get_width() const { return m_width; }
+	WHP_NODISCARD inline uint32_t get_height() const { return m_height; }
 
 	EVENT_TO_STRING
 	{
 		std::stringstream ss;
-		ss << "WindowResizeEvent: " << m_Width << ", " << m_Height;
+		ss << "window_resize_event: " << m_width << ", " << m_height;
 		return ss.str();
 	}
 
-	EVENT_CLASS_CATEGORY(EventCategoryApplication)
-	EVENT_CLASS_TYPE(WindowResize)
+	EVENT_CLASS_CATEGORY(event_category_application)
+	EVENT_CLASS_TYPE(window_resize)
 };
 
-class WHIP_API WindowCloseEvent : public Event
+class window_close_event : public Event
 {
 public:
-	WindowCloseEvent() {}
+	window_close_event() {}
 
 	EVENT_TO_STRING
 	{
-		return "WindowClosed";
+		return "Window closed";
 	}
 
-	EVENT_CLASS_CATEGORY(EventCategoryApplication)
-	EVENT_CLASS_TYPE(WindowClose)
+	EVENT_CLASS_CATEGORY(event_category_application)
+	EVENT_CLASS_TYPE(window_close)
 };
 
-class WHIP_API AppTickEvent : public Event
+class app_tick_event : public Event
 {
 public:
-	AppTickEvent() {}
+	app_tick_event() {}
 
-	EVENT_CLASS_CATEGORY(EventCategoryApplication)
-	EVENT_CLASS_TYPE(AppTick)
+	EVENT_CLASS_CATEGORY(event_category_application)
+	EVENT_CLASS_TYPE(app_tick)
 };
 
-class WHIP_API AppUpdateEvent : public Event
+class app_update_event : public Event
 {
 public:
-	AppUpdateEvent() {}
+	app_update_event() {}
 
-	EVENT_CLASS_CATEGORY(EventCategoryApplication)
-	EVENT_CLASS_TYPE(AppUpdate)
+	EVENT_CLASS_CATEGORY(event_category_application)
+	EVENT_CLASS_TYPE(app_update)
 };
 
-class WHIP_API AppRenderEvent : public Event
+class app_render_event : public Event
 {
 public:
-	AppRenderEvent() {}
+	app_render_event() {}
 
-	EVENT_CLASS_CATEGORY(EventCategoryApplication)
-	EVENT_CLASS_TYPE(AppRender)
+	EVENT_CLASS_CATEGORY(event_category_application)
+	EVENT_CLASS_TYPE(app_render)
 };
 
 _WHIP_END

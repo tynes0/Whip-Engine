@@ -5,26 +5,30 @@
 
 _WHIP_START
 
-void OpenGLRenderAPI::init()
+void opengl_render_API::init()
 {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-void OpenGLRenderAPI::SetClearColor(const glm::vec4& color)
+void opengl_render_API::set_viewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
 {
-	glClearColor(color.r, color.g, color.b, color.a);
-
+	glViewport(x, y, width, height);
 }
 
-void OpenGLRenderAPI::Clear()
+void opengl_render_API::set_clear_color(const glm::vec4& color)
+{
+	glClearColor(color.r, color.g, color.b, color.a);
+}
+
+void opengl_render_API::clear()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void OpenGLRenderAPI::DrawIndexed(const ref<VertexArray>& vertexArray)
+void opengl_render_API::draw_indexed(const ref<vertex_array>& vertexArray)
 {
-	glDrawElements(GL_TRIANGLES, vertexArray->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+	glDrawElements(GL_TRIANGLES, vertexArray->get_index_buffer()->get_count(), GL_UNSIGNED_INT, nullptr);
 }
 
 

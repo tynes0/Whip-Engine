@@ -4,34 +4,34 @@
 
 _WHIP_START
 
-class OpenGLVertexBuffer : public VertexBuffer
+class opengl_vertex_buffer : public vertex_buffer
 {
 private:
-	renderer_id_t m_RendererID = 0;
-	BufferLayout m_Layout;
+	renderer_id_t m_rendererID = 0;
+	buffer_layout m_layout;
 public:
-	OpenGLVertexBuffer(float* vertices, uint32_t size);
-	virtual ~OpenGLVertexBuffer();
+	opengl_vertex_buffer(float* vertices, uint32_t size);
+	virtual ~opengl_vertex_buffer();
 
-	virtual void Bind() const override;
-	virtual void Unbind() const override;
+	virtual void bind() const override;
+	virtual void unbind() const override;
 
-	virtual void SetLayout(const BufferLayout& layout) override { m_Layout = layout; }
-	WHP_NODISCARD virtual const BufferLayout& GetLayout() const override { return m_Layout; }
+	virtual void set_layout(const buffer_layout& layout) override { m_layout = layout; }
+	WHP_NODISCARD virtual const buffer_layout& get_layout() const override { return m_layout; }
 };
 
-class OpenGLIndexBuffer : public IndexBuffer
+class opengl_index_buffer : public index_buffer
 {
 private:
-	renderer_id_t m_RendererID;
+	renderer_id_t m_rendererID;
 	uint32_t m_Count;
 public:
-	OpenGLIndexBuffer(uint32_t* indices, uint32_t count);
-	virtual ~OpenGLIndexBuffer();
+	opengl_index_buffer(uint32_t* indices, uint32_t count);
+	virtual ~opengl_index_buffer();
 
-	WHP_NODISCARD virtual uint32_t GetCount() const override { return m_Count; };
-	virtual void Bind() const override;
-	virtual void Unbind() const override;
+	WHP_NODISCARD virtual uint32_t get_count() const override { return m_Count; };
+	virtual void bind() const override;
+	virtual void unbind() const override;
 };
 
 _WHIP_END

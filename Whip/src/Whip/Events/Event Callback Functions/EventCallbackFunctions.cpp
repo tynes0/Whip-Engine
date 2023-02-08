@@ -6,97 +6,97 @@
 
 _WHIP_START
 
-#define GET_GLFW_WIN_PTR(ptr, w) DREF(ptr*)glfwGetWindowUserPointer(w)
+#define GET_GLFW_WIN_USER_PTR(ptr, w) DREF(ptr*)glfwGetWindowUserPointer(w)
 
-repeat_t EventCallbackFunctions::repeat_time(1);
-repeat_t EventCallbackFunctions::last_repeat_time(1);
+repeat_t event_callback_functions::repeat_time(1);
+repeat_t event_callback_functions::last_repeat_time(1);
 
-void EventCallbackFunctions::WindowResizeEventCallback(GLFWwindow* window, int width, int height)
+void event_callback_functions::window_resize_event_callback(GLFWwindow* window, int width, int height)
 {
-	window_data& data = GET_GLFW_WIN_PTR(window_data,window);
+	window_data& data = GET_GLFW_WIN_USER_PTR(window_data,window);
 	RESIZE_WIN_PROPS(data.win_props, width, height);
-	WindowResizeEvent event(width, height);
-	data.EventCallback(event);
+	window_resize_event evnt(width, height);
+	data.event_callback(evnt);
 }
 
-void EventCallbackFunctions::WindowCloseEventCallback(GLFWwindow* window)
+void event_callback_functions::window_close_event_callback(GLFWwindow* window)
 {
-	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
-	WindowCloseEvent event;
-	data.EventCallback(event);
+	window_data& data = GET_GLFW_WIN_USER_PTR(window_data, window);
+	window_close_event evnt;
+	data.event_callback(evnt);
 }
 
-void EventCallbackFunctions::KeyPressedReleasedEventsCallback(GLFWwindow* window, int key, int scanmode, int action, int mods)
+void event_callback_functions::key_pressed_released_events_callback(GLFWwindow* window, int key, int scanmode, int action, int mods)
 {
-	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
+	window_data& data = GET_GLFW_WIN_USER_PTR(window_data, window);
 	switch (action)
 	{
 		case GLFW_RELEASE:
 		{
-			KeyReleasedEvent event(key);
-			data.EventCallback(event);
+			key_released_event evnt(key);
+			data.event_callback(evnt);
 			last_repeat_time = repeat_time;
 			repeat_time = 1;
 			break;
 		}
 		case GLFW_PRESS:
 		{
-			KeyPressedEvent event(key, 0);
-			data.EventCallback(event);
+			key_pressed_event evnt(key, 0);
+			data.event_callback(evnt);
 			break;
 		}
 
 		case GLFW_REPEAT:
 		{
-			KeyPressedEvent event(key, repeat_time++);
-			data.EventCallback(event);
+			key_pressed_event evnt(key, repeat_time++);
+			data.event_callback(evnt);
 			break;
 		}
 	}
 }
 
-void EventCallbackFunctions::MouseButtonPressedReleasedEventsCallback(GLFWwindow* window, int button, int action, int mods)
+void event_callback_functions::mouse_button_pressed_released_events_callback(GLFWwindow* window, int button, int action, int mods)
 {
-	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
+	window_data& data = GET_GLFW_WIN_USER_PTR(window_data, window);
 	switch (action)
 	{
 		case GLFW_RELEASE:
 		{
-			MouseButtonReleasedEvent event(button);
-			data.EventCallback(event);
+			mouse_button_released_event evnt(button);
+			data.event_callback(evnt);
 			break;
 		}
 		case GLFW_PRESS:
 		{
-			MouseButtonPressedEvent event(button);
-			data.EventCallback(event);
+			mouse_button_pressed_event evnt(button);
+			data.event_callback(evnt);
 			break;
 		}
 	}
 }
 
-void EventCallbackFunctions::KeyTypedEventCallback(GLFWwindow* window, unsigned int keycode)
+void event_callback_functions::key_typed_ecent_callback(GLFWwindow* window, unsigned int keycode)
 {
-	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
-	KeyTypedEvent event(keycode);
-	data.EventCallback(event);
+	window_data& data = GET_GLFW_WIN_USER_PTR(window_data, window);
+	key_typed_event evnt(keycode);
+	data.event_callback(evnt);
 }
 
-void EventCallbackFunctions::MouseScrollEventCallback(GLFWwindow* window, double OffsetX, double OffsetY)
+void event_callback_functions::mouse_scroll_event_callback(GLFWwindow* window, double OffsetX, double OffsetY)
 {
-	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
-	MouseScrolledEvent event((float)OffsetX, (float)OffsetY);
-	data.EventCallback(event);
+	window_data& data = GET_GLFW_WIN_USER_PTR(window_data, window);
+	mouse_scrolled_event evnt((float)OffsetX, (float)OffsetY);
+	data.event_callback(evnt);
 }
 
-void EventCallbackFunctions::MouseMovedEventCallback(GLFWwindow* window, double posX, double posY)
+void event_callback_functions::mouse_moved_event_callback(GLFWwindow* window, double posX, double posY)
 {
-	window_data& data = GET_GLFW_WIN_PTR(window_data, window);
-	MouseMovedEvent event((float)posX, (float)posY);
-	data.EventCallback(event);
+	window_data& data = GET_GLFW_WIN_USER_PTR(window_data, window);
+	mouse_moved_event evnt((float)posX, (float)posY);
+	data.event_callback(evnt);
 }
 
-void EventCallbackFunctions::GLFWErrorCallback(int err, const char* desc)
+void event_callback_functions::glfw_error_callback(int err, const char* desc)
 {
 	WHP_CORE_ERROR("GLFW Error ({0}): {1}", err, desc);
 }

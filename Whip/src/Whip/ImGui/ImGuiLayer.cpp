@@ -1,7 +1,7 @@
 #include <whippch.h>
 #include <Whip/ImGui/ImGuiLayer.h>
-#include <Whip/KeyCodes.h>
-#include <Whip/Application.h>
+#include <Whip/Core/KeyCodes.h>
+#include <Whip/Core/Application.h>
 
 #include "backends/imgui_impl_opengl3.h"
 #include "backends/imgui_impl_glfw.h" 
@@ -14,25 +14,25 @@
 
 _WHIP_START
 
-ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") {}
+imgui_layer::imgui_layer() : layer("imgui_layer") {}
 
 
-ImGuiLayer::~ImGuiLayer()
+imgui_layer::~imgui_layer()
 {
 	//
 }
 
-void ImGuiLayer::begin()
+void imgui_layer::begin()
 {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 }
 
-void ImGuiLayer::end()
+void imgui_layer::end()
 {
 	ImGuiIO& io = GET_IM_IO;
-	io.DisplaySize = ImVec2((float)Application::Get().GetWindow().get_width(), (float)Application::Get().GetWindow().get_height());
+	io.DisplaySize = ImVec2((float)application::get().get_window().get_width(), (float)application::get().get_window().get_height());
 
 	// RENDERING
 	ImGui::Render();
@@ -47,7 +47,7 @@ void ImGuiLayer::end()
 	}
 }
 
-void ImGuiLayer::OnAttach()
+void imgui_layer::on_attach()
 {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -62,26 +62,26 @@ void ImGuiLayer::OnAttach()
 	
 
 	// When viewports are enabled we tweak WindowsRounding/WindowBg so platform windows can look identical to regular ones.
-	ImGuiStyle& GuiStyle = ImGui::GetStyle();
+	ImGuiStyle& gui_style = ImGui::GetStyle();
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
-		GuiStyle.WindowRounding = 0.0f;
-		GuiStyle.Colors[ImGuiCol_WindowBg].w = 1.0f;
+		gui_style.WindowRounding = 0.0f;
+		gui_style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 	}
-	GLFWwindow* window = static_cast<GLFWwindow*>(Application::Get().GetWindow().get_native_window());
+	GLFWwindow* window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
 	// Setup platform/renderer bindings
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 410");
 }
 
-void ImGuiLayer::OnDetach()
+void imgui_layer::on_detach()
 {
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 }
 
-void ImGuiLayer::OnImGuiRender()
+void imgui_layer::on_imgui_render()
 {
 	ImGui::Begin("Whip Renderer");
 	ImGui::Text("OpenGl Vendor: %s", (const char*)glGetString(GL_VENDOR));

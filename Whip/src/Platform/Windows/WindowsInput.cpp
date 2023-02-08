@@ -1,47 +1,47 @@
 #include <whippch.h>
 #include <Platform/Windows/WindowsInput.h>
-#include <Whip/Application.h>
+#include <Whip/Core/Application.h>
 
 #include <GLFW/glfw3.h>
 
 _WHIP_START
 
-Input* Input::s_Instance = new WindowsInput();
+input* input::s_instance = new windows_input();
 
-WHP_NODISCARD bool WindowsInput::isKeyPressedImpl(int keycode)
+WHP_NODISCARD bool windows_input::is_key_pressed_impl(int keycode)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().get_native_window());
+	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
 	int state = glfwGetKey(window, keycode);
-	bool isPressed = ((state == GLFW_PRESS) || (state == GLFW_REPEAT));
-	return isPressed;
+	bool is_pressed = ((state == GLFW_PRESS) || (state == GLFW_REPEAT));
+	return is_pressed;
 }
 
-WHP_NODISCARD bool WindowsInput::isMouseButtonPressedImpl(int button)
+WHP_NODISCARD bool windows_input::is_mouse_button_pressed_impl(int button)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().get_native_window());
+	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
 	int state = glfwGetMouseButton(window, button);
-	bool isPressed = (state == GLFW_PRESS);
-	return isPressed;
+	bool is_pressed = (state == GLFW_PRESS);
+	return is_pressed;
 }
 
-WHP_NODISCARD float WindowsInput::getMousePosXImpl()
+WHP_NODISCARD float windows_input::get_mouse_posx_impl()
 {
-	auto [PosX, PosY] = getMousePosImpl();
-	return PosX;
+	auto [posX, posY] = get_mouse_pos_impl();
+	return posX;
 }
 
-WHP_NODISCARD float WindowsInput::getMousePosYImpl()
+WHP_NODISCARD float windows_input::get_mouse_posy_impl()
 {
-	auto[PosX, PosY] = getMousePosImpl();
-	return PosY;
+	auto[posX, posY] = get_mouse_pos_impl();
+	return posY;
 }
 
-WHP_NODISCARD pair<float, float> WindowsInput::getMousePosImpl()
+WHP_NODISCARD pair<float, float> windows_input::get_mouse_pos_impl()
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().get_native_window());
-	double PosX, PosY;
-	glfwGetCursorPos(window, &PosX, &PosY);
-	return { (float)PosX, (float)PosY };
+	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
+	double posX, posY;
+	glfwGetCursorPos(window, &posX, &posY);
+	return { (float)posX, (float)posY };
 }
 
 _WHIP_END

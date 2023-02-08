@@ -76,7 +76,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>whippch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WHP_PLATFORM_WINDOWS;WHP_BUILD_DLL;GLFW_INCLUDE_NONE;WHP_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WHP_BUILD_DLL;GLFW_INCLUDE_NONE;WHP_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;vendor\Glad\include;vendor\imgui;vendor\glm;vendor\stb_image;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
@@ -98,7 +98,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>whippch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WHP_PLATFORM_WINDOWS;WHP_BUILD_DLL;GLFW_INCLUDE_NONE;WHP_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WHP_BUILD_DLL;GLFW_INCLUDE_NONE;WHP_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;vendor\Glad\include;vendor\imgui;vendor\glm;vendor\stb_image;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -124,7 +124,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>whippch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WHP_PLATFORM_WINDOWS;WHP_BUILD_DLL;GLFW_INCLUDE_NONE;WHP_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WHP_BUILD_DLL;GLFW_INCLUDE_NONE;WHP_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\GLFW\include;vendor\Glad\include;vendor\imgui;vendor\glm;vendor\stb_image;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -155,34 +155,34 @@
     <ClInclude Include="src\Platform\Windows\WindowsInput.h" />
     <ClInclude Include="src\Platform\Windows\WindowsWindow.h" />
     <ClInclude Include="src\Whip.h" />
-    <ClInclude Include="src\Whip\Application.h" />
-    <ClInclude Include="src\Whip\Core.h" />
+    <ClInclude Include="src\Whip\Core\Application.h" />
+    <ClInclude Include="src\Whip\Core\Core.h" />
+    <ClInclude Include="src\Whip\Core\EntryPoint.h" />
+    <ClInclude Include="src\Whip\Core\Input.h" />
+    <ClInclude Include="src\Whip\Core\KeyCodes.h" />
+    <ClInclude Include="src\Whip\Core\Layer.h" />
+    <ClInclude Include="src\Whip\Core\LayerStack.h" />
+    <ClInclude Include="src\Whip\Core\Log.h" />
+    <ClInclude Include="src\Whip\Core\MouseButtonCodes.h" />
+    <ClInclude Include="src\Whip\Core\Random.h" />
     <ClInclude Include="src\Whip\Core\Timestep.h" />
-    <ClInclude Include="src\Whip\EntryPoint.h" />
+    <ClInclude Include="src\Whip\Core\Window.h" />
     <ClInclude Include="src\Whip\Events\ApplicationEvent.h" />
     <ClInclude Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.h" />
     <ClInclude Include="src\Whip\Events\Event.h" />
     <ClInclude Include="src\Whip\Events\KeyEvent.h" />
     <ClInclude Include="src\Whip\Events\MouseEvent.h" />
     <ClInclude Include="src\Whip\ImGui\ImGuiLayer.h" />
-    <ClInclude Include="src\Whip\Input.h" />
-    <ClInclude Include="src\Whip\KeyCodes.h" />
-    <ClInclude Include="src\Whip\Layer.h" />
-    <ClInclude Include="src\Whip\LayerStack.h" />
-    <ClInclude Include="src\Whip\Log.h" />
-    <ClInclude Include="src\Whip\MouseButtonCodes.h" />
-    <ClInclude Include="src\Whip\Random.h" />
     <ClInclude Include="src\Whip\Render\Buffer.h" />
     <ClInclude Include="src\Whip\Render\Camera.h" />
     <ClInclude Include="src\Whip\Render\GraphicsContext.h" />
+    <ClInclude Include="src\Whip\Render\OrthographicCameraController.h" />
     <ClInclude Include="src\Whip\Render\RenderAPI.h" />
     <ClInclude Include="src\Whip\Render\RenderCommand.h" />
     <ClInclude Include="src\Whip\Render\Renderer.h" />
     <ClInclude Include="src\Whip\Render\Shader.h" />
-    <ClInclude Include="src\Whip\Render\ShaderSources\ShaderSources.h" />
     <ClInclude Include="src\Whip\Render\Texture.h" />
     <ClInclude Include="src\Whip\Render\VertexArray.h" />
-    <ClInclude Include="src\Whip\Window.h" />
     <ClInclude Include="src\whippch.h" />
     <ClInclude Include="vendor\glm\glm\common.hpp" />
     <ClInclude Include="vendor\glm\glm\detail\_features.hpp" />
@@ -611,21 +611,21 @@
     <ClCompile Include="src\Platform\OpenGL\OpenGLVertexArray.cpp" />
     <ClCompile Include="src\Platform\Windows\WindowsInput.cpp" />
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp" />
-    <ClCompile Include="src\Whip\Application.cpp" />
+    <ClCompile Include="src\Whip\Core\Application.cpp" />
+    <ClCompile Include="src\Whip\Core\Layer.cpp" />
+    <ClCompile Include="src\Whip\Core\LayerStack.cpp" />
+    <ClCompile Include="src\Whip\Core\Log.cpp" />
+    <ClCompile Include="src\Whip\Core\Random.cpp" />
     <ClCompile Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.cpp" />
     <ClCompile Include="src\Whip\ImGui\ImGuiBuild.cpp" />
     <ClCompile Include="src\Whip\ImGui\ImGuiLayer.cpp" />
-    <ClCompile Include="src\Whip\Layer.cpp" />
-    <ClCompile Include="src\Whip\LayerStack.cpp" />
-    <ClCompile Include="src\Whip\Log.cpp" />
-    <ClCompile Include="src\Whip\Random.cpp" />
     <ClCompile Include="src\Whip\Render\Buffer.cpp" />
     <ClCompile Include="src\Whip\Render\Camera.cpp" />
+    <ClCompile Include="src\Whip\Render\OrthographicCameraController.cpp" />
     <ClCompile Include="src\Whip\Render\RenderAPI.cpp" />
     <ClCompile Include="src\Whip\Render\RenderCommand.cpp" />
     <ClCompile Include="src\Whip\Render\Renderer.cpp" />
     <ClCompile Include="src\Whip\Render\Shader.cpp" />
-    <ClCompile Include="src\Whip\Render\ShaderSources\ShaderSources.cpp" />
     <ClCompile Include="src\Whip\Render\Texture.cpp" />
     <ClCompile Include="src\Whip\Render\VertexArray.cpp" />
     <ClCompile Include="src\whippch.cpp">

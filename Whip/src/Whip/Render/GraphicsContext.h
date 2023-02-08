@@ -1,14 +1,14 @@
 #pragma once
 
-#include <Whip/Core.h>
+#include <Whip/Core/Core.h>
 
 _WHIP_START
 
-class GraphicsContext
+class graphic_context
 {
 public:
-	virtual void Init() = 0;
-	virtual void SwapBuffers() = 0;
+	virtual void init() = 0;
+	virtual void swap_buffers() = 0;
 };
 
 _WHIP_END

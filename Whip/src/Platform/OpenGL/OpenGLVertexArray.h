@@ -4,24 +4,24 @@
 
 _WHIP_START
 
-class OpenGLVertexArray : public VertexArray
+class opengl_vertex_array : public vertex_array
 {
 private:
-	renderer_id_t m_RendererID = 0;
-	std::vector<ref<VertexBuffer>> m_VertexBuffers;
-	ref<IndexBuffer> m_IndexBuffer;
+	renderer_id_t m_rendererID = 0;
+	std::vector<ref<vertex_buffer>> m_vertex_buffers;
+	ref<index_buffer> m_index_buffers;
 public:
-	OpenGLVertexArray();
-	virtual ~OpenGLVertexArray();
+	opengl_vertex_array();
+	virtual ~opengl_vertex_array();
 
-	virtual void Bind() const override;
-	virtual void Unbind() const override;
+	virtual void bind() const override;
+	virtual void unbind() const override;
 
-	virtual void AddVertexBuffer(const ref<VertexBuffer>& vertexBuffer) override;
-	virtual void SetIndexBuffer(const ref<IndexBuffer>& indexBuffer) override;
+	virtual void add_vertex_buffer(const ref<vertex_buffer>& vertexBuffer) override;
+	virtual void set_index_buffer(const ref<index_buffer>& indexBuffer) override;
 
-	WHP_NODISCARD virtual const std::vector<ref<VertexBuffer>>& GetVertexBuffers() const override { return m_VertexBuffers; }
-	WHP_NODISCARD virtual const ref<IndexBuffer>& GetIndexBuffer() const override { return m_IndexBuffer; }
+	WHP_NODISCARD virtual const std::vector<ref<vertex_buffer>>& get_vertex_buffer() const override { return m_vertex_buffers; }
+	WHP_NODISCARD virtual const ref<index_buffer>& get_index_buffer() const override { return m_index_buffers; }
 };
 
 _WHIP_END

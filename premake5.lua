@@ -71,7 +71,6 @@ project "Whip"
 
 		defines
 		{
-			"WHP_PLATFORM_WINDOWS",
 			"WHP_BUILD_DLL",
 			"GLFW_INCLUDE_NONE"
 		}
@@ -131,11 +130,6 @@ project "F-Box"
 
 	filter "system:windows"
 		systemversion "latest"
-
-		defines
-		{
-			"WHP_PLATFORM_WINDOWS"
-		}
 
 	filter "configurations:Debug"
 		defines "WHP_DEBUG"

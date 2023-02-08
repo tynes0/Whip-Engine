@@ -31,9 +31,6 @@
     <Filter Include="src\Whip\Render">
       <UniqueIdentifier>{43E48106-AF6F-EFCA-B880-72BF248B4BCB}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\Whip\Render\ShaderSources">
-      <UniqueIdentifier>{8DAF69F4-F9C7-501E-C274-E0B72E4CE5B7}</UniqueIdentifier>
-    </Filter>
     <Filter Include="vendor">
       <UniqueIdentifier>{B3738122-9F15-ACF8-88D0-BF4C74113349}</UniqueIdentifier>
     </Filter>
@@ -87,17 +84,41 @@
     <ClInclude Include="src\Whip.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Application.h">
-      <Filter>src\Whip</Filter>
+    <ClInclude Include="src\Whip\Core\Application.h">
+      <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core.h">
-      <Filter>src\Whip</Filter>
+    <ClInclude Include="src\Whip\Core\Core.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\EntryPoint.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\Input.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\KeyCodes.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\Layer.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\LayerStack.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\Log.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\MouseButtonCodes.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\Random.h">
+      <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\Timestep.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\EntryPoint.h">
-      <Filter>src\Whip</Filter>
+    <ClInclude Include="src\Whip\Core\Window.h">
+      <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Events\ApplicationEvent.h">
       <Filter>src\Whip\Events</Filter>
@@ -117,27 +138,6 @@
     <ClInclude Include="src\Whip\ImGui\ImGuiLayer.h">
       <Filter>src\Whip\ImGui</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Input.h">
-      <Filter>src\Whip</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Whip\KeyCodes.h">
-      <Filter>src\Whip</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Whip\Layer.h">
-      <Filter>src\Whip</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Whip\LayerStack.h">
-      <Filter>src\Whip</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Whip\Log.h">
-      <Filter>src\Whip</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Whip\MouseButtonCodes.h">
-      <Filter>src\Whip</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Whip\Random.h">
-      <Filter>src\Whip</Filter>
-    </ClInclude>
     <ClInclude Include="src\Whip\Render\Buffer.h">
       <Filter>src\Whip\Render</Filter>
     </ClInclude>
@@ -145,6 +145,9 @@
       <Filter>src\Whip\Render</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Render\GraphicsContext.h">
+      <Filter>src\Whip\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Render\OrthographicCameraController.h">
       <Filter>src\Whip\Render</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Render\RenderAPI.h">
@@ -159,17 +162,11 @@
     <ClInclude Include="src\Whip\Render\Shader.h">
       <Filter>src\Whip\Render</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Render\ShaderSources\ShaderSources.h">
-      <Filter>src\Whip\Render\ShaderSources</Filter>
-    </ClInclude>
     <ClInclude Include="src\Whip\Render\Texture.h">
       <Filter>src\Whip\Render</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Render\VertexArray.h">
       <Filter>src\Whip\Render</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Whip\Window.h">
-      <Filter>src\Whip</Filter>
     </ClInclude>
     <ClInclude Include="src\whippch.h">
       <Filter>src</Filter>
@@ -1451,8 +1448,20 @@
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp">
       <Filter>src\Platform\Windows</Filter>
     </ClCompile>
-    <ClCompile Include="src\Whip\Application.cpp">
-      <Filter>src\Whip</Filter>
+    <ClCompile Include="src\Whip\Core\Application.cpp">
+      <Filter>src\Whip\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Core\Layer.cpp">
+      <Filter>src\Whip\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Core\LayerStack.cpp">
+      <Filter>src\Whip\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Core\Log.cpp">
+      <Filter>src\Whip\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Core\Random.cpp">
+      <Filter>src\Whip\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Events\Event Callback Functions\EventCallbackFunctions.cpp">
       <Filter>src\Whip\Events\Event Callback Functions</Filter>
@@ -1463,22 +1472,13 @@
     <ClCompile Include="src\Whip\ImGui\ImGuiLayer.cpp">
       <Filter>src\Whip\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="src\Whip\Layer.cpp">
-      <Filter>src\Whip</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Whip\LayerStack.cpp">
-      <Filter>src\Whip</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Whip\Log.cpp">
-      <Filter>src\Whip</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Whip\Random.cpp">
-      <Filter>src\Whip</Filter>
-    </ClCompile>
     <ClCompile Include="src\Whip\Render\Buffer.cpp">
       <Filter>src\Whip\Render</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Render\Camera.cpp">
+      <Filter>src\Whip\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Render\OrthographicCameraController.cpp">
       <Filter>src\Whip\Render</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Render\RenderAPI.cpp">
@@ -1492,9 +1492,6 @@
     </ClCompile>
     <ClCompile Include="src\Whip\Render\Shader.cpp">
       <Filter>src\Whip\Render</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Whip\Render\ShaderSources\ShaderSources.cpp">
-      <Filter>src\Whip\Render\ShaderSources</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Render\Texture.cpp">
       <Filter>src\Whip\Render</Filter>

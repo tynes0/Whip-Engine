@@ -1,21 +1,42 @@
 #pragma once
 
-#include <Whip/Core.h>
+#include <Whip/Core/Core.h>
 #include <string>
+#include <unordered_map>
 
 _WHIP_START
 
-class Shader
+class shader
 {
 public:
-	~Shader() = default;
+	~shader() = default;
 
-	virtual void Bind() const = 0;
-	virtual void Unbind() const = 0;
+	virtual const std::string& get_name() const = 0;
 
-	static ref<Shader> create(const std::string& filepath);
-	static ref<Shader> create(const std::string& vertex_filepath, const std::string& fragment_filepath);
-	static ref<Shader> create(const std::string& vertex_src, const std::string& fragment_src, short test);
+	virtual void bind() const = 0;
+	virtual void unbind() const = 0;
+
+	WHP_NODISCARD static ref<shader> create(const std::string& filepath);
+	WHP_NODISCARD static ref<shader> create(const std::string& name, const std::string& filepath);
+	WHP_NODISCARD static ref<shader> create(const std::string& name, const std::string& vertex_filepath, const std::string& fragment_filepath);
+	WHP_NODISCARD static ref<shader> create(const std::string& name, const std::string& vertex_src, const std::string& fragment_src, short test);
+};
+
+class shader_library
+{
+private:
+	std::unordered_map<std::string, ref<shader>> m_shaders;
+public:
+	void add(const std::string& name, const ref<shader>& shader);
+	void add(const ref<shader>& shader);
+	ref<shader> load(const std::string& filepath);
+	ref<shader> load(const std::string& name, const std::string& filepath);
+	ref<shader> load(const std::string& name, const std::string& vertex_filepath, const std::string& fragment_filepath);
+	ref<shader> load(const std::string& name, const std::string& vertex_src, const std::string& fragment_src, short test);
+
+	WHP_NODISCARD ref<shader> get(const std::string& name);
+
+	WHP_NODISCARD bool exist(const std::string& name) const;
 };
 
 _WHIP_END

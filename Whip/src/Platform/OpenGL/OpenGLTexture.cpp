@@ -7,7 +7,7 @@
 
 _WHIP_START
 
-OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
+opengl_texture2D::opengl_texture2D(const std::string& path)
 	: m_path(path)
 {
 	int width, height, channels;
@@ -42,12 +42,12 @@ OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
 	stbi_image_free(data);
 }
 
-OpenGLTexture2D::~OpenGLTexture2D()
+opengl_texture2D::~opengl_texture2D()
 {
 	glDeleteTextures(1, &m_rendererID);
 }
 
-void OpenGLTexture2D::bind(uint32_t slot) const
+void opengl_texture2D::bind(uint32_t slot) const
 {
 	glBindTextureUnit(0, m_rendererID);
 }

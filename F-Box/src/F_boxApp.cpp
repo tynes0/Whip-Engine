@@ -7,35 +7,21 @@
 #include <glm/gtc/type_ptr.hpp>
 
 
-class ExLayer : public Whip::Layer
+class ex_layer : public whip::layer
 {
 private:
-	Whip::ref<Whip::Shader> m_Shader;
-	Whip::ref<Whip::VertexArray> m_VertexArray;
-	Whip::ref<Whip::Shader> m_SquareShader, m_texture_shader;
-	Whip::ref<Whip::VertexArray> m_SquareVertexArray;
-	Whip::ref<Whip::Texture2D> m_texture;
+	whip::shader_library m_shader_library;
+	whip::ref<whip::vertex_array> m_vertex_array;
+	whip::ref<whip::vertex_array> m_square_vertex_array;
+	whip::ref<whip::texture2D> m_texture;
 
-	Whip::orthographic_camera m_camera;
-	glm::vec3 m_camera_position;
-	float m_camera_rotation = 0.0f;
-	float m_camera_move_speed = 2.0f;
-	float m_camera_rotation_speed = 120.0f;
+	whip::orthographic_camera_controller m_camera_controller;
 
 	glm::vec3 m_square_color = { 0.5f, 0.1f, 0.5f };
 	glm::vec3 m_triangle_color = { 0.1f, 0.1f, 0.5f };
-
-	struct camera_movement_buttons
-	{
-		int camera_to_left, camera_to_right, camera_to_down, camera_to_up;
-		int camera_rotation_left, camera_rotation_right;
-		camera_movement_buttons() : camera_to_left(WHP_KEY_LEFT), camera_to_right(WHP_KEY_RIGHT), camera_to_down(WHP_KEY_DOWN), camera_to_up(WHP_KEY_UP), camera_rotation_left(WHP_KEY_A), camera_rotation_right(WHP_KEY_D) {}
-		camera_movement_buttons(int ctl, int ctr, int ctd, int ctu, int crl, int crr) : camera_to_left(ctl), camera_to_right(ctr), camera_to_down(ctd), camera_to_up(ctu), camera_rotation_left(crl), camera_rotation_right(crr) {}
-	};
-	camera_movement_buttons buttons{WHP_KEY_A, WHP_KEY_D, WHP_KEY_S, WHP_KEY_W, WHP_KEY_LEFT, WHP_KEY_RIGHT};
 public:
-	ExLayer() 
-		: Layer("Whip Layer"), m_camera(-1.6f, 1.6f, -0.9f, 0.9f) , m_camera_position(0.0f)
+	ex_layer()
+		: layer("Whip Layer"), m_camera_controller(whip::calculate_aspect_ratio(1280.0f, 720.0f), true)
 	{
 		// x - y - z
 		float vertices[3 * 7] =
@@ -47,96 +33,70 @@ public:
 
 		uint32_t indicies[3] = { 0,1,2 };
 
-		Whip::BufferLayout layout =
-		{
-			{Whip::ShaderDataType::Float3, "a_Position"},
-			{Whip::ShaderDataType::Float4, "a_Color"}
-		};
-
-		m_VertexArray = Whip::VertexArray::Create();
-		Whip::ref<Whip::VertexBuffer> vertexBuffer;
-		vertexBuffer = Whip::VertexBuffer::Create(vertices, sizeof(vertices));
-		vertexBuffer->SetLayout(layout);
-		m_VertexArray->AddVertexBuffer(vertexBuffer);
-		Whip::ref<Whip::IndexBuffer> indexBuffer;
-		indexBuffer = Whip::IndexBuffer::Create(indicies, sizeof(indicies) / sizeof(uint32_t));
-		m_VertexArray->SetIndexBuffer(indexBuffer);
+		m_vertex_array = whip::vertex_array::create();
+		whip::ref<whip::vertex_buffer> a_vertex_buffer;
+		a_vertex_buffer = whip::vertex_buffer::create(vertices, sizeof(vertices));
+		a_vertex_buffer->set_layout({
+			{whip::shader_data_type::Float3, "a_Position"},
+			{whip::shader_data_type::Float4, "a_Color"}
+			});
+		m_vertex_array->add_vertex_buffer(a_vertex_buffer);
+		whip::ref<whip::index_buffer> a_index_buffer;
+		a_index_buffer = whip::index_buffer::create(indicies, sizeof(indicies) / sizeof(uint32_t));
+		m_vertex_array->set_index_buffer(a_index_buffer);
 
 		/////////////////// kare //////////////////
 
-		float SquareVertices[4 * 5] =
+		float square_verticies[4 * 5] =
 		{
 			-0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
 			 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
 			 0.5f,  0.5f, 0.0f, 1.0f, 1.0f,
 			-0.5f,  0.5f, 0.0f, 0.0f, 1.0f
 		};
-		uint32_t squareIndicies[6] = { 0,1,2,2,3,0 };
+		uint32_t square_indicies[6] = { 0,1,2,2,3,0 };
 
-		m_SquareVertexArray = Whip::VertexArray::Create();
-		Whip::ref<Whip::VertexBuffer> squareVertexBuffer;
-		squareVertexBuffer = Whip::VertexBuffer::Create(SquareVertices, sizeof(SquareVertices));
-		squareVertexBuffer->SetLayout({
-			{Whip::ShaderDataType::Float3, "a_Position"},
-			{Whip::ShaderDataType::Float2, "a_texture_coord"}
+		m_square_vertex_array = whip::vertex_array::create();
+		whip::ref<whip::vertex_buffer> square_vertex_buffer;
+		square_vertex_buffer = whip::vertex_buffer::create(square_verticies, sizeof(square_verticies));
+		square_vertex_buffer->set_layout({
+			{whip::shader_data_type::Float3, "a_Position"},
+			{whip::shader_data_type::Float2, "a_texture_coord"}
 			});
-		m_SquareVertexArray->AddVertexBuffer(squareVertexBuffer);
-		Whip::ref<Whip::IndexBuffer> squareIndexBuffer;
-		squareIndexBuffer = Whip::IndexBuffer::Create(squareIndicies, sizeof(squareIndicies) / sizeof(uint32_t));
-		m_SquareVertexArray->SetIndexBuffer(squareIndexBuffer);
+		m_square_vertex_array->add_vertex_buffer(square_vertex_buffer);
+		whip::ref<whip::index_buffer> square_index_buffer;
+		square_index_buffer = whip::index_buffer::create(square_indicies, sizeof(square_indicies) / sizeof(uint32_t));
+		m_square_vertex_array->set_index_buffer(square_index_buffer);
 
 		/////////////////////////////////////////////
-		m_Shader = Whip::Shader::create(WHP_VERTEX_SRC, WHP_FRAGMENT_SRC, 0);
-		m_SquareShader = Whip::Shader::create("C:\\Dev\\Whip\\F-Box\\assets\\shaders\\square_vertex_shader.glsl", "C:\\Dev\\Whip\\F-Box\\assets\\shaders\\square_fragment_shader.glsl");
+		m_shader_library.load("triangle", "C:\\Dev\\Whip\\F-Box\\assets\\shaders\\triangle.vert", "C:\\Dev\\Whip\\F-Box\\assets\\shaders\\triangle.frag");
+		m_shader_library.load("square" ,"C:\\Dev\\Whip\\F-Box\\assets\\shaders\\square.vert", "C:\\Dev\\Whip\\F-Box\\assets\\shaders\\square.frag");
+		auto texture_shader = m_shader_library.load("C:\\Dev\\Whip\\F-Box\\assets\\shaders\\texture.glsl");
 
-		m_texture_shader = Whip::Shader::create("C:\\Dev\\Whip\\F-Box\\assets\\shaders\\texture.glsl");
-		m_texture = Whip::Texture2D::create("C:\\Dev\\Whip\\F-Box\\assets\\textures\\test3.png");
+		m_texture = whip::texture2D::create("C:\\Dev\\Whip\\F-Box\\assets\\textures\\test3.png");
 
-		std::dynamic_pointer_cast<Whip::OpenGLShader>(m_texture_shader)->Bind();
-		std::dynamic_pointer_cast<Whip::OpenGLShader>(m_texture_shader)->upload_uniform_int("u_texture", 0);
+		std::dynamic_pointer_cast<whip::opengl_shader>(texture_shader)->bind();
+		std::dynamic_pointer_cast<whip::opengl_shader>(texture_shader)->upload_uniform_int("u_texture", 0);
 	} 
 
-	void OnUpdate(Whip::timestep ts) override
+	void on_update(whip::timestep ts) override
 	{
-		if (Whip::Input::isKeyPressed(buttons.camera_to_left))
-		{
-			m_camera_position.x -= m_camera_move_speed * ts;
-		}
-		else if (Whip::Input::isKeyPressed(buttons.camera_to_right))
-		{
-			m_camera_position.x += m_camera_move_speed * ts;
-		}
-		if (Whip::Input::isKeyPressed(buttons.camera_to_down))
-		{
-			m_camera_position.y -= m_camera_move_speed * ts;
-		}
-		else if (Whip::Input::isKeyPressed(buttons.camera_to_up))
-		{
-			m_camera_position.y += m_camera_move_speed * ts;
-		}
-		if (Whip::Input::isKeyPressed(buttons.camera_rotation_left))
-		{
-			m_camera_rotation += m_camera_rotation_speed * ts;
-		}
-		else if (Whip::Input::isKeyPressed(buttons.camera_rotation_right))
-		{
-			m_camera_rotation -= m_camera_rotation_speed * ts;
-		}
+		m_camera_controller.on_update(ts);
 
-		Whip::RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.0f });
-		Whip::RenderCommand::Clear();
+		whip::render_command::set_clear_color({ 0.1f, 0.1f, 0.1f, 1.0f });
+		whip::render_command::clear();
 
-		m_camera.set_position(m_camera_position);
-		m_camera.set_rotation(m_camera_rotation);
-
-		Whip::Renderer::begin_scene(m_camera);
+		whip::renderer::begin_scene(m_camera_controller.get_camera());
 
 		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.09f));
 
-		std::dynamic_pointer_cast<Whip::OpenGLShader>(m_SquareShader)->Bind();
-		std::dynamic_pointer_cast<Whip::OpenGLShader>(m_SquareShader)->upload_uniform_float3("u_color", m_square_color);
-		std::dynamic_pointer_cast<Whip::OpenGLShader>(m_Shader)->Bind();
-		std::dynamic_pointer_cast<Whip::OpenGLShader>(m_Shader)->upload_uniform_float3("u_color", m_triangle_color);
+		auto square_shader = m_shader_library.get("square");
+		auto triangle_shader = m_shader_library.get("triangle");
+
+		std::dynamic_pointer_cast<whip::opengl_shader>(square_shader)->bind();
+		std::dynamic_pointer_cast<whip::opengl_shader>(square_shader)->upload_uniform_float3("u_color", m_square_color);
+		std::dynamic_pointer_cast<whip::opengl_shader>(triangle_shader)->bind();
+		std::dynamic_pointer_cast<whip::opengl_shader>(triangle_shader)->upload_uniform_float3("u_color", m_triangle_color);
 
 		for (int y = 0; y < 20; ++y)
 		{
@@ -144,18 +104,18 @@ public:
 			{
 				glm::vec3 pos((float)x * 0.1f, (float)y * 0.1f, 0.0f);
 				glm::mat4 transform = glm::translate(glm::mat4(1.0f), pos) * scale;
-				Whip::Renderer::submit(m_SquareShader, m_SquareVertexArray, transform);
+				whip::renderer::submit(square_shader, m_square_vertex_array, transform);
 			}
 		}
 
 		m_texture->bind();
-		Whip::Renderer::submit(m_texture_shader, m_SquareVertexArray, glm::scale(glm::mat4(1.0f), glm::vec3(1.5f)));
+		whip::renderer::submit(m_shader_library.get("texture"), m_square_vertex_array, glm::scale(glm::mat4(1.0f), glm::vec3(1.5f)));
 		//Whip::Renderer::submit(m_Shader, m_VertexArray);
 
-		Whip::Renderer::end_scene();
+		whip::renderer::end_scene();
 
 	}
-	void OnImGuiRender() override
+	void on_imgui_render() override
 	{
 		ImGui::Begin("Color Settings");
 		ImGui::ColorEdit3("Square Color", glm::value_ptr(m_square_color));
@@ -163,26 +123,26 @@ public:
 		ImGui::End();
 	}
 
-	void OnEvent(Whip::Event& event) override
+	void on_event(whip::Event& evnt) override
 	{
-
+		m_camera_controller.on_event(evnt);
 	}
 };
 
-class F_Box : public Whip::Application
+class f_box : public whip::application
 {
 public:
-	F_Box()
+	f_box()
 	{
-		PushLayer(new ExLayer());
+		push_layer(new ex_layer());
 	}
-	~F_Box()
+	~f_box()
 	{
-
+		std::chrono::nanoseconds;
 	}
 };
 
-Whip::Application* Whip::CreateApplication()
+whip::application* whip::create_application()
 {
-	return new F_Box();
+	return new f_box();
 }

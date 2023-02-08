@@ -11,16 +11,17 @@ struct scene_data
 	glm::mat4 view_projection_matrix;
 };
 
-class Renderer
+class renderer
 {
 private:
-	static scene_data* m_scene_data;
+	static ref<scene_data> m_scene_data;
 public:
 	static void init();
+	static void on_window_resize(uint32_t width, uint32_t height);
 	static void begin_scene(orthographic_camera& camera);
 	static void end_scene();
-	static void submit(const ref<Shader>& shader, const ref<VertexArray>& vertexArray, const glm::mat4& transform = glm::mat4(1.0f));
-	WHP_NODISCARD inline static RenderAPI::API GetAPI() { return RenderAPI::GetAPI(); }
+	static void submit(const ref<shader>& shader, const ref<vertex_array>& vertexArray, const glm::mat4& transform = glm::mat4(1.0f));
+	WHP_NODISCARD inline static render_API::API get_API() { return render_API::get_API(); }
 };
 
 _WHIP_END

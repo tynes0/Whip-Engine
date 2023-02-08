@@ -6,12 +6,12 @@
 
 _WHIP_START
 
-ref<VertexArray> VertexArray::Create()
+ref<vertex_array> vertex_array::create()
 {
-	switch (Renderer::GetAPI())
+	switch (renderer::get_API())
 	{
-	case RenderAPI::API::None:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
-	case RenderAPI::API::OpenGL:	return make_ref<OpenGLVertexArray>();
+	case render_API::API::none:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
+	case render_API::API::opengl:	return make_ref<opengl_vertex_array>();
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI");

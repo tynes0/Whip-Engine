@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Whip/Core.h>
+#include <Whip/Core/Core.h>
 
 #if !defined (WHP_KEYCODES)
 #define WHP_KEYCODES
@@ -170,11 +170,7 @@
 
 _WHIP_START
 
-template <int keycode>
-class whp_key_controls
-{
-public:
-	WHP_NODISCARD static bool is_printable_whp_key()
+WHP_NODISCARD constexpr bool is_printable_whp_key(int keycode)
 	{
 		switch (keycode)
 		{
@@ -231,7 +227,7 @@ public:
 		}
 		return false;
 	}
-	WHP_NODISCARD static bool is_functional_whp_key()
+WHP_NODISCARD constexpr bool is_functional_whp_key(int keycode)
 	{
 		switch (keycode)
 		{
@@ -308,11 +304,10 @@ public:
 		}	 
 		return false;
 	}
-	WHP_NODISCARD static bool is_whp_key()
+WHP_NODISCARD constexpr bool is_whp_key(int keycode)
 	{
 		return (is_functional_whp_key(keycode) || is_printable_whp_key(keycode));
 	}
-};
 
 _WHIP_END
 

@@ -11,6 +11,7 @@
 
 #include <string>
 #include <sstream>
+#include <array>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -19,6 +20,6 @@
 	#include <Windows.h>
 #endif // WHP_PLATFORM_WINDOWS
 
-#include <Whip/Log.h>
+#include <Whip/Core/Log.h>
 
 #endif // !_WHIPPCH_
