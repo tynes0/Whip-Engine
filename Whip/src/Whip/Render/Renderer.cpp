@@ -9,8 +9,17 @@ ref<scene_data> renderer::m_scene_data = make_ref<scene_data>();
 
 void renderer::init()
 {
+	WHP_PROFILE_FUNCTION();
+
 	render_command::init();
 	renderer2D::init();
+}
+
+void renderer::shutdown()
+{
+	WHP_PROFILE_FUNCTION();
+
+	renderer2D::shutdown();
 }
 
 void renderer::on_window_resize(uint32_t width, uint32_t height)

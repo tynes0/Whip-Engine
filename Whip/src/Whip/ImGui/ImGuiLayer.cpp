@@ -24,6 +24,8 @@ imgui_layer::~imgui_layer()
 
 void imgui_layer::begin()
 {
+	WHP_PROFILE_FUNCTION();
+
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
@@ -31,6 +33,8 @@ void imgui_layer::begin()
 
 void imgui_layer::end()
 {
+	WHP_PROFILE_FUNCTION();
+
 	ImGuiIO& io = GET_IM_IO;
 	io.DisplaySize = ImVec2((float)application::get().get_window().get_width(), (float)application::get().get_window().get_height());
 
@@ -49,9 +53,11 @@ void imgui_layer::end()
 
 void imgui_layer::on_attach()
 {
+	WHP_PROFILE_FUNCTION();
+
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = GET_IM_IO;
+	ImGuiIO& io = GET_IM_IO; (void)io;
 
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;		//Enable keyboard controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;		//Enable gamepad controls
@@ -76,6 +82,8 @@ void imgui_layer::on_attach()
 
 void imgui_layer::on_detach()
 {
+	WHP_PROFILE_FUNCTION();
+
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();

@@ -21,6 +21,8 @@ static GLenum shader_type_from_string(const std::string& type)
 opengl_shader::opengl_shader(const std::string& filepath)
 	:m_rendererID(0)
 {
+	WHP_PROFILE_FUNCTION();
+
 	std::string source = read_file(filepath);
 	auto shader_sources = pre_process(source);
 	compile(shader_sources);
@@ -35,6 +37,8 @@ opengl_shader::opengl_shader(const std::string& filepath)
 opengl_shader::opengl_shader(const std::string& name, const std::string& filepath)
 	: m_rendererID(0), m_name(name)
 {
+	WHP_PROFILE_FUNCTION();
+
 	std::string source = read_file(filepath);
 	auto shader_sources = pre_process(source);
 	compile(shader_sources);
@@ -43,6 +47,8 @@ opengl_shader::opengl_shader(const std::string& name, const std::string& filepat
 opengl_shader::opengl_shader(const std::string& name, const std::string& vertex_filepath, const std::string& fragment_filepath)
 	:m_rendererID(0), m_name(name)
 {
+	WHP_PROFILE_FUNCTION();
+
 	std::string vertex_source = read_file(vertex_filepath);
 	std::string fragment_source = read_file(fragment_filepath);
 	std::unordered_map<GLenum, std::string> sources;
@@ -54,6 +60,8 @@ opengl_shader::opengl_shader(const std::string& name, const std::string& vertex_
 opengl_shader::opengl_shader(const std::string& name, const std::string& vertex_source, const std::string& fragment_source, short _Test)
 	: m_rendererID(0), m_name(name)
 {
+	WHP_PROFILE_FUNCTION();
+
 	std::unordered_map<GLenum, std::string> sources;
 	sources[GL_VERTEX_SHADER] = vertex_source;
 	sources[GL_FRAGMENT_SHADER] = fragment_source;
@@ -62,11 +70,15 @@ opengl_shader::opengl_shader(const std::string& name, const std::string& vertex_
 
 opengl_shader::~opengl_shader()
 {
+	WHP_PROFILE_FUNCTION();
+
 	glDeleteProgram(m_rendererID);
 }
 
 std::string opengl_shader::read_file(const std::string& filepath)
 {
+	WHP_PROFILE_FUNCTION();
+
 	std::string result;
 	std::ifstream in(filepath, std::ios::in | std::ios::binary);
 	if (in)
@@ -86,6 +98,8 @@ std::string opengl_shader::read_file(const std::string& filepath)
 
 std::unordered_map<GLenum, std::string> opengl_shader::pre_process(const std::string& source)
 {
+	WHP_PROFILE_FUNCTION();
+
 	std::unordered_map<GLenum, std::string> shader_sources;
 	const char* type_token = "#type";
 	size_t type_token_length = strlen(type_token);
@@ -107,6 +121,8 @@ std::unordered_map<GLenum, std::string> opengl_shader::pre_process(const std::st
 
 void opengl_shader::compile(const std::unordered_map<GLenum, std::string>& shader_sources)
 {
+	WHP_PROFILE_FUNCTION();
+
 	renderer_id_t program = glCreateProgram();
 	WHP_CORE_ASSERT(shader_sources.size() <= 2, "Whip Engine only supports 2 shaders for now!");
 	std::array<GLenum, 2> gl_shader_IDs;
@@ -174,36 +190,50 @@ void opengl_shader::compile(const std::unordered_map<GLenum, std::string>& shade
 
 void opengl_shader::bind() const
 {
+	WHP_PROFILE_FUNCTION();
+
 	glUseProgram(m_rendererID);
 }
 
 void opengl_shader::unbind() const
 {
+	WHP_PROFILE_FUNCTION();
+
 	glUseProgram(0);
 }
 
 void opengl_shader::set_int(const std::string& name, int value)
 {
+	WHP_PROFILE_FUNCTION();
+
 	upload_uniform_int(name, value);
 }
 
 void opengl_shader::set_float3(const std::string& name, const glm::vec3& value)
 {
+	WHP_PROFILE_FUNCTION();
+
 	upload_uniform_float3(name, value);
 }
 
 void opengl_shader::set_float4(const std::string& name, const glm::vec4& value)
 {
+	WHP_PROFILE_FUNCTION();
+
 	upload_uniform_float4(name, value);
 }
 
 void opengl_shader::set_mat4(const std::string& name, const glm::mat4& value)
 {
+	WHP_PROFILE_FUNCTION();
+
 	upload_uniform_mat4(name, value);
 }
 
 void opengl_shader::set_double(const std::string& name, double value)
 {
+	WHP_PROFILE_FUNCTION();
+
 	upload_uniform_double(name, value);
 }
 

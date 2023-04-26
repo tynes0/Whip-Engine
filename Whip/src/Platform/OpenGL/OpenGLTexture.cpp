@@ -9,6 +9,8 @@ _WHIP_START
 opengl_texture2D::opengl_texture2D(uint32_t width, uint32_t height)
 	: m_width(width), m_height(height)
 {
+	WHP_PROFILE_FUNCTION();
+
 	m_internal_format = GL_RGBA8;
 	m_data_format = GL_RGBA;
 
@@ -25,9 +27,15 @@ opengl_texture2D::opengl_texture2D(uint32_t width, uint32_t height)
 opengl_texture2D::opengl_texture2D(const std::string& path)
 	: m_path(path)
 {
+	WHP_PROFILE_FUNCTION();
+
 	int width, height, channels;
 	stbi_set_flip_vertically_on_load(1);
-	stbi_uc* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+	stbi_uc* data;
+	{
+		WHP_PROFILE_SCOPE("stbi_load - opengl_texture2D::opengl_texture2D(const std::string&)");
+		data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+	}
 	WHP_CORE_ASSERT(data, "Failed to load image!");
 	m_width = width;
 	m_height = height;
@@ -63,11 +71,15 @@ opengl_texture2D::opengl_texture2D(const std::string& path)
 
 opengl_texture2D::~opengl_texture2D()
 {
+	WHP_PROFILE_FUNCTION();
+
 	glDeleteTextures(1, &m_rendererID);
 }
 
 void opengl_texture2D::set_data(void* data, uint32_t size)
 {
+	WHP_PROFILE_FUNCTION();
+
 	uint32_t bytes_per_pixel = (m_data_format == GL_RGBA) ? 4 : 3;
 	WHP_CORE_ASSERT(size == m_width * m_height * bytes_per_pixel, "Data must be entire texture!");
 
@@ -76,6 +88,8 @@ void opengl_texture2D::set_data(void* data, uint32_t size)
 
 void opengl_texture2D::bind(uint32_t slot) const
 {
+	WHP_PROFILE_FUNCTION();
+
 	glBindTextureUnit(0, m_rendererID);
 }
 

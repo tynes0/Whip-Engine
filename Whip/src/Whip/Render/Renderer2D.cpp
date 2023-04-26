@@ -20,6 +20,8 @@ static renderer2D_data* s_data;
 
 void renderer2D::init()
 {
+	WHP_PROFILE_FUNCTION();
+
 	s_data = new renderer2D_data;
 	float square_verticies[4 * 5] =
 	{
@@ -54,17 +56,23 @@ void renderer2D::init()
 
 void renderer2D::shutdown()
 {
+	WHP_PROFILE_FUNCTION();
+
 	delete s_data;
 }
 
 void renderer2D::begin_scene(const orthographic_camera& camera)
 {
+	WHP_PROFILE_FUNCTION();
+
 	s_data->texture_shader->bind();
 	s_data->texture_shader->set_mat4("u_view_projection", camera.get_view_projection_matrix());
 }
 
 void renderer2D::end_scene()
 {
+	WHP_PROFILE_FUNCTION();
+
 }
 
 void renderer2D::draw_quad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color)
@@ -74,6 +82,8 @@ void renderer2D::draw_quad(const glm::vec2& position, const glm::vec2& size, con
 
 void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color)
 {
+	WHP_PROFILE_FUNCTION();
+
 	s_data->texture_shader->set_float4("u_color", color);
 	s_data->white_texture->bind();
 
@@ -91,6 +101,8 @@ void renderer2D::draw_quad(const glm::vec2& position, const glm::vec2& size, con
 
 void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, const ref<texture2D>& texture)
 {
+	WHP_PROFILE_FUNCTION();
+
 	s_data->texture_shader->set_float4("u_color", glm::vec4(1.0f));
 	texture->bind();
 	

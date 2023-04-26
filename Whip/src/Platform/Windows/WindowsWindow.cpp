@@ -6,7 +6,7 @@
 
 _WHIP_START
 
-static bool s_GLFWInitialized = false;
+static uint32_t s_GLFWwindow_count = 0;
 
 #ifdef WHP_PLATFORM_WINDOWS
 
@@ -19,32 +19,43 @@ WHP_NODISCARD window* window::create(const window_props& props)
 
 windows_window::windows_window(const window_props& props)
 {
+	WHP_PROFILE_FUNCTION();
+
 	init(props);
 }
 
 windows_window::~windows_window()
 {
+	WHP_PROFILE_FUNCTION();
+
 	shutdown();
 }
 
 void windows_window::init(const window_props& props)
 {
+	WHP_PROFILE_FUNCTION();
+
 	m_data.win_props = props;
 
 	WHP_CORE_INFO("Creating Window {0} ({1}, {2})", props.m_title, props.m_width, props.m_height);
 
 	// initialize GLFW
-	if (!s_GLFWInitialized)
+	if (s_GLFWwindow_count == 0)
 	{
+		WHP_PROFILE_SCOPE("glfwInit");
 		int success = glfwInit();
 		WHP_CORE_ASSERT(success, "Could not initialize GLFW!");
 		glfwSetErrorCallback(GLFW_ERR_CALLBACK_E);
-		s_GLFWInitialized = true;
 	}
 
 	// create window
-	m_window = glfwCreateWindow((int)props.m_width, (int)props.m_height, m_data.win_props.m_title.c_str(), nullptr, nullptr);
-	m_context = new opengl_context(m_window);
+	{
+		WHP_PROFILE_SCOPE("glfwCreateWindow");
+		m_window = glfwCreateWindow((int)props.m_width, (int)props.m_height, m_data.win_props.m_title.c_str(), nullptr, nullptr);
+		++s_GLFWwindow_count;
+	}
+
+	m_context = graphic_context::create(m_window);
 	m_context->init();
 
 	glfwSetWindowUserPointer(m_window, &m_data);
@@ -64,17 +75,23 @@ void windows_window::init(const window_props& props)
 
 void windows_window::shutdown()
 {
+	WHP_PROFILE_FUNCTION();
+
 	glfwDestroyWindow(m_window);
 }
 
 void windows_window::on_update()
 {
+	WHP_PROFILE_FUNCTION();
+
 	glfwPollEvents();
 	m_context->swap_buffers();
 }
 
 void windows_window::set_vsync(bool enabled)
 {
+	WHP_PROFILE_FUNCTION();
+
 	if (enabled)
 	{
 		glfwSwapInterval(1);

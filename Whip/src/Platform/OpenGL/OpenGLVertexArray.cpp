@@ -29,26 +29,36 @@ static GLenum shader_data_type_to_opengl_base_type(shader_data_type type)
 
 opengl_vertex_array::opengl_vertex_array()
 {
+	WHP_PROFILE_FUNCTION();
+
 	glCreateVertexArrays(1, &m_rendererID);
 }
 
 opengl_vertex_array::~opengl_vertex_array()
 {
+	WHP_PROFILE_FUNCTION();
+
 	glDeleteVertexArrays(1, &m_rendererID);
 }
 
 void opengl_vertex_array::bind() const
 {
+	WHP_PROFILE_FUNCTION();
+
 	glBindVertexArray(m_rendererID);
 }
 
 void opengl_vertex_array::unbind() const
 {
+	WHP_PROFILE_FUNCTION();
+
 	glBindVertexArray(0);
 }
 
 void opengl_vertex_array::add_vertex_buffer(const ref<vertex_buffer>& vertexBuffer)
 {
+	WHP_PROFILE_FUNCTION();
+
 	WHP_CORE_ASSERT(vertexBuffer->get_layout().get_elements().size(), "Vertex Buffer has no layout");
 	
 	glBindVertexArray(m_rendererID);
@@ -67,6 +77,8 @@ void opengl_vertex_array::add_vertex_buffer(const ref<vertex_buffer>& vertexBuff
 
 void opengl_vertex_array::set_index_buffer(const ref<index_buffer>& indexBuffer)
 {
+	WHP_PROFILE_FUNCTION();
+
 	glBindVertexArray(m_rendererID);
 	indexBuffer->bind();
 	m_index_buffers = indexBuffer;

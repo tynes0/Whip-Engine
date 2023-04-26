@@ -17,6 +17,7 @@ private:
 	static ref<scene_data> m_scene_data;
 public:
 	static void init();
+	static void shutdown();
 	static void on_window_resize(uint32_t width, uint32_t height);
 	static void begin_scene(orthographic_camera& camera);
 	static void end_scene();

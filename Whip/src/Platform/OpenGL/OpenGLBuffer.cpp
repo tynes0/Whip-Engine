@@ -9,6 +9,8 @@ _WHIP_START
 
 opengl_vertex_buffer::opengl_vertex_buffer(float* vertices, uint32_t size)
 {
+	WHP_PROFILE_FUNCTION();
+
 	glCreateBuffers(1, &m_rendererID);
 	glBindBuffer(GL_ARRAY_BUFFER, m_rendererID);
 	glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
@@ -16,16 +18,22 @@ opengl_vertex_buffer::opengl_vertex_buffer(float* vertices, uint32_t size)
 
 opengl_vertex_buffer::~opengl_vertex_buffer()
 {
+	WHP_PROFILE_FUNCTION();
+
 	glDeleteBuffers(1, &m_rendererID);
 }
 
 void opengl_vertex_buffer::bind() const
 {
+	WHP_PROFILE_FUNCTION();
+
 	glBindBuffer(GL_ARRAY_BUFFER, m_rendererID);
 }
 
 void opengl_vertex_buffer::unbind() const
 {
+	WHP_PROFILE_FUNCTION();
+
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -34,6 +42,8 @@ void opengl_vertex_buffer::unbind() const
 opengl_index_buffer::opengl_index_buffer(uint32_t* indices, uint32_t count)
 	: m_Count(count)
 {
+	WHP_PROFILE_FUNCTION();
+
 	glCreateBuffers(1, &m_rendererID);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_rendererID);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(uint32_t), indices, GL_STATIC_DRAW);
@@ -41,16 +51,22 @@ opengl_index_buffer::opengl_index_buffer(uint32_t* indices, uint32_t count)
 
 opengl_index_buffer::~opengl_index_buffer()
 {
+	WHP_PROFILE_FUNCTION();
+
 	glDeleteBuffers(1, &m_rendererID);
 }
 
 void opengl_index_buffer::bind() const
 {
+	WHP_PROFILE_FUNCTION();
+
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_rendererID);
 }
 
 void opengl_index_buffer::unbind() const
 {
+	WHP_PROFILE_FUNCTION();
+
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 

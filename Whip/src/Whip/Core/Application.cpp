@@ -11,6 +11,8 @@ application* application::s_instance = nullptr;
 
 application::application()
 {
+	WHP_PROFILE_FUNCTION();
+	
 	WHP_CORE_ASSERT(!s_instance, "Application already exist!");
 	s_instance = this;
 	m_window = scope<window>(window::create());
@@ -25,13 +27,18 @@ application::application()
 
 application::~application()
 {
+	WHP_PROFILE_FUNCTION();
 
+	renderer::shutdown();
 }
 
 void application::run()
 {
+	WHP_PROFILE_FUNCTION();
+
 	while (m_running)
 	{
+		WHP_PROFILE_SCOPE("run loop");
 		float time = (float)glfwGetTime();
 		timestep ts = time - m_last_frame_time;
 		m_last_frame_time = time;
@@ -39,16 +46,22 @@ void application::run()
 
 		if (!m_minimized)
 		{
-			for (layerptr item : m_layer_stack)
 			{
-				item->on_update(ts);
+				WHP_PROFILE_SCOPE("layer_stack on_update");
+				for (layerptr item : m_layer_stack)
+				{
+					item->on_update(ts);
+				}
 			}
 		}
 
 		m_imgui_layer->begin();
-		for (layerptr item : m_layer_stack)
 		{
-			item->on_imgui_render();
+			WHP_PROFILE_SCOPE("layer_stack on_imgui_layer");
+			for (layerptr item : m_layer_stack)
+			{
+				item->on_imgui_render();
+			}
 		}
 		m_imgui_layer->end();
 		m_window->on_update();
@@ -57,6 +70,8 @@ void application::run()
 
 void application::on_event(Event& e)
 {
+	WHP_PROFILE_FUNCTION();
+
 	event_dispatcher dispatcher(e);
 	dispatcher.dispatch<window_close_event>(WHP_BIND_EVENT_FN(application::on_window_close));
 	dispatcher.dispatch<window_resize_event>(WHP_BIND_EVENT_FN(application::on_window_resize));
@@ -73,12 +88,16 @@ void application::on_event(Event& e)
 
 void application::push_layer(layerptr layer)
 {
+	WHP_PROFILE_FUNCTION();
+
 	m_layer_stack.push_layer(layer);
 	layer->on_attach();
 }
 
 void application::push_overlay(layerptr overlay)
 {
+	WHP_PROFILE_FUNCTION();
+
 	m_layer_stack.push_overlay(overlay);
 	overlay->on_attach();
 }
@@ -92,6 +111,8 @@ bool application::on_window_close(window_close_event& evnt)
 
 bool application::on_window_resize(window_resize_event& evnt)
 {
+	WHP_PROFILE_FUNCTION();
+
 	if (evnt.get_width() == 0 || evnt.get_height() == 0)
 	{
 		m_minimized = true;
