@@ -1,13 +1,14 @@
 #include <Whip.h>
 
+#include "F_boxApp2d.h"
+
 #include <Platform/OpenGL/OpenGLShader.h>
 
 #include "imgui/imgui.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-
-class ex_layer : public whip::layer
+ /*class ex_layer : public whip::layer
 {
 private:
 	whip::shader_library m_shader_library;
@@ -23,6 +24,7 @@ public:
 	ex_layer()
 		: layer("Whip Layer"), m_camera_controller(whip::calculate_aspect_ratio(1280.0f, 720.0f), true)
 	{
+
 		// x - y - z
 		float vertices[3 * 7] =
 		{
@@ -98,7 +100,7 @@ public:
 		std::dynamic_pointer_cast<whip::opengl_shader>(triangle_shader)->bind();
 		std::dynamic_pointer_cast<whip::opengl_shader>(triangle_shader)->upload_uniform_float3("u_color", m_triangle_color);
 
-		for (int y = 0; y < 20; ++y)
+		for (int y : whip::range(20))
 		{
 			for (int x = 0; x < 20; ++x)
 			{
@@ -127,18 +129,20 @@ public:
 	{
 		m_camera_controller.on_event(evnt);
 	}
-};
+};*/
+
 
 class f_box : public whip::application
 {
 public:
 	f_box()
 	{
-		push_layer(new ex_layer());
+		//push_layer(new ex_layer());
+		push_layer(new fbox_app2D());
 	}
 	~f_box()
 	{
-		std::chrono::nanoseconds;
+
 	}
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Whip/Core/KeyCodes.h>
+#include <Whip/Core/Utility.h>
 
 _WHIP_START
 

@@ -182,7 +182,32 @@ void opengl_shader::unbind() const
 	glUseProgram(0);
 }
 
-void opengl_shader::upload_uniform_mat3(const std::string& name, const glm::mat4& matrix)
+void opengl_shader::set_int(const std::string& name, int value)
+{
+	upload_uniform_int(name, value);
+}
+
+void opengl_shader::set_float3(const std::string& name, const glm::vec3& value)
+{
+	upload_uniform_float3(name, value);
+}
+
+void opengl_shader::set_float4(const std::string& name, const glm::vec4& value)
+{
+	upload_uniform_float4(name, value);
+}
+
+void opengl_shader::set_mat4(const std::string& name, const glm::mat4& value)
+{
+	upload_uniform_mat4(name, value);
+}
+
+void opengl_shader::set_double(const std::string& name, double value)
+{
+	upload_uniform_double(name, value);
+}
+
+void opengl_shader::upload_uniform_mat3(const std::string& name, const glm::mat3& matrix)
 {
 	int location = glGetUniformLocation(m_rendererID, name.c_str());
 	glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
@@ -190,8 +215,13 @@ void opengl_shader::upload_uniform_mat3(const std::string& name, const glm::mat4
 
 void opengl_shader::upload_uniform_mat4(const std::string& name, const glm::mat4& matrix)
 {
-	int location = glGetUniformLocation(m_rendererID, name.c_str());
+	int location;
+	{
+		WHP_PROFILE_FUNCTION();
+		location = glGetUniformLocation(m_rendererID, name.c_str());
+	}
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+
 }
 
 void opengl_shader::upload_uniform_int(const std::string& name, int value)
@@ -222,6 +252,12 @@ void opengl_shader::upload_uniform_float4(const std::string& name, const glm::ve
 {
 	int location = glGetUniformLocation(m_rendererID, name.c_str());
 	glUniform4f(location, vec.r, vec.g, vec.b, vec.a);
+}
+
+void opengl_shader::upload_uniform_double(const std::string& name, double value)
+{
+	int location = glGetUniformLocation(m_rendererID, name.c_str());
+	glUniform1d(location, value);
 }
 
 

@@ -21,5 +21,6 @@
 #endif // WHP_PLATFORM_WINDOWS
 
 #include <Whip/Core/Log.h>
+#include <Whip/Debug/Instrumentor.h>
 
 #endif // !_WHIPPCH_

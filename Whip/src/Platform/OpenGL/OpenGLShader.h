@@ -30,7 +30,13 @@ public:
 	virtual void bind() const override;
 	virtual void unbind() const override;
 
-	void upload_uniform_mat3(const std::string& name, const glm::mat4& matrix);
+	virtual void set_int(const std::string& name, int value) override;
+	virtual void set_float3(const std::string& name, const glm::vec3& value) override;
+	virtual void set_float4(const std::string& name, const glm::vec4& value) override;
+	virtual void set_mat4(const std::string& name, const glm::mat4& value) override;
+	virtual void set_double(const std::string& name, double value) override;
+
+	void upload_uniform_mat3(const std::string& name, const glm::mat3& matrix);
 	void upload_uniform_mat4(const std::string& name, const glm::mat4& matrix);
 
 	void upload_uniform_int(const std::string& name, int value);
@@ -39,6 +45,8 @@ public:
 	void upload_uniform_float2(const std::string& name, const glm::vec2& vec);
 	void upload_uniform_float3(const std::string& name, const glm::vec3& vec);
 	void upload_uniform_float4(const std::string& name, const glm::vec4& vec);
+
+	void upload_uniform_double(const std::string& name, double value);
 };
 
 _WHIP_END

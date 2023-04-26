@@ -1,8 +1,11 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
+#include <Whip/Core/Memory.h>
 #include <string>
 #include <unordered_map>
+
+#include <glm/glm.hpp>
 
 _WHIP_START
 
@@ -15,6 +18,12 @@ public:
 
 	virtual void bind() const = 0;
 	virtual void unbind() const = 0;
+
+	virtual void set_int(const std::string& name, int value) = 0;
+	virtual void set_float3(const std::string& name, const glm::vec3& value) = 0;
+	virtual void set_float4(const std::string& name, const glm::vec4& value) = 0;
+	virtual void set_mat4(const std::string& name, const glm::mat4& value) = 0;
+	virtual void set_double(const std::string& name, double value) = 0;
 
 	WHP_NODISCARD static ref<shader> create(const std::string& filepath);
 	WHP_NODISCARD static ref<shader> create(const std::string& name, const std::string& filepath);

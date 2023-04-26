@@ -2,58 +2,76 @@
 
 #include <random>
 #include <Whip/Core/Core.h>
+#include <Whip/Core/Utility.h>
 
 _WHIP_START
 
-class WHIP_API random
+class random
 {
-private:
-	template <typename T>
-	WHP_NODISCARD inline static T int_type_randomizer(T min_val, T max_val);
-	template <typename T>
-	WHP_NODISCARD inline static T real_type_randomizer(T min_val, T max_val);
+	using generator		= std::mt19937;
+	using rand_dev		= std::random_device;
+	template <class T>
+	using uni_int_dis	= std::uniform_int_distribution<T>;
+	template <class T>
+	using uni_real_dis	= std::uniform_real_distribution<T>;
 public:
-	WHP_NODISCARD static int random_in_range_int(int min_val, int max_val);
-	WHP_NODISCARD static short random_in_range_short(short min_val, short max_val);
-	WHP_NODISCARD static long long random_in_range_ll(long long min_val, long long max_val);
-	WHP_NODISCARD static float random_in_range_float(float min_val, float max_val);
-	WHP_NODISCARD static double random_in_range_double(double min_val, double max_val);
-	WHP_NODISCARD static int random_int();
-	WHP_NODISCARD static short random_short();
-	WHP_NODISCARD static long long random_ll();
-	WHP_NODISCARD static float random_float();
-	WHP_NODISCARD static double random_double();
-	WHP_NODISCARD static int random_pos_int();
-	WHP_NODISCARD static short random_pos_short();
-	WHP_NODISCARD static long long random_pos_ll();
-	WHP_NODISCARD static float random_pos_float();
-	WHP_NODISCARD static double random_pos_double();
-	WHP_NODISCARD static int random_neg_int();
-	WHP_NODISCARD static short random_neg_short();
-	WHP_NODISCARD static long long random_neg_ll();
-	WHP_NODISCARD static float random_neg_float();
-	WHP_NODISCARD static double random_neg_double();
+	template <class T, enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+	static T random_in_range(T min, T max) noexcept
+	{
+		return distribution<T>(min, max);
+	}
+
+	static int					rint(int const min = INT_MIN, int const max = INT_MAX) noexcept;
+	static short				rshort(short const min = SHRT_MIN, short const max = SHRT_MAX) noexcept;
+	static long					rlong(long const min = LONG_MIN, long const max = LONG_MAX) noexcept;
+	static long long			rlong_long(long long const min = LLONG_MIN, long long const max = LLONG_MAX) noexcept;
+	static unsigned int			runsigned_int(unsigned int const min = 0, unsigned int const max = UINT_MAX) noexcept;
+	static unsigned short		runsigned_short(unsigned short const min = 0, unsigned short const max = USHRT_MAX) noexcept;
+	static unsigned long		runsigned_long(unsigned long const min = 0, unsigned long const max = ULONG_MAX) noexcept;
+	static unsigned long long	runsigned_long_long(unsigned long long const min = 0, unsigned long long const max = ULLONG_MAX) noexcept;
+	static float				rfloat(float const min = -FLT_MAX, float const max = FLT_MAX) noexcept;
+	static double				rdouble(double const min = -DBL_MAX, double const max = DBL_MAX) noexcept;
+	static long double			rlong_double(long double const min = -LDBL_MAX, long double const max = LDBL_MAX) noexcept;
+
+private:
+	static generator init() noexcept
+	{
+		rand_dev rd;
+		is_initialized = true;
+		return generator(rd());
+	}
+
+	template <class T, enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+	static T distribution(T min, T max)
+	{
+		if (!is_initialized)
+		{
+			init();
+		}
+
+		if (min > max)
+		{
+			swap(min, max);
+		}
+		
+		if constexpr (std::is_integral_v<T>)
+		{
+			uni_int_dis dis(min, max);
+			return dis(m_gen);
+		}
+
+		if constexpr (std::is_floating_point_v<T>)
+		{
+			uni_real_dis dis(min, max);
+			return dis(m_gen);
+		}
+
+		return 0;
+	}
+
+private:
+	static generator m_gen;
+	static bool is_initialized;
 };
-
-template<typename T>
-WHP_NODISCARD inline T random::int_type_randomizer(T min_val, T max_val)
-{
-	if (min_val > max_val) { return 0; }
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_int_distribution<T> distribute(min_val, max_val);
-	return distribute(gen);
-}
-
-template<typename T>
-WHP_NODISCARD inline T random::real_type_randomizer(T min_val, T max_val)
-{
-	if (min_val > max_val) { return 0; }
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_real_distribution<T> distribute(min_val, max_val);
-	return distribute(gen);
-}
-
 
 _WHIP_END

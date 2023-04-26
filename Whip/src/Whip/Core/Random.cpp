@@ -3,104 +3,63 @@
 
 _WHIP_START
 
-WHP_NODISCARD inline int random::random_in_range_int(int min_val, int max_val)
+bool random::is_initialized = false;
+
+random::generator random::m_gen = random::init();
+
+int random::rint(int const min, int const max) noexcept
 {
-	return int_type_randomizer<int>(min_val, max_val);
+	return distribution(min, max);
 }
 
-WHP_NODISCARD inline short random::random_in_range_short(short min_val, short max_val)
+short random::rshort(short const min, short const max) noexcept
 {
-	return int_type_randomizer<short>(min_val, max_val);;
+	return distribution(min, max);
 }
 
-WHP_NODISCARD long long random::random_in_range_ll(long long min_val, long long max_val)
+long random::rlong(long const min, long const max) noexcept
 {
-	return int_type_randomizer<long long>(min_val, max_val);;
+	return distribution(min, max);
 }
 
-WHP_NODISCARD float random::random_in_range_float(float min_val, float max_val)
+long long random::rlong_long(long long const min, long long const max) noexcept
 {
-	return real_type_randomizer<float>(min_val, max_val);
+	return distribution(min, max);
 }
 
-WHP_NODISCARD double random::random_in_range_double(double min_val, double max_val)
+unsigned int random::runsigned_int(unsigned int const min, unsigned int const max) noexcept
 {
-	return real_type_randomizer<double>(min_val, max_val);
+	return distribution(min, max);
 }
 
-WHP_NODISCARD int random::random_int()
+unsigned short random::runsigned_short(unsigned short const min, unsigned short const max) noexcept
 {
-	return int_type_randomizer<int>(INT_MIN, INT_MAX);
+	return distribution(min, max);
 }
 
-WHP_NODISCARD short random::random_short()
+unsigned long random::runsigned_long(unsigned long const min, unsigned long const max) noexcept
 {
-	return int_type_randomizer<short>(SHRT_MIN, SHRT_MAX);
+	return distribution(min, max);
 }
 
-WHP_NODISCARD long long random::random_ll()
+unsigned long long random::runsigned_long_long(unsigned long long const min, unsigned long long const max) noexcept
 {
-	return int_type_randomizer<long long>(LLONG_MIN, LLONG_MAX);
+	return distribution(min, max);
 }
 
-WHP_NODISCARD float random::random_float()
+float random::rfloat(float const min, float const max) noexcept
 {
-	return real_type_randomizer<float>(FLT_MIN, FLT_MAX);
+	return distribution(min, max);
 }
 
-WHP_NODISCARD double random::random_double()
+double random::rdouble(double const min, double const max) noexcept
 {
-	return real_type_randomizer<double>(DBL_MIN, DBL_MAX);
+	return distribution(min, max);
 }
 
-WHP_NODISCARD int random::random_pos_int()
+long double random::rlong_double(long double const min, long double const max) noexcept
 {
-	return int_type_randomizer<int>(0, INT_MAX);
-}
-
-WHP_NODISCARD short random::random_pos_short()
-{
-	return int_type_randomizer<short>(0, SHRT_MAX);
-}
-
-WHP_NODISCARD long long random::random_pos_ll()
-{
-	return int_type_randomizer<long long>(0, LLONG_MAX);
-}
-
-WHP_NODISCARD float random::random_pos_float()
-{
-	return real_type_randomizer<float>(0.0f, FLT_MAX);
-}
-
-WHP_NODISCARD double random::random_pos_double()
-{
-	return real_type_randomizer<double>(0.0, DBL_MAX);
-}
-
-WHP_NODISCARD int random::random_neg_int()
-{
-	return int_type_randomizer<int>(INT_MIN, 0);
-}
-
-WHP_NODISCARD short random::random_neg_short()
-{
-	return int_type_randomizer<short>(SHRT_MIN, 0);
-}
-
-WHP_NODISCARD long long random::random_neg_ll()
-{
-	return int_type_randomizer<long long>(LLONG_MIN, 0);
-}
-
-WHP_NODISCARD float random::random_neg_float()
-{
-	return real_type_randomizer<float>(FLT_MIN, 0);
-}
-
-WHP_NODISCARD double random::random_neg_double()
-{
-	return real_type_randomizer<double>(DBL_MIN, 0);
+	return distribution(min, max);
 }
 
 _WHIP_END

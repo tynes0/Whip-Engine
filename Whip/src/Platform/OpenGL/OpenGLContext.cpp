@@ -6,8 +6,7 @@
 #include <GLFW/glfw3.h>
 
 _WHIP_START
-
-
+ 
 opengl_context::opengl_context(GLFWwindow* win_handle) : m_window_handle(win_handle)
 {
 	WHP_CORE_ASSERT(win_handle, "Window Handle does not exist!");
@@ -26,7 +25,7 @@ void opengl_context::init()
 	glGetIntegerv(GL_MINOR_VERSION, &version_minor);
 
 	WHP_CORE_ASSERT(version_major > 4 || (version_major == 4 && version_minor >= 5), "Whip requires at least OpenGL version!");
-#endif
+#endif // WHP_ENABLE_ASSERTS
 }
 
 void opengl_context::swap_buffers()

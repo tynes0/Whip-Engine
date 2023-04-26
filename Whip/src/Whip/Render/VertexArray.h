@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Whip/Render/Buffer.h>
-#include <memory>
+#include <Whip/Core/Memory.h>
 
 _WHIP_START
 

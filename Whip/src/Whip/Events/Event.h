@@ -65,7 +65,7 @@ public:
 	event_dispatcher(Event& evnt) : m_event(evnt) {}
 
 	template <class T>
-	bool dispatch(event_fn<T> func)
+	typename std::enable_if<std::is_base_of<Event, T>::value, bool>::type dispatch(event_fn<T> func)
 	{
 		if (m_event.get_event_type() == T::get_static_type())
 		{

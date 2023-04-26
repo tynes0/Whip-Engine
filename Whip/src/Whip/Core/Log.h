@@ -8,8 +8,7 @@
 
 _WHIP_START
 
-typedef spdlog::logger whp_logger;
-typedef std::shared_ptr<spdlog::logger> shared_whp_log;
+typedef std::shared_ptr<spdlog::logger> whp_logger;
 
 class WHIP_API log
 {
@@ -56,14 +55,14 @@ _WHIP_END
 
 // Empty log macros
 #define WHP_LOG_TRACE(logger, ...)		logger->trace(__VA_ARGS__)
-#define WHP_LOG_DEBUG(logger, ...)		logger->trace(__VA_ARGS__)
-#define WHP_LOG_INFO(logger, ...)		logger->trace(__VA_ARGS__)
-#define WHP_LOG_WARN(logger, ...)		logger->trace(__VA_ARGS__)
-#define WHP_LOG_ERROR(logger, ...)		logger->trace(__VA_ARGS__)
-#define WHP_LOG_CRITICAL(logger, ...)	logger->trace(__VA_ARGS__)
+#define WHP_LOG_DEBUG(logger, ...)		logger->debug(__VA_ARGS__)
+#define WHP_LOG_INFO(logger, ...)		logger->info(__VA_ARGS__)
+#define WHP_LOG_WARN(logger, ...)		logger->warn(__VA_ARGS__)
+#define WHP_LOG_ERROR(logger, ...)		logger->error(__VA_ARGS__)
+#define WHP_LOG_CRITICAL(logger, ...)	logger->critical(__VA_ARGS__)
 
 // set log macro
 #define SET_LOG(logger, str_logger_name, logger_level)		logger = spdlog::stdout_color_mt(str_logger_name);\
-															logger->set_level(log::whip_log_level_to_spdlog_level(logger_level))
+															logger->set_level(_WHIP log::whip_log_level_to_spdlog_level(logger_level))
 // init macro for simple usage
-#define INIT_WHP_LOG ::whip::log::init()
+#define INIT_WHP_LOG _WHIP log::init()

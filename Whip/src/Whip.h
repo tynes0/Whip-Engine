@@ -21,6 +21,7 @@
 
 // -------- Whip render works ----------
 #include <Whip/Render/Renderer.h>
+#include <Whip/Render/Renderer2D.h>
 #include <Whip/Render/RenderCommand.h>
 
 // Whip shader - texture - buffer - vertexArray
@@ -36,9 +37,5 @@
 
 // random class 
 #include <Whip/Core/Random.h>
-
-// ----- Giris Noktasi -----
-#include <Whip/Core/EntryPoint.h>
-// -------------------------
 
 #endif // ! _WHIP_

@@ -1,6 +1,7 @@
 #include "whippch.h"
 #include "Renderer.h"
 #include <Platform/OpenGL/OpenGLShader.h>
+#include <Whip/Render/Renderer2D.h>
 
 _WHIP_START
 
@@ -9,6 +10,7 @@ ref<scene_data> renderer::m_scene_data = make_ref<scene_data>();
 void renderer::init()
 {
 	render_command::init();
+	renderer2D::init();
 }
 
 void renderer::on_window_resize(uint32_t width, uint32_t height)
@@ -28,8 +30,8 @@ void renderer::end_scene()
 void renderer::submit(const ref<shader>& shader, const ref<vertex_array>& vertexArray, const glm::mat4& transform)
 {
 	shader->bind();
-	std::dynamic_pointer_cast<opengl_shader>(shader)->upload_uniform_mat4("u_view_projection", m_scene_data->view_projection_matrix);
-	std::dynamic_pointer_cast<opengl_shader>(shader)->upload_uniform_mat4("u_transform", transform);
+	dynamic_pointer_cast<opengl_shader>(shader)->upload_uniform_mat4("u_view_projection", m_scene_data->view_projection_matrix);
+	dynamic_pointer_cast<opengl_shader>(shader)->upload_uniform_mat4("u_transform", transform);
 	
 	vertexArray->bind();
 	render_command::draw_indexed(vertexArray);
