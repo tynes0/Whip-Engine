@@ -19,6 +19,9 @@
     <Filter Include="src\Whip\Core">
       <UniqueIdentifier>{2CA53D5E-9865-B994-61A0-0212CD1FFE70}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Whip\Debug">
+      <UniqueIdentifier>{CAA5FE25-B673-F22B-9F07-63528B74CE90}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\Whip\Events">
       <UniqueIdentifier>{B8B15DE9-243D-CBAD-2D4E-4EA2995827AE}</UniqueIdentifier>
     </Filter>
@@ -84,6 +87,9 @@
     <ClInclude Include="src\Whip.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\Whip\Core\Allocator.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Whip\Core\Application.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
@@ -94,6 +100,9 @@
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\Input.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\Iterator.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\KeyCodes.h">
@@ -108,7 +117,13 @@
     <ClInclude Include="src\Whip\Core\Log.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\Whip\Core\Memory.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Whip\Core\MouseButtonCodes.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\Pair.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\Random.h">
@@ -117,8 +132,17 @@
     <ClInclude Include="src\Whip\Core\Timestep.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\Whip\Core\TypeTraits.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\Utility.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Whip\Core\Window.h">
       <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Debug\Instrumentor.h">
+      <Filter>src\Whip\Debug</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Events\ApplicationEvent.h">
       <Filter>src\Whip\Events</Filter>
@@ -157,6 +181,9 @@
       <Filter>src\Whip\Render</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Render\Renderer.h">
+      <Filter>src\Whip\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Render\Renderer2D.h">
       <Filter>src\Whip\Render</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Render\Shader.h">
@@ -1422,14 +1449,6 @@
     <ClInclude Include="vendor\stb_image\stb_image.h">
       <Filter>vendor\stb_image</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Render\Renderer2D.h" />
-    <ClInclude Include="src\Whip\Debug\Instrumentor.h" />
-    <ClInclude Include="src\Whip\Core\TypeTraits.h" />
-    <ClInclude Include="src\Whip\Core\Memory.h" />
-    <ClInclude Include="src\Whip\Core\Pair.h" />
-    <ClInclude Include="src\Whip\Core\Allocator.h" />
-    <ClInclude Include="src\Whip\Core\Utility.h" />
-    <ClInclude Include="src\Whip\Core\Iterator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">
@@ -1498,6 +1517,9 @@
     <ClCompile Include="src\Whip\Render\Renderer.cpp">
       <Filter>src\Whip\Render</Filter>
     </ClCompile>
+    <ClCompile Include="src\Whip\Render\Renderer2D.cpp">
+      <Filter>src\Whip\Render</Filter>
+    </ClCompile>
     <ClCompile Include="src\Whip\Render\Shader.cpp">
       <Filter>src\Whip\Render</Filter>
     </ClCompile>
@@ -1513,6 +1535,5 @@
     <ClCompile Include="vendor\stb_image\stb_image.cpp">
       <Filter>vendor\stb_image</Filter>
     </ClCompile>
-    <ClCompile Include="src\Whip\Render\Renderer2D.cpp" />
   </ItemGroup>
 </Project>
