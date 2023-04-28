@@ -91,11 +91,11 @@ void imgui_layer::on_detach()
 
 void imgui_layer::on_imgui_render()
 {
-	ImGui::Begin("Whip Renderer");
+	/*ImGui::Begin("Whip Renderer");
 	ImGui::Text("OpenGl Vendor: %s", (const char*)glGetString(GL_VENDOR));
 	ImGui::Text("OpenGl Renderer: %s", (const char*)glGetString(GL_RENDERER));
 	ImGui::Text("OpenGl Version: %s", (const char*)glGetString(GL_VERSION));
-	ImGui::End();
+	ImGui::End();*/
 }
 
 _WHIP_END

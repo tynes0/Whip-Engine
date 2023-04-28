@@ -209,6 +209,13 @@ void opengl_shader::set_int(const std::string& name, int value)
 	upload_uniform_int(name, value);
 }
 
+void opengl_shader::set_float(const std::string& name, float value)
+{
+	WHP_PROFILE_FUNCTION();
+
+	upload_uniform_float(name, value);
+}
+
 void opengl_shader::set_float3(const std::string& name, const glm::vec3& value)
 {
 	WHP_PROFILE_FUNCTION();

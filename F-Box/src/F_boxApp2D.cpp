@@ -41,9 +41,9 @@ void fbox_app2D::on_update(whip::timestep ts)
 		whip::renderer2D::begin_scene(m_camera_controller.get_camera());
 
 		whip::renderer2D::draw_quad({ -1.0f, 0.0f }, { 0.9f, 0.9f }, m_square_color);
-		whip::renderer2D::draw_quad({ 0.5f, -0.5f }, { 1.2f, 0.7f }, m_second_color);
+		whip::renderer2D::draw_rotated_quad({ 0.5f, -0.5f }, { 1.2f, 0.7f }, glm::radians(45.0f), m_second_color);
 
-		whip::renderer2D::draw_quad({ 0.0f, 0.0f, -0.1 }, { 100.0f, 100.0f }, m_test_texture);
+		whip::renderer2D::draw_quad({ 0.0f, 0.0f, -0.1 }, { 100.0f, 100.0f }, m_test_texture, 20.0f);
 		whip::renderer2D::end_scene();
 	}
 }

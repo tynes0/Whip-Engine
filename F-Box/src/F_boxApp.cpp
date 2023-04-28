@@ -1,6 +1,7 @@
 #include <Whip.h>
 
 #include "F_boxApp2d.h"
+#include "GameLayer.h"
 
 #include <Platform/OpenGL/OpenGLShader.h>
 
