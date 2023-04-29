@@ -27,9 +27,9 @@ public:
 	{
 		s_render_API->clear();
 	}
-	inline static void draw_indexed(const whip::ref<vertex_array>& vertexArray)
+	inline static void draw_indexed(const whip::ref<vertex_array>& vertexArray, uint32_t index_count = 0)
 	{
-		s_render_API->draw_indexed(vertexArray);
+		s_render_API->draw_indexed(vertexArray, index_count);
 	}
 };
 

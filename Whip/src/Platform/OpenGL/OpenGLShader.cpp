@@ -252,13 +252,8 @@ void opengl_shader::upload_uniform_mat3(const std::string& name, const glm::mat3
 
 void opengl_shader::upload_uniform_mat4(const std::string& name, const glm::mat4& matrix)
 {
-	int location;
-	{
-		WHP_PROFILE_FUNCTION();
-		location = glGetUniformLocation(m_rendererID, name.c_str());
-	}
+	GLint location = glGetUniformLocation(m_rendererID, name.c_str());
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
-
 }
 
 void opengl_shader::upload_uniform_int(const std::string& name, int value)

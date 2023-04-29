@@ -16,6 +16,15 @@ opengl_vertex_buffer::opengl_vertex_buffer(float* vertices, uint32_t size)
 	glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
 }
 
+opengl_vertex_buffer::opengl_vertex_buffer(uint32_t size)
+{
+	WHP_PROFILE_FUNCTION();
+
+	glCreateBuffers(1, &m_rendererID);
+	glBindBuffer(GL_ARRAY_BUFFER, m_rendererID);
+	glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
+}
+
 opengl_vertex_buffer::~opengl_vertex_buffer()
 {
 	WHP_PROFILE_FUNCTION();
@@ -35,6 +44,14 @@ void opengl_vertex_buffer::unbind() const
 	WHP_PROFILE_FUNCTION();
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void opengl_vertex_buffer::set_data(const void* data, uint32_t size)
+{
+	WHP_PROFILE_FUNCTION();
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_rendererID);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, size, data);
 }
 
 // INDEX BUFFER

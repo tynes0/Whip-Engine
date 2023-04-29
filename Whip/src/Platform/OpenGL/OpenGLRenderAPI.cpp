@@ -29,9 +29,10 @@ void opengl_render_API::clear()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void opengl_render_API::draw_indexed(const ref<vertex_array>& vertexArray)
+void opengl_render_API::draw_indexed(const ref<vertex_array>& vertexArray, uint32_t index_count)
 {
-	glDrawElements(GL_TRIANGLES, vertexArray->get_index_buffer()->get_count(), GL_UNSIGNED_INT, nullptr);
+	uint32_t count = (index_count != 0) ? index_count : vertexArray->get_index_buffer()->get_count();
+	glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr);
 }
 
 

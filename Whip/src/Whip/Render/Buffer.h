@@ -124,8 +124,11 @@ public:
 
 	virtual void set_layout(const buffer_layout& layout) = 0;
 	virtual const buffer_layout& get_layout() const = 0;
+
+	virtual void set_data(const void* data, uint32_t size) = 0;
 	
 	WHP_NODISCARD static ref<vertex_buffer> create(float* vertices, uint32_t size);
+	WHP_NODISCARD static ref<vertex_buffer> create(uint32_t size);
 };
 
 class index_buffer

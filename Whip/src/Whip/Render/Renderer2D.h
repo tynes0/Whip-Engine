@@ -15,6 +15,8 @@ public:
 	static void begin_scene(const orthographic_camera& camera);
 	static void end_scene();
 
+	static void flush();
+
 	static void draw_quad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color);
 	static void draw_quad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color);
 	static void draw_quad(const glm::vec2& position, const glm::vec2& size, const ref<texture2D>& texture, float tiling_factor = 1.0f, const glm::vec4& tint_color = glm::vec4(1.0f));
