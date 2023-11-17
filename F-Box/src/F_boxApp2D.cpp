@@ -38,13 +38,18 @@ void fbox_app2D::on_update(whip::timestep ts)
 
 	{
 		WHP_PROFILE_SCOPE("renderer draw");
+
+		static float rotation = 0.0f;
+		rotation += ts * 45.0f;
+
 		whip::renderer2D::begin_scene(m_camera_controller.get_camera());
 
 		whip::renderer2D::draw_quad({ -1.0f, 0.0f }, { 0.9f, 0.9f }, m_square_color);
-		//whip::renderer2D::draw_rotated_quad({ 0.5f, -0.5f }, { 1.2f, 0.7f }, glm::radians(45.0f), m_second_color);
+		whip::renderer2D::draw_rotated_quad({ 1.0f, -1.5f }, { 1.0f, 1.0f }, rotation, m_second_color);
 		whip::renderer2D::draw_quad({ 0.5f, -0.5f }, { 1.2f, 0.7f }, m_second_color);
 
-		whip::renderer2D::draw_quad({ -5.0f, -5.0f, -0.1 }, { 10.0f, 10.0f }, m_test_texture, 5.0f);
+		whip::renderer2D::draw_quad({ 0.0f, 0.0f, -0.1 }, { 10.0f, 10.0f }, m_test_texture, 5.0f);
+		//whip::renderer2D::draw_rotated_quad({ 0.0f, 0.0f }, { 1.0f, 1.0f }, rotation, m_test_texture, 2.0f);
 		whip::renderer2D::end_scene();
 	}
 }
