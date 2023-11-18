@@ -2,46 +2,38 @@
 
 #include <Whip.h>
 
-#include "Random.h"
-
-struct particle_props
+struct ParticleProps
 {
-	glm::vec2 position;
-	glm::vec2 velocity;
-	glm::vec2 velocity_variation;
-	glm::vec4 color_begin;
-	glm::vec4 color_end;
-	float size_begin;
-	float size_end;
-	float size_variation;
-	float life_time = 1.0f;
+	glm::vec2 Position;
+	glm::vec2 Velocity, VelocityVariation;
+	glm::vec4 ColorBegin, ColorEnd;
+	float SizeBegin, SizeEnd, SizeVariation;
+	float LifeTime = 1.0f;
 };
 
-class particle_system
+class ParticleSystem
 {
 public:
-	particle_system();
+	ParticleSystem(uint32_t max_particles = 100000);
 
-	void emit(const particle_props& pprops);
+	void OnUpdate(whip::timestep ts);
+	void OnRender(whip::orthographic_camera& camera);
 
-	void on_update(whip::timestep ts);
-	void on_render();
+	void Emit(const ParticleProps& particleProps);
 private:
-	struct particle
+	struct Particle
 	{
-		glm::vec2 position;
-		glm::vec2 velocity;
-		glm::vec4 color_begin;
-		glm::vec4 color_end;
-		float rotation = 0.0f;
-		float size_begin;
-		float size_end;
-		float life_time = 1.0f;
-		float life_remaining = 0.0f;
+		glm::vec2 Position;
+		glm::vec2 Velocity;
+		glm::vec4 ColorBegin, ColorEnd;
+		float Rotation = 0.0f;
+		float SizeBegin, SizeEnd;
 
-		bool active = false;
+		float LifeTime = 1.0f;
+		float LifeRemaining = 0.0f;
+
+		bool Active = false;
 	};
-
-	std::vector<particle> m_particle_pool;
-	uint32_t m_pool_index = 999;
+	std::vector<Particle> m_ParticlePool;
+	uint32_t m_PoolIndex;
 };

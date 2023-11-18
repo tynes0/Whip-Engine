@@ -1,9 +1,19 @@
 #pragma once
 
 #include <Whip.h>
+#include "ParticleSystem.h"
 
 class fbox_app2D : public whip::layer
 {
+public:
+	fbox_app2D();
+	virtual ~fbox_app2D() = default;
+
+	virtual void on_attach() override;
+	virtual void on_detach() override;
+	virtual void on_update(whip::timestep ts) override;
+	virtual void on_imgui_render() override;
+	virtual void on_event(whip::Event& evnt) override;
 private:
 	whip::orthographic_camera_controller m_camera_controller;
 
@@ -15,14 +25,8 @@ private:
 
 	glm::vec4 m_square_color = { 0.2f, 0.1f, 0.7f, 1.0f };
 	glm::vec4 m_second_color = { 0.2f, 0.1f, 0.2f, 1.0f };
-public:
-	fbox_app2D();
-	virtual ~fbox_app2D() = default;
 
-	virtual void on_attach() override;
-	virtual void on_detach() override;
-	virtual void on_update(whip::timestep ts) override;
-	virtual void on_imgui_render() override;
-	virtual void on_event(whip::Event& evnt) override;
+	ParticleProps m_particle;
+	ParticleSystem m_particle_system;
 };
 

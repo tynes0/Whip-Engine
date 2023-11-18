@@ -18,9 +18,9 @@ protected:
 public:
 	WHP_NODISCARD inline static bool is_key_pressed(int keycode) { return s_instance->is_key_pressed_impl(keycode); }
 	WHP_NODISCARD inline static bool is_mouse_button_pressed(int button) { return s_instance->is_mouse_button_pressed_impl(button); }
-	WHP_NODISCARD inline static float get_mouse_posx() { return s_instance->get_mouse_posx_impl(); }
-	WHP_NODISCARD inline static float get_mouse_posy() { return s_instance->get_mouse_posy_impl(); }
-	WHP_NODISCARD inline static pair<float, float> get_mouse_pos() { return s_instance->get_mouse_pos_impl(); }
+	WHP_NODISCARD inline static float get_mouse_positionx() { return s_instance->get_mouse_posx_impl(); }
+	WHP_NODISCARD inline static float get_mouse_positiony() { return s_instance->get_mouse_posy_impl(); }
+	WHP_NODISCARD inline static pair<float, float> get_mouse_position() { return s_instance->get_mouse_pos_impl(); }
 
 };
 

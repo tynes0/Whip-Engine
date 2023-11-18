@@ -65,7 +65,7 @@ void windows_window::init(const window_props& props)
 	m_context->init();
 
 	glfwSetWindowUserPointer(m_window, &m_data);
-	set_vsync(true);
+	set_vsync(false);
 
 	// Set GLFW callbacks
 	glfwSetWindowSizeCallback(m_window, [](GLFWwindow* window, int width, int height)->void

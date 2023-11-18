@@ -5,7 +5,7 @@
 _WHIP_START
 
 orthographic_camera_controller::orthographic_camera_controller(float aspect_ratio, bool rotation)
-	:m_aspect_ratio(aspect_ratio), m_camera(-m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level), m_rotation(rotation) {}
+	:m_aspect_ratio(aspect_ratio), m_bounds({ -m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level }), m_camera(m_bounds.left, m_bounds.right, m_bounds.bottom, m_bounds.top), m_rotation(rotation) {}
 
 void orthographic_camera_controller::on_update(timestep ts)
 {
@@ -70,7 +70,8 @@ bool orthographic_camera_controller::on_mouse_scrolled(mouse_scrolled_event& eve
 
 	m_zoom_level -= event.get_offset_y() * 0.15f;
 	m_zoom_level = (m_zoom_level > 0.1f) ? m_zoom_level : 0.1f;
-	m_camera.set_projection(-m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level);
+	m_bounds = { -m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level };
+	m_camera.set_projection(m_bounds.left, m_bounds.right, m_bounds.bottom, m_bounds.top);
 	return false;
 }
 
@@ -78,8 +79,9 @@ bool orthographic_camera_controller::on_window_resized(window_resize_event& even
 {
 	WHP_PROFILE_FUNCTION();
 
-	m_aspect_ratio = calculate_aspect_ratio((float)event.get_width(), (float)event.get_height());
-	m_camera.set_projection(-m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level);
+	m_aspect_ratio = calculate_aspect_ratio((float)event.get_width(), (float)event.get_height()); 
+	m_bounds = { -m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level };
+	m_camera.set_projection(m_bounds.left, m_bounds.right, m_bounds.bottom, m_bounds.top);
 	return false;
 }
 

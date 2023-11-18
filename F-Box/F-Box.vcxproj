@@ -140,23 +140,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="src\Color.h" />
     <ClInclude Include="src\F_boxApp2D.h" />
-    <ClInclude Include="src\GameLayer.h" />
-    <ClInclude Include="src\Level.h" />
     <ClInclude Include="src\ParticleSystem.h" />
-    <ClInclude Include="src\Player.h" />
-    <ClInclude Include="src\Random.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\F_boxApp.cpp" />
     <ClCompile Include="src\F_boxApp2D.cpp" />
-    <ClCompile Include="src\GameLayer.cpp" />
-    <ClCompile Include="src\Level.cpp" />
     <ClCompile Include="src\ParticleSystem.cpp" />
-    <ClCompile Include="src\Player.cpp" />
-    <ClCompile Include="src\Random.cpp" />
-    <ClCompile Include="src\particle_system.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Whip\Whip.vcxproj">
