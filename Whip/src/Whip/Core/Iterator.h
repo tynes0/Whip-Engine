@@ -12,7 +12,7 @@ typedef int wptrdiff_t;
 #endif
 
 template <class _Ty, class _Ptr = _Ty*, class _Ref = _Ty&, class _SizeT = size_t, class _Diff = wptrdiff_t>
-struct whip_iterator_base
+struct iterator_base
 {
 	using value_type	= _Ty;
 	using pointer		= _Ptr;
@@ -22,12 +22,14 @@ struct whip_iterator_base
 };
 
 template <class _WhipIter, class _Ty>
-inline constexpr bool is_const_whip_iterator_v = is_base_of_v<whip_iterator_base<const _Ty>, _WhipIter>;
+inline constexpr bool is_const_whip_iterator_v = is_base_of_v<iterator_base<const _Ty>, _WhipIter>;
 
 template <class _WhipIter, class _Ty>
-inline constexpr bool is_non_const_whip_iterator_v = is_base_of_v<whip_iterator_base<remove_const_t<_Ty>>, _WhipIter>;
+inline constexpr bool is_non_const_whip_iterator_v = is_base_of_v<iterator_base<remove_const_t<_Ty>>, _WhipIter>;
 
 template <class _WhipIter, class _Ty>
 inline constexpr bool is_whip_iterator_v = is_const_whip_iterator_v<_WhipIter, _Ty> || is_non_const_whip_iterator_v<_WhipIter, _Ty>;
+
+
 
 _WHIP_END

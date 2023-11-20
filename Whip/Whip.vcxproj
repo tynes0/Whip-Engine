@@ -157,7 +157,7 @@
     <ClInclude Include="src\Whip.h" />
     <ClInclude Include="src\Whip\Core\Allocator.h" />
     <ClInclude Include="src\Whip\Core\Application.h" />
-    <ClInclude Include="src\Whip\Core\array.h" />
+    <ClInclude Include="src\Whip\Core\Array.h" />
     <ClInclude Include="src\Whip\Core\Core.h" />
     <ClInclude Include="src\Whip\Core\EntryPoint.h" />
     <ClInclude Include="src\Whip\Core\Input.h" />
@@ -189,6 +189,7 @@
     <ClInclude Include="src\Whip\Render\Renderer.h" />
     <ClInclude Include="src\Whip\Render\Renderer2D.h" />
     <ClInclude Include="src\Whip\Render\Shader.h" />
+    <ClInclude Include="src\Whip\Render\SubTexture2D.h" />
     <ClInclude Include="src\Whip\Render\Texture.h" />
     <ClInclude Include="src\Whip\Render\VertexArray.h" />
     <ClInclude Include="src\whippch.h" />
@@ -634,6 +635,7 @@
     <ClCompile Include="src\Whip\Render\Renderer.cpp" />
     <ClCompile Include="src\Whip\Render\Renderer2D.cpp" />
     <ClCompile Include="src\Whip\Render\Shader.cpp" />
+    <ClCompile Include="src\Whip\Render\SubTexture2D.cpp" />
     <ClCompile Include="src\Whip\Render\Texture.cpp" />
     <ClCompile Include="src\Whip\Render\VertexArray.cpp" />
     <ClCompile Include="src\whippch.cpp">

@@ -1446,7 +1446,8 @@
     <ClInclude Include="vendor\stb_image\stb_image.h">
       <Filter>vendor\stb_image</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\array.h" />
+    <ClInclude Include="src\Whip\Core\Array.h" />
+    <ClInclude Include="src\Whip\Render\SubTexture2D.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">
@@ -1530,5 +1531,6 @@
     <ClCompile Include="vendor\stb_image\stb_image.cpp">
       <Filter>vendor\stb_image</Filter>
     </ClCompile>
+    <ClCompile Include="src\Whip\Render\SubTexture2D.cpp" />
   </ItemGroup>
 </Project>

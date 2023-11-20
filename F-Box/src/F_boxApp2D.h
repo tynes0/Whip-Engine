@@ -21,7 +21,8 @@ private:
 	whip::ref<whip::shader> m_shader;
 	whip::ref<whip::vertex_array> m_vertex_array;
 	whip::ref<whip::texture2D> m_test_texture;
-	//whip::ref<whip::texture2D> m_test_texture2;
+	whip::ref<whip::texture2D> m_sprite_sheet;
+	whip::ref<whip::sub_texture2D> m_sprite;
 
 	glm::vec4 m_square_color = { 0.2f, 0.1f, 0.7f, 1.0f };
 	glm::vec4 m_second_color = { 0.2f, 0.1f, 0.2f, 1.0f };

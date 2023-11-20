@@ -28,6 +28,7 @@
 #include <Whip/Render/Buffer.h>
 #include <Whip/Render/Shader.h>
 #include <Whip/Render/Texture.h>
+#include <Whip/Render/SubTexture2D.h>
 #include <Whip/Render/VertexArray.h>
 
 // Whip camera

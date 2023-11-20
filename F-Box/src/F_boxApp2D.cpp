@@ -14,8 +14,8 @@ void fbox_app2D::on_attach()
 	WHP_PROFILE_FUNCTION();
 
 	m_test_texture = whip::texture2D::create("assets\\textures\\checkerboard.jpg");
-	//m_test_texture2 = whip::texture2D::create("assets\\textures\\dirt_0.png");
-
+	m_sprite_sheet = whip::texture2D::create("assets\\game\\textures\\sprite.png");
+	m_sprite = whip::sub_texture2D::create_from_coords(m_sprite_sheet, { 2.0f,1.0f }, { 128.0f,128.0f }, {1.0f,2.0f});
 
 	m_particle.ColorBegin = { 1.0f, 0.0f, 0.4f, 1.0f };
 	m_particle.ColorEnd = { 0.0f, 0.4f, 1.0f, 1.0f };
@@ -45,7 +45,7 @@ void fbox_app2D::on_update(whip::timestep ts)
 		whip::render_command::clear();
 	}
 
-
+	/*
 	{
 		WHP_PROFILE_SCOPE("renderer draw");
 
@@ -73,6 +73,7 @@ void fbox_app2D::on_update(whip::timestep ts)
 		}
 		whip::renderer2D::end_scene();
 	}
+*/
 
 	if (whip::input::is_mouse_button_pressed(WHP_MOUSE_BUTTON_LEFT))
 	{
@@ -91,6 +92,12 @@ void fbox_app2D::on_update(whip::timestep ts)
 
 	m_particle_system.OnUpdate(ts);
 	m_particle_system.OnRender(m_camera_controller.get_camera());
+
+	whip::renderer2D::begin_scene(m_camera_controller.get_camera());
+
+	whip::renderer2D::draw_quad({ 0.0f, 0.0f }, { 1.0f, 2.0f }, m_sprite);
+
+	whip::renderer2D::end_scene();
 }
 
 void fbox_app2D::on_imgui_render()

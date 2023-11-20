@@ -150,7 +150,7 @@ inline auto operator >=(external_operator_left_hand_side<_Ty1, _FunTy> const& le
 }
 
 template <class _Ty, enable_if_t<std::is_arithmetic_v<_Ty>, int> = 0>
-class range_iterator : public whip_iterator_base<const _Ty>
+class range_iterator : public iterator_base<const _Ty>
 {
 public:
 	using value_type = _Ty;
