@@ -4,7 +4,7 @@
 
 _WHIP_START
 
-class mouse_moved_event : public Event
+class mouse_moved_event : public event
 {
 private:
 	float m_mouse_x, m_mouse_y;
@@ -24,7 +24,7 @@ public:
 	EVENT_CLASS_TYPE(mouse_moved)
 };
 
-class mouse_scrolled_event : public Event
+class mouse_scrolled_event : public event
 {
 private:
 	float m_offset_x, m_offset_y;
@@ -45,7 +45,7 @@ public:
 	EVENT_CLASS_TYPE(mouse_scrolled)
 };
 
-class mouse_button_event : public Event
+class mouse_button_event : public event
 {
 protected:
 	int m_button;

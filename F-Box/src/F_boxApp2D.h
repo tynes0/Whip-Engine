@@ -13,7 +13,7 @@ public:
 	virtual void on_detach() override;
 	virtual void on_update(whip::timestep ts) override;
 	virtual void on_imgui_render() override;
-	virtual void on_event(whip::Event& evnt) override;
+	virtual void on_event(whip::event& evnt) override;
 private:
 	whip::orthographic_camera_controller m_camera_controller;
 
@@ -29,5 +29,8 @@ private:
 
 	ParticleProps m_particle;
 	ParticleSystem m_particle_system;
+
+	uint32_t m_map_width, m_map_height;
+	std::unordered_map<char, whip::ref<whip::sub_texture2D>> m_texture_map;
 };
 

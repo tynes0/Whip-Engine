@@ -23,7 +23,7 @@ struct window_props
 class window
 {
 public:
-	using event_callback_fn = std::function<void(Event&)>;
+	using event_callback_fn = std::function<void(event&)>;
 	virtual ~window() {}
 
 	virtual void on_update() = 0;

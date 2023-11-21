@@ -4,7 +4,7 @@
 
 _WHIP_START
 
-class window_resize_event : public Event
+class window_resize_event : public event
 {
 private:
 	uint32_t m_width, m_height;
@@ -25,7 +25,7 @@ public:
 	EVENT_CLASS_TYPE(window_resize)
 };
 
-class window_close_event : public Event
+class window_close_event : public event
 {
 public:
 	window_close_event() {}
@@ -39,7 +39,7 @@ public:
 	EVENT_CLASS_TYPE(window_close)
 };
 
-class app_tick_event : public Event
+class app_tick_event : public event
 {
 public:
 	app_tick_event() {}
@@ -48,7 +48,7 @@ public:
 	EVENT_CLASS_TYPE(app_tick)
 };
 
-class app_update_event : public Event
+class app_update_event : public event
 {
 public:
 	app_update_event() {}
@@ -57,7 +57,7 @@ public:
 	EVENT_CLASS_TYPE(app_update)
 };
 
-class app_render_event : public Event
+class app_render_event : public event
 {
 public:
 	app_render_event() {}

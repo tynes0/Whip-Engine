@@ -55,33 +55,42 @@ void orthographic_camera_controller::on_update(timestep ts)
 	set_camera_translation_speed(m_zoom_level * 2.0f);
 }
 
-void orthographic_camera_controller::on_event(Event& event)
+void orthographic_camera_controller::on_event(event& evnt)
 {
 	WHP_PROFILE_FUNCTION();
 
-	event_dispatcher dispatcher(event);
+	event_dispatcher dispatcher(evnt);
 	dispatcher.dispatch<mouse_scrolled_event>(WHP_BIND_EVENT_FN(orthographic_camera_controller::on_mouse_scrolled));
 	dispatcher.dispatch<window_resize_event>(WHP_BIND_EVENT_FN(orthographic_camera_controller::on_window_resized));
 }
 
-bool orthographic_camera_controller::on_mouse_scrolled(mouse_scrolled_event& event)
+void orthographic_camera_controller::set_zoom_level(float zoom_level)
 {
-	WHP_PROFILE_FUNCTION();
+	m_zoom_level = zoom_level;
+	calculate_view();
+}
 
-	m_zoom_level -= event.get_offset_y() * 0.15f;
-	m_zoom_level = (m_zoom_level > 0.1f) ? m_zoom_level : 0.1f;
+void orthographic_camera_controller::calculate_view()
+{
 	m_bounds = { -m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level };
 	m_camera.set_projection(m_bounds.left, m_bounds.right, m_bounds.bottom, m_bounds.top);
+}
+
+bool orthographic_camera_controller::on_mouse_scrolled(mouse_scrolled_event& evnt)
+{
+	WHP_PROFILE_FUNCTION();
+	m_zoom_level -= evnt.get_offset_y() * 0.15f;
+	m_zoom_level = (m_zoom_level > 0.1f) ? m_zoom_level : 0.1f;
+	calculate_view();
 	return false;
 }
 
-bool orthographic_camera_controller::on_window_resized(window_resize_event& event)
+bool orthographic_camera_controller::on_window_resized(window_resize_event& evnt)
 {
 	WHP_PROFILE_FUNCTION();
 
-	m_aspect_ratio = calculate_aspect_ratio((float)event.get_width(), (float)event.get_height()); 
-	m_bounds = { -m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level };
-	m_camera.set_projection(m_bounds.left, m_bounds.right, m_bounds.bottom, m_bounds.top);
+	m_aspect_ratio = calculate_aspect_ratio((float)evnt.get_width(), (float)evnt.get_height()); 
+	calculate_view();
 	return false;
 }
 

@@ -28,7 +28,7 @@ public:
 
 
 	void run();
-	void on_event(Event& evnt);
+	void on_event(event& evnt);
 	void push_layer(layerptr layer);
 	void push_overlay(layerptr overlay);
 

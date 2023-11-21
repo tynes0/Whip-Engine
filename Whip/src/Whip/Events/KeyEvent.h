@@ -7,7 +7,7 @@ _WHIP_START
 // repeat_time type
 using repeat_t = unsigned long long;
 
-class key_event : public Event
+class key_event : public event
 {
 protected:
 	key_event(int keycode) : m_key_code(keycode) {}

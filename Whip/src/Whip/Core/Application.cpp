@@ -68,7 +68,7 @@ void application::run()
 	}
 }
 
-void application::on_event(Event& e)
+void application::on_event(event& e)
 {
 	WHP_PROFILE_FUNCTION();
 

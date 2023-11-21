@@ -65,7 +65,7 @@ void ParticleSystem::OnRender(whip::orthographic_camera& camera)
 
 		float size = glm::lerp(particle.SizeEnd, particle.SizeBegin, life);
 
-		glm::vec3 position = { particle.Position.x, particle.Position.y, 0.2f };
+		glm::vec3 position = { particle.Position.x, particle.Position.y, 0.1f };
 		whip::renderer2D::draw_rotated_quad(position, { size, size }, particle.Rotation, color);
 	}
 	whip::renderer2D::end_scene();

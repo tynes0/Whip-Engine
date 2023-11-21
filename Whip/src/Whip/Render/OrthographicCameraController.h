@@ -25,7 +25,7 @@ public:
 	orthographic_camera_controller(float aspect_ratio, bool rotation = false);
 
 	void on_update(timestep ts);
-	void on_event(Event& event);
+	void on_event(event& event);
 	
 	float get_zoom_level() const { return m_zoom_level; }
 	bool is_rotatible() const { m_rotation; }
@@ -35,7 +35,7 @@ public:
 
 	const orthographic_camera_bounds& get_bounds() const { return m_bounds; }
 
-	void set_zoom_level(float zoom_level) { m_zoom_level = zoom_level; }
+	void set_zoom_level(float zoom_level);
 	void set_rotatability(bool rotation) { m_rotation = rotation; }
 	void set_camera_rotation(float rotation) { m_camera_rotation = rotation; }
 	void set_camera_translation_speed(float translation_speed) { m_camera_translation_speed = translation_speed; }
@@ -44,6 +44,11 @@ public:
 	orthographic_camera& get_camera() { return m_camera; }
 	const orthographic_camera& get_camera() const { return m_camera; }
 private:
+	void calculate_view();
+
+	bool on_mouse_scrolled(mouse_scrolled_event& event);
+	bool on_window_resized(window_resize_event& event);
+
 	float m_aspect_ratio;
 	float m_zoom_level = 1.0f;
 
@@ -66,9 +71,6 @@ private:
 		camera_movement_buttons(int ctl, int ctr, int ctd, int ctu, int crl, int crr) : camera_to_left(ctl), camera_to_right(ctr), camera_to_down(ctd), camera_to_up(ctu), camera_rotation_left(crl), camera_rotation_right(crr) {}
 	};
 	camera_movement_buttons buttons;
-private:
-	bool on_mouse_scrolled(mouse_scrolled_event& event);
-	bool on_window_resized(window_resize_event& event);
 };
 
 _WHIP_END

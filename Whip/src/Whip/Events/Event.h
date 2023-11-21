@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
+#include <Whip/Core/TypeTraits.h>
 #include <string>
 
 _WHIP_START
@@ -38,7 +39,7 @@ enum event_category
 
 #define EVENT_TO_STRING						WHP_NODISCARD std::string to_string() const override
 
-class Event
+class event
 {
 public:
 	bool handled = false;
@@ -47,7 +48,7 @@ public:
 	WHP_NODISCARD virtual const char* get_name() const = 0;
 	WHP_NODISCARD virtual int get_category_flags() const = 0;
 	WHP_NODISCARD virtual std::string to_string() const { return get_name(); }
-	WHP_NODISCARD Event* get() { return this; }
+	WHP_NODISCARD event* get() { return this; }
 
 	WHP_NODISCARD inline bool is_in_category(event_category category)
 	{
@@ -60,12 +61,12 @@ class event_dispatcher
 	template <class T>
 	using event_fn = std::function<bool(T&)>;
 private:
-	Event& m_event;
+	event& m_event;
 public:
-	event_dispatcher(Event& evnt) : m_event(evnt) {}
+	event_dispatcher(event& evnt) : m_event(evnt) {}
 
 	template <class T>
-	typename std::enable_if<std::is_base_of<Event, T>::value, bool>::type dispatch(event_fn<T> func)
+	typename enable_if<is_base_of<event, T>::value, bool>::type dispatch(event_fn<T> func)
 	{
 		if (m_event.get_event_type() == T::get_static_type())
 		{
@@ -76,7 +77,7 @@ public:
 	}
 };
 
-WHP_NODISCARD inline std::ostream& operator<<(std::ostream& out, const Event& evnt)
+WHP_NODISCARD inline std::ostream& operator<<(std::ostream& out, const event& evnt)
 {
 	return out << evnt.to_string();
 }

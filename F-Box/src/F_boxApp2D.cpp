@@ -4,8 +4,25 @@
 #include <imgui/imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
+static const uint32_t s_map_width = 24;
+static const char* s_map_tiles =
+"CCCCCCCCCCCCCCCCCCCCCCCC"
+"CCCCCCCCCCCCCCCCCCCCCCCC"
+"CCCCNNNNCCCCCCCCNNNCCCCC"
+"CCCCNNNNNCCCCCCCNNNCCCCC"
+"CCCCNNNCNNCCCCCCNNNCCCCC"
+"CCCCNNNCCNNCCCCCNNNCCCCC"
+"CCCCNNNCCCNNCCCCNNNCCCCC"
+"CCCCNNNCCCCNNCCCNNNCCCCC"
+"CCCCNNNCCCCCNNCCNNNCCCCC"
+"CCCCNNNCCCCCCNNCNNNCCCCC"
+"CCCCNNNCCCCCCCNNNNNCCCCC"
+"CCCCNNNCCCCCCCCNNNNCCCCC"
+"CCCCCCCCCCCCCCCCCCCCCCCC"
+"CCCCCCCCCCCCCCCCCCCCCCCC";
+
 fbox_app2D::fbox_app2D()
-	:layer("Fbox2D"), m_camera_controller(whip::calculate_aspect_ratio(1280, 720), true)
+	:layer("Fbox2D"), m_camera_controller(whip::calculate_aspect_ratio(1280, 720), true), m_map_height(0), m_map_width(0)
 {
 }
 
@@ -15,7 +32,13 @@ void fbox_app2D::on_attach()
 
 	m_test_texture = whip::texture2D::create("assets\\textures\\checkerboard.jpg");
 	m_sprite_sheet = whip::texture2D::create("assets\\game\\textures\\sprite.png");
-	m_sprite = whip::sub_texture2D::create_from_coords(m_sprite_sheet, { 2.0f,1.0f }, { 128.0f,128.0f }, {1.0f,2.0f});
+	m_sprite = whip::sub_texture2D::create_from_coords(m_sprite_sheet, { 1.0f,1.0f }, { 128.0f,128.0f });
+
+	m_texture_map['N'] = whip::sub_texture2D::create_from_coords(m_sprite_sheet, {5.0f,5.0f}, {128.0f,128.0f});
+	m_texture_map['C'] = whip::sub_texture2D::create_from_coords(m_sprite_sheet, {14.0f,5.0f}, {128.0f,128.0f});
+
+	m_map_width = s_map_width;
+	m_map_height = static_cast<uint32_t>(strlen(s_map_tiles) / s_map_width);
 
 	m_particle.ColorBegin = { 1.0f, 0.0f, 0.4f, 1.0f };
 	m_particle.ColorEnd = { 0.0f, 0.4f, 1.0f, 1.0f };
@@ -24,6 +47,8 @@ void fbox_app2D::on_attach()
 	m_particle.Velocity = { 0.0f, 0.0f };
 	m_particle.VelocityVariation = { 3.0f, 1.0f };
 	m_particle.Position = { 0.0f, 0.0f };
+
+	m_camera_controller.set_zoom_level(10.f);
 }
 
 void fbox_app2D::on_detach()
@@ -47,7 +72,7 @@ void fbox_app2D::on_update(whip::timestep ts)
 
 	/*
 	{
-		WHP_PROFILE_SCOPE("renderer draw");
+		CHP_PROFILE_SCOPE("renderer draw");
 
 		static float rotation = 0.0f;
 		rotation += ts * 45.0f;
@@ -95,7 +120,19 @@ void fbox_app2D::on_update(whip::timestep ts)
 
 	whip::renderer2D::begin_scene(m_camera_controller.get_camera());
 
-	whip::renderer2D::draw_quad({ 0.0f, 0.0f }, { 1.0f, 2.0f }, m_sprite);
+	for (uint32_t y = 0; y < m_map_height; ++y)
+	{
+		for (uint32_t x = 0; x < m_map_width; ++x)
+		{
+			char tile_type = s_map_tiles[x + y * m_map_width];
+			whip::ref<whip::sub_texture2D> texture;
+			if (m_texture_map.find(tile_type) != m_texture_map.end())
+				texture = m_texture_map[tile_type];
+			else
+				texture = m_sprite;
+			whip::renderer2D::draw_quad({ x - m_map_width / 2.0f, m_map_height - y - m_map_height / 2.0f, 0.1f }, { 1.0f, 1.0f }, texture);
+		}
+	}
 
 	whip::renderer2D::end_scene();
 }
@@ -118,7 +155,7 @@ void fbox_app2D::on_imgui_render()
 	ImGui::End();
 }
 
-void fbox_app2D::on_event(whip::Event& evnt)
+void fbox_app2D::on_event(whip::event& evnt)
 {
 	m_camera_controller.on_event(evnt);
 }
