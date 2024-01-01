@@ -40,6 +40,7 @@ public:
 	void set_camera_rotation(float rotation) { m_camera_rotation = rotation; }
 	void set_camera_translation_speed(float translation_speed) { m_camera_translation_speed = translation_speed; }
 	void set_camera_rotation_speed(float rotation_speed) { m_camera_rotation_speed = rotation_speed; }
+	void set_camera_position(const glm::vec3& position) { m_camera_position = position;  m_camera.set_position(m_camera_position); }
 	
 	orthographic_camera& get_camera() { return m_camera; }
 	const orthographic_camera& get_camera() const { return m_camera; }

@@ -5,7 +5,7 @@
 #include <Whip/Core/LayerStack.h>
 #include <Whip/ImGui/ImGuiLayer.h>
 #include <Whip/Core/Timestep.h>
-#include <Whip/Core/Memory.h>
+#include <Whip/Core/TemplatesAndContainers/Memory.h>
 
 _WHIP_START
 
@@ -26,8 +26,8 @@ public:
 	application();
 	virtual ~application();
 
-
 	void run();
+	void close();
 	void on_event(event& evnt);
 	void push_layer(layerptr layer);
 	void push_overlay(layerptr overlay);

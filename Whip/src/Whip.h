@@ -36,7 +36,12 @@
 #include <Whip/Render/OrthographicCameraController.h>
 // -------------------------------------
 
-// random class 
-#include <Whip/Core/Random.h>
+// Templates And Containers
+#include <Whip/Core/TemplatesAndContainers/Random.h>
+#include <Whip/Core/TemplatesAndContainers/Range.h>
+#include <Whip/Core/TemplatesAndContainers/Array.h>
+#include <Whip/Core/TemplatesAndContainers/Find.h>
+
+#include <Whip/Core/TemplatesAndContainers/Hash.h>
 
 #endif // ! _WHIP_

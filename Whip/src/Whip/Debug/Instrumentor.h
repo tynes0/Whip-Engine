@@ -151,11 +151,8 @@ public:
 
     void start()
     {
-        if (m_stopped)
-        {
-            m_start_timepoint = std::chrono::high_resolution_clock::now();
-            m_stopped = false;
-        }
+        m_start_timepoint = std::chrono::high_resolution_clock::now();
+        m_stopped = false;
     }
 
     void stop()
@@ -208,8 +205,6 @@ _WHIP_END
     #define WHP_PROFILE_END_SESSION() _WHIP instrumentor::get().end_session()
     #define WHP_PROFILE_SCOPE(name) _WHIP instrumentation_timer timer##__COUNTER__(name)
     #define WHP_PROFILE_FUNCTION() WHP_PROFILE_SCOPE(WHP_FUNC_SIG)
-    #define WHP_CONSOLE_TIMER_SCOPE(name) _WHIP console_timer timer##__COUNTER__(name)
-    #define WHP_CONSOLE_TIMER_FUNCTION() WHP_CONSOLE_TIMER_SCOPE(WHP_FUNC_SIG)
 #else // WHP_PROFILE
     #define WHP_PROFILE_BEGIN_SESSION(name, filepath)
     #define WHP_PROFILE_END_SESSION()

@@ -1,6 +1,8 @@
 #include <whippch.h>
 #include "OpenGLShader.h"
 
+#include "Whip/Core/TemplatesAndContainers/Array.h"
+
 #include <fstream>
 
 #include <glad/glad.h>
@@ -125,7 +127,7 @@ void opengl_shader::compile(const std::unordered_map<GLenum, std::string>& shade
 
 	renderer_id_t program = glCreateProgram();
 	WHP_CORE_ASSERT(shader_sources.size() <= 2, "Whip Engine only supports 2 shaders for now!");
-	std::array<GLenum, 2> gl_shader_IDs;
+	array<GLenum, 2> gl_shader_IDs;
 	uint32_t gl_shader_ID_index = 0;
 	for (auto& [type, source] : shader_sources)
 	{

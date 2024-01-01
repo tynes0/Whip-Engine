@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
-#include <Whip/Core/TypeTraits.h>
+#include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
 #include <string>
 
 _WHIP_START

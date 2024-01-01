@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
-#include <Whip/Core/Memory.h>
+#include <Whip/Core/TemplatesAndContainers/Memory.h>
 
 _WHIP_START
 

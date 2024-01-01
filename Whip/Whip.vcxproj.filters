@@ -87,7 +87,7 @@
     <ClInclude Include="src\Whip.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Allocator.h">
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Allocator.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\Application.h">
@@ -102,7 +102,7 @@
     <ClInclude Include="src\Whip\Core\Input.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Iterator.h">
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Iterator.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\KeyCodes.h">
@@ -117,25 +117,25 @@
     <ClInclude Include="src\Whip\Core\Log.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Memory.h">
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Memory.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\MouseButtonCodes.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Pair.h">
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Pair.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Random.h">
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Random.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\Timestep.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\TypeTraits.h">
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\TypeTraits.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Utility.h">
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Utility.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\Window.h">
@@ -1448,6 +1448,11 @@
     </ClInclude>
     <ClInclude Include="src\Whip\Core\Array.h" />
     <ClInclude Include="src\Whip\Render\SubTexture2D.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Hash.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Range.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Array.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Find.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">
@@ -1486,7 +1491,7 @@
     <ClCompile Include="src\Whip\Core\Log.cpp">
       <Filter>src\Whip\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\Whip\Core\Random.cpp">
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Random.cpp">
       <Filter>src\Whip\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\ImGui\ImGuiBuild.cpp">

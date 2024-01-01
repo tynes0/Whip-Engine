@@ -16,13 +16,13 @@ public:
 	imgui_layer();
 	~imgui_layer();
 
-	void begin();
-	void end();
 
 	virtual void on_attach() override;
 	virtual void on_detach() override;
-	virtual void on_imgui_render() override;
+	virtual void on_event(event& e) override;
 
+	void begin();
+	void end();
 };
 
 #define GET_IM_IO ImGui::GetIO();

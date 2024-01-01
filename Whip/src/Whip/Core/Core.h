@@ -14,7 +14,22 @@
 #ifdef _HAS_NODISCARD
 	#define WHP_NODISCARD [[nodiscard]]							// nodiscard attribute define
 	#define WHP_NODISCARD_MSG(msg) [[nodiscard(msg)]]			// nodiscard attribute define
+#else // _HAS_NODISCARD
+	#define WHP_NODISCARD 											// nodiscard attribute define
+	#define WHP_NODISCARD_MSG(msg)									// nodiscard attribute define
 #endif // _HAS_NODISCARD
+
+#if _HAS_CXX17
+#define WHP_INLINE inline			// inline keyword for constants
+#else // _HAS_CXX17
+#define WHP_INLINE					// inline keyword for constants
+#endif // _HAS_CXX17
+
+#if _HAS_CXX20
+#define WHP_CONSTEXPR constexpr		// constexpr keyword for constants
+#else
+#define WHP_CONSTEXPR				// constexpr keyword for constants
+#endif // _HAS_CXX20
 
 #ifdef _WIN32
 	#ifdef _WIN64

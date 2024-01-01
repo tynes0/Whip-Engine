@@ -38,7 +38,7 @@ void application::run()
 
 	while (m_running)
 	{
-		WHP_PROFILE_SCOPE("run loop");
+		//WHP_PROFILE_SCOPE("application::run -> 1 loop");
 		float time = (float)glfwGetTime();
 		timestep ts = time - m_last_frame_time;
 		m_last_frame_time = time;
@@ -46,18 +46,14 @@ void application::run()
 
 		if (!m_minimized)
 		{
+			for (layerptr item : m_layer_stack)
 			{
-				WHP_PROFILE_SCOPE("layer_stack on_update");
-				for (layerptr item : m_layer_stack)
-				{
-					item->on_update(ts);
-				}
+				item->on_update(ts);
 			}
 		}
 
 		m_imgui_layer->begin();
 		{
-			WHP_PROFILE_SCOPE("layer_stack on_imgui_layer");
 			for (layerptr item : m_layer_stack)
 			{
 				item->on_imgui_render();
@@ -66,6 +62,11 @@ void application::run()
 		m_imgui_layer->end();
 		m_window->on_update();
 	}
+}
+
+void application::close()
+{
+	m_running = false;
 }
 
 void application::on_event(event& e)

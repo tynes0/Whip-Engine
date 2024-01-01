@@ -22,35 +22,6 @@ imgui_layer::~imgui_layer()
 	//
 }
 
-void imgui_layer::begin()
-{
-	WHP_PROFILE_FUNCTION();
-
-	ImGui_ImplOpenGL3_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-}
-
-void imgui_layer::end()
-{
-	WHP_PROFILE_FUNCTION();
-
-	ImGuiIO& io = GET_IM_IO;
-	io.DisplaySize = ImVec2((float)application::get().get_window().get_width(), (float)application::get().get_window().get_height());
-
-	// RENDERING
-	ImGui::Render();
-	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-	{
-		GLFWwindow* backup_context = glfwGetCurrentContext();
-		ImGui::UpdatePlatformWindows();
-		ImGui::RenderPlatformWindowsDefault();
-		glfwMakeContextCurrent(backup_context);
-	}
-}
-
 void imgui_layer::on_attach()
 {
 	WHP_PROFILE_FUNCTION();
@@ -89,13 +60,40 @@ void imgui_layer::on_detach()
 	ImGui::DestroyContext();
 }
 
-void imgui_layer::on_imgui_render()
+void imgui_layer::on_event(event& evnt)
 {
-	/*ImGui::Begin("Whip Renderer");
-	ImGui::Text("OpenGl Vendor: %s", (const char*)glGetString(GL_VENDOR));
-	ImGui::Text("OpenGl Renderer: %s", (const char*)glGetString(GL_RENDERER));
-	ImGui::Text("OpenGl Version: %s", (const char*)glGetString(GL_VERSION));
-	ImGui::End();*/
+	ImGuiIO& io = ImGui::GetIO();
+	evnt.handled |= evnt.is_in_category(event_category_mouse) & io.WantCaptureMouse;
+	evnt.handled |= evnt.is_in_category(event_category_keyboard) & io.WantCaptureKeyboard;
+}
+
+void imgui_layer::begin()
+{
+	WHP_PROFILE_FUNCTION();
+
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+}
+
+void imgui_layer::end()
+{
+	WHP_PROFILE_FUNCTION();
+
+	ImGuiIO& io = GET_IM_IO;
+	io.DisplaySize = ImVec2((float)application::get().get_window().get_width(), (float)application::get().get_window().get_height());
+
+	// RENDERING
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		GLFWwindow* backup_context = glfwGetCurrentContext();
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+		glfwMakeContextCurrent(backup_context);
+	}
 }
 
 _WHIP_END

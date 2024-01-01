@@ -1,8 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.5.33530.505
-MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Additions", "Additions", "{8BD24AA6-F75D-B86A-006F-3B5F6C79146B}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GLFW", "Whip\vendor\GLFW\GLFW.vcxproj", "{154B857C-0182-860D-AA6E-6C109684020F}"
@@ -14,11 +12,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "F-Box", "F-Box\F-Box.vcxproj", "{01880B0D-6D9C-33BE-361E-D71DA2F12FEF}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Whip", "Whip\Whip.vcxproj", "{DD8C8E7C-C9C3-8F0D-72B0-75105EC60B0F}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Çözüm Öğeleri", "Çözüm Öğeleri", "{68C6F340-944C-4069-8600-CE0DCD48F409}"
-	ProjectSection(SolutionItems) = preProject
-		todolist.md = todolist.md
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
