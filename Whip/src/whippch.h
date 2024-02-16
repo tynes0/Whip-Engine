@@ -8,6 +8,8 @@
 #include <utility>
 #include <algorithm>
 #include <functional>
+#include <fstream>
+#include <iomanip>
 
 #include <string>
 #include <sstream>
@@ -15,6 +17,10 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+
+#if _HAS_CXX17
+#include <filesystem>
+#endif // _HAS_CXX17
 
 #ifdef WHP_PLATFORM_WINDOWS
 	#include <Windows.h>

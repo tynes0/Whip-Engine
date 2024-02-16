@@ -40,7 +40,8 @@
 #include <Whip/Core/TemplatesAndContainers/Random.h>
 #include <Whip/Core/TemplatesAndContainers/Range.h>
 #include <Whip/Core/TemplatesAndContainers/Array.h>
-#include <Whip/Core/TemplatesAndContainers/Find.h>
+#include <Whip/Core/TemplatesAndContainers/Algorithms.h>
+#include <Whip/Core/TemplatesAndContainers/StringAndFileOperations.h>
 
 #include <Whip/Core/TemplatesAndContainers/Hash.h>
 

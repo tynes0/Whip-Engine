@@ -95,7 +95,7 @@ public:
 class instrumentation_timer
 {
 public:
-    instrumentation_timer(const char* name)
+    instrumentation_timer(const std::string& name)
         : m_name(name), m_stopped(false)
     {
         m_start_timepoint = std::chrono::high_resolution_clock::now();
@@ -130,7 +130,7 @@ public:
         }
     }
 private:
-    const char* m_name;
+    std::string m_name;
     std::chrono::time_point<std::chrono::high_resolution_clock> m_start_timepoint;
     bool m_stopped;
 };
@@ -138,7 +138,7 @@ private:
 class console_timer
 {
 public:
-    console_timer(const char* name = "console instrumentor")
+    console_timer(const std::string& name = "console instrumentor")
         : m_name(name), m_stopped(false)
     {
         m_start_timepoint = std::chrono::high_resolution_clock::now();
@@ -170,7 +170,7 @@ public:
         }
     }
 private:
-    const char* m_name;
+    std::string m_name;
     std::chrono::time_point<std::chrono::high_resolution_clock> m_start_timepoint;
     bool m_stopped;
 };
@@ -178,8 +178,13 @@ private:
 
 _WHIP_END
 
-#define WHP_PROFILE 0
-#if WHP_PROFILE
+
+/* THIS IS THE NORMAL CASE but for development i'm closing by hand sometimes
+#if defined(_DEBUG)
+#define WHP_PROFILE
+#endif
+*/
+#ifdef WHP_PROFILE
 // Resolve which function signature macro will be used. Note that this only
 // is resolved when the (pre)compiler starts, so the syntax highlighting
 // could mark the wrong one in your editor!

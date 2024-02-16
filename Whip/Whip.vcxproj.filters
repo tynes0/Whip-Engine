@@ -1452,7 +1452,9 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Range.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Array.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Find.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Algorithms.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\StringAndFileOperations.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\FindOperator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">
@@ -1537,5 +1539,6 @@
       <Filter>vendor\stb_image</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Render\SubTexture2D.cpp" />
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\StringAndFileOperations.cpp" />
   </ItemGroup>
 </Project>

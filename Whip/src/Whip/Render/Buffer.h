@@ -79,7 +79,7 @@ struct buffer_element
 
 class buffer_layout
 {
-	using buffer_element_iter = std::vector<buffer_element>::iterator;
+	using buffer_element_iter		= std::vector<buffer_element>::iterator;
 	using buffer_element_const_iter = std::vector<buffer_element>::const_iterator;
 private:
 	std::vector<buffer_element> m_elements;

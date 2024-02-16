@@ -110,12 +110,10 @@ void renderer2D::init()
 	int samplers[s_data.max_texture_slots];
 
 	for (int i = 0; i < s_data.max_texture_slots; ++i)
-	{
 		samplers[i] = i;
-	}
 
 
-	s_data.texture_shader = shader::create("assets\\shaders\\texture.glsl");
+	s_data.texture_shader = shader::create("texture", "assets\\shaders\\texture.vert", "assets\\shaders\\texture.frag");
 
 	s_data.texture_shader->bind();
 	s_data.texture_shader->set_int_array("u_textures", samplers, s_data.max_texture_slots);
@@ -187,9 +185,7 @@ void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, con
 		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
 	for (size_t i = 0; i < quad_vertex_count; ++i)
-	{
 		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], color, texture_coords[i], texture_index, tiling_factor);
-	}
 	s_data.quad_index_count += 6;
 	s_data.stats.quad_counts++;
 }
@@ -213,12 +209,8 @@ void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, con
 	float texture_index = 0.0f;
 
 	for (uint32_t i = 1; i < s_data.texture_slot_index; ++i)
-	{
 		if (DREF(s_data.texture_slots[i].get()) == DREF(tex.get()))
-		{
 			texture_index = (float)i;
-		}
-	}
 
 	if (texture_index == 0.0f)
 	{
@@ -230,9 +222,7 @@ void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, con
 		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
 	for (size_t i = 0; i < quad_vertex_count; ++i)
-	{
 		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], color, texture_coords[i], texture_index, tiling_factor);
-	}
 
 	s_data.quad_index_count += 6;
 	s_data.stats.quad_counts++;
@@ -258,12 +248,8 @@ void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, con
 	float texture_index = 0.0f;
 
 	for (uint32_t i = 1; i < s_data.texture_slot_index; ++i)
-	{
 		if (DREF(s_data.texture_slots[i].get()) == DREF(tex.get()))
-		{
 			texture_index = (float)i;
-		}
-	}
 
 	if (texture_index == 0.0f)
 	{
@@ -275,9 +261,7 @@ void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, con
 		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
 	for (size_t i = 0; i < quad_vertex_count; ++i)
-	{
 		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], color, texture_coords[i], texture_index, tiling_factor);
-	}
 
 	s_data.quad_index_count += 6;
 	s_data.stats.quad_counts++;
@@ -305,9 +289,7 @@ void renderer2D::draw_rotated_quad(const glm::vec3& position, const glm::vec2& s
 		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
 	for (size_t i = 0; i < quad_vertex_count; ++i)
-	{
 		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], color, texture_coords[i], texture_index, tiling_factor);
-	}
 
 	s_data.quad_index_count += 6;
 	s_data.stats.quad_counts++;
@@ -332,12 +314,8 @@ void renderer2D::draw_rotated_quad(const glm::vec3& position, const glm::vec2& s
 	float texture_index = 0.0f;
 
 	for (uint32_t i = 1; i < s_data.texture_slot_index; ++i)
-	{
 		if (DREF(s_data.texture_slots[i].get()) == DREF(tex.get()))
-		{
 			texture_index = (float)i;
-		}
-	}
 
 	if (texture_index == 0.0f)
 	{
@@ -350,9 +328,7 @@ void renderer2D::draw_rotated_quad(const glm::vec3& position, const glm::vec2& s
 		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
 	for (size_t i = 0; i < quad_vertex_count; ++i)
-	{
 		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], color, texture_coords[i], texture_index, tiling_factor);
-	}
 
 	s_data.quad_index_count += 6;
 	s_data.stats.quad_counts++;
@@ -378,12 +354,8 @@ void renderer2D::draw_rotated_quad(const glm::vec3& position, const glm::vec2& s
 	float texture_index = 0.0f;
 
 	for (uint32_t i = 1; i < s_data.texture_slot_index; ++i)
-	{
 		if (DREF(s_data.texture_slots[i].get()) == DREF(tex.get()))
-		{
 			texture_index = (float)i;
-		}
-	}
 
 	if (texture_index == 0.0f)
 	{
@@ -396,9 +368,7 @@ void renderer2D::draw_rotated_quad(const glm::vec3& position, const glm::vec2& s
 		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
 	for (size_t i = 0; i < quad_vertex_count; ++i)
-	{
 		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], color, texture_coords[i], texture_index, tiling_factor);
-	}
 
 	s_data.quad_index_count += 6;
 	s_data.stats.quad_counts++;

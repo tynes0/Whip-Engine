@@ -155,14 +155,15 @@
     <ClInclude Include="src\Platform\Windows\WindowsInput.h" />
     <ClInclude Include="src\Platform\Windows\WindowsWindow.h" />
     <ClInclude Include="src\Whip.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Algorithms.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Allocator.h" />
     <ClInclude Include="src\Whip\Core\Application.h" />
     <ClInclude Include="src\Whip\Core\Array.h" />
     <ClInclude Include="src\Whip\Core\Core.h" />
     <ClInclude Include="src\Whip\Core\EntryPoint.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Array.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\FindOperator.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Find.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Hash.h" />
     <ClInclude Include="src\Whip\Core\Input.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Iterator.h" />
@@ -175,6 +176,7 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Pair.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Random.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Range.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\StringAndFileOperations.h" />
     <ClInclude Include="src\Whip\Core\Timestep.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\TypeTraits.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Utility.h" />
@@ -630,6 +632,7 @@
     <ClCompile Include="src\Whip\Core\LayerStack.cpp" />
     <ClCompile Include="src\Whip\Core\Log.cpp" />
     <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Random.cpp" />
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\StringAndFileOperations.cpp" />
     <ClCompile Include="src\Whip\ImGui\ImGuiBuild.cpp" />
     <ClCompile Include="src\Whip\ImGui\ImGuiLayer.cpp" />
     <ClCompile Include="src\Whip\Render\Buffer.cpp" />

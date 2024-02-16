@@ -32,6 +32,7 @@ public:
 	WHP_NODISCARD_MSG("Core logger returned as unnecessary") inline static const whp_logger& get_core_logger() { return s_core_logger; }
 	WHP_NODISCARD_MSG("Client logger returned as unnecessary") inline static const whp_logger& get_client_logger() { return s_client_logger; }
 	
+	inline static void set_log(whp_logger& logger, const std::string& logger_name, whip_log_level log_level);
 	WHP_NODISCARD_MSG("Spdlog level returned as unnecessary") inline static spdlog::level::level_enum whip_log_level_to_spdlog_level(whip_log_level log_level);
 };
 
@@ -55,10 +56,6 @@ _WHIP_END
 #define WHP_CLIENT_ERROR(...)			_WHIP log::get_client_logger()->error(__VA_ARGS__)
 #define WHP_CLIENT_CRITICAL(...)		_WHIP log::get_client_logger()->critical(__VA_ARGS__)
 
-// SET_LOG macrosuna std::shared_ptr<spdlog::logger> türünde bir logger, std::string türünde bir logger ismi ve whip_log_level türünde bir log level verilir.Bu sayede bir logger üretmiþ oluruz. 
-// set log macro
-#define SET_LOG(logger, str_logger_name, logger_level)		logger = spdlog::stdout_color_mt(str_logger_name);\
-															logger->set_level(_WHIP log::whip_log_level_to_spdlog_level(logger_level))
 // WHP_LOG_ türevi macrolara bir adet logger ve format girilir (format detaylarý spdlog'da). Girilen logger girilen formatta bir log çýktýsý verir.
 // Empty log macros
 #define WHP_LOG_TRACE(logger, ...)		logger->trace(__VA_ARGS__)
@@ -67,7 +64,3 @@ _WHIP_END
 #define WHP_LOG_WARN(logger, ...)		logger->warn(__VA_ARGS__)
 #define WHP_LOG_ERROR(logger, ...)		logger->error(__VA_ARGS__)
 #define WHP_LOG_CRITICAL(logger, ...)	logger->critical(__VA_ARGS__)
-
-// whip::log 
-// init macro for simple usage
-#define INIT_WHP_LOG _WHIP log::init()

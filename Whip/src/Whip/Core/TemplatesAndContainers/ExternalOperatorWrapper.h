@@ -18,18 +18,21 @@ inline constexpr external_operator_wrapper<_FunTy> make_external_operator(_FunTy
 }
 
 template <typename T, typename _FunTy>
-struct external_operator_left_hand_side {
+struct external_operator_left_hand_side 
+{
 	_FunTy fun;
 	T& value;
 };
 
 template <typename T, typename _FunTy>
-inline external_operator_left_hand_side<T, _FunTy> operator <(T& left_hand_side, const external_operator_wrapper<_FunTy>& right_hand_side) {
+inline external_operator_left_hand_side<T, _FunTy> operator <(T& left_hand_side, const external_operator_wrapper<_FunTy>& right_hand_side) 
+{
 	return { right_hand_side.fun, left_hand_side };
 }
 
 template <typename T, typename _FunTy>
-inline external_operator_left_hand_side<T const, _FunTy> operator <(T const& left_hand_side, external_operator_wrapper<_FunTy> right_hand_side) {
+inline external_operator_left_hand_side<T const, _FunTy> operator <(T const& left_hand_side, external_operator_wrapper<_FunTy> right_hand_side) 
+{
 	return { right_hand_side.fun, left_hand_side };
 }
 

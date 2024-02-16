@@ -97,21 +97,16 @@ public:
         return ptr - other_ptr;
     }
 
-    array_iterator begin() noexcept
-    {
-        return array_iterator(m_ptr);
-    }
-
-    array_iterator end() noexcept
-    {
-        return array_iterator(m_ptr + m_offset);
-    }
-
     constexpr void reset(pointer ptr = nullptr, size_type offset = 0) noexcept
     {
         m_ptr = ptr;
         m_offset = offset;
     }
+
+	pointer unwrapped()
+	{
+		return (m_ptr + m_offset);
+	}
 
 private:
     pointer m_ptr;
@@ -203,15 +198,10 @@ public:
         return ptr - other_ptr;
     }
 
-    const_array_iterator begin() noexcept
-    {
-        return const_array_iterator(m_ptr);
-    }
-
-    const_array_iterator end() noexcept
-    {
-        return const_array_iterator(m_ptr + m_offset);
-    }
+	pointer unwrapped()
+	{
+		return (m_ptr + m_offset);
+	}
 
 private:
     pointer m_ptr;

@@ -15,7 +15,6 @@ private:
 	renderer_id_t m_rendererID;
 	std::string m_name;
 private:
-	WHP_NODISCARD std::string read_file(const std::string& filepath);
 	WHP_NODISCARD std::unordered_map<GLenum, std::string> pre_process(const std::string& source);
 	void compile(const std::unordered_map<GLenum, std::string>& shader_sources);
 public:

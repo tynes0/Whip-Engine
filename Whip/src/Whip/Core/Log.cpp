@@ -9,8 +9,14 @@ std::shared_ptr<spdlog::logger> log::s_client_logger;
 void log::init()
 {
 	spdlog::set_pattern("%^[%T] %n: %v%$");
-	SET_LOG(s_core_logger, "WHIP ENGINE", whip_log_level::trace);
-	SET_LOG(s_client_logger, "CLIENT", whip_log_level::trace);
+	set_log(s_core_logger, "WHIP ENGINE", whip_log_level::trace);
+	set_log(s_client_logger, "CLIENT", whip_log_level::trace);
+}
+
+inline void log::set_log(whp_logger& logger, const std::string& logger_name, whip_log_level log_level)
+{
+	logger = spdlog::stdout_color_mt(logger_name); 
+	logger->set_level(_WHIP log::whip_log_level_to_spdlog_level(log_level));
 }
 
 // whip_log_level

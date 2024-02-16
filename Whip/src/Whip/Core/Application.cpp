@@ -18,7 +18,7 @@ application::application()
 	m_window = scope<window>(window::create());
 	m_window->set_event_callback(WHP_BIND_EVENT_FN(application::on_event));
 	m_window->set_event_callback(std::bind(&application::on_event, this, std::placeholders::_1));
-
+	m_window->set_vsync(false);
 	renderer::init();
 
 	m_imgui_layer = new imgui_layer();

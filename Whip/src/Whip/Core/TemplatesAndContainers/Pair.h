@@ -8,7 +8,7 @@
 
 _WHIP_START
 
-template <class _Ty1, class _Ty2>
+template <class _Ty1, class _Ty2 = _Ty1>
 struct pair
 {
 	using first_type = _Ty1;
@@ -121,7 +121,7 @@ public:
 	}
 };
 
-template <class _Ty1, class _Ty2, class _Ty3>
+template <class _Ty1, class _Ty2 = _Ty1, class _Ty3 = _Ty1>
 struct trio
 {
 	using first_type = _Ty1;

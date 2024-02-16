@@ -9,7 +9,7 @@ extern whip::application* whip::create_application();
 
 int main(int argc, char** argv)
 {
-	INIT_WHP_LOG;
+	whip::log::init()
 	WHP_PROFILE_BEGIN_SESSION("Startup", "WhipProfile-Startup.json");
 	auto app = whip::create_application();
 	WHP_PROFILE_END_SESSION();

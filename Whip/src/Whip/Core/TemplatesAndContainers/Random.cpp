@@ -1,8 +1,6 @@
 #include "whippch.h"
 #include "Random.h"
 
-#include <ctime>
-
 _WHIP_START
 
 static unsigned int* wrand_seed()

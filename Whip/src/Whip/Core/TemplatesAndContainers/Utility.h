@@ -2,17 +2,26 @@
 
 #include "Whip/Core/Core.h"
 #include "TypeTraits.h"
-#include "Iterator.h"
 
 _WHIP_START
 
-#pragma warning(push)
-#pragma warning(disable : 4624)
+struct wrap_base
+{
+	wrap_base() {}
+	virtual ~wrap_base() {}
+};
+
 template <class _Ty>
-struct wrap {
+struct wrap : public wrap_base
+{
+	wrap() {}
+
+	wrap(const _Ty& value) : m_value(value) {}
+
+	virtual ~wrap() override {}
+
 	_Ty m_value;
 };
-#pragma warning(pop)
 
 template<class _Ty>
 WHP_NODISCARD constexpr _Ty* addressof(_Ty& _Val) noexcept
@@ -121,7 +130,25 @@ WHP_NODISCARD constexpr _Ty&& forward(remove_reference_t<_Ty>&& _Arg) noexcept
 	return static_cast<_Ty&&>(_Arg);
 }
 
+// !!!!!!!WARNING!!!!! NOT TOTALY SAFE! Just use for whip iterator or normal pointer
+template <class _Iter>
+WHP_NODISCARD decltype(auto) get_unwrapped(_Iter&& it)
+{
+	if constexpr (is_pointer_v<std::decay_t<_Iter>>)
+	{
+		return it + 0;
+	}
+	else // whip iterator -> i hope 
+	{
+		return it.unwrapped();
+	}
+}
 
+template <class _Iter>
+void verify_range(_Iter first, _Iter last)
+{
+	WHP_ASSERT(get_unwrapped(first) < get_unwrapped(last), "range is not verified");
+}
 
 _WHIP_END
 
