@@ -20,12 +20,14 @@ public:
 	template <typename U>
 	constexpr allocator(const allocator<U>&) noexcept {}
 
-	_Ty* allocate(size_t n) {
+	_Ty* allocate(size_t n) 
+	{
 		if (pointer ptr = static_cast<_Ty*>(::operator new(n * sizeof(_Ty))))
 		{
 			return ptr;
 		}
-		// TODO: exception class yap -> _txbad_alloc();
+		WHP_CORE_ASSERT(false, "Allocation failed.");
+		return nullptr;
 	}
 
 	void deallocate(_Ty* ptr, size_t n) noexcept
@@ -41,7 +43,7 @@ public:
 	template <typename U, typename... Args>
 	void construct(U* p, Args&&... args) noexcept
 	{
-		::new (static_cast<void*>(p)) U(forward<Args>(args)...);
+		::new (static_cast<void*>(p)) U(std::forward<Args>(args)...);
 	}
 
 	template <typename U>

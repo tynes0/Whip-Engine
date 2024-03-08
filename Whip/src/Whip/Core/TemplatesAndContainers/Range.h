@@ -11,72 +11,67 @@
 
 _WHIP_START
 
-template <class _Ty, enable_if_t<std::is_arithmetic_v<_Ty>, int> = 0>
-class range_iterator : public iterator_base<const _Ty>
+template <class _Ty, class _Sty, enable_if_t<std::is_arithmetic_v<_Ty>&& std::is_arithmetic_v<_Sty>, int> = 0>
+class range_iterator : public iterator_base<_Ty>
 {
 public:
-    using value_type = _Ty;
 
-    range_iterator(value_type _value, value_type step) : m_value(_value), m_step(step) {}
+    range_iterator(_Ty value, _Sty step) : m_value(value), m_step(step) {}
 
-    value_type operator*()
+    range_iterator(const range_iterator& other) : m_value(other.m_value), m_step(other.m_step) {}
+
+    range_iterator& operator=(const range_iterator& other)
+    {
+        m_value = other.m_value;
+        m_step = other.m_step;
+    }
+
+    range_iterator(range_iterator&& other) : m_value(move(other.m_value)), m_step(move(other.m_step)) {}
+
+    _Ty operator*() const
     {
         return m_value;
     }
 
     range_iterator& operator++()
     {
-        m_value = m_value + m_step;
-        return *this;
+        m_value += static_cast<_Ty>(m_step);
+        return (*this);
     }
 
     range_iterator operator++(int)
     {
         range_iterator temp = *this;
-        m_value = m_value + m_step;
+        m_value += static_cast<_Ty>(m_step);
         return temp;
     }
 
     range_iterator& operator--()
     {
-        m_value = m_value - m_step;
-        return *this;
+        m_value -= static_cast<_Ty>(m_step);
+        return (*this);
     }
 
     range_iterator operator--(int)
     {
         range_iterator temp = *this;
-        m_value = m_value - m_step;
+        m_value -= static_cast<_Ty>(m_step);
         return temp;
     }
 
-    range_iterator& operator=(const range_iterator& other) noexcept
+    bool operator==(const range_iterator& right) const
     {
-        m_value = other.m_value;
-        m_step = other.m_step;
-        return *this;
+        return ((m_step == right.m_step) && (m_step > 0)) ? (m_value >= right.m_value) : (m_value <= right.m_value);
     }
 
-    range_iterator& operator=(range_iterator&& other) noexcept
+    bool operator!=(const range_iterator& right) const
     {
-        m_value = move(other.m_value);
-        m_step  = move(other.m_step);
-        return *this;
-    }
-
-    bool operator==(const range_iterator& other)
-    {
-        return m_value == other.m_value;
-    }
-
-    bool operator!=(const range_iterator& other)
-    {
-        return !this->operator==(other);
+        return !this->operator==(right);
     }
 
 private:
-    value_type m_value;
-    value_type m_step;
+    _Ty m_value;
+    _Sty m_step;
 };
 
 template <class _Ty, enable_if_t<std::is_arithmetic_v<_Ty>, int> = 0>
@@ -84,9 +79,9 @@ class range
 {
 public:
     using range_type    = _Ty;
-    using step_type     = conditional_t<std::is_integral_v<_Ty>, long long, double>;
+    using step_type     = conditional_t<std::is_integral_v<_Ty>, long long, _Ty>;
     using size_type     = step_type;
-    using iterator      = range_iterator<_Ty>;
+    using iterator      = range_iterator<_Ty, step_type>;
 
     constexpr range(_Ty end)
     {
@@ -100,40 +95,44 @@ public:
 
     constexpr void reset(_Ty start, _Ty end, step_type step = 1) noexcept
     {
+#ifdef WHP_DEBUG
+        WHP_ASSERT(step != 0, "step cannot be equal to 0");
+#else 
+        if (step == 0)
+            step = 1;
+#endif // WHP_DEBUG
+
         m_start = start;
-        m_end   = end;
-
-        // Users can make mistakes, and this provides an error -> now, if users makes mistakes, program will understand the mistake and will fix it.
-        if (step > 0 && m_start < m_end)
-            m_step = step;
-        else if (step > 0 && m_start > m_end)
-            m_step = step * -1;
-        else if (step < 0 && m_start > m_end)
-            m_step = step;
-        else if (step < 0 && m_start < m_end)
-            m_step = step * -1;
-
-        m_real_end = (step > 0) ? (m_start + static_cast<_Ty>(size()) * static_cast<_Ty>(abs(m_step))) : (m_start - static_cast<_Ty>(size()) * static_cast<_Ty>(abs(m_step)));
+        m_end = end;
+        if (start <= end)
+            m_step = abs(step);
+        else
+        {
+            if (step > 0)
+                m_step = step * (-1);
+            else
+                m_step = step;
+        }
     }
 
     WHP_NODISCARD constexpr iterator begin() noexcept
     {
-        return iterator(m_start, static_cast<_Ty>(m_step));
+        return iterator(m_start, m_step);
     }
 
     WHP_NODISCARD constexpr iterator begin() const noexcept
     {
-        return iterator(m_start, static_cast<_Ty>(m_step));
+        return iterator(m_start, m_step);
     }
 
     WHP_NODISCARD constexpr iterator end() noexcept
     {
-        return iterator(m_real_end, static_cast<_Ty>(m_real_end));
+        return iterator(m_end, m_step);
     }
 
     WHP_NODISCARD constexpr iterator end() const noexcept
     {
-        return iterator(m_real_end, static_cast<_Ty>(m_real_end));
+        return iterator(m_end, m_step);
     }
 
     WHP_NODISCARD constexpr range step(step_type new_step) const noexcept
@@ -176,7 +175,6 @@ public:
 private:
     _Ty m_start;
     _Ty m_end;
-    _Ty m_real_end;
     step_type m_step;
 };
 
@@ -184,6 +182,7 @@ using irange    = range<int>;
 using lrange    = range<long>;
 using llrange   = range<long long>;
 using drange    = range<double>;
+using ldrange   = range<long double>;
 using frange    = range<float>;
 using uirange   = range<unsigned int>;
 using srange    = range<size_t>;

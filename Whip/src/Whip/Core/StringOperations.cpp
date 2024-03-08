@@ -1,56 +1,13 @@
 #include "whippch.h"
-#include "StringAndFileOperations.h"
+#include "StringOperations.h"
 
 _WHIP_START
 
-
-// --------------------- FILE READER ---------------------
-
-std::string file_reader::read_file(const std::string& filepath)
-{
-	std::string result;
-	std::ifstream in(filepath, std::ios::in | std::ios::binary);
-	if (in)
-	{
-		in.seekg(0, std::ios::end);
-		result.resize(in.tellg());
-		in.seekg(0, std::ios::beg);
-		in.read(&result[0], result.size());
-		in.close();
-	}
-	else
-	{
-		WHP_CORE_ERROR("File reader cannot open file '{0}'", filepath);
-	}
-	return result;
-}
-
-std::string file_reader::operator()(const std::string& filepath)
-{
-	return read_file(filepath);
-}
-
-// --------------------- FILE CLEANER ---------------------
-
-void file_cleaner::clear(const std::string& filepath)
-{
-	std::ofstream ofile(filepath, std::ios::out | std::ios::trunc);
-	if (ofile)
-		ofile.close();
-	else
-		WHP_CORE_ERROR("File cleaner cannot open file '{0}'", filepath);
-}
-
-void file_cleaner::operator()(const std::string& filepath)
-{
-	clear(filepath);
-}
-
 // --------------------- STRING SEPERATOR ---------------------
 
-std::vector<std::string> string_separator::seperate(const std::string& source, const std::string& token)
+vector<std::string> string_separator::seperate(const std::string& source, const std::string& token)
 {
-	std::vector<std::string> result;
+	vector<std::string> result;
 	// position initialized with 0
 	size_t pos = 0;
 	// last_location initialized with 0
@@ -74,10 +31,10 @@ std::vector<std::string> string_separator::seperate(const std::string& source, c
 	return result;
 }
 
-WHP_NODISCARD std::vector<std::string> string_separator::seperate(const std::string& source, char token)
+WHP_NODISCARD vector<std::string> string_separator::seperate(const std::string& source, char token)
 {
 	std::string temp = "";
-	std::vector<std::string> result;
+	vector<std::string> result;
 
 	for (int i = 0; i < (int)source.size(); i++)
 	{
@@ -96,62 +53,55 @@ WHP_NODISCARD std::vector<std::string> string_separator::seperate(const std::str
 	return result;
 }
 
-std::vector<std::string> string_separator::operator()(const std::string& path, const std::string& token)
+vector<std::string> string_separator::operator()(const std::string& path, const std::string& token)
 {
 	return seperate(path, token);
 }
 
-WHP_NODISCARD std::vector<std::string> string_separator::operator()(const std::string& path, char token)
+WHP_NODISCARD vector<std::string> string_separator::operator()(const std::string& path, char token)
 {
 	return seperate(path, token);
-}
-
-// --------------------- FILE SEPERATOR ---------------------
-
-std::vector<std::string> file_separator::seperate(const std::string& path, const std::string& token)
-{
-	std::string source = file_reader::read_file(path);
-	return string_separator::seperate(source, token);
-}
-
-WHP_NODISCARD std::vector<std::string> file_separator::seperate(const std::string& path, char token)
-{
-	std::string source = file_reader::read_file(path);
-	return string_separator::seperate(source, token);
-}
-
-std::vector<std::string> file_separator::operator()(const std::string& path, const std::string& token)
-{
-	return seperate(path, token);
-}
-
-WHP_NODISCARD std::vector<std::string> file_separator::operator()(const std::string& path, char token)
-{
-	return seperate(path, token);
-}
-
-// --------------------- FILENAME FETCHER ---------------
-
-std::string filename_fetcher::fetch(const std::string& filepath)
-{
-#if _HAS_CXX17
-	std::filesystem::path fspath(filepath);
-	return fspath.stem().string();
-#else // !_HAS_CXX17
-	size_t last_slash = filepath.find_last_of("/\\");
-	last_slash = (last_slash == std::string::npos) ? 0 : last_slash + 1;
-	size_t last_dot = filepath.rfind('.');
-	size_t length = (last_dot == std::string::npos) ? filepath.size() - last_slash : last_dot - last_slash;
-	return filepath.substr(last_slash, length);
-#endif // _HAS_CXX17
-}
-
-std::string filename_fetcher::operator()(const std::string& filepath)
-{
-	return fetch(filepath);
 }
 
 // --------------------- STRING OPERATIONS ---------------------
+
+bool string_operations::starts_with(const std::string& str, char token)
+{
+	if (str.size() == 0) 
+		return false;
+	return (str[0] == token);
+}
+
+bool string_operations::starts_with(const std::string& str, const std::string& token)
+{
+	if (str.size() < token.size())
+		return false;
+	if (token.empty())
+		return true;
+	for (size_t i = 0; i < token.size(); ++i)
+		if (str[i] != token[i])
+			return false;
+	return true;
+}
+
+bool string_operations::ends_with(const std::string& str, char token)
+{
+	if (str.size() == 0)
+		return false;
+	return (str[str.size() - 1] == token);
+}
+
+bool string_operations::ends_with(const std::string& str, const std::string& token)
+{
+	if (str.size() < token.size())
+		return false;
+	if (token.empty())
+		return true;
+	for (size_t i = 0; i < token.size(); ++i)
+		if (str[str.size() - i] != token[token.size() - i])
+			return false;
+	return true;
+}
 
 std::string string_operations::trim_left(const std::string& str)
 {

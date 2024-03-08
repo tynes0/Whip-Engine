@@ -84,7 +84,7 @@
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalOptions>/MDd %(AdditionalOptions)</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
     <Link>
@@ -141,12 +141,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\F_boxApp2D.h" />
-    <ClInclude Include="src\ParticleSystem.h" />
+    <ClInclude Include="src\game\character.h" />
+    <ClInclude Include="src\game\entity.h" />
+    <ClInclude Include="src\game\game.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\F_boxApp.cpp" />
     <ClCompile Include="src\F_boxApp2D.cpp" />
-    <ClCompile Include="src\ParticleSystem.cpp" />
+    <ClCompile Include="src\game\character.cpp" />
+    <ClCompile Include="src\game\entity.cpp" />
+    <ClCompile Include="src\game\game.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Whip\Whip.vcxproj">

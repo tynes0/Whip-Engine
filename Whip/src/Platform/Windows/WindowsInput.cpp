@@ -12,8 +12,16 @@ WHP_NODISCARD bool windows_input::is_key_pressed_impl(int keycode)
 {
 	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
 	int state = glfwGetKey(window, keycode);
-	bool is_pressed = ((state == GLFW_PRESS) || (state == GLFW_REPEAT));
+	bool is_pressed = (state == GLFW_PRESS);
 	return is_pressed;
+}
+
+bool windows_input::is_key_released_impl(int keycode)
+{
+	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
+	int state = glfwGetKey(window, keycode);
+	bool is_released = (state == GLFW_RELEASE);
+	return is_released;
 }
 
 WHP_NODISCARD bool windows_input::is_mouse_button_pressed_impl(int button)

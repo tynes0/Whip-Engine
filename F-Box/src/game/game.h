@@ -2,11 +2,13 @@
 
 #include <Whip.h>
 
-class fbox_app2D : public whip::layer
+#include "character.h"
+
+class game_layer : public whip::layer
 {
 public:
-	fbox_app2D();
-	virtual ~fbox_app2D() = default;
+	game_layer();
+	virtual ~game_layer() = default;
 
 	virtual void on_attach() override;
 	virtual void on_detach() override;
@@ -17,10 +19,7 @@ private:
 	whip::orthographic_camera_controller m_camera_controller;
 	float tm = 0;
 
+	character m_character;
 	whip::ref<whip::texture2D> m_sprite_sheet;
-	whip::ref<whip::texture2D> m_chill_character_frame;
 	std::unordered_map<int, whip::ref<whip::sub_texture2D>> m_texture_map;
-
-	glm::vec4 m_square_color = { 0.2f, 0.5f, 0.9f, 1.0f };
 };
-

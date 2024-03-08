@@ -52,7 +52,7 @@ void orthographic_camera_controller::on_update(timestep ts)
 		m_camera.set_rotation(m_camera_rotation);
 	}
 	m_camera.set_position(m_camera_position);
-	set_camera_translation_speed(m_zoom_level * 2.0f);
+	m_camera_translation_speed = (m_zoom_level * m_camera_translation_speed_stabil);
 }
 
 void orthographic_camera_controller::on_event(event& evnt)

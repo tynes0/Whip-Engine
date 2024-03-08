@@ -1453,8 +1453,14 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Array.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Algorithms.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\StringAndFileOperations.h" />
+    <ClInclude Include="src\Whip\Core\StringOperations.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\FindOperator.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Any.h" />
+    <ClInclude Include="src\Whip\Core\Filesystem.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Vector.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\MemoryUtil.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Optional.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Variant.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">
@@ -1539,6 +1545,8 @@
       <Filter>vendor\stb_image</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Render\SubTexture2D.cpp" />
-    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\StringAndFileOperations.cpp" />
+    <ClCompile Include="src\Whip\Core\StringOperations.cpp" />
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Any.cpp" />
+    <ClCompile Include="src\Whip\Core\Filesystem.cpp" />
   </ItemGroup>
 </Project>

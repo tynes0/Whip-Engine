@@ -30,7 +30,7 @@ public:
 	float get_zoom_level() const { return m_zoom_level; }
 	bool is_rotatible() const { m_rotation; }
 	float get_camera_rotation() const { return m_camera_rotation; }
-	float get_camera_translation_speed() const { return m_camera_translation_speed; }
+	float get_camera_translation_speed() const { return m_camera_translation_speed_stabil; }
 	float get_camera_rotation_speed() const { return m_camera_rotation_speed; }
 
 	const orthographic_camera_bounds& get_bounds() const { return m_bounds; }
@@ -38,7 +38,7 @@ public:
 	void set_zoom_level(float zoom_level);
 	void set_rotatability(bool rotation) { m_rotation = rotation; }
 	void set_camera_rotation(float rotation) { m_camera_rotation = rotation; }
-	void set_camera_translation_speed(float translation_speed) { m_camera_translation_speed = translation_speed; }
+	void set_camera_translation_speed(float translation_speed) { m_camera_translation_speed_stabil = translation_speed; }
 	void set_camera_rotation_speed(float rotation_speed) { m_camera_rotation_speed = rotation_speed; }
 	void set_camera_position(const glm::vec3& position) { m_camera_position = position;  m_camera.set_position(m_camera_position); }
 	
@@ -61,7 +61,8 @@ private:
 	glm::vec3 m_camera_position = { 0.0f, 0.0f, 0.0f };
 	float m_camera_rotation = 0.0f;
 
-	float m_camera_translation_speed = 2.0f;
+	float m_camera_translation_speed_stabil = 2.0f;
+	float m_camera_translation_speed = m_camera_translation_speed_stabil;
 	float m_camera_rotation_speed = 120.0f;
 
 	struct camera_movement_buttons

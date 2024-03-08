@@ -2,7 +2,7 @@
 #include "OpenGLShader.h"
 
 #include "Whip/Core/TemplatesAndContainers/Array.h"
-#include "Whip/Core/TemplatesAndContainers/StringAndFileOperations.h"
+#include "Whip/Core/Filesystem.h"
 
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -24,11 +24,11 @@ opengl_shader::opengl_shader(const std::string& filepath)
 {
 	WHP_PROFILE_FUNCTION();
 
-	std::string source = file_reader::read_file(filepath);
+	std::string source = filesystem::file_reader::read_file(filepath);
 	auto shader_sources = pre_process(source);
 	compile(shader_sources);
 
-	m_name = filename_fetcher::fetch(filepath);
+	m_name = filesystem::filename_fetcher::fetch(filepath);
 }
 
 opengl_shader::opengl_shader(const std::string& name, const std::string& filepath)
@@ -36,7 +36,7 @@ opengl_shader::opengl_shader(const std::string& name, const std::string& filepat
 {
 	WHP_PROFILE_FUNCTION();
 
-	std::string source = file_reader::read_file(filepath);
+	std::string source = filesystem::file_reader::read_file(filepath);
 	auto shader_sources = pre_process(source);
 	compile(shader_sources);
 }
@@ -46,8 +46,8 @@ opengl_shader::opengl_shader(const std::string& name, const std::string& vertex_
 {
 	WHP_PROFILE_FUNCTION();
 
-	std::string vertex_source = file_reader::read_file(vertex_filepath);
-	std::string fragment_source = file_reader::read_file(fragment_filepath);
+	std::string vertex_source = filesystem::file_reader::read_file(vertex_filepath);
+	std::string fragment_source = filesystem::file_reader::read_file(fragment_filepath);
 	std::unordered_map<GLenum, std::string> sources;
 	sources[GL_VERTEX_SHADER] = vertex_source;
 	sources[GL_FRAGMENT_SHADER] = fragment_source;

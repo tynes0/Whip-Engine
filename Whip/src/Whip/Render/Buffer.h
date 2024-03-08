@@ -59,18 +59,18 @@ struct buffer_element
 	{
 		switch (type)
 		{
-		case whip::shader_data_type::none:			WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
-		case whip::shader_data_type::Float:			return 1;
-		case whip::shader_data_type::Float2:		return 2;
-		case whip::shader_data_type::Float3:		return 3;
-		case whip::shader_data_type::Float4:		return 4;
-		case whip::shader_data_type::Mat3:			return 3 * 3;
-		case whip::shader_data_type::Mat4:			return 4 * 4;
-		case whip::shader_data_type::Bool:			return 1;
-		case whip::shader_data_type::Int:			return 1;
-		case whip::shader_data_type::Int2:			return 2;
-		case whip::shader_data_type::Int3:			return 3;
-		case whip::shader_data_type::Int4:			return 4;
+		case _WHIP shader_data_type::none:			WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
+		case _WHIP shader_data_type::Float:			return 1;
+		case _WHIP shader_data_type::Float2:		return 2;
+		case _WHIP shader_data_type::Float3:		return 3;
+		case _WHIP shader_data_type::Float4:		return 4;
+		case _WHIP shader_data_type::Mat3:			return 3 * 3;
+		case _WHIP shader_data_type::Mat4:			return 4 * 4;
+		case _WHIP shader_data_type::Bool:			return 1;
+		case _WHIP shader_data_type::Int:			return 1;
+		case _WHIP shader_data_type::Int2:			return 2;
+		case _WHIP shader_data_type::Int3:			return 3;
+		case _WHIP shader_data_type::Int4:			return 4;
 		}
 		WHP_CORE_ASSERT(false, "Unknown shader_data_type!");
 		return 0;

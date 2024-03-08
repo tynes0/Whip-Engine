@@ -2,6 +2,7 @@
 
 #include "Whip/Core/Core.h"
 #include "Utility.h"
+#include "Algorithms.h"
 #include "Iterator.h"
 #include "Whip/Core/Log.h"
 

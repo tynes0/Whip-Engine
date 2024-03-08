@@ -22,6 +22,7 @@
 #include <filesystem>
 #endif // _HAS_CXX17
 
+#include <Whip/Core/Core.h>
 #ifdef WHP_PLATFORM_WINDOWS
 	#include <Windows.h>
 #endif // WHP_PLATFORM_WINDOWS

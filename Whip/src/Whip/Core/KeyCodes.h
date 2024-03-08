@@ -10,7 +10,7 @@
 #define WHP_KEY_UNKNOWN            -1
 		
 /* Printable keys */
-#define WHP_KEY_SPACE              32
+#define WHP_KEY_SPACE              32 
 #define WHP_KEY_APOSTROPHE         39  /* ' */
 #define WHP_KEY_COMMA              44  /* , */
 #define WHP_KEY_MINUS              45  /* - */

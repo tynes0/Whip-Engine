@@ -1,5 +1,7 @@
 #pragma once
 
+#include <version>
+
 #define _WHIP_START namespace whip {		// Whip namespace start
 #define _WHIP_END }							// Whip namespace end
 

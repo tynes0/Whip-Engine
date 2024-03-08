@@ -2,33 +2,13 @@
 
 #include <string>
 
-#include "Whip/Core/Core.h"
-#include "Whip/Core/Log.h"
-#include "Algorithms.h"
-#include "Iterator.h"
+#include "Core.h"
+#include "Log.h"
+#include "TemplatesAndContainers/Algorithms.h"
+#include "TemplatesAndContainers/Iterator.h"
+#include "TemplatesAndContainers/Vector.h"
 
 _WHIP_START
-
-// --------------------- FILE READER ---------------------
-class file_reader
-{
-public:
-	file_reader() {}
-	~file_reader() {}
-	// reads all of the file
-	WHP_NODISCARD static std::string read_file(const std::string& filepath);
-	WHP_NODISCARD std::string operator()(const std::string& filepath);
-};
-
-// --------------------- FILE CLEANER ---------------------
-class file_cleaner
-{
-public:
-	file_cleaner() {}
-	~file_cleaner() {}
-	static void clear(const std::string& filepath);
-	void operator()(const std::string& filepath);
-};
 
 // --------------------- STRING SEPERATOR ---------------------
 class string_separator
@@ -36,36 +16,24 @@ class string_separator
 public:
 	string_separator() {}
 	~string_separator() {}
-	WHP_NODISCARD static std::vector<std::string> seperate(const std::string& source, const std::string& token);	
-	WHP_NODISCARD static std::vector<std::string> seperate(const std::string& source, char token);
-	WHP_NODISCARD std::vector<std::string> operator()(const std::string& path, const std::string& token);
-	WHP_NODISCARD std::vector<std::string> operator()(const std::string& path, char token);
-};
-
-// --------------------- FILE SEPERATOR ---------------------
-class file_separator
-{
-public:
-	file_separator() {}
-	~file_separator() {}
-	WHP_NODISCARD static std::vector<std::string> seperate(const std::string& path, const std::string& token);
-	WHP_NODISCARD static std::vector<std::string> seperate(const std::string& path, char token);
-	WHP_NODISCARD std::vector<std::string> operator()(const std::string& path, const std::string& token);
-	WHP_NODISCARD std::vector<std::string> operator()(const std::string& path, char token);
-};
-
-// --------------------- FILENAME FETCHER ---------------------
-class filename_fetcher
-{
-public:
-	WHP_NODISCARD static std::string fetch(const std::string& filepath);
-	WHP_NODISCARD std::string operator()(const std::string& filepath);
+	WHP_NODISCARD static vector<std::string> seperate(const std::string& source, const std::string& token);
+	WHP_NODISCARD static vector<std::string> seperate(const std::string& source, char token);
+	WHP_NODISCARD vector<std::string> operator()(const std::string& path, const std::string& token);
+	WHP_NODISCARD vector<std::string> operator()(const std::string& path, char token);
 };
 
 // --------------------- STRING OPERATIONS ---------------------
 class string_operations
 {
 public:
+	// check if string starts with given character
+	WHP_NODISCARD static bool starts_with(const std::string& str, char token);
+	// Check if string starts with given string
+	WHP_NODISCARD static bool starts_with(const std::string& str, const std::string& token);
+	// check if string ends with given character
+	WHP_NODISCARD static bool ends_with(const std::string& str, char token);
+	// Check if string ends with given string
+	WHP_NODISCARD static bool ends_with(const std::string& str, const std::string& token);
 	// remove leading spaces and return the removed version
 	WHP_NODISCARD static std::string trim_left(const std::string& str);
 	// remove leading spaces from the reference and return the size of string
@@ -275,4 +243,4 @@ private:
 
 _WHIP_END
 
-#include "FindOperator.h"
+#include "TemplatesAndContainers/FindOperator.h"
