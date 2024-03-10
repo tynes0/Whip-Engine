@@ -138,7 +138,7 @@ namespace filesystem
 		return string_separator::seperate(source, token);
 	}
 
-	WHP_NODISCARD vector<std::string> file_separator::seperate(const std::string& path, char token)
+	vector<std::string> file_separator::seperate(const std::string& path, char token)
 	{
 		std::string source = file_reader::read_file(path);
 		return string_separator::seperate(source, token);
@@ -149,14 +149,14 @@ namespace filesystem
 		return seperate(path, token);
 	}
 
-	WHP_NODISCARD vector<std::string> file_separator::operator()(const std::string& path, char token)
+	vector<std::string> file_separator::operator()(const std::string& path, char token)
 	{
 		return seperate(path, token);
 	}
 
-	// --------------------- FILENAME FETCHER ---------------
+	// --------------------- FILEPATH PARSER ---------------
 
-	std::string filename_fetcher::fetch(const std::string& filepath)
+	std::string filepath_parser::fetch_filename(const std::string& filepath) // this is not controlling example.some_ext.some_ext2 files in this case filename is example.some_ext
 	{
 		size_t last_slash = filepath.find_last_of("/\\");
 		last_slash = (last_slash == std::string::npos) ? 0 : last_slash + 1;
@@ -165,9 +165,32 @@ namespace filesystem
 		return filepath.substr(last_slash, length);
 	}
 
-	std::string filename_fetcher::operator()(const std::string& filepath)
+	std::string filepath_parser::fetch_extension(const std::string& filepath, bool without_dot)
 	{
-		return fetch(filepath);
+		size_t last_dot = filepath.rfind('.');
+		if (last_dot == std::string::npos)
+			return "";
+		if(!without_dot)
+			return filepath.substr(last_dot);
+		return filepath.substr(last_dot + 1);
+	}
+
+	pair<std::string> filepath_parser::fetch_name_n_extension(const std::string& filepath)
+	{
+		size_t last_slash = filepath.find_last_of("/\\");
+		last_slash = (last_slash == std::string::npos) ? 0 : last_slash + 1;
+		size_t last_dot = filepath.rfind('.');
+		size_t length = (last_dot == std::string::npos) ? filepath.size() - last_slash : last_dot - last_slash;
+		return { filepath.substr(last_slash, length), last_dot != std::string::npos ? filepath.substr(last_dot) : "" };
+	}
+
+	trio<std::string> filepath_parser::fetch_all(const std::string& filepath)
+	{
+		size_t last_slash = filepath.find_last_of("/\\");
+		last_slash = (last_slash == std::string::npos) ? 0 : last_slash + 1;
+		size_t last_dot = filepath.rfind('.');
+		size_t length = (last_dot == std::string::npos) ? filepath.size() - last_slash : last_dot - last_slash;
+		return { filepath.substr(0, last_slash), filepath.substr(last_slash, length), last_dot != std::string::npos ? filepath.substr(last_dot) : "" };
 	}
 
 } // namespace filesystem

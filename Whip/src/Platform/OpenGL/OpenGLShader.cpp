@@ -28,7 +28,7 @@ opengl_shader::opengl_shader(const std::string& filepath)
 	auto shader_sources = pre_process(source);
 	compile(shader_sources);
 
-	m_name = filesystem::filename_fetcher::fetch(filepath);
+	m_name = filesystem::filepath_parser::fetch_filename(filepath);
 }
 
 opengl_shader::opengl_shader(const std::string& name, const std::string& filepath)

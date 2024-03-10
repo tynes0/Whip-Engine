@@ -37,6 +37,9 @@ void game_layer::on_attach()
 	m_character.set_position({ 0 - s_test_map_w / 2.0f + 1.0f, (sizeof(s_test_map) / (sizeof(int)) / s_test_map_w) / 2.0f + 1, 0.8f });
 	m_character.set_default_position({ 0 - s_test_map_w / 2.0f + 1.0f, (sizeof(s_test_map) / (sizeof(int)) / s_test_map_w) / 2.0f + 1, 0.8f });
 	m_character.set_x_face(character::rotation::right);
+
+	auto tr = whip::filesystem::filepath_parser::fetch_extension("C:\\Dev\\Whip\\F-Box\\assets\\game\\textures\\character\\frame_5.");
+	WHP_CORE_DEBUG("{0}", tr);
 }
 
 void game_layer::on_detach()
@@ -52,15 +55,6 @@ void game_layer::on_update(whip::timestep ts)
 		whip::render_command::set_clear_color({ 0.1f, 0.1f, 0.1f, 1.0f });
 		whip::render_command::clear();
 	}
-
-	/*if (m_character.is_moving())
-	{
-		if (m_character.get_default_position().x + 1.0f <= m_character.get_position().x && m_character.get_last_x_face() == character::rotation::right)
-			m_character.set_x_face(character::rotation::left);
-		else if ((m_character.get_default_position().x - 1.0f >= m_character.get_position().x && m_character.get_last_x_face() == character::rotation::left))
-			m_character.set_x_face(character::rotation::right);
-		m_character.move_x(ts);
-	}*/
 
 	if (whip::input::is_key_released(WHP_KEY_RIGHT) || whip::input::is_key_released(WHP_KEY_LEFT) || whip::input::is_key_released(WHP_KEY_DOWN) || whip::input::is_key_released(WHP_KEY_UP))
 		m_character.set_movement_state(false);

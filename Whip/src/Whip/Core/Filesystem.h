@@ -4,6 +4,7 @@
 
 #include <string>
 #include <Whip/Core/TemplatesAndContainers/Vector.h>
+#include <Whip/Core/TemplatesAndContainers/Pair.h>
 
 _WHIP_START
 
@@ -62,21 +63,16 @@ namespace filesystem
 		WHP_NODISCARD vector<std::string> operator()(const std::string& path, char token);
 	};
 
-	// --------------------- FILENAME FETCHER ---------------------
-	class filename_fetcher
+	// --------------------- FILEPATH PARSER ---------------------
+	class filepath_parser
 	{
 	public:
-		WHP_NODISCARD static std::string fetch(const std::string& filepath);
-		WHP_NODISCARD std::string operator()(const std::string& filepath);
-	};
-
-	// ------------------ FILE EXTENSION FETCHER ------------------
-
-	class file_extension_fetcher
-	{
-	public:
-		WHP_NODISCARD static std::string fetch(const std::string& filepath);
-		WHP_NODISCARD std::string& operator()(const std::string& filepath);
+		WHP_NODISCARD static std::string fetch_filename(const std::string& filepath);
+		WHP_NODISCARD static std::string fetch_extension(const std::string& filepath, bool without_dot = false);
+		// first -> file name, second -> file extension
+		WHP_NODISCARD static pair<std::string> fetch_name_n_extension(const std::string& filepath);
+		// first -> filepath without file name and extension, second -> file name, third -> file extension
+		WHP_NODISCARD static trio<std::string> fetch_all(const std::string& filepath);
 	};
 
 } // namespace filesystem
