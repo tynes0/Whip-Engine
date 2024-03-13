@@ -2,8 +2,6 @@
 
 #include <Whip.h>
 
-#include <vector>
-
 class character
 {
 public:
@@ -25,12 +23,13 @@ public:
 private:
 	void display_default_quad() const;
 public:
-	void display(whip::timestep ts) const;
+	void display(whip::timestep ts);
 
 	size_t get_id() const;
 	bool is_moving() const;
 	bool is_attacking() const;
 	bool is_changed() const;
+	float get_speed() const;
 	float get_delay_divider() const;
 	glm::vec3 get_position() const;
 	glm::vec3 get_default_position() const;
@@ -42,6 +41,7 @@ public:
 	whip::vector<whip::ref<whip::texture2D>> get_default_movement_frames() const;
 	whip::vector<whip::ref<whip::texture2D>> get_changed_movement_frames() const;
 
+	void set_speed(float new_speed);
 	void set_x_face(rotation rot);
 	void set_y_face(rotation rot);
 	void set_movement_state(bool move);
@@ -61,18 +61,21 @@ public:
 	size_t add_default_movement_frame(const std::string& filepath);
 	size_t add_changed_movement_frame(const std::string& filepath);
 
-	void move(rotation rot, float speed);
-	void move_x(float speed);
-	void move_y(float speed);
+	void move(rotation rot);
+	void move_x();
+	void move_y();
 private:
 	size_t id;
 	bool moving;
 	bool attacking;
 	bool changed;
 	float delay_divider = 0.1f;
+	float speed = 0.0f;
 	glm::vec3 m_position;
 	glm::vec3 m_default_position;
 	glm::vec2 m_scale = { 1.0f, 1.0f };
+	whip::array<float, 4> delays{ 0,0,0,0 };
+	whip::array<size_t, 4> idxs{ 0,0,0,0 };
 	whip::pair<rotation> m_faces{ rotation::none, rotation::none };
 	whip::vector<whip::ref<whip::texture2D>> m_still_frames;
 	whip::vector<whip::ref<whip::texture2D>> m_attack_frames;

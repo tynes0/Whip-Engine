@@ -20,6 +20,7 @@ private:
 	float tm = 0;
 
 	character m_character;
+	character m_monkey;
 	whip::ref<whip::texture2D> m_sprite_sheet;
 	std::unordered_map<int, whip::ref<whip::sub_texture2D>> m_texture_map;
 };

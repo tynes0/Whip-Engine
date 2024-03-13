@@ -4,6 +4,8 @@
 
 // TODO: inline -> WHP_INLINE
 
+_WHIP_START
+
 template <class _Ty, _Ty _Val>
 struct integral_constant
 {
@@ -25,6 +27,14 @@ using false_type = bool_constant<false>;
 template <class... _Types>
 using void_t = void;
 
+template <class _Ty>
+struct identity 
+{
+	using type = _Ty;
+};
+template <class _Ty>
+using identity_t _WHP_MSVC_KNOWN_SEMANTICS = typename identity<_Ty>::type;
+
 template <bool _Test, class _Ty = void>
 struct enable_if {};
 
@@ -38,13 +48,15 @@ template <bool _Test, class _Ty = void>
 using enable_if_t = typename enable_if<_Test, _Ty>::type;
 
 template <class _Ty, class = void>
-struct _Add_reference { // add reference (non-referenceable type)
+struct _Add_reference 
+{ // add reference (non-referenceable type)
 	using _Lvalue = _Ty;
 	using _Rvalue = _Ty;
 };
 
 template <class _Ty>
-struct _Add_reference<_Ty, void_t<_Ty&>> { // (referenceable type)
+struct _Add_reference<_Ty, void_t<_Ty&>> 
+{ // (referenceable type)
 	using _lvalue = _Ty&;
 	using _rvalue = _Ty&&;
 };
@@ -599,3 +611,5 @@ template <class _Rep>
 constexpr make_unsigned_t<_Rep> _Unsigned_value(_Rep _Val) { // makes _Val unsigned
 	return static_cast<make_unsigned_t<_Rep>>(_Val);
 }
+
+_WHIP_END

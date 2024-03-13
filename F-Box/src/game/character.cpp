@@ -46,10 +46,8 @@ void character::display_default_quad() const
 	whip::renderer2D::draw_quad(m_position, m_scale, default_quad);
 }
 
-void character::display(whip::timestep ts) const
+void character::display(whip::timestep ts)
 {
-	static whip::array<float, 4> delays{ delay_divider / ts , delay_divider / ts , delay_divider / ts , delay_divider / ts };
-	static whip::array<size_t, 4> idxs{ 0,0,0,0 };
 	if (!moving && !attacking)
 	{
 		if (m_still_frames.size() != 0)
@@ -136,6 +134,11 @@ bool character::is_changed() const
 	return changed;
 }
 
+float character::get_speed() const
+{
+	return speed;
+}
+
 float character::get_delay_divider() const
 {
 	return delay_divider;
@@ -184,6 +187,11 @@ whip::vector<whip::ref<whip::texture2D>> character::get_default_movement_frames(
 whip::vector<whip::ref<whip::texture2D>> character::get_changed_movement_frames() const
 {
 	return m_changed_movement_frames;
+}
+
+void character::set_speed(float new_speed)
+{
+	speed = new_speed / 1000.0f;
 }
 
 void character::set_x_face(rotation rot)
@@ -305,7 +313,7 @@ size_t character::add_changed_movement_frame(const std::string& filepath)
 	return m_changed_movement_frames.size() - 1;
 }
 
-void character::move(rotation rot, float speed)
+void character::move(rotation rot)
 {
 	switch (rot)
 	{
@@ -331,7 +339,7 @@ void character::move(rotation rot, float speed)
 	}
 }
 
-void character::move_x(float speed)
+void character::move_x()
 {
 	switch (m_faces.first)
 	{
@@ -347,7 +355,7 @@ void character::move_x(float speed)
 	}
 }
 
-void character::move_y(float speed)
+void character::move_y()
 {
 	switch (m_faces.second)
 	{

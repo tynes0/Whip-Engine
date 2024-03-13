@@ -27,11 +27,64 @@
 #define WHP_INLINE					// inline keyword for constants
 #endif // _HAS_CXX17
 
+#if _HAS_CXX17
+#define WHP_CONSTEXPR17 constexpr
+#else
+#define WHP_CONSTEXPR17 inline
+#endif
+
 #if _HAS_CXX20
 #define WHP_CONSTEXPR constexpr		// constexpr keyword for constants
 #else
-#define WHP_CONSTEXPR				// constexpr keyword for constants
+#define WHP_CONSTEXPR inline		// constexpr keyword for constants
 #endif // _HAS_CXX20
+
+#if _HAS_CXX23
+#define WHP_CONSTEXPR23 constexpr
+#else
+#define WHP_CONSTEXPR23 inline
+#endif
+
+#pragma push_macro("msvc")
+#pragma push_macro("known_semantics")
+#pragma push_macro("noop_dtor")
+#pragma push_macro("intrinsic")
+#undef msvc
+#undef known_semantics
+#undef noop_dtor
+#undef intrinsic
+
+#ifndef __has_cpp_attribute
+#define _HAS_MSVC_ATTRIBUTE(x) 0
+#elif defined(__CUDACC__)
+#define _HAS_MSVC_ATTRIBUTE(x) 0
+#else
+#define _WHP_HAS_MSVC_ATTRIBUTE(x) __has_cpp_attribute(msvc::x)
+#endif
+
+#if _WHP_HAS_MSVC_ATTRIBUTE(known_semantics)
+#define _WHP_MSVC_KNOWN_SEMANTICS [[msvc::known_semantics]]
+#else
+#define _WHP_MSVC_KNOWN_SEMANTICS
+#endif
+
+#if _WHP_HAS_MSVC_ATTRIBUTE(noop_dtor)
+#define _WHP_MSVC_NOOP_DTOR [[msvc::noop_dtor]]
+#else
+#define _WHP_MSVC_NOOP_DTOR
+#endif
+
+#if _WHP_HAS_MSVC_ATTRIBUTE(intrinsic)
+#define _WHP_MSVC_INTRINSIC [[msvc::intrinsic]]
+#else
+#define _WHP_MSVC_INTRINSIC
+#endif
+
+#undef _WHP_HAS_MSVC_ATTRIBUTE
+#pragma pop_macro("intrinsic")
+#pragma pop_macro("noop_dtor")
+#pragma pop_macro("known_semantics")
+#pragma pop_macro("msvc")
 
 #ifdef _WIN32
 	#ifdef _WIN64

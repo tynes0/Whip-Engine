@@ -406,6 +406,28 @@ public:
         (m_data + offset) = (m_data + offset + 1);
     }
 
+    void erase(iterator position)
+    {
+        WHP_CORE_ASSERT(position >= begin() && position < end(), "Position is not within the vector.");
+        if (position + 1 < end())
+            std::memmove(position.unwrapped(), position.unwrapped() + 1, (end() - position - 1) * sizeof(_Ty));
+        if constexpr (!std::is_trivial_v<_Ty>)
+            allocator<_Ty>{}.destroy(end().unwrapped());
+        m_capacities.second--;
+    }
+
+    void erase(iterator start, iterator end)
+    {
+        WHP_CORE_ASSERT(start >= begin() && start < end() && end <= end(), "Invalid range.");
+        size_type distance = end - start;
+        if (end() - start > 0)
+            std::memmove(start.unwrapped(), start.unwrapped() + distance, (end() - end()) * sizeof(_Ty));
+        for (size_type i = 0; i < distance; i++)
+            if constexpr (!std::is_trivial_v<_Ty>)
+                allocator<_Ty>{}.destroy(end() - i - 1);
+        m_capacities.second -= distance;
+    }
+
     void push_back(const _Ty& value)
     {
         if (m_capacities.first == m_capacities.second)
@@ -426,6 +448,19 @@ public:
         else
             allocator<_Ty>{}.construct(m_data + m_capacities.second, whip::move(value));
         m_capacities.second++;
+    }
+
+    template <typename... Args>
+    iterator emplace(const_iterator position, Args&&... args)
+    {
+        WHP_CORE_ASSERT(position >= begin() && position <= end(), "Position is not within the vector.");
+        if (m_capacities.second == m_capacities.first)
+            reserve(m_capacities.first * m_grow_factor + 1);
+        if (position < end())
+            std::memmove(position.unwrapped() + 1, position.unwrapped(), (end() - position) * sizeof(_Ty));
+        allocator<_Ty>{}.construct(position.unwrapped(), whip::forward<Args>(args)...);
+        m_capacities.second++;
+        return iterator(position.unwrapped());
     }
     
     template <class... _Args>

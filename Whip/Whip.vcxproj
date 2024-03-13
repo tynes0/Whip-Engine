@@ -181,6 +181,8 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Random.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Range.h" />
     <ClInclude Include="src\Whip\Core\StringOperations.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Span.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tuple.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Variant.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Vector.h" />
     <ClInclude Include="src\Whip\Core\Timestep.h" />

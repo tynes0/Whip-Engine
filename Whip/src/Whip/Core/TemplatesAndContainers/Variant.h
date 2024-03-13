@@ -33,17 +33,17 @@ private:
 	const char* m_message = "";
 };
 
-namespace var_detail
+namespace detail_variant
 {
 	struct variant_tag {};
 	struct emplacer_tag {};
 }
 
 template <class _Ty>
-struct in_place_type_t : private var_detail::emplacer_tag {};
+struct in_place_type_t : private detail_variant::emplacer_tag {};
 
 template <size_t _Index>
-struct in_place_index_t : private var_detail::variant_tag {};
+struct in_place_index_t : private detail_variant::variant_tag {};
 
 template <class _Ty>
 inline static constexpr in_place_type_t<_Ty> in_place_type;
@@ -51,7 +51,7 @@ inline static constexpr in_place_type_t<_Ty> in_place_type;
 template <size_t _Index>
 inline static constexpr in_place_index_t<_Index> in_place_index;
 
-namespace var_detail
+namespace detail_variant
 {
 	template <int N>
 	constexpr int find_first_true(bool(&& arr)[N])
@@ -355,7 +355,7 @@ namespace var_detail
 				INJECTSEQ(SEQSIZE)
 			default:
 				if constexpr (SEQSIZE < RemainingIndex)
-					return var_detail::single_visit_tail<Offset + SEQSIZE, Rtype>(static_cast<Fn&&>(fn), static_cast<V&&>(v));
+					return detail_variant::single_visit_tail<Offset + SEQSIZE, Rtype>(static_cast<Fn&&>(fn), static_cast<V&&>(v));
 				else
 					DeclareUnreachable();
 			}
@@ -382,7 +382,7 @@ namespace var_detail
 
 			default:
 				if constexpr (SEQSIZE < RemainingIndex)
-					return var_detail::single_visit_w_index_tail<Offset + SEQSIZE, Rtype>(static_cast<Fn&&>(fn), static_cast<V&&>(v));
+					return detail_variant::single_visit_w_index_tail<Offset + SEQSIZE, Rtype>(static_cast<Fn&&>(fn), static_cast<V&&>(v));
 				else
 					DeclareUnreachable();
 			}
@@ -394,13 +394,13 @@ namespace var_detail
 		template <class Fn, class V>
 		constexpr decltype(auto) visit(Fn&& fn, V&& v)
 		{
-			return var_detail::single_visit_tail<0, rtype_visit<Fn&&, V&&>>(WHP_FWD(fn), WHP_FWD(v));
+			return detail_variant::single_visit_tail<0, rtype_visit<Fn&&, V&&>>(WHP_FWD(fn), WHP_FWD(v));
 		}
 
 		template <class Fn, class V>
 		constexpr decltype(auto) visit_with_index(V&& v, Fn&& fn) 
 		{
-			return var_detail::single_visit_w_index_tail<0, rtype_index_visit<Fn&&, V&&>>(WHP_FWD(fn), WHP_FWD(v));
+			return detail_variant::single_visit_w_index_tail<0, rtype_index_visit<Fn&&, V&&>>(WHP_FWD(fn), WHP_FWD(v));
 		}
 
 		template <class Fn, class Head, class... Tail>
@@ -410,7 +410,7 @@ namespace var_detail
 			// visit them one by one, starting with the last
 			auto vis = [&fn, &head](auto&&... args) -> decltype(auto) 
 			{
-				return var_detail::visit([&fn, &args...](auto&& elem) -> decltype(auto) 
+				return detail_variant::visit([&fn, &args...](auto&& elem) -> decltype(auto) 
 					{
 					return WHP_FWD(fn)(WHP_FWD(elem), WHP_FWD(args)...);
 					}, WHP_FWD(head));
@@ -419,9 +419,9 @@ namespace var_detail
 			if constexpr (sizeof...(tail) == 0)
 				return WHP_FWD(vis)();
 			else if constexpr (sizeof...(tail) == 1)
-				return var_detail::visit(WHP_FWD(vis), WHP_FWD(tail)...);
+				return detail_variant::visit(WHP_FWD(vis), WHP_FWD(tail)...);
 			else
-				return var_detail::multi_visit(WHP_FWD(vis), WHP_FWD(tail)...);
+				return detail_variant::multi_visit(WHP_FWD(vis), WHP_FWD(tail)...);
 		}
 
 #undef DEC
@@ -442,9 +442,9 @@ namespace var_detail
 }
 
 template <class T>
-inline constexpr bool is_variant = std::is_base_of_v<var_detail::variant_tag, std::decay_t<T>>;
+inline constexpr bool is_variant = std::is_base_of_v<detail_variant::variant_tag, std::decay_t<T>>;
 
-inline static constexpr var_detail::variant_npos_t variant_npos;
+inline static constexpr detail_variant::variant_npos_t variant_npos;
 
 template <class... Ts>
 class variant;
@@ -460,10 +460,10 @@ class variant<Ts...>
 };
 
 template <class... Ts>
-class variant : private var_detail::variant_tag
+class variant : private detail_variant::variant_tag
 {
 private:
-	using storage_t = var_detail::union_node<false, var_detail::make_tree_union<Ts...>, var_detail::dummy_type>;
+	using storage_t = detail_variant::union_node<false, detail_variant::make_tree_union<Ts...>, detail_variant::dummy_type>;
 
 	static constexpr bool is_trivial = std::is_trivial_v<storage_t>;
 	static constexpr bool has_copy_ctor = std::is_copy_constructible_v<storage_t>;
@@ -484,12 +484,12 @@ public:
 
 	static constexpr unsigned size = sizeof...(Ts);
 
-	using index_type = var_detail::smallest_suitable_integer_type<sizeof...(Ts) + can_be_valueless, unsigned char, unsigned short, unsigned>;
+	using index_type = detail_variant::smallest_suitable_integer_type<sizeof...(Ts) + can_be_valueless, unsigned char, unsigned short, unsigned>;
 
 	static constexpr index_type npos = -1;
 
 	template <class _Ty>
-	static constexpr int index_of = var_detail::find_first_true({ std::is_same_v<_Ty, Ts>... });
+	static constexpr int index_of = detail_variant::find_first_true({ std::is_same_v<_Ty, Ts>... });
 
 	constexpr variant()
 		noexcept(std::is_nothrow_default_constructible_v<alternative<0>>)
@@ -501,7 +501,7 @@ public:
 
 	// copy constructor default
 	constexpr variant(const variant& other) requires (has_copy_ctor && !trivial_copy_ctor)
-		: storage(var_detail::dummy_type{})
+		: storage(detail_variant::dummy_type{})
 	{
 		construct_from(other);
 	}
@@ -509,15 +509,15 @@ public:
 	// move constructor
 	constexpr variant(variant&& other) noexcept ((std::is_nothrow_move_constructible_v<Ts> && ...))
 		requires (has_move_ctor && !trivial_move_ctor)
-	: storage(var_detail::dummy_type{})
+	: storage(detail_variant::dummy_type{})
 	{
 		construct_from(static_cast<variant&&>(other));
 	}
 
 	// generic constructor
-	template <class _Ty, class _M = var_detail::best_overload_match<_Ty&&, Ts...>, class _D = std::decay_t<_Ty>>
+	template <class _Ty, class _M = detail_variant::best_overload_match<_Ty&&, Ts...>, class _D = std::decay_t<_Ty>>
 	constexpr variant(_Ty&& data) noexcept (std::is_nothrow_constructible_v<_M, _Ty&&>)
-		requires(!std::is_same_v<_D, variant> && !std::is_base_of_v<var_detail::emplacer_tag, _D>)
+		requires(!std::is_same_v<_D, variant> && !std::is_base_of_v<detail_variant::emplacer_tag, _D>)
 	: variant(in_place_index<index_of<_M>>, static_cast<_Ty&&>(data)) {}
 
 	template <size_t _Index, class... _Args>
@@ -526,7 +526,7 @@ public:
 		: storage(tag, static_cast<_Args&&>(args)...), current(_Index) { }
 
 	template <class T, class... Args>
-		requires (var_detail::appears_exactly_once<T, Ts...>&& std::is_constructible_v<T, Args&&...>)
+		requires (detail_variant::appears_exactly_once<T, Ts...>&& std::is_constructible_v<T, Args&&...>)
 	explicit constexpr variant(in_place_type_t<T>, Args&&... args)
 		: variant(in_place_index<index_of<T>>, static_cast<Args&&>(args)...) {}
 
@@ -536,7 +536,7 @@ public:
 		: storage(tag, list, WHP_FWD(args)...), current(Index) {}
 
 	template <class _Ty, class _Uty, class... _Args>
-		requires(var_detail::appears_exactly_once<_Ty, Ts...>&& std::is_constructible_v<_Ty, std::initializer_list<_Uty>&, _Args&&...>)
+		requires(detail_variant::appears_exactly_once<_Ty, Ts...>&& std::is_constructible_v<_Ty, std::initializer_list<_Uty>&, _Args&&...>)
 	explicit constexpr variant(in_place_type_t<_Ty>, std::initializer_list<_Uty> ilist, _Args&&... args)
 		: storage(in_place_index<index_of<_Ty>>, ilist, WHP_FWD(args)...), current(index_of<_Ty>) {}
 
@@ -587,12 +587,12 @@ public:
 	}
 
 	template <class T>
-		requires var_detail::has_non_ambiguous_match<T, Ts...>
+		requires detail_variant::has_non_ambiguous_match<T, Ts...>
 	constexpr variant& operator=(T&& t)
-		noexcept(std::is_nothrow_assignable_v<var_detail::best_overload_match<T&&, Ts...>, T&&>
-			&& std::is_nothrow_constructible_v<var_detail::best_overload_match<T&&, Ts...>, T&&>)
+		noexcept(std::is_nothrow_assignable_v<detail_variant::best_overload_match<T&&, Ts...>, T&&>
+			&& std::is_nothrow_constructible_v<detail_variant::best_overload_match<T&&, Ts...>, T&&>)
 	{
-		using related_type = var_detail::best_overload_match<T&&, Ts...>;
+		using related_type = detail_variant::best_overload_match<T&&, Ts...>;
 		constexpr auto new_index = index_of<related_type>;
 
 		if (this->current == new_index)
@@ -614,7 +614,7 @@ public:
 	}
 
 	template <class T, class... Args>
-		requires (std::is_constructible_v<T, Args&&...>&& var_detail::appears_exactly_once<T, Ts...>)
+		requires (std::is_constructible_v<T, Args&&...>&& detail_variant::appears_exactly_once<T, Ts...>)
 	constexpr T& emplace(Args&&... args)
 	{
 		return emplace<index_of<T>>(static_cast<Args&&>(args)...);
@@ -634,7 +634,7 @@ public:
 	}
 
 	template <class T, class U, class... Args>
-		requires (std::is_constructible_v<T, std::initializer_list<U>&, Args&&...>&& var_detail::appears_exactly_once<T, Ts...>)
+		requires (std::is_constructible_v<T, std::initializer_list<U>&, Args&&...>&& detail_variant::appears_exactly_once<T, Ts...>)
 	constexpr T& emplace(std::initializer_list<U> list, Args&&... args) 
 	{
 		return emplace_impl<index_of<T>>(list, WHP_FWD(args)...);
@@ -654,15 +654,15 @@ public:
 	}
 
 	constexpr void swap(variant& o)
-		noexcept ((std::is_nothrow_move_constructible_v<Ts> && ...) && (var_detail::swap_trait::template nothrow<Ts> && ...))
-		requires (has_move_ctor && (var_detail::swap_trait::template able<Ts> && ...))
+		noexcept ((std::is_nothrow_move_constructible_v<Ts> && ...) && (detail_variant::swap_trait::template nothrow<Ts> && ...))
+		requires (has_move_ctor && (detail_variant::swap_trait::template able<Ts> && ...))
 	{
 
 		if constexpr (can_be_valueless)
 		{
 			constexpr auto impl_one_valueless = [](auto&& full, auto& empty)
 			{
-				var_detail::visit_with_index(WHP_FWD(full), var_detail::emplace_no_dtor_from_elem<variant&>{empty});
+				detail_variant::visit_with_index(WHP_FWD(full), detail_variant::emplace_no_dtor_from_elem<variant&>{empty});
 				full.reset_no_check();
 				full.current = npos;
 			};
@@ -687,7 +687,7 @@ public:
 
 		WHP_CORE_ASSERT(!(valueless_by_exception() && o.valueless_by_exception()), "");
 
-		var_detail::visit_with_index(o, [&o, this](auto&& elem, auto index_) {
+		detail_variant::visit_with_index(o, [&o, this](auto&& elem, auto index_) {
 
 			if (this->index() == index_) {
 				using std::swap;
@@ -696,18 +696,18 @@ public:
 			}
 
 			using idx_t = decltype(index_);
-			var_detail::visit_with_index(*this, [this, &o, &elem](auto&& this_elem, auto this_index) {
+			detail_variant::visit_with_index(*this, [this, &o, &elem](auto&& this_elem, auto this_index) {
 
 				auto tmp{ WHP_MOV(this_elem) };
 
 				// destruct the element
-				var_detail::destruct<alternative<this_index>>(this_elem);
+				detail_variant::destruct<alternative<this_index>>(this_elem);
 
 				// ok, we just destroyed the element in this, don't call the dtor again
 				this->emplace_no_dtor<idx_t::value>(WHP_MOV(elem));
 
 				// we could refactor this
-				var_detail::destruct<alternative<idx_t::value>>(elem);
+				detail_variant::destruct<alternative<idx_t::value>>(elem);
 				o.template emplace_no_dtor< (unsigned)(this_index) >(WHP_MOV(tmp));
 
 				});
@@ -717,13 +717,13 @@ public:
 	template <class _Ty>
 	constexpr auto& unsafe_get() & noexcept
 	{
-		constexpr var_detail::union_index_t Idx = (index_of<_Ty>);
+		constexpr detail_variant::union_index_t Idx = (index_of<_Ty>);
 		static_assert(Idx < size, "Requested type is not contained in the whip::variant");
 		WHP_CORE_ASSERT(current == Idx, "Requested type is not the current type in the whip::variant");
 		return storage.template get<Idx>();
 	}
 
-	template <var_detail::union_index_t Idx>
+	template <detail_variant::union_index_t Idx>
 	constexpr auto& unsafe_get() & noexcept
 	{
 		static_assert(Idx < size, "Requested type is not contained in the whip::variant");
@@ -731,7 +731,7 @@ public:
 		return storage.template get<Idx>();
 	}
 
-	template <var_detail::union_index_t Idx>
+	template <detail_variant::union_index_t Idx>
 	constexpr auto&& unsafe_get() && noexcept
 	{
 		static_assert(Idx < size, "Requested type is not contained in the whip::variant");
@@ -739,7 +739,7 @@ public:
 		return WHP_MOV(storage.template get<Idx>());
 	}
 
-	template <var_detail::union_index_t Idx>
+	template <detail_variant::union_index_t Idx>
 	constexpr const auto& unsafe_get() const& noexcept
 	{
 		static_assert(Idx < size, "Requested type is not contained in the whip::variant");
@@ -747,7 +747,7 @@ public:
 		return const_cast<variant&>(*this).unsafe_get<Idx>();
 	}
 
-	template <var_detail::union_index_t Idx>
+	template <detail_variant::union_index_t Idx>
 	constexpr const auto&& unsafe_get() const&& noexcept
 	{
 		static_assert(Idx < size, "Requested type is not contained in the whip::variant");
@@ -773,7 +773,7 @@ private:
 			}
 		}
 		WHP_CORE_ASSERT(!o.valueless_by_exception(), "whip::variant : valueless by exception");
-		var_detail::visit_with_index(WHP_FWD(o), WHP_FWD(fn));
+		detail_variant::visit_with_index(WHP_FWD(o), WHP_FWD(fn));
 	}
 
 	template <unsigned Idx, class... Args>
@@ -829,9 +829,9 @@ private:
 		WHP_CORE_ASSERT(index() < size, "Requested type is not the current type in the whip::variant");
 		if constexpr (!trivial_dtor) 
 		{
-			var_detail::visit_with_index(*this, [](auto& elem, auto index_) 
+			detail_variant::visit_with_index(*this, [](auto& elem, auto index_) 
 				{
-				var_detail::destruct<alternative<index_>>(elem);
+				detail_variant::destruct<alternative<index_>>(elem);
 				});
 		}
 	}
@@ -847,11 +847,11 @@ private:
 				return;
 			}
 
-		var_detail::visit_with_index(WHP_FWD(o), var_detail::emplace_no_dtor_from_elem<variant&>{*this});
+		detail_variant::visit_with_index(WHP_FWD(o), detail_variant::emplace_no_dtor_from_elem<variant&>{*this});
 	}
 
 	template <class T>
-	friend struct var_detail::emplace_no_dtor_from_elem;
+	friend struct detail_variant::emplace_no_dtor_from_elem;
 
 	storage_t storage;
 	index_type current;
@@ -940,9 +940,9 @@ constexpr decltype(auto) visit(Fn&& fn, Vs&&... vs)
 			throw bad_variant_access{ "whip::variant : Bad variant access in visit." };
 
 	if constexpr (sizeof...(Vs) == 1)
-		return var_detail::visit(WHP_FWD(fn), WHP_FWD(vs)...);
+		return detail_variant::visit(WHP_FWD(fn), WHP_FWD(vs)...);
 	else
-		return var_detail::multi_visit(WHP_FWD(fn), WHP_FWD(vs)...);
+		return detail_variant::multi_visit(WHP_FWD(fn), WHP_FWD(vs)...);
 }
 
 template <class Fn>
@@ -959,14 +959,14 @@ constexpr R visit(Fn&& fn, Vs&&... vars)
 }
 
 template <class... Ts>
-	requires (var_detail::has_eq_comp<Ts> && ...)
+	requires (detail_variant::has_eq_comp<Ts> && ...)
 constexpr bool operator==(const variant<Ts...>& v1, const variant<Ts...>& v2)
 {
 	if (v1.index() != v2.index())
 		return false;
 	if constexpr (variant<Ts...>::can_be_valueless)
 		if (v1.valueless_by_exception()) return true;
-	return var_detail::visit_with_index(v2, [&v1](auto& elem, auto index) -> bool
+	return detail_variant::visit_with_index(v2, [&v1](auto& elem, auto index) -> bool
 		{
 			return (v1.template unsafe_get<index>() == elem);
 		});
@@ -980,7 +980,7 @@ constexpr bool operator!=(const variant<Ts...>& v1, const variant<Ts...>& v2)
 }
 
 template <class... Ts>
-	requires (var_detail::has_lesser_comp<const Ts&> && ...)
+	requires (detail_variant::has_lesser_comp<const Ts&> && ...)
 constexpr bool operator<(const variant<Ts...>& v1, const variant<Ts...>& v2)
 {
 	if constexpr (variant<Ts...>::can_be_valueless)
@@ -990,7 +990,7 @@ constexpr bool operator<(const variant<Ts...>& v1, const variant<Ts...>& v2)
 	}
 	if (v1.index() == v2.index())
 	{
-		return var_detail::visit_with_index(v1, [&v2](auto& elem, auto index) -> bool
+		return detail_variant::visit_with_index(v1, [&v2](auto& elem, auto index) -> bool
 			{
 				return (elem < v2.template unsafe_get<index>());
 			});
@@ -1007,7 +1007,7 @@ constexpr bool operator>(const variant<Ts...>& v1, const variant<Ts...>& v2)
 }
 
 template <class... Ts>
-	requires (var_detail::has_less_or_eq_comp<const Ts&> && ...)
+	requires (detail_variant::has_less_or_eq_comp<const Ts&> && ...)
 constexpr bool operator<=(const variant<Ts...>& v1, const variant<Ts...>& v2)
 {
 	if constexpr (variant<Ts...>::can_be_valueless)
@@ -1017,7 +1017,7 @@ constexpr bool operator<=(const variant<Ts...>& v1, const variant<Ts...>& v2)
 	}
 	if (v1.index() == v2.index())
 	{
-		return var_detail::visit_with_index(v1, [&v2](auto& elem, auto index) -> bool
+		return detail_variant::visit_with_index(v1, [&v2](auto& elem, auto index) -> bool
 			{
 				return (elem <= v2.template unsafe_get<index>());
 			});
@@ -1056,7 +1056,7 @@ template <class T>
 	requires is_variant<T>
 struct variant_size : integral_constant<std::size_t, variant_size_v<T>> {};
 
-namespace var_detail
+namespace detail_variant
 {
 	template <bool IsVolatile>
 	struct var_alt_impl
@@ -1075,7 +1075,7 @@ namespace var_detail
 
 template <size_t Idx, class T>
 	requires (Idx < variant_size_v<T>)
-using variant_alternative_t = typename var_detail::var_alt_impl< std::is_volatile_v<T> >::template type<Idx, T>;
+using variant_alternative_t = typename detail_variant::var_alt_impl< std::is_volatile_v<T> >::template type<Idx, T>;
 
 template <size_t Idx, class T>
 	requires is_variant<T>
@@ -1101,7 +1101,7 @@ constexpr auto&& unsafe_get(Var&& var) noexcept
 
 
 template <class... Ts>
-		requires (whip::var_detail::has_whip_hash<Ts> && ...)
+		requires (whip::detail_variant::has_whip_hash<Ts> && ...)
 	struct hash<whip::variant<Ts...>> 
 	{
 		size_t operator()(const whip::variant<Ts...>& v) const 
@@ -1109,7 +1109,7 @@ template <class... Ts>
 			if constexpr (whip::variant<Ts...>::can_be_valueless)
 				if (v.valueless_by_exception()) return -1;
 
-			return whip::var_detail::visit_with_index(v, [](auto& elem, auto index_) 
+			return whip::detail_variant::visit_with_index(v, [](auto& elem, auto index_) 
 				{
 				using type = std::remove_cvref_t<decltype(elem)>;
 				return hash<type>{}(elem) + index_;

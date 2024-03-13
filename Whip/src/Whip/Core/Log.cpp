@@ -13,6 +13,13 @@ void log::init()
 	set_log(s_client_logger, "CLIENT", whip_log_level::trace);
 }
 
+whp_logger log::create_logger(const std::string& logger_name, whip_log_level log_level)
+{
+	whp_logger result;
+	set_log(result, logger_name, log_level);
+	return result;
+}
+
 inline void log::set_log(whp_logger& logger, const std::string& logger_name, whip_log_level log_level)
 {
 	logger = spdlog::stdout_color_mt(logger_name); 
