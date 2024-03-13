@@ -1463,6 +1463,8 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Variant.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Span.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tuple.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Invoker.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ReferenceWrapper.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">

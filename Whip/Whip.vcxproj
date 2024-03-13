@@ -168,6 +168,7 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Hash.h" />
     <ClInclude Include="src\Whip\Core\Input.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Invoker.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Iterator.h" />
     <ClInclude Include="src\Whip\Core\KeyCodes.h" />
     <ClInclude Include="src\Whip\Core\Layer.h" />
@@ -181,6 +182,7 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Random.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Range.h" />
     <ClInclude Include="src\Whip\Core\StringOperations.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ReferenceWrapper.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Span.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tuple.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Variant.h" />

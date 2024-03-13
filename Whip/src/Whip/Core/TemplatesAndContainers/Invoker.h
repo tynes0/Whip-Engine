@@ -7,6 +7,9 @@
 
 _WHIP_START
 
+template <class _Ty>
+class reference_wrapper;
+
 namespace detail_invoker
 {
     enum class invoker_strategy 

@@ -189,13 +189,13 @@ namespace detail_span
     struct is_whip_array<array<_Ty, _Size>> : true_type {};
 
     template <class _Rng, class _Ty>
-    struct is_span_convertible_range : bool_constant<is_convertible_v<remove_pointer_t<decltype(declval<_Rng&>().data())>(*)[], _Ty(*)[]>> {};
+    struct is_span_convertible_range : bool_constant<is_convertible_v<remove_pointer_t<decltype(whip::data(whip::declval<_Rng&>()))>(*)[], _Ty(*)[]>> {};
 
     template <class, class = void>
     struct has_container_interface : false_type {};
 
     template <class _Rng>
-    struct has_container_interface<_Rng, void_t<decltype(_STD data(_STD declval<_Rng&>())), decltype(declval<_Rng&>().size())>> : true_type {};
+    struct has_container_interface<_Rng, void_t<decltype(whip::data(whip::declval<_Rng&>())), decltype(whip::size(whip::declval<_Rng&>()))>> : true_type {};
 
     template <class _Rng, class _Ty>
     inline constexpr bool is_span_compatible_range = conjunction_v<std::negation<is_array<_Rng>>,std::negation<is_span<remove_const_t<_Rng>>>, 
@@ -257,21 +257,21 @@ public:
 
     template <class _Rng, enable_if_t<detail_span::is_span_compatible_range<_Rng, element_type>, int> = 0>
     constexpr explicit(_Extent != dynamic_extent) span(_Rng& _Range)
-        : base(_Range.data(), static_cast<size_type>(_Range.size())) 
+        : base(whip::data(_Range), static_cast<size_type>(whip::size(_Range)))
     {
         if constexpr (_Extent != dynamic_extent) 
         {
-            WHP_CORE_ASSERT(_Range.size() == _Extent, "Cannot construct span with static extent from range r as std::size(r) != extent");
+            WHP_CORE_ASSERT(_Range.size() == _Extent, "Cannot construct span with static extent from range r as whip::size(r) != extent");
         }
     }
 
     template <class _Rng, enable_if_t<detail_span::is_span_compatible_range<const _Rng, element_type>, int> = 0>
     constexpr explicit(_Extent != dynamic_extent) span(const _Rng& _Range)
-        : base(_Range.data(), static_cast<size_type>(_Range.size()))
+        : base(whip::data(_Range), static_cast<size_type>(whip::size(_Range)))
     {
         if constexpr (_Extent != dynamic_extent)
         {
-            WHP_CORE_ASSERT(_Range.size() == _Extent, "Cannot construct span with static extent from range r as std::size(r) != extent");
+            WHP_CORE_ASSERT(_Range.size() == _Extent, "Cannot construct span with static extent from range r as whip::size(r) != extent");
         }
     }
 
@@ -294,7 +294,7 @@ public:
         }
         else
         {
-            WHP_CORE_ASSERT(_Count <= m_size, "Count out of range in span::first()");
+            WHP_CORE_ASSERT(_Count <= m_size, "Count out of range in whip::span::first()");
         }
         return span<element_type, _Count>{m_data, _Count};
     }
@@ -314,14 +314,14 @@ public:
         }
         else 
         {
-            WHP_CORE_ASSERT(_Count <= m_size, "Count out of range in span::last()");
+            WHP_CORE_ASSERT(_Count <= m_size, "Count out of range in whip::span::last()");
         }
         return span<element_type, _Count>{m_data + (m_size - _Count), _Count};
     }
 
     WHP_NODISCARD constexpr auto last(const size_type count) const noexcept
     {
-        WHP_CORE_ASSERT(count <= m_size, "Count out of range in span::last(count)");
+        WHP_CORE_ASSERT(count <= m_size, "Count out of range in whip::span::last(count)");
         return span<element_type, dynamic_extent>{m_data + (m_size - count), count};
     }
 
@@ -330,15 +330,15 @@ public:
     {
         if constexpr (_Extent != dynamic_extent)
         {
-            static_assert(_Offset <= _Extent, "Offset out of range in span::subspan()");
-            static_assert(_Count == dynamic_extent || _Count <= _Extent - _Offset, "Count out of range in span::subspan()");
+            static_assert(_Offset <= _Extent, "Offset out of range in whip::span::subspan()");
+            static_assert(_Count == dynamic_extent || _Count <= _Extent - _Offset, "Count out of range in whip::span::subspan()");
         }
         else 
         {
-            WHP_CORE_ASSERT(_Offset <= m_size, "Offset out of range in span::subspan()");
+            WHP_CORE_ASSERT(_Offset <= m_size, "Offset out of range in whip::span::subspan()");
 
             if constexpr (_Count != dynamic_extent) {
-                WHP_CORE_ASSERT(_Count <= m_size - _Offset, "Count out of range in span::subspan()");
+                WHP_CORE_ASSERT(_Count <= m_size - _Offset, "Count out of range in whip::span::subspan()");
             }
         }
         using _ReturnType = span<element_type, _Count != dynamic_extent ? _Count : (_Extent != dynamic_extent ? _Extent - _Offset : dynamic_extent)>;
@@ -347,8 +347,8 @@ public:
 
     WHP_NODISCARD constexpr auto subspan(const size_type offset, const size_type count = dynamic_extent) const noexcept
     {
-        WHP_CORE_ASSERT(offset <= m_size, "Offset out of range in span::subspan(offset, count)");
-        WHP_CORE_ASSERT(count == dynamic_extent || count <= m_size - offset, "Count out of range in span::subspan(offset, count)");
+        WHP_CORE_ASSERT(offset <= m_size, "Offset out of range in whip::span::subspan(offset, count)");
+        WHP_CORE_ASSERT(count == dynamic_extent || count <= m_size - offset, "Count out of range in whip::span::subspan(offset, count)");
         using _ReturnType = span<element_type, dynamic_extent>;
         return _ReturnType{ m_data + offset, count == dynamic_extent ? m_size - offset : count };
     }
@@ -445,15 +445,15 @@ span(_Rng&) -> span<typename _Rng::value_type>;
 template <class _Rng>
 span(const _Rng&) -> span<const typename _Rng::value_type>;
 
-_EXPORT_STD template <class _Ty, size_t _Extent>
-_NODISCARD auto as_bytes(span<_Ty, _Extent> sp) noexcept 
+template <class _Ty, size_t _Extent>
+WHP_NODISCARD auto as_bytes(span<_Ty, _Extent> sp) noexcept 
 {
     using return_type = span<const std::byte, _Extent == dynamic_extent ? dynamic_extent : sizeof(_Ty) * _Extent>;
     return return_type{ reinterpret_cast<const std::byte*>(sp.data()), sp.size_bytes() };
 }
 
-_EXPORT_STD template <class _Ty, size_t _Extent, enable_if_t<!std::is_const_v<_Ty>, int> = 0>
-_NODISCARD auto as_writable_bytes(span<_Ty, _Extent> sp) noexcept
+template <class _Ty, size_t _Extent, enable_if_t<!std::is_const_v<_Ty>, int> = 0>
+WHP_NODISCARD auto as_writable_bytes(span<_Ty, _Extent> sp) noexcept
 {
     using return_type = span<std::byte, _Extent == dynamic_extent ? dynamic_extent : sizeof(_Ty) * _Extent>;
     return return_type{ reinterpret_cast<std::byte*>(sp.data()), sp.size_bytes() };

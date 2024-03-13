@@ -277,6 +277,64 @@ void verify_range(_Iter first, _Iter last)
 	WHP_ASSERT(get_unwrapped(first) < get_unwrapped(last), "range is not verified");
 }
 
+#define WHP_NODISCARD_EMPTY_NON_MEMBER WHP_NODISCARD_MSG("This function returns a bool indicating whether the container or container-like object is empty and has no other effects. It is not useful to call this function and discard the return value.")
+
+template <class _Container>
+WHP_NODISCARD constexpr auto size(const _Container& _Cont) noexcept(noexcept(_Cont.size()))-> decltype(_Cont.size())
+{
+	return _Cont.size();
+}
+
+template <class _Ty, size_t _Size>
+WHP_NODISCARD constexpr size_t size(const _Ty(&)[_Size]) noexcept
+{
+	return _Size;
+}
+
+template <class _Container>
+WHP_NODISCARD_EMPTY_NON_MEMBER constexpr auto empty(const _Container& _Cont) noexcept(noexcept(_Cont.empty()))-> decltype(_Cont.empty()) 
+{
+	return _Cont.empty();
+}
+
+template <class _Ty, size_t _Size>
+WHP_NODISCARD_EMPTY_NON_MEMBER constexpr bool empty(const _Ty(&)[_Size]) noexcept
+{
+	return false;
+}
+
+template <class _Elem>
+WHP_NODISCARD_EMPTY_NON_MEMBER constexpr bool empty(std::initializer_list<_Elem> _Ilist) noexcept
+{
+	return _Ilist.size() == 0;
+}
+
+template <class _Container>
+WHP_NODISCARD constexpr auto data(_Container& _Cont) noexcept(noexcept(_Cont.data()))-> decltype(_Cont.data())
+{
+	return _Cont.data();
+}
+
+template <class _Container>
+WHP_NODISCARD constexpr auto data(const _Container& _Cont) noexcept(noexcept(_Cont.data()))-> decltype(_Cont.data())
+{
+	return _Cont.data();
+}
+
+template <class _Ty, size_t _Size>
+_NODISCARD constexpr _Ty* data(_Ty(&_Array)[_Size]) noexcept 
+{
+	return _Array;
+}
+
+template <class _Elem>
+WHP_NODISCARD constexpr const _Elem* data(std::initializer_list<_Elem> _Ilist) noexcept
+{
+	return _Ilist.begin();
+}
+
+#undef WHP_NODISCARD_EMPTY_NON_MEMBER
+
 _WHIP_END
 
 #include "Pair.h"

@@ -366,6 +366,21 @@ public:
         return *this;
     }
 
+    constexpr _Ty* data() noexcept
+    {
+        return m_begin;
+    }
+
+    constexpr const _Ty* data() const noexcept
+    {
+        return m_begin;
+    }
+
+    constexpr size_t size() const noexcept
+    {
+        return m_end - m_begin;
+    }
+
     constexpr iterator begin() noexcept
     {
         return iterator(m_begin);
