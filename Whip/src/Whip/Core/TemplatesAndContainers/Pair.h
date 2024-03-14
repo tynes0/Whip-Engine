@@ -193,12 +193,14 @@ WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B>& pair)
 {
 	return static_cast<F&&>(func)(pair.first, pair.second);
 }
+
 template <class F, class A, class B>
 
 WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B> const& pair) 
 {
 	return static_cast<F&&>(func)(pair.first, pair.second);
 }
+
 template <class F, class A, class B>
 WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B>&& pair)
 {
