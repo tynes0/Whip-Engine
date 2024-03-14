@@ -18,7 +18,7 @@ public:
     }
 };
 
-namespace detail
+namespace detail_any
 {
     class placeholder
     {
@@ -99,7 +99,7 @@ public:
     }
 
 private:
-    class placeholder : public detail::placeholder
+    class placeholder : public detail_any::placeholder
     {
     public:
         virtual placeholder* clone() const = 0;
@@ -190,6 +190,7 @@ inline _Ty any_cast(any&& operand)
 // any operations
 namespace aops
 {
+    // TODO: finish aops
     bool is_null(const any& data);
     int as_int(const any& data);
     float as_float(const any& data);

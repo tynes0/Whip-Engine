@@ -164,6 +164,7 @@
     <ClInclude Include="src\Whip\Core\EntryPoint.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Any.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Array.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Concepts.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\FindOperator.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Hash.h" />

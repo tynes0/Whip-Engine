@@ -15,7 +15,9 @@
 
 _WHIP_START
 
-#if _HAS_CXX20
+#if !defined(_HAS_CXX20) || !_HAS_CXX20
+constexpr const char* whip_variant_library_error_message = "whip variant is only avaible c++20 and above.";
+#else 
 
 #define WHP_FWD(x) static_cast<decltype(x)&&>(x)
 #define WHP_MOV(x) static_cast<std::remove_reference_t<decltype(x)>&&>(x)
