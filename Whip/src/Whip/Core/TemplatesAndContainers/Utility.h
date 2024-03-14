@@ -24,6 +24,12 @@ struct wrap : public wrap_base
 	_Ty m_value;
 };
 
+template <class _Tuple>
+struct tuple_size;
+
+template <size_t _Index, class _Tuple>
+struct tuple_element;
+
 template<class _Ty>
 WHP_NODISCARD constexpr _Ty* addressof(_Ty& _Val) noexcept
 {
@@ -89,7 +95,7 @@ template <class _Ty, class = void>
 inline constexpr bool has_to_address = false;
 
 template <class _Ty>
-inline constexpr bool has_to_address<_Ty, void_t<decltype(pointer_traits<_Ty>::to_address(_STD declval<const _Ty&>()))>> = true;
+inline constexpr bool has_to_address<_Ty, void_t<decltype(pointer_traits<_Ty>::to_address(whip::declval<const _Ty&>()))>> = true;
 
 template <class _Ty>
 WHP_NODISCARD constexpr _Ty* to_address(_Ty* const _Val) noexcept 

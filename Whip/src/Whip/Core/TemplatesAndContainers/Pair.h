@@ -3,6 +3,8 @@
 #include "TypeTraits.h"
 #include "Utility.h"
 
+// TODO: improve
+
 #pragma warning(push)
 #pragma warning(disable : 5053)
 
@@ -15,6 +17,8 @@ struct pair
 	using second_type = _Ty2;
 	first_type first;
 	second_type second;
+
+	constexpr static bool nothrow_swappable = (std::is_nothrow_swappable_v<_Ty1> && std::is_nothrow_swappable_v<_Ty2>);
 
 	template <class _Uty1 = _Ty1, class _Uty2 = _Ty2>
 	constexpr explicit(!conjunction_v<std::_Is_implicitly_default_constructible<_Uty1>, std::_Is_implicitly_default_constructible<_Uty2>>)
@@ -40,11 +44,13 @@ struct pair
 		return *this;
 	}
 
-	bool operator==(const pair& _Right) const {
+	bool operator==(const pair& _Right) const 
+	{
 		return first == _Right.first && second == _Right.second;
 	}
 
-	bool operator!=(const pair& _Right) const {
+	bool operator!=(const pair& _Right) const 
+	{
 		return !(*this == _Right);
 	}
 
@@ -127,6 +133,9 @@ struct trio
 	using first_type = _Ty1;
 	using second_type = _Ty2;
 	using third_type = _Ty3;
+
+	constexpr static bool nothrow_swappable = (std::is_nothrow_swappable_v<_Ty1> && std::is_nothrow_swappable_v<_Ty2> && std::is_nothrow_swappable_v<_Ty3>);
+
 	first_type first;
 	second_type second;
 	third_type third;
@@ -156,11 +165,13 @@ struct trio
 		return *this;
 	}
 
-	bool operator==(const trio& _Right) const {
+	bool operator==(const trio& _Right) const
+	{
 		return first == _Right.first && second == _Right.second && third == _Right.third;
 	}
 
-	bool operator!=(const trio& _Right) const {
+	bool operator!=(const trio& _Right) const 
+	{
 		return !(*this == _Right);
 	}
 
@@ -174,6 +185,45 @@ struct trio
 		}
 	}
 };
+
+#if _HAS_CXX20
+
+template <class F, class A, class B>
+WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B>& pair)
+{
+	return static_cast<F&&>(func)(pair.first, pair.second);
+}
+template <class F, class A, class B>
+
+WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B> const& pair) 
+{
+	return static_cast<F&&>(func)(pair.first, pair.second);
+}
+template <class F, class A, class B>
+WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B>&& pair)
+{
+	using P = whip::pair<A, B> &&;
+	return static_cast<F&&>(func)(static_cast<P>(pair).first, static_cast<P>(pair).second);
+}
+
+
+template <class A, class B>
+WHP_INLINE void swap(pair<A, B>& a, pair<A, B>& b) noexcept(pair<A, B>::nothrow_swappable)
+{
+	a.swap(b);
+}
+
+template <class A, class B>
+struct tuple_size<pair<A, B>> : integral_constant<size_t, 2> {};
+
+template <size_t I, class A, class B>
+struct tuple_element<I, pair<A, B>> 
+{
+	static_assert(I < 2, "whip::pair only has 2 elements");
+	using type = conditional_t<I == 0, A, B>;
+};
+
+#endif //_HAS_CXX20
 
 _WHIP_END
 

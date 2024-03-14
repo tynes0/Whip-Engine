@@ -47,10 +47,10 @@
 #include <Whip/Core/TemplatesAndContainers/Optional.h>
 #include <Whip/Core/TemplatesAndContainers/Any.h>
 #include <Whip/Core/TemplatesAndContainers/Variant.h> // only c++20 and above
-#include <Whip/Core/TemplatesAndContainers/Span.h>
 #include <Whip/Core/TemplatesAndContainers/Tuple.h>
 #include <Whip/Core/TemplatesAndContainers/Random.h>
 #include <Whip/Core/TemplatesAndContainers/Hash.h>
 #include <Whip/Core/TemplatesAndContainers/Algorithms.h>
+#include <Whip/Core/TemplatesAndContainers/Span.h>
 
 #endif // ! _WHIP_
