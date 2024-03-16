@@ -579,4 +579,15 @@ public:
 };
 
 
+template <class _Ty, size_t _Size>
+struct tuple_size<array<_Ty, _Size>> : integral_constant<size_t, _Size> {}; 
+
+template <size_t _Idx, class _Ty, size_t _Size>
+struct tuple_element<_Idx, array<_Ty, _Size>> 
+{
+	static_assert(_Idx < _Size, "array index out of bounds");
+	using type = _Ty;
+};
+
+
 _WHIP_END

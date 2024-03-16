@@ -2,6 +2,7 @@
 
 #include "TypeTraits.h"
 #include "Utility.h"
+#include "Tag.h"
 
 // TODO: improve
 
@@ -9,6 +10,9 @@
 #pragma warning(disable : 5053)
 
 _WHIP_START
+
+#define WHP_PAIR_ENABLE_IDX(I) whip::enable_if_t<I == 0 || I == 1, int> = 0
+#define WHP_TRIO_ENABLE_IDX(I) whip::enable_if_t<I == 0 || I == 1 || I == 2, int> = 0
 
 template <class _Ty1, class _Ty2 = _Ty1>
 struct pair
@@ -44,15 +48,46 @@ struct pair
 		return *this;
 	}
 
-	bool operator==(const pair& _Right) const 
+	constexpr bool operator==(const pair& _Right) const 
 	{
 		return first == _Right.first && second == _Right.second;
 	}
 
-	bool operator!=(const pair& _Right) const 
+	constexpr bool operator!=(const pair& _Right) const 
 	{
 		return !(*this == _Right);
 	}
+
+#if _HAS_CXX20
+
+	template <size_t I, WHP_PAIR_ENABLE_IDX(I)>
+	constexpr decltype(auto) operator[](tag<I>) &
+	{
+		if constexpr (I == 0)
+			return first;
+		else // I == 1
+			return second;
+	}
+
+	template <size_t I, WHP_PAIR_ENABLE_IDX(I)>
+	constexpr decltype(auto) operator[](tag<I>) const&
+	{
+		if constexpr (I == 0)
+			return first;
+		else // I == 1
+			return second;
+	}
+
+	template <size_t I, WHP_PAIR_ENABLE_IDX(I)>
+	constexpr decltype(auto) operator[](tag<I>) &&
+	{
+		if constexpr (I == 0)
+			return static_cast<pair<_Ty1, _Ty2>&&>(*this).first;
+		else // I == 1
+			return static_cast<pair<_Ty1, _Ty2>&&>(*this).second;
+	}
+
+#endif // _HAS_CXX20
 
 	constexpr void swap(pair<_Ty1, _Ty2>& _Other)
 	{
@@ -175,6 +210,43 @@ struct trio
 		return !(*this == _Right);
 	}
 
+#if _HAS_CXX20
+
+	template <size_t I, WHP_TRIO_ENABLE_IDX(I)>
+	constexpr decltype(auto) operator[](tag<I>)&
+	{
+		if constexpr (I == 0)
+			return first;
+		else if constexpr (I == 1)
+			return second;
+		else // I == 2
+			return third;
+	}
+
+	template <size_t I, WHP_TRIO_ENABLE_IDX(I)>
+	constexpr decltype(auto) operator[](tag<I>) const&
+	{
+		if constexpr (I == 0)
+			return first;
+		else if constexpr (I == 1)
+			return second;
+		else // I == 2
+			return third;
+	}
+
+	template <size_t I, WHP_TRIO_ENABLE_IDX(I)>
+	constexpr decltype(auto) operator[](tag<I>)&&
+	{
+		if constexpr (I == 0)
+			return static_cast<trio<_Ty1, _Ty2, _Ty3>&&>(*this).first;
+		else if constexpr (I == 1)
+			return static_cast<trio<_Ty1, _Ty2, _Ty3>&&>(*this).second;
+		else // I == 2
+			return static_cast<trio<_Ty1, _Ty2, _Ty3>&&>(*this).third;
+	}
+
+#endif // _HAS_CXX20
+
 	constexpr void swap(trio<_Ty1, _Ty2, _Ty3>& _Other)
 	{
 		if (this != addressof(_Other))
@@ -188,24 +260,42 @@ struct trio
 
 #if _HAS_CXX20
 
-template <class F, class A, class B>
-WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B>& pair)
+template <size_t I, class A, class B, WHP_PAIR_ENABLE_IDX(I)>
+WHP_INLINE constexpr decltype(auto) get(whip::pair<A, B>& pr)
 {
-	return static_cast<F&&>(func)(pair.first, pair.second);
+	return pr[I];
+}
+
+template <size_t I, class A, class B, WHP_PAIR_ENABLE_IDX(I)>
+WHP_INLINE constexpr decltype(auto) get(const whip::pair<A, B>& pr)
+{
+	return pr[I];
+}
+
+template <size_t I, class A, class B, WHP_PAIR_ENABLE_IDX(I)>
+WHP_INLINE constexpr decltype(auto) get(whip::pair<A, B>&& pr)
+{
+	return static_cast<whip::pair<A, B>&&>(pr)[I];
+}
+
+template <class F, class A, class B>
+WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B>& pr)
+{
+	return static_cast<F&&>(func)(pr.first, pr.second);
 }
 
 template <class F, class A, class B>
 
-WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B> const& pair) 
+WHP_INLINE constexpr decltype(auto) apply(F&& func, const whip::pair<A, B>& pr)
 {
-	return static_cast<F&&>(func)(pair.first, pair.second);
+	return static_cast<F&&>(func)(pr.first, pr.second);
 }
 
 template <class F, class A, class B>
-WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B>&& pair)
+WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::pair<A, B>&& pr)
 {
 	using P = whip::pair<A, B> &&;
-	return static_cast<F&&>(func)(static_cast<P>(pair).first, static_cast<P>(pair).second);
+	return static_cast<F&&>(func)(static_cast<P>(pr).first, static_cast<P>(pr).second);
 }
 
 
@@ -225,7 +315,65 @@ struct tuple_element<I, pair<A, B>>
 	using type = conditional_t<I == 0, A, B>;
 };
 
+template <size_t I, class A, class B, class C, WHP_TRIO_ENABLE_IDX(I)>
+WHP_INLINE constexpr decltype(auto) get(whip::trio<A, B, C>& tr)
+{
+	return tr[I];
+}
+
+template <size_t I, class A, class B, class C, WHP_TRIO_ENABLE_IDX(I)>
+WHP_INLINE constexpr decltype(auto) get(const whip::trio<A, B, C>& tr)
+{
+	return tr[I];
+}
+
+template <size_t I, class A, class B, class C, WHP_TRIO_ENABLE_IDX(I)>
+WHP_INLINE constexpr decltype(auto) get(whip::trio<A, B, C>&& tr)
+{
+	return static_cast<whip::trio<A, B, C>&&>(tr)[I];
+}
+
+template <class F, class A, class B, class C>
+WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::trio<A, B, C>& tr)
+{
+	return static_cast<F&&>(func)(tr.first, tr.second, tr.third);
+}
+
+template <class F, class A, class B, class C>
+
+WHP_INLINE constexpr decltype(auto) apply(F&& func, const whip::trio<A, B, C>& tr)
+{
+	return static_cast<F&&>(func)(tr.first, tr.second, tr.third);
+}
+
+template <class F, class A, class B, class C>
+WHP_INLINE constexpr decltype(auto) apply(F&& func, whip::trio<A, B, C>&& tr)
+{
+	using TR = whip::trio<A, B, C>&&;
+	return static_cast<F&&>(func)(static_cast<TR>(tr).first, static_cast<TR>(tr).second, static_cast<TR>(tr).third);
+}
+
+
+template <class A, class B, class C>
+WHP_INLINE void swap(trio<A, B, C>& a, trio<A, B, C>& b) noexcept(trio<A, B, C>::nothrow_swappable)
+{
+	a.swap(b);
+}
+
+template <class A, class B, class C>
+struct tuple_size<trio<A, B, C>> : integral_constant<size_t, 3> {};
+
+template <size_t I, class A, class B, class C>
+struct tuple_element<I, trio<A, B, C>>
+{
+	static_assert(I < 3, "whip::trio only has 3 elements");
+	using type = conditional_t<I == 0, A, B, C>;
+};
+
 #endif //_HAS_CXX20
+
+#undef WHP_PAIR_ENABLE_IDX
+#undef WHP_TRIO_ENABLE_IDX
 
 _WHIP_END
 

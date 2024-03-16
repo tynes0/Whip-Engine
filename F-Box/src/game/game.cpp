@@ -52,6 +52,8 @@ void game_layer::on_attach()
 	m_monkey.set_scale({ 2.0f, 2.0f });
 	m_monkey.set_movement_state(true);
 	m_monkey.set_speed(0.6f);
+	using namespace whip::literals;
+	size_t i = whip::tag<1>{};
 }
 
 void game_layer::on_detach()

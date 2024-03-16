@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
+#include <Whip/Core/TemplatesAndContainers/Tag.h>
 #include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
 #include <Whip/Core/TemplatesAndContainers/Utility.h>
 #include <Whip/Core/TemplatesAndContainers/ReferenceWrapper.h>
@@ -237,16 +238,6 @@ using first_t = First;
 template <class T>
 using type_t = typename T::type;
 
-template <size_t I>
-using tag = integral_constant<size_t, I>;
-
-template <size_t I>
-constexpr tag<I> tag_v{};
-
-template <size_t N>
-using tag_range = std::make_index_sequence<N>;
-
-
 template <class Tup>
 using base_list_t = typename std::decay_t<Tup>::base_list;
 template <class Tup>
@@ -261,11 +252,6 @@ concept base_list_tuple = requires()
     typename std::decay_t<Tuple>::base_list;
 };
 
-template <class T>
-concept indexable = stateless<T> || requires(T t)
-{
-    t[tag<0>()];
-};
 #endif // __cpp_concepts
 template <class Tuple>
 constexpr auto base_list_tuple_v =
@@ -495,6 +481,7 @@ struct tuple_elem
     {
         return (static_cast<tuple_elem&&>(*this).value);
     }
+
 #if WHP_DEFAULTED_COMPARISON
     WHP_TUPLE_INLINE auto operator<=>(tuple_elem const&) const = default;
     WHP_TUPLE_INLINE bool operator==(tuple_elem const&) const = default;
@@ -522,7 +509,8 @@ namespace detail_tuple
     struct get_tuple_base;
 
     template <size_t... I, class... T>
-    struct get_tuple_base<std::index_sequence<I...>, T...> {
+    struct get_tuple_base<std::index_sequence<I...>, T...> 
+    {
         using type = type_map<tuple_elem<I, T>...>;
     };
 } // namespace detail_tuple
@@ -548,7 +536,7 @@ namespace detail_tuple
         return [&](auto&&... v1) -> bool 
         {
             return (bool(func(static_cast<decltype(v1)&&>(v1))) || ...);
-        }(WHP_SFWD_M(Tup, B, tup, value)...);
+        }(WHP_FWD_M(Tup, B, tup, value)...);
 #else
         return (bool(func(WHP_FWD_M(Tup, B, tup, value))) || ...);
 #endif
@@ -586,7 +574,8 @@ namespace detail_tuple
 } // namespace detail_tuple
 
 template <class... T>
-struct tuple : tuple_base_t<T...> {
+struct tuple : tuple_base_t<T...> 
+{
     constexpr static size_t N = sizeof...(T);
     constexpr static bool
 #if _MSC_VER
@@ -958,34 +947,15 @@ constexpr auto tuple_cat(T&&... ts)
     }
 }
 
-namespace literals
+template <class... T>
+struct tuple_size<tuple<T...>> : integral_constant<size_t, sizeof...(T)> {};
+
+template <size_t I, class... T>
+struct tuple_element<I, tuple<T...>> 
 {
-    namespace detail_tuple
-    {
-        template <char... D>
-        constexpr size_t _size_t_from_digits() 
-        {
-            static_assert((('0' <= D && D <= '9') && ...), "Must be integral literal");
-            size_t num = 0;
-            return ((num = num * 10 + (D - '0')), ..., num);
-        }
-    }
+    using type = decltype(whip::tuple<T...>::decl_elem(whip::tag<I>()));
+};
 
-    template <char... D>
-    constexpr auto operator""_tag() noexcept -> tag<detail_tuple::_size_t_from_digits<D...>()> 
-    {
-        return {};
-    }
-
-    template <class... T>
-    struct tuple_size<tuple<T...>> : integral_constant<size_t, sizeof...(T)> {};
-
-    template <size_t I, class... T>
-    struct tuple_element<I, tuple<T...>> 
-    {
-        using type = decltype(whip::tuple<T...>::decl_elem(whip::tag<I>()));
-    };
-}
 
 #undef WHP_TUPLE_COMPARISON_OPERATOR_1 
 #undef WHP_TUPLE_INLINE
