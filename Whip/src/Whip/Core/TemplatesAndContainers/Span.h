@@ -124,7 +124,6 @@ struct span_iterator : public iterator_base<_Ty>
     pointer m_ptr;
 };
 
-// todo make this whip
 template <class _Ty>
 struct pointer_traits<span_iterator<_Ty>>
 {

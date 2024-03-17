@@ -51,6 +51,20 @@ namespace filesystem
 				WHP_CORE_ERROR("write_to_file cannot open file '{0}'", filepath);
 	}
 
+	void write_to_file(FILE* file, const std::string& output, bool append)
+	{
+		if(file == NULL)
+			WHP_CORE_ERROR("Given file to write_to_file is NULL!");
+		std::ofstream out(file);
+		if (out)
+		{
+			out << output;
+			out.close();
+		}
+		else
+			WHP_CORE_ERROR("writing error!");
+	}
+
 	// --------------------- FILE READER ---------------------
 
 	std::string file_reader::read_file(const std::string& filepath)
@@ -72,9 +86,35 @@ namespace filesystem
 		return result;
 	}
 
+	WHP_NODISCARD std::string file_reader::read_file(FILE* file)
+	{
+		if(file == NULL)
+			WHP_CORE_ERROR("Given file to file_reader is NULL!");
+		std::string result;
+		std::ifstream in(file);
+		if (in)
+		{
+			in.seekg(0, std::ios::end);
+			result.resize(in.tellg());
+			in.seekg(0, std::ios::beg);
+			in.read(&result[0], result.size());
+			in.close();
+		}
+		else
+		{
+			WHP_CORE_ERROR("reading error!");
+		}
+		return result;
+	}
+
 	std::string file_reader::operator()(const std::string& filepath)
 	{
 		return read_file(filepath);
+	}
+
+	std::string file_reader::operator()(FILE* file)
+	{
+		return read_file(file);
 	}
 
 	// --------------------- FILE CREATOR ---------------------

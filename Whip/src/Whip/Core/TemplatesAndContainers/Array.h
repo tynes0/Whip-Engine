@@ -578,6 +578,11 @@ public:
 	}
 };
 
+template <class _Ty, size_t _Size>
+constexpr void swap(array<_Ty, _Size>& lhs, array<_Ty, _Size>& rhs)
+{
+	lhs.swap(rhs);
+}
 
 template <class _Ty, size_t _Size>
 struct tuple_size<array<_Ty, _Size>> : integral_constant<size_t, _Size> {}; 

@@ -508,6 +508,16 @@ public:
         m_capacities.second = new_size;
     }
 
+    WHP_CONSTEXPR void swap(vector& right) noexcept
+    {
+        if (addressof(right) != this)
+        {
+            swap_nt(m_data, right.m_data);
+            swap_nt(m_grow_factor, right.m_grow_factor);
+            m_capacities.swap(right.m_capacities);
+        }
+    }
+
     // max grow_factor is equal to 10
     WHP_CONSTEXPR void set_grow_factor(size_type grow_factor = 2) noexcept
     {
@@ -591,5 +601,11 @@ private:
     pair<size_t> m_capacities = { 0 , 0 }; // first -> capacity, second -> size
     size_type m_grow_factor = 2;
 };
+
+template <class _Ty>
+WHP_INLINE WHP_CONSTEXPR void swap(vector<_Ty>& lhs, vector < _Ty>& rhs) noexcept
+{
+    lhs.swap(rhs);
+}
 
 _WHIP_END

@@ -7,8 +7,6 @@
 #include "TypeTraits.h"
 #include "Utility.h"
 
-// TODO: FIX ALL OF THE CLASS 
-
 _WHIP_START
 
 template <class _Ty, class _Sty, enable_if_t<std::is_arithmetic_v<_Ty>&& std::is_arithmetic_v<_Sty>, int> = 0>
@@ -83,6 +81,8 @@ public:
     using size_type     = step_type;
     using iterator      = range_iterator<_Ty, step_type>;
 
+    constexpr range() = default;
+
     constexpr range(_Ty end)
     {
         reset(0, end);
@@ -96,7 +96,7 @@ public:
     constexpr void reset(_Ty start, _Ty end, step_type step = 1) noexcept
     {
 #ifdef WHP_DEBUG
-        WHP_ASSERT(step != 0, "step cannot be equal to 0");
+        WHP_CORE_ASSERT(step != 0, "step cannot be equal to 0");
 #else 
         if (step == 0)
             step = 1;
@@ -112,6 +112,16 @@ public:
                 m_step = step * (-1);
             else
                 m_step = step;
+        }
+    }
+
+    constexpr void swap(range& right) noexcept 
+    {
+        if (addressof(right) != this)
+        {
+            whip::swap_nt(m_start, right.m_start);
+            whip::swap_nt(m_end, right.m_end);
+            whip::swap_nt(m_step, right.m_step);
         }
     }
 
@@ -178,13 +188,24 @@ private:
     step_type m_step;
 };
 
+template <class _Ty>
+void swap(range<_Ty>& lhs, range<_Ty>& rhs)
+{
+    lhs.swap(rhs);
+}
+
+using crange    = range<char>;
+using ucrange   = range<unsigned char>;
+using srange    = range<short>;
+using usrange   = range<unsigned short>;
 using irange    = range<int>;
+using uirange   = range<unsigned int>;
 using lrange    = range<long>;
+using ulrange   = range<unsigned long>;
 using llrange   = range<long long>;
+using ullrange  = range<unsigned long long>;
+using frange    = range<float>;
 using drange    = range<double>;
 using ldrange   = range<long double>;
-using frange    = range<float>;
-using uirange   = range<unsigned int>;
-using srange    = range<size_t>;
 
 _WHIP_END

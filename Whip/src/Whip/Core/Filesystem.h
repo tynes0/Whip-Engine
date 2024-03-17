@@ -16,6 +16,7 @@ namespace filesystem
 
 	// --------------------- WRITE TO FILE -------------------
 	void write_to_file(const std::string& filepath, const std::string& output, bool append = false, bool write_if_exist = false);
+	void write_to_file(FILE* file, const std::string& output, bool append = false);
 
 	// --------------------- FILE READER ---------------------
 	class file_reader
@@ -25,7 +26,9 @@ namespace filesystem
 		~file_reader() {}
 		// reads all of the file
 		WHP_NODISCARD static std::string read_file(const std::string& filepath);
+		WHP_NODISCARD static std::string read_file(FILE* file);
 		WHP_NODISCARD std::string operator()(const std::string& filepath);
+		WHP_NODISCARD std::string operator()(FILE* file);
 	};
 
 	// --------------------- FILE CREATOR ---------------------

@@ -233,6 +233,32 @@ constexpr decltype(auto) make_basic_iterator(_Iter iter, bool is_end = false)
     return result;
 }
 
+template <class _Ty>
+struct pointer_traits<basic_iterator<_Ty>>
+{
+    using pointer = basic_iterator<_Ty>;
+    using element_type = _Ty;
+    using difference_type = ptrdiff_t;
+
+    WHP_NODISCARD static constexpr element_type* to_address(const pointer iter) noexcept
+    {
+        return iter.unwrapped();
+    }
+};
+
+template <class _Ty>
+struct pointer_traits<const_basic_iterator<_Ty>>
+{
+    using pointer           = const_basic_iterator<_Ty>;
+    using element_type      = const _Ty;
+    using difference_type   = ptrdiff_t;
+
+    WHP_NODISCARD static constexpr element_type* to_address(const pointer iter) noexcept
+    {
+        return iter.unwrapped();
+    }
+};
+
 template <class _Iter, enable_if_t<is_whip_iterator_v<_Iter>, int> = 0>
 class reverse_iterator : public iterator_base<typename _Iter::value_type>
 {
@@ -336,6 +362,20 @@ private:
 	_Iter current_iterator{};
 };
 
+template <class _Iter>
+struct pointer_traits<reverse_iterator<_Iter>>
+{
+    using pointer           = reverse_iterator<_Iter>;
+    using element_type      = typename reverse_iterator<_Iter>::value_type;
+    using difference_type   = ptrdiff_t;
+
+    WHP_NODISCARD static constexpr element_type* to_address(const pointer iter) noexcept
+    {
+        return iter.unwrapped();
+    }
+};
+
+
 template <class _Ty = int>
 class iterate
 {
@@ -350,93 +390,102 @@ public:
     template <class _Ty2>
     using rebind = iterate<_Ty2>;
 
-    iterate() : m_begin(nullptr), m_end(nullptr) {}
+    WHP_CONSTEXPR17 iterate() : m_begin(nullptr), m_end(nullptr) {}
 
     template <class _Iter>
-    iterate(_Iter first, _Iter last) : m_begin(get_unwrapped(first)), m_end(get_unwrapped(last)) {}
+    WHP_CONSTEXPR17 iterate(_Iter first, _Iter last) : m_begin(get_unwrapped(first)), m_end(get_unwrapped(last)) {}
 
-    iterate(const pair<_Ty*>& pointers) : m_begin(pointers.first), m_end(pointers.second) {}
+    WHP_CONSTEXPR17 iterate(const pair<_Ty*>& pointers) : m_begin(pointers.first), m_end(pointers.second) {}
 
-    iterate(const iterate& right) : m_begin(right.m_begin), m_end(right.m_end) {}
+    WHP_CONSTEXPR17 iterate(const iterate& right) : m_begin(right.m_begin), m_end(right.m_end) {}
 
-    iterate& operator=(const iterate& right)
+    WHP_CONSTEXPR17 iterate& operator=(const iterate& right)
     {
         m_begin = right.m_begin;
         m_end   = right.m_end;
         return *this;
     }
 
-    constexpr _Ty* data() noexcept
+    WHP_CONSTEXPR17 _Ty* data() noexcept
     {
         return m_begin;
     }
 
-    constexpr const _Ty* data() const noexcept
+    WHP_CONSTEXPR17 const _Ty* data() const noexcept
     {
         return m_begin;
     }
 
-    constexpr size_t size() const noexcept
+    WHP_CONSTEXPR17 size_t size() const noexcept
     {
         return m_end - m_begin;
     }
 
-    constexpr iterator begin() noexcept
+    WHP_CONSTEXPR17 void swap(iterate& right) noexcept
+    {
+        if (addressof(right) != this)
+        {
+            swap_nt(m_begin, right.m_begin);
+            swap_nt(m_end, right.m_end);
+        }
+    }
+
+    WHP_CONSTEXPR17 iterator begin() noexcept
     {
         return iterator(m_begin);
     }
 
-    constexpr iterator end() noexcept
+    WHP_CONSTEXPR17 iterator end() noexcept
     {
         return iterator(m_end);
     }
 
-    constexpr const_iterator begin() const noexcept
+    WHP_CONSTEXPR17 const_iterator begin() const noexcept
     {
         return const_iterator(m_begin);
     }
 
-    constexpr const_iterator end() const noexcept
+    WHP_CONSTEXPR17 const_iterator end() const noexcept
     {
         return const_iterator(m_end);
     }
 
-    constexpr const_iterator cbegin() const noexcept
+    WHP_CONSTEXPR17 const_iterator cbegin() const noexcept
     {
         return const_iterator(m_begin);
     }
 
-    constexpr const_iterator cend() const noexcept
+    WHP_CONSTEXPR17 const_iterator cend() const noexcept
     {
         return const_iterator(m_end);
     }
 
-    constexpr reverse_iterator rbegin() noexcept
+    WHP_CONSTEXPR17 reverse_iterator rbegin() noexcept
     {
         return reverse_iterator(end());
     }
 
-    constexpr reverse_iterator rend() noexcept
+    WHP_CONSTEXPR17 reverse_iterator rend() noexcept
     {
         return reverse_iterator(begin());
     }
 
-    constexpr const_reverse_iterator rbegin() const noexcept
+    WHP_CONSTEXPR17 const_reverse_iterator rbegin() const noexcept
     {
         return const_reverse_iterator(cend());
     }
 
-    constexpr const_reverse_iterator rend() const noexcept
+    WHP_CONSTEXPR17 const_reverse_iterator rend() const noexcept
     {
         return const_reverse_iterator(cbegin());
     }
 
-    constexpr const_reverse_iterator crbegin() const noexcept
+    WHP_CONSTEXPR17 const_reverse_iterator crbegin() const noexcept
     {
         return const_reverse_iterator(cend());
     }
 
-    constexpr const_reverse_iterator crend() const noexcept
+    WHP_CONSTEXPR17 const_reverse_iterator crend() const noexcept
     {
         return const_reverse_iterator(cbegin());
     }
@@ -446,5 +495,10 @@ private:
     _Ty* m_end;
 };
 
+template <class _Ty>
+WHP_INLINE WHP_CONSTEXPR17 void swap(iterate<_Ty>& lhs, iterate<_Ty>& rhs) noexcept
+{
+    lhs.swap(rhs);
+}
 
 _WHIP_END

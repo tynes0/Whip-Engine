@@ -30,21 +30,24 @@ concept indexable = stateless<T> || requires(T t)
 
 inline namespace literals
 {
-    namespace detail_tag_literals
+    inline namespace tag_literals
     {
-        template <char... D>
-        constexpr size_t _size_t_from_digits()
+        namespace detail_tag_literals
         {
-            static_assert((('0' <= D && D <= '9') && ...), "Must be integral literal");
-            size_t num = 0;
-            return ((num = num * 10 + (D - '0')), ..., num);
+            template <char... D>
+            constexpr size_t _size_t_from_digits()
+            {
+                static_assert((('0' <= D && D <= '9') && ...), "Must be integral literal");
+                size_t num = 0;
+                return ((num = num * 10 + (D - '0')), ..., num);
+            }
         }
-    }
 
-    template <char... D>
-    constexpr auto operator""_tag() noexcept -> tag<detail_tag_literals::_size_t_from_digits<D...>()>
-    {
-        return {};
+        template <char... D>
+        constexpr auto operator""_tag() noexcept -> tag<detail_tag_literals::_size_t_from_digits<D...>()>
+        {
+            return {};
+        }
     }
 }
 
