@@ -209,6 +209,31 @@ private:
     size_type m_offset;
 };
 
+template <class _Ty>
+struct pointer_traits<array_iterator<_Ty>>
+{
+	using pointer = vector_iterator<_Ty>;
+	using element_type = const _Ty;
+	using difference_type = ptrdiff_t;
+
+	WHP_NODISCARD static constexpr element_type* to_address(const pointer iter) noexcept
+	{
+		return iter.unwrapped();
+	}
+};
+
+template <class _Ty>
+struct pointer_traits<const_array_iterator<_Ty>>
+{
+	using pointer = const_vector_iterator<_Ty>;
+	using element_type = const _Ty;
+	using difference_type = ptrdiff_t;
+
+	WHP_NODISCARD static constexpr element_type* to_address(const pointer iter) noexcept
+	{
+		return iter.unwrapped();
+	}
+};
 
 template <class _Ty, size_t _Size>
 class array
