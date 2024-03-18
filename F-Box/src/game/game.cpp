@@ -39,7 +39,7 @@ void game_layer::on_attach()
 	m_character.set_position({ 0 - s_test_map_w / 2.0f + 5.0f, (sizeof(s_test_map) / (sizeof(int)) / s_test_map_w) / 2.0f + 1, 0.8f });
 	m_character.set_default_position({ 0 - s_test_map_w / 2.0f + 5.0f, (sizeof(s_test_map) / (sizeof(int)) / s_test_map_w) / 2.0f + 1, 0.8f });
 	m_character.set_x_face(character::rotation::right);
-	m_character.set_speed(2.0f);
+	m_character.set_speed(20.0f);
 
 	m_monkey.add_still_frame("C:\\Dev\\Whip\\F-Box\\assets\\game\\textures\\monkey\\right_1.png");
 	m_monkey.add_default_movement_frame("C:\\Dev\\Whip\\F-Box\\assets\\game\\textures\\monkey\\left_1.png");
@@ -51,7 +51,15 @@ void game_layer::on_attach()
 	m_monkey.set_x_face(character::rotation::right);
 	m_monkey.set_scale({ 2.0f, 2.0f });
 	m_monkey.set_movement_state(true);
-	m_monkey.set_speed(0.6f);
+	m_monkey.set_speed(6.f);
+
+	whip::pair<size_t, size_t> x{ 1,2 };
+	whip::pair<size_t, size_t> y{ 3,4 };
+
+	x.swap(y);
+
+	std::cout << x[whip::tag_v<0>];
+	std::cout << x[whip::tag_v<1>];
 }
 
 void game_layer::on_detach()

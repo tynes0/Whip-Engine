@@ -6,6 +6,7 @@
 #include "Pair.h"
 #include "MemoryUtil.h"
 #include "Utility.h"
+#include "MathDef.h"
 
 #include <cstring>
 #include <initializer_list>
@@ -108,6 +109,11 @@ public:
         m_offset = offset;
     }
 
+    const pointer unwrapped() const
+    {
+        return (m_ptr + m_offset);
+    }
+
     pointer unwrapped()
     {
         return (m_ptr + m_offset);
@@ -171,17 +177,17 @@ public:
         return temp;
     }
 
-    bool operator==(const const_vector_iterator& other)
+    bool operator==(const const_vector_iterator& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator==(const_vector_iterator&& other)
+    bool operator==(const_vector_iterator&& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator!=(const const_vector_iterator& other)
+    bool operator!=(const const_vector_iterator& other) const
     {
         return !(this->operator==(move(other)));
     }
@@ -203,7 +209,13 @@ public:
         return ptr - other_ptr;
     }
 
-    pointer unwrapped()
+    constexpr void reset(pointer ptr = nullptr, size_type offset = 0) noexcept
+    {
+        m_ptr = ptr;
+        m_offset = offset;
+    }
+
+    pointer unwrapped() const
     {
         return (m_ptr + m_offset);
     }
@@ -447,10 +459,10 @@ public:
         m_capacities.second--;
     }
 
-    WHP_CONSTEXPR void erase(iterator start, iterator end)
+    WHP_CONSTEXPR void erase(iterator start, iterator last)
     {
-        WHP_CORE_ASSERT(start >= begin() && start < end() && end <= end(), "Invalid range.");
-        size_type distance = end - start;
+        WHP_CORE_ASSERT(start >= begin() && start < end() && last <= end(), "Invalid range.");
+        size_type distance = last - start;
         if (end() - start > 0)
             std::memmove(start.unwrapped(), start.unwrapped() + distance, (end() - end()) * sizeof(_Ty));
         for (size_type i = 0; i < distance; i++)
@@ -534,12 +546,32 @@ public:
         m_capacities.second = new_size;
     }
 
+    WHP_CONSTEXPR bool operator==(const vector& right) const noexcept
+    {
+        if (m_capacities.second != right.m_capacities.second)
+            return false;
+        if (m_capacities.second == 0)
+            return true;
+        auto ufirst1 = begin().unwrapped();
+        auto ufirst2 = right.begin().unwrapped();
+        const auto ulast = end().unwrapped();
+        for (; ufirst1 != ulast; ++ufirst1, ++ufirst2)
+            if (DREF(ufirst1) != DREF(ufirst2))
+                return false;
+        return true;
+    }
+
+    WHP_CONSTEXPR bool operator!=(const vector& right) const noexcept
+    {
+        return !this->operator==(right);
+    }
+
     WHP_CONSTEXPR void swap(vector& right) noexcept
     {
         if (addressof(right) != this)
         {
-            swap_nt(m_data, right.m_data);
-            swap_nt(m_grow_factor, right.m_grow_factor);
+            whip::swap_nt(m_data, right.m_data);
+            whip::swap_nt(m_grow_factor, right.m_grow_factor);
             m_capacities.swap(right.m_capacities);
         }
     }

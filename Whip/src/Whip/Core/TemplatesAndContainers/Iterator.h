@@ -76,17 +76,17 @@ public:
         return temp;
     }
 
-    bool operator==(const basic_iterator& other)
+    bool operator==(const basic_iterator& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator==(basic_iterator&& other)
+    bool operator==(basic_iterator&& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator!=(const basic_iterator& other)
+    bool operator!=(const basic_iterator& other) const
     {
         return !(this->operator==(move(other)));
     }
@@ -122,6 +122,11 @@ public:
     }
 
     pointer unwrapped()
+    {
+        return (m_ptr + m_offset);
+    }
+
+    const pointer unwrapped() const
     {
         return (m_ptr + m_offset);
     }
@@ -184,17 +189,17 @@ public:
         return temp;
     }
 
-    bool operator==(const const_basic_iterator& other)
+    bool operator==(const const_basic_iterator& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator==(const_basic_iterator&& other)
+    bool operator==(const_basic_iterator&& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator!=(const const_basic_iterator& other)
+    bool operator!=(const const_basic_iterator& other) const
     {
         return !(this->operator==(move(other)));
     }
@@ -216,7 +221,13 @@ public:
         return ptr - other_ptr;
     }
 
-    pointer unwrapped()
+    constexpr void reset(pointer ptr = nullptr, size_type offset = 0) noexcept
+    {
+        m_ptr = ptr;
+        m_offset = offset;
+    }
+
+    pointer unwrapped() const
     {
         return (m_ptr + m_offset);
     }
@@ -351,6 +362,11 @@ public:
 	{
 		return !(this->operator==(move(other)));
 	}
+
+    constexpr void reset(pointer ptr = nullptr, size_type offset = 0) noexcept
+    {
+        current_iterator.reset(ptr, offset);
+    }
 
     pointer unwrapped()
     {

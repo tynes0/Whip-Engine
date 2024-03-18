@@ -109,6 +109,11 @@ public:
 		return (m_ptr + m_offset);
 	}
 
+	const pointer unwrapped() const
+	{
+		return (m_ptr + m_offset);
+	}
+
 private:
     pointer m_ptr;
     size_type m_offset;
@@ -167,17 +172,17 @@ public:
         return temp;
     }
 
-	bool operator==(const const_array_iterator& other)
+	bool operator==(const const_array_iterator& other) const
 	{
 		return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
 	}
 
-	bool operator==(const_array_iterator&& other)
+	bool operator==(const_array_iterator&& other) const
 	{
 		return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
 	}
 
-	bool operator!=(const const_array_iterator& other)
+	bool operator!=(const const_array_iterator& other) const
 	{
 		return !(this->operator==(move(other)));
 	}
@@ -199,7 +204,13 @@ public:
         return ptr - other_ptr;
     }
 
-	pointer unwrapped()
+	constexpr void reset(pointer ptr = nullptr, size_type offset = 0) noexcept
+	{
+		m_ptr = ptr;
+		m_offset = offset;
+	}
+
+	pointer unwrapped() const
 	{
 		return (m_ptr + m_offset);
 	}
@@ -212,7 +223,7 @@ private:
 template <class _Ty>
 struct pointer_traits<array_iterator<_Ty>>
 {
-	using pointer = vector_iterator<_Ty>;
+	using pointer = array_iterator<_Ty>;
 	using element_type = const _Ty;
 	using difference_type = ptrdiff_t;
 
@@ -225,7 +236,7 @@ struct pointer_traits<array_iterator<_Ty>>
 template <class _Ty>
 struct pointer_traits<const_array_iterator<_Ty>>
 {
-	using pointer = const_vector_iterator<_Ty>;
+	using pointer = const_array_iterator<_Ty>;
 	using element_type = const _Ty;
 	using difference_type = ptrdiff_t;
 
@@ -388,11 +399,11 @@ public:
 		}
 	}
 
-	constexpr void swap(array& other) noexcept
+	constexpr void swap(array& right) noexcept
 	{
-		if (addressof(other) != this)
+		if (addressof(right) != this)
 		{
-			swap_in_range(m_data, other.m_data, _Size);
+			swap_nt(m_data, right.m_data);
 		}
 	}
 

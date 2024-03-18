@@ -2,6 +2,7 @@
 
 #include "Whip/Core/Core.h"
 #include "Utility.h"
+#include "MathDef.h"
 
 _WHIP_START
 
@@ -42,5 +43,36 @@ constexpr void fill(_Iter first, _Iter last, const _Ty& val)
 		for (; ufirst != ulast; ++ufirst)
 			*ufirst = val;
 }
+
+template <class _Iter1, class _Iter2, class _Pr>
+WHP_NODISCARD WHP_CONSTEXPR _Iter1 find_first_of(_Iter1 first1, const _Iter1 last1, const _Iter2 first2, const _Iter2 last2, _Pr pred) noexcept
+{
+	verify_range(first1, last1);
+	verify_range(first2, last2);
+	auto ufirst1		= get_unwrapped(first1);
+	const auto ulast1	= get_unwrapped(last1);
+	const auto ufirst2	= get_unwrapped(first2);
+	const auto ulast2	= get_unwrapped(last2);
+	for (; ufirst1 != ulast1; ++ufirst1)
+	{
+		for (auto umid2 = ufirst2; umid2 != ulast2; ++umid2)
+		{
+			if (pred(*ufirst1, *umid2))
+			{
+				reset_wrapped(first1, ufirst1);
+				return first1;
+			}
+		}
+	}
+	reset_wrapped(first1, ufirst1);
+	return first1;
+}
+
+template <class _Iter1, class _Iter2>
+WHP_NODISCARD WHP_CONSTEXPR _Iter1 find_first_of(const _Iter1 first1, const _Iter1 last1, const _Iter2 first2, const _Iter2 last2)
+{
+	return _WHIP find_first_of(first1, last1, first2, last2, equal_to<>{});
+}
+
 
 _WHIP_END

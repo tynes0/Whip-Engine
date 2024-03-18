@@ -175,6 +175,7 @@
     <ClInclude Include="src\Whip\Core\Layer.h" />
     <ClInclude Include="src\Whip\Core\LayerStack.h" />
     <ClInclude Include="src\Whip\Core\Log.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\MathDef.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Memory.h" />
     <ClInclude Include="src\Whip\Core\MouseButtonCodes.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\MemoryUtil.h" />

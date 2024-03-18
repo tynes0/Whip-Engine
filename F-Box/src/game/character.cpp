@@ -191,7 +191,7 @@ whip::vector<whip::ref<whip::texture2D>> character::get_changed_movement_frames(
 
 void character::set_speed(float new_speed)
 {
-	speed = new_speed / 1000.0f;
+	speed = new_speed / 10000.0f;
 }
 
 void character::set_x_face(rotation rot)

@@ -203,9 +203,9 @@ constexpr void swap_nt(_Ty& left, _Ty& right) noexcept(std::_Is_nothrow_swappabl
 }
 
 template <class _Ty>
-constexpr void swap_adl(_Ty _Left, _Ty _Right)
+constexpr void swap_adl(_Ty& _Left, _Ty& _Right)
 {
-	swap<_Ty>(_Left, _Right);
+	_WHIP swap(_Left, _Right);
 }
 
 template <class _Ty, class _Other = _Ty>
@@ -275,6 +275,21 @@ WHP_NODISCARD decltype(auto) get_unwrapped(_Iter&& it)
 	{
 		return it.unwrapped();
 	}
+}
+
+template <class _Iter, class _UIter, class = void>
+WHP_INLINE constexpr bool wrapped_resetable_v = false;
+
+template <class _Iter, class _UIter>
+WHP_INLINE constexpr bool wrapped_resetable_v<_Iter, _UIter, void_t<decltype(_WHIP declval<_Iter&>().reset(_STD declval<_UIter>()))>> = true;
+
+template <class _Iter, class _UIter>
+constexpr void reset_wrapped(_Iter& _It, _UIter&& _UIt) 
+{
+	if constexpr (wrapped_resetable_v<_Iter, _UIter>) 
+		_It.reset(_WHIP forward<_UIter>(_UIt));
+	else
+		_It = _WHIP forward<_UIter>(_UIt);
 }
 
 template <class _Iter>

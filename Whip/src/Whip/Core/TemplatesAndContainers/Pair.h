@@ -363,11 +363,22 @@ WHP_INLINE void swap(trio<A, B, C>& a, trio<A, B, C>& b) noexcept(trio<A, B, C>:
 template <class A, class B, class C>
 struct tuple_size<trio<A, B, C>> : integral_constant<size_t, 3> {};
 
-template <size_t I, class A, class B, class C>
-struct tuple_element<I, trio<A, B, C>>
+template <class A, class B, class C>
+struct tuple_element<0, trio<A, B, C>>
 {
-	static_assert(I < 3, "whip::trio only has 3 elements");
-	using type = conditional_t<I == 0, A, B, C>;
+	using type = A;
+};
+
+template <class A, class B, class C>
+struct tuple_element<1, trio<A, B, C>>
+{
+	using type = B;
+};
+
+template <class A, class B, class C>
+struct tuple_element<2, trio<A, B, C>>
+{
+	using type = C;
 };
 
 #endif //_HAS_CXX20
