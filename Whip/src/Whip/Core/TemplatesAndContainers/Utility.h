@@ -199,7 +199,7 @@ constexpr void swap(_Ty& _Left, _Ty& _Right)
 template <class _Ty>
 constexpr void swap_nt(_Ty& left, _Ty& right) noexcept(std::_Is_nothrow_swappable<_Ty>::value)
 {
-	swap(left, right);
+	_WHIP swap(left, right);
 }
 
 template <class _Ty>

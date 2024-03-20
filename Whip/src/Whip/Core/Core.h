@@ -55,9 +55,9 @@
 #undef intrinsic
 
 #ifndef __has_cpp_attribute
-#define _HAS_MSVC_ATTRIBUTE(x) 0
+#define _WHP_HAS_MSVC_ATTRIBUTE(x) 0
 #elif defined(__CUDACC__)
-#define _HAS_MSVC_ATTRIBUTE(x) 0
+#define _WHP_HAS_MSVC_ATTRIBUTE(x) 0
 #else
 #define _WHP_HAS_MSVC_ATTRIBUTE(x) __has_cpp_attribute(msvc::x)
 #endif
@@ -132,14 +132,6 @@
 #ifdef WHP_DEBUG
 	#define WHP_ENABLE_ASSERTS 1			// Whip asserts enabled
 #endif // WHP_DEBUG
-
-#ifdef WHP_ENABLE_ASSERTS
-	#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_CLIENT_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}", __FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } }
-	#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}", __FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } }
-#else //WHP_ENABLE_ASSERTS
-	#define WHP_ASSERT(x, ...)				// Whip assert not enabled
-	#define WHP_CORE_ASSERT(x, ...)			// Whip core assert not enabled
-#endif //WHP_ENABLE_ASSERTS
 
 _WHIP_START
 

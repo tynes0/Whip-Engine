@@ -308,12 +308,18 @@ WHP_INLINE void swap(pair<A, B>& a, pair<A, B>& b) noexcept(pair<A, B>::nothrow_
 template <class A, class B>
 struct tuple_size<pair<A, B>> : integral_constant<size_t, 2> {};
 
-template <size_t I, class A, class B>
-struct tuple_element<I, pair<A, B>> 
+template <class A, class B>
+struct tuple_element<0, pair<A, B>>
 {
-	static_assert(I < 2, "whip::pair only has 2 elements");
-	using type = conditional_t<I == 0, A, B>;
+	using type = A;
 };
+
+template <class A, class B>
+struct tuple_element<1, pair<A, B>>
+{
+	using type = B;
+};
+
 
 template <size_t I, class A, class B, class C, WHP_TRIO_ENABLE_IDX(I)>
 WHP_INLINE constexpr decltype(auto) get(whip::trio<A, B, C>& tr)

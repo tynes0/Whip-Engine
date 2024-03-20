@@ -67,3 +67,12 @@ _WHIP_END
 #define WHP_LOG_WARN(logger, ...)		logger->warn(__VA_ARGS__)
 #define WHP_LOG_ERROR(logger, ...)		logger->error(__VA_ARGS__)
 #define WHP_LOG_CRITICAL(logger, ...)	logger->critical(__VA_ARGS__)
+
+
+#ifdef WHP_ENABLE_ASSERTS
+#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_CLIENT_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}", __FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } }
+#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}", __FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } }
+#else //WHP_ENABLE_ASSERTS
+#define WHP_ASSERT(x, ...)				// Whip assert not enabled
+#define WHP_CORE_ASSERT(x, ...)			// Whip core assert not enabled
+#endif //WHP_ENABLE_ASSERTS

@@ -65,6 +65,7 @@ public:
 	void move_x();
 	void move_y();
 private:
+	float last_ts = 0.0f;
 	size_t id;
 	bool moving;
 	bool attacking;

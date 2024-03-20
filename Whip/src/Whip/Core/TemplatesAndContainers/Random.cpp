@@ -3,13 +3,13 @@
 
 _WHIP_START
 
-static unsigned int* wrand_seed()
+static unsigned int* detail_random::wrand_seed()
 {
     static unsigned int m_seed = 1;
     return &m_seed;
 }
 
-static unsigned int* xrand_seed()
+static unsigned int* detail_random::xrand_seed()
 {
     static unsigned int m_seed = 1;
     return &m_seed;
@@ -32,7 +32,8 @@ unsigned int wrand(unsigned int seed)
     return wrseed;
 }
 
-unsigned int xrand(unsigned int seed) {
+unsigned int xrand(unsigned int seed) 
+{
     xrseed ^= (xrseed << 13);
     xrseed ^= (xrseed >> 17);
     xrseed ^= (xrseed << 5);
@@ -43,8 +44,13 @@ unsigned int xrand(unsigned int seed) {
 #define MT_M32(x) (0x80000000 & x)
 #define MT_L32(x) (0x7FFFFFFF & x)
 #define UNROLL(st, x, i, i1, i2, i3, i4)    x = MT_M32(st.mt[i1]) | MT_L32(st.mt[i2]);                                              \
-                                            st.mt[i3] = state.mt[i4] ^ (x >> 1) ^ (((int32_t(x) << 31) >> 31) & MTconstants::magic);\
+                                            st.mt[i3] = state.mt[i4] ^ (x >> 1) ^ (((int32_t(x) << 31) >> 31) & detail_random::mt::MTconstants::magic);\
                                             ++i;
+
+unsigned int random_device::operator()()
+{
+    return xrand(static_cast<unsigned int>(time(NULL)));
+}
 
 mersenne_twister::mersenne_twister(uint32_t value)
 {
@@ -59,14 +65,24 @@ mersenne_twister::mersenne_twister(random_device rand_device)
 void mersenne_twister::seed(uint32_t value)
 {
     state.mt[0] = value;
-    state.index = MTconstants::size;
-    for (uint_fast32_t i = 1; i < MTconstants::size; ++i)
+    state.index = detail_random::mt::MTconstants::size;
+    for (uint_fast32_t i = 1; i < detail_random::mt::MTconstants::size; ++i)
         state.mt[i] = 0x6c078965 * (state.mt[i - 1] ^ state.mt[i - 1] >> 30) + i;
+}
+
+constexpr mersenne_twister::result_type (mersenne_twister::min)()
+{
+    return 0;
+}
+
+constexpr mersenne_twister::result_type (mersenne_twister::max)()
+{
+    return detail_random::mt::MTconstants::wmsk;
 }
 
 uint32_t mersenne_twister::rand_u32()
 {
-    if (state.index == MTconstants::size)
+    if (state.index == detail_random::mt::MTconstants::size)
     {
         generate_numbers();
         state.index = 0;
@@ -84,32 +100,32 @@ void mersenne_twister::generate_numbers() noexcept
     size_t i = 0;
     uint32_t x = 0;
     
-    while (i < MTconstants::diff)
+    while (i < detail_random::mt::MTconstants::diff)
     {
-        UNROLL(state, x, i, i, i + 1, i, i + MTconstants::period);
+        UNROLL(state, x, i, i, i + 1, i, i + detail_random::mt::MTconstants::period);
 #ifdef _WHIP_MT_UNROLL_MORE
-        UNROLL(state, x, i, i, i + 1, i, i + MTconstants::period);
+        UNROLL(state, x, i, i, i + 1, i, i + detail_random::mt::MTconstants::period);
 #endif // _WHIP_MT_UNROLL_MORE
     }
-    while (i < MTconstants::size - 1)
+    while (i < detail_random::mt::MTconstants::size - 1)
     {
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
 #ifdef _WHIP_MT_UNROLL_MORE
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
-        UNROLL(state, x, i, i, i + 1, i, i - MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
+        UNROLL(state, x, i, i, i + 1, i, i - detail_random::mt::MTconstants::diff);
 #endif // _WHIP_MT_UNROLL_MORE
     }
-    UNROLL(state, x, i, MTconstants::size - 1, 0, MTconstants::size - 1, MTconstants::period);
+    UNROLL(state, x, i, detail_random::mt::MTconstants::size - 1, 0, detail_random::mt::MTconstants::size - 1, detail_random::mt::MTconstants::period);
     
-    for (size_t j = 0; j < MTconstants::size; ++j)
+    for (size_t j = 0; j < detail_random::mt::MTconstants::size; ++j)
     {
         x = state.mt[j];
         x ^= x >> 11;

@@ -158,4 +158,109 @@ WHP_CONSTEXPR17 auto invoke(_Callable&& _Obj, _Ty1&& _Arg1, _Types2&&... _Args2)
     }
 }
 
+namespace detail_invoker
+{
+    template <class _From, class _To, class = void>
+    struct invoke_convertible : false_type {};
+
+    template <class _From, class _To>
+    struct invoke_convertible<_From, _To, void_t<decltype(_STD _Fake_copy_init<_To>(_STD _Returns_exactly<_From>()))>> : true_type {};
+
+    template <class _From, class _To>
+    struct invoke_nothrow_convertible : bool_constant<noexcept(_STD _Fake_copy_init<_To>(_STD _Returns_exactly<_From>()))> {};
+
+    template <class _Result, bool _Nothrow>
+    struct invoke_traits_common 
+    {
+        using type = _Result;
+        using is_invocable = true_type;
+        using is_nothrow_invocable = bool_constant<_Nothrow>;
+        template <class _Rx>
+        using is_invocable_r = bool_constant<disjunction_v<is_void<_Rx>, invoke_convertible<type, _Rx>>>;
+        template <class _Rx>
+        using is_nothrow_invocable_r = bool_constant<conjunction_v<is_nothrow_invocable, disjunction<is_void<_Rx>, conjunction<invoke_convertible<type, _Rx>, invoke_nothrow_convertible<type, _Rx>>>>>;
+    };
+
+    template <class _Void, class _Callable>
+    struct invoke_traits_zero 
+    {
+        using is_invocable = false_type;
+        using is_nothrow_invocable = false_type;
+        template <class _Rx>
+        using is_invocable_r = false_type;
+        template <class _Rx>
+        using is_nothrow_invocable_r = false_type;
+    };
+
+    template <class _Callable>
+    using decltype_invoke_zero = decltype(_WHIP declval<_Callable>()());
+
+    template <class _Callable>
+    struct invoke_traits_zero<void_t<decltype_invoke_zero<_Callable>>, _Callable> 
+        : invoke_traits_common<decltype_invoke_zero<_Callable>, noexcept(_WHIP declval<_Callable>()())> {};
+
+    template <class _Void, class... _Types>
+    struct invoke_traits_nonzero 
+    {
+        using is_invocable = false_type;
+        using is_nothrow_invocable = false_type;
+        template <class _Rx>
+        using is_invocable_r = false_type;
+        template <class _Rx>
+        using is_nothrow_invocable_r = false_type;
+    };
+
+    template <class _Callable, class _Ty1, class... _Types2>
+    using decltype_invoke_nonzero = decltype(invoker1<_Callable, _Ty1>::call(_WHIP declval<_Callable>(), _WHIP declval<_Ty1>(), _WHIP declval<_Types2>()...));
+
+    template <class _Callable, class _Ty1, class... _Types2>
+    struct invoke_traits_nonzero<void_t<decltype_invoke_nonzero<_Callable, _Ty1, _Types2...>>, _Callable, _Ty1, _Types2...> 
+        : invoke_traits_common<decltype_invoke_nonzero<_Callable, _Ty1, _Types2...>, noexcept(invoker1<_Callable, _Ty1>::call(_WHIP declval<_Callable>(), _WHIP declval<_Ty1>(), _WHIP declval<_Types2>()...))> {};
+
+    template <class _Callable, class... _Args>
+    using select_invoke_traits = conditional_t<sizeof...(_Args) == 0, invoke_traits_zero<void, _Callable>, invoke_traits_nonzero<void, _Callable, _Args...>>;
+
+    template <class _Callable, class... _Args>
+    using invoke_result_t = typename select_invoke_traits<_Callable, _Args...>::type;
+
+    template <class _Rx, class _Callable, class... _Args>
+    using is_invocable_r_ = typename select_invoke_traits<_Callable, _Args...>::template is_invocable_r<_Rx>;
+
+    template <class _Rx, class _Callable, class... _Args>
+    struct is_invocable_r : is_invocable_r_<_Rx, _Callable, _Args...> {};
+
+#if _HAS_CXX17
+    template <class _Callable, class... _Args>
+        struct invoke_result : select_invoke_traits<_Callable, _Args...> {};
+
+    template <class _Callable, class... _Args>
+        using invoke_result_t = typename select_invoke_traits<_Callable, _Args...>::type;
+
+    template <class _Callable, class... _Args>
+        struct is_invocable : select_invoke_traits<_Callable, _Args...>::is_invocable {};
+
+    template <class _Callable, class... _Args>
+        inline constexpr bool is_invocable_v = select_invoke_traits<_Callable, _Args...>::is_invocable::value;
+
+    template <class _Callable, class... _Args>
+        struct is_nothrow_invocable : select_invoke_traits<_Callable, _Args...>::is_nothrow_invocable {};
+
+    template <class _Callable, class... _Args>
+        inline constexpr bool is_nothrow_invocable_v = select_invoke_traits<_Callable, _Args...>::is_nothrow_invocable::value;
+
+    template <class _Rx, class _Callable, class... _Args>
+        struct is_invocable_r : is_invocable_r_<_Rx, _Callable, _Args...> {};
+
+    template <class _Rx, class _Callable, class... _Args>
+        inline constexpr bool is_invocable_r_v = is_invocable_r_<_Rx, _Callable, _Args...>::value;
+
+    template <class _Rx, class _Callable, class... _Args>
+        struct is_nothrow_invocable_r : select_invoke_traits<_Callable, _Args...>::template is_nothrow_invocable_r<_Rx> {};
+
+    template <class _Rx, class _Callable, class... _Args>
+        inline constexpr bool is_nothrow_invocable_r_v = select_invoke_traits<_Callable, _Args...>::template is_nothrow_invocable_r<_Rx>::value;
+#endif // _HAS_CXX17
+
+}
+
 _WHIP_END

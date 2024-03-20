@@ -46,8 +46,10 @@ void character::display_default_quad() const
 	whip::renderer2D::draw_quad(m_position, m_scale, default_quad);
 }
 
+// this should be between begin and end scenes
 void character::display(whip::timestep ts)
 {
+	last_ts = ts;
 	if (!moving && !attacking)
 	{
 		if (m_still_frames.size() != 0)
@@ -191,7 +193,7 @@ whip::vector<whip::ref<whip::texture2D>> character::get_changed_movement_frames(
 
 void character::set_speed(float new_speed)
 {
-	speed = new_speed / 10000.0f;
+	speed = new_speed;
 }
 
 void character::set_x_face(rotation rot)
@@ -318,19 +320,19 @@ void character::move(rotation rot)
 	switch (rot)
 	{
 	case character::rotation::left:
-		m_position.x -= speed;
+		m_position.x -= speed * last_ts;
 		m_faces.first = rotation::left;
 		break;
 	case character::rotation::right:
-		m_position.x += speed;
+		m_position.x += speed * last_ts;
 		m_faces.first = rotation::right;
 		break;
 	case character::rotation::up:
-		m_position.y += speed;
+		m_position.y += speed * last_ts;
 		m_faces.second = rotation::up;
 		break;
 	case character::rotation::down:
-		m_position.y -= speed;
+		m_position.y -= speed * last_ts;
 		m_faces.second = rotation::down;
 		break;
 	case character::rotation::none:
@@ -344,10 +346,10 @@ void character::move_x()
 	switch (m_faces.first)
 	{
 	case character::rotation::left:
-		m_position.x -= speed;
+		m_position.x -= speed * last_ts;
 		break;
 	case character::rotation::right:
-		m_position.x += speed;
+		m_position.x += speed * last_ts;
 		break;
 	case character::rotation::none:
 	default:
@@ -360,10 +362,10 @@ void character::move_y()
 	switch (m_faces.second)
 	{
 	case character::rotation::up:
-		m_position.y += speed;
+		m_position.y += speed * last_ts;
 		break;
 	case character::rotation::down:
-		m_position.y -= speed;
+		m_position.y -= speed * last_ts;
 		break;
 	case character::rotation::none:
 	default:

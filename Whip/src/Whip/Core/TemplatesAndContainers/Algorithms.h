@@ -4,6 +4,9 @@
 #include "Utility.h"
 #include "MathDef.h"
 
+// todo whip::shuffle
+// todo whip::sort
+
 _WHIP_START
 
 template <class _Iter, class _Fn>
@@ -74,5 +77,14 @@ WHP_NODISCARD WHP_CONSTEXPR _Iter1 find_first_of(const _Iter1 first1, const _Ite
 	return _WHIP find_first_of(first1, last1, first2, last2, equal_to<>{});
 }
 
+namespace detail_algorithms
+{
+	// random number generator from unsigned random number generator
+	template <class _Diff, class _Urng>
+	class rng_from_urng
+	{
+
+	};
+}
 
 _WHIP_END
