@@ -46,12 +46,19 @@ void game_layer::on_attach()
 	m_monkey.add_default_movement_frame("C:\\Dev\\Whip\\F-Box\\assets\\game\\textures\\monkey\\left_2.png");
 	m_monkey.add_changed_movement_frame("C:\\Dev\\Whip\\F-Box\\assets\\game\\textures\\monkey\\right_1.png");
 	m_monkey.add_changed_movement_frame("C:\\Dev\\Whip\\F-Box\\assets\\game\\textures\\monkey\\right_2.png");
-	m_monkey.set_position({ 0 - s_test_map_w / 2.0f + 1.0f, (sizeof(s_test_map) / (sizeof(int)) / s_test_map_w) / 2.0f + 1.5f, 0.7f });
-	m_monkey.set_default_position({ 0 - s_test_map_w / 2.0f + 1.0f, (sizeof(s_test_map) / (sizeof(int)) / s_test_map_w) / 2.0f + 1, 0.7f });
+	m_monkey.set_position({ 2.0f, 2.0f, 0.7f });
+	m_monkey.set_default_position({ 2.0f, 2.0f, 0.7f });
 	m_monkey.set_x_face(character::rotation::right);
 	m_monkey.set_scale({ 2.0f, 2.0f });
 	m_monkey.set_movement_state(true);
 	m_monkey.set_speed(m_camera_controller.get_zoom_level() * m_camera_controller.get_camera_translation_speed() * 1.5f);
+
+	whip::array<int, 10> a{ 1,2,3,4,5,6,7,8,9,0 };
+	whip::random_device rd;
+	whip::mersenne_twister eng(rd());
+	whip::shuffle(a.begin(), a.end(), eng);
+	for (auto x : a)
+		WHP_CORE_DEBUG("{0}", x);
 }
 
 void game_layer::on_detach()

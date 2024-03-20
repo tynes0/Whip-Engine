@@ -29,8 +29,8 @@ namespace detail_random
 	static unsigned int* xrand_seed();
 }
 
-#define wrseed (*detail_random::wrand_seed())
-#define xrseed (*detail_random::xrand_seed())
+#define wrseed (*_WHIP detail_random::wrand_seed())
+#define xrseed (*_WHIP detail_random::xrand_seed())
 
 void swrand(unsigned int seed);
 void sxrand(unsigned int seed);
@@ -76,9 +76,9 @@ public:
 	mersenne_twister(random_device rand_device);
 	void seed(uint32_t value);
 
-	WHP_NODISCARD static constexpr result_type(min)();
-	WHP_NODISCARD static constexpr result_type(max)();
-
+	WHP_NODISCARD static constexpr result_type(min)() { return 0; }
+	WHP_NODISCARD static constexpr result_type(max)() { return detail_random::mt::MTconstants::wmsk; }
+ 
 	WHP_NODISCARD uint32_t rand_u32();
 	WHP_NODISCARD uint32_t operator()();
 private:

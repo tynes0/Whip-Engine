@@ -70,16 +70,6 @@ void mersenne_twister::seed(uint32_t value)
         state.mt[i] = 0x6c078965 * (state.mt[i - 1] ^ state.mt[i - 1] >> 30) + i;
 }
 
-constexpr mersenne_twister::result_type (mersenne_twister::min)()
-{
-    return 0;
-}
-
-constexpr mersenne_twister::result_type (mersenne_twister::max)()
-{
-    return detail_random::mt::MTconstants::wmsk;
-}
-
 uint32_t mersenne_twister::rand_u32()
 {
     if (state.index == detail_random::mt::MTconstants::size)

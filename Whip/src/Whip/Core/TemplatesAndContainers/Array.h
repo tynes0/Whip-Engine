@@ -403,7 +403,7 @@ public:
 	{
 		if (addressof(right) != this)
 		{
-			swap_nt(m_data, right.m_data);
+			_WHIP swap(m_data, right.m_data);
 		}
 	}
 
@@ -411,10 +411,7 @@ public:
 	{
 		if (addressof(other) != this)
 		{
-			for (auto i = 0; i < _Size; ++i)
-			{
-				*(m_data + i) = *(other.m_data + i);
-			}
+			::memcpy(m_data, other.m_data, _Size * sizeof(_Ty));
 		}
 	}
 

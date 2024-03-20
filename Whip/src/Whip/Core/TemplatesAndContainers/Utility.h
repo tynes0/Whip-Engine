@@ -196,20 +196,39 @@ constexpr void swap(_Ty& _Left, _Ty& _Right)
 	_Right		= move(temp);
 }
 
+template <class _FwdIt1, class _FwdIt2>
+WHP_CONSTEXPR void iter_swap(_FwdIt1 _Left, _FwdIt2 _Right) 
+{
+	_WHIP swap(*_Left, *_Right);
+}
+
+template <class _Ty, size_t _Size, enable_if_t<std::_Is_swappable<_Ty>::value, int> _Enabled>
+WHP_CONSTEXPR void swap(_Ty(&_Left)[_Size], _Ty(&_Right)[_Size]) noexcept(std::_Is_nothrow_swappable<_Ty>::value) 
+{
+	if (&_Left != &_Right) 
+	{
+		_Ty* _First1 = _Left;
+		_Ty* _Last1 = _First1 + _Size;
+		_Ty* _First2 = _Right;
+		for (; _First1 != _Last1; ++_First1, ++_First2) 
+			_WHIP iter_swap(_First1, _First2);
+	}
+}
+
 template <class _Ty>
-constexpr void swap_nt(_Ty& left, _Ty& right) noexcept(std::_Is_nothrow_swappable<_Ty>::value)
+WHP_CONSTEXPR void swap_nt(_Ty& left, _Ty& right) noexcept(std::_Is_nothrow_swappable<_Ty>::value)
 {
 	_WHIP swap(left, right);
 }
 
 template <class _Ty>
-constexpr void swap_adl(_Ty& _Left, _Ty& _Right)
+WHP_CONSTEXPR void swap_adl(_Ty& _Left, _Ty& _Right)
 {
 	_WHIP swap(_Left, _Right);
 }
 
 template <class _Ty, class _Other = _Ty>
-constexpr _Ty exchange(_Ty& val, _Other&& new_val) noexcept(conjunction_v<is_nothrow_constructible<_Ty>, is_nothrow_assignable<_Ty&, _Other>>)
+WHP_CONSTEXPR _Ty exchange(_Ty& val, _Other&& new_val) noexcept(conjunction_v<is_nothrow_constructible<_Ty>, is_nothrow_assignable<_Ty&, _Other>>)
 {
 	_Ty old_val = static_cast<_Ty&&>(val);
 	val = static_cast<_Other&&>(new_val);
