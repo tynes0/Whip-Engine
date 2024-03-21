@@ -17,13 +17,22 @@ struct iterator_base
 };
 
 template <class _WhipIter>
-WHP_INLINE constexpr bool is_const_whip_iterator_v = is_base_of_v<iterator_base<const remove_const_t<typename _WhipIter::value_type>>, _WhipIter>;
+struct is_const_whip_iterator : bool_constant<is_base_of_v<iterator_base<const remove_cv_t<typename _WhipIter::value_type>>, _WhipIter>> {};
 
 template <class _WhipIter>
-WHP_INLINE constexpr bool is_non_const_whip_iterator_v = is_base_of_v<iterator_base<remove_const_t<typename _WhipIter::value_type>>, _WhipIter>;
+WHP_INLINE constexpr bool is_const_whip_iterator_v = is_const_whip_iterator<_WhipIter>::value;
 
 template <class _WhipIter>
-WHP_INLINE constexpr bool is_whip_iterator_v = is_const_whip_iterator_v<_WhipIter> || is_non_const_whip_iterator_v<_WhipIter>;
+struct is_non_const_whip_iterator : bool_constant<is_base_of_v<iterator_base<remove_cv_t<typename _WhipIter::value_type>>, _WhipIter>> {};
+
+template <class _WhipIter>
+WHP_INLINE constexpr bool is_non_const_whip_iterator_v = is_non_const_whip_iterator<_WhipIter>::value;
+
+template <class _WhipIter>
+struct is_whip_iterator : bool_constant<is_const_whip_iterator_v<_WhipIter> || is_non_const_whip_iterator_v<_WhipIter>> {};
+
+template <class _WhipIter>
+WHP_INLINE constexpr bool is_whip_iterator_v = is_whip_iterator<_WhipIter>::value;
 
 template <class _Ty>
 class basic_iterator : public iterator_base<_Ty>

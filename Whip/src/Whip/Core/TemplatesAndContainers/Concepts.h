@@ -10,8 +10,11 @@ _WHIP_START
 constexpr const char* whip_concept_library_error_message = "c++ concepts is not avaible";
 #else // !(__cpp_concepts)
 
+template <class T>
+concept arithmetic = std::is_integral_v<T> || std::is_floating_point_v<T>;
+
 template <class T, class U>
-concept same_as = is_same_v<T, U>&& is_same_v<U, T>;
+concept same_as = is_same_v<T, U> && is_same_v<U, T>;
 
 template <class T, class U>
 concept other_than = !is_same_v<std::decay_t<T>, std::decay_t<U>>;

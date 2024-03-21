@@ -53,12 +53,9 @@ void game_layer::on_attach()
 	m_monkey.set_movement_state(true);
 	m_monkey.set_speed(m_camera_controller.get_zoom_level() * m_camera_controller.get_camera_translation_speed() * 1.5f);
 
-	whip::array<int, 10> a{ 1,2,3,4,5,6,7,8,9,0 };
-	whip::random_device rd;
-	whip::mersenne_twister eng(rd());
-	whip::shuffle(a.begin(), a.end(), eng);
-	for (auto x : a)
-		WHP_CORE_DEBUG("{0}", x);
+	class x{};
+
+	whip::arithmetic_array<x, 5> y{};
 }
 
 void game_layer::on_detach()

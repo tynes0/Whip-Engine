@@ -13,13 +13,27 @@
 
 #define WHP_BIND_EVENT_FN(FUN) std::bind(&FUN, this, std::placeholders::_1)					// Whip event functions binder
 
-#ifdef _HAS_NODISCARD
+#ifndef __has_cpp_attribute
+#define _WHP_HAS_CPP_ATTRIBUTE(x) 0
+#elif defined(__CUDACC__)
+#define _WHP_HAS_CPP_ATTRIBUTE(x) 0
+#else
+#define _WHP_HAS_CPP_ATTRIBUTE(x) __has_cpp_attribute(x)
+#endif
+
+#if _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
 	#define WHP_NODISCARD [[nodiscard]]							// nodiscard attribute define
 	#define WHP_NODISCARD_MSG(msg) [[nodiscard(msg)]]			// nodiscard attribute define
-#else // _HAS_NODISCARD
+#else // WHP_HAS_CPP_ATTRIBUTE(nodiscard)
 	#define WHP_NODISCARD 											// nodiscard attribute define
 	#define WHP_NODISCARD_MSG(msg)									// nodiscard attribute define
-#endif // _HAS_NODISCARD
+#endif // WHP_HAS_CPP_ATTRIBUTE(nodiscard)
+
+#if _WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
+#define WHP_NODISCARD20 [[nodiscard]]
+#else // _WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
+#define WHP_NODISCARD20 
+#endif //_WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
 
 #if _HAS_CXX17
 #define WHP_INLINE inline			// inline keyword for constants
@@ -54,13 +68,7 @@
 #undef noop_dtor
 #undef intrinsic
 
-#ifndef __has_cpp_attribute
-#define _WHP_HAS_MSVC_ATTRIBUTE(x) 0
-#elif defined(__CUDACC__)
-#define _WHP_HAS_MSVC_ATTRIBUTE(x) 0
-#else
-#define _WHP_HAS_MSVC_ATTRIBUTE(x) __has_cpp_attribute(msvc::x)
-#endif
+#define _WHP_HAS_MSVC_ATTRIBUTE(x) _WHP_HAS_CPP_ATTRIBUTE(msvc::x)
 
 #if _WHP_HAS_MSVC_ATTRIBUTE(known_semantics)
 #define _WHP_MSVC_KNOWN_SEMANTICS [[msvc::known_semantics]]
