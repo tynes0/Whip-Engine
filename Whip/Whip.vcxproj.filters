@@ -1469,6 +1469,7 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tag.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\MathDef.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ArithmeticArray.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Bitset.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">

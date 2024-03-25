@@ -226,7 +226,7 @@ public:
 	WHP_INLINE static constexpr size_t prime = 16777619u;
 #endif // defined(_WIN64)
 
-#define WHIP_HASH_TRIVIAL_ASSERT(type) WHP_ASSERT(std::is_trivial_v<type>, "only trivial types can be directly hashed");
+#define WHIP_HASH_TRIVIAL_ASSERT(type) WHP_CORE_ASSERT(std::is_trivial_v<type>, "only trivial types can be directly hashed");
 
 	WHP_NODISCARD static inline size_t append_bytes(size_t val, const unsigned char* const first, const size_t count) noexcept
 	{
@@ -366,5 +366,7 @@ struct hash<std::string>
 		return fnv1a::hash_array_representation(key_value.c_str(), key_value.size());
 	}
 };
+
+#undef WHIP_HASH_TRIVIAL_ASSERT
 
 _WHIP_END

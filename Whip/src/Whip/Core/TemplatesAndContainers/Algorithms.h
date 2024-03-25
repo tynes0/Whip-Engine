@@ -6,7 +6,6 @@
 #include "Invoker.h"
 #include "MathDef.h"
 
-// todo whip::shuffle
 // todo whip::sort
 
 _WHIP_START
@@ -18,7 +17,7 @@ WHP_CONSTEXPR _Fn for_each(_Iter first, _Iter last, _Fn fun)
 	auto ufirst			= get_unwrapped(first);
 	const auto ulast	= get_unwrapped(last);
 	for (; ufirst != ulast; ++ufirst)
-		fun(*ufirst);
+		fun(DREF(ufirst));
 	return fun;
 }
 
@@ -32,7 +31,7 @@ constexpr void swap_in_range(_Iter left, _Iter right, size_t size)
 	auto rufirst		= get_unwrapped(right);
 	const auto rulast	= get_unwrapped(right + size);
 	for (; lufirst != lulast && rufirst != rulast; ++lufirst, ++rufirst)
-		swap(*lufirst, *rufirst);
+		swap(DREF(lufirst), DREF(rufirst));
 }
 
 template <class _Iter, class _Ty>
@@ -42,11 +41,11 @@ constexpr void fill(_Iter first, _Iter last, const _Ty& val)
 	auto ufirst			= get_unwrapped(first);
 	const auto ulast	= get_unwrapped(last);
 
-	if (is_all_bits_zero(val)) 
-		fill_zero_memset(ufirst, static_cast<size_t>(ulast - ufirst));
+	if (detail_utility::is_all_bits_zero(val))
+		detail_utility::fill_zero_memset(ufirst, static_cast<size_t>(ulast - ufirst));
 	else
 		for (; ufirst != ulast; ++ufirst)
-			*ufirst = val;
+			DREF(ufirst) = val;
 }
 
 template <class _Iter1, class _Iter2, class _Pr>
@@ -78,6 +77,79 @@ WHP_NODISCARD WHP_CONSTEXPR _Iter1 find_first_of(const _Iter1 first1, const _Ite
 {
 	return _WHIP find_first_of(first1, last1, first2, last2, equal_to<>{});
 }
+
+template <class _Iter, class _Pr>
+WHP_NODISCARD WHP_CONSTEXPR bool all_of(_Iter first, _Iter last, _Pr pred)
+{
+	verify_range(first, last);
+	auto ufirst			= get_unwrapped(first);
+	const auto ulast	= get_unwrapped(last);
+	for (; ufirst != ulast; ++ufirst)
+		if (!pred(DREF(ufirst)))
+			return false;
+	return true;
+}
+
+template <class _Iter, class _Pr>
+WHP_NODISCARD WHP_CONSTEXPR bool any_of(_Iter first, _Iter last, _Pr pred)
+{
+	verify_range(first, last);
+	auto ufirst			= get_unwrapped(first);
+	const auto ulast	= get_unwrapped(last);
+	for (; ufirst != ulast; ++ufirst)
+		if (pred(DREF(ufirst)))
+			return true;
+	return false;
+}
+
+template <class _Iter, class _Pr>
+WHP_NODISCARD WHP_CONSTEXPR bool none_of(_Iter first, _Iter last, _Pr pred)
+{
+	verify_range(first, last);
+	auto ufirst			= get_unwrapped(first);
+	const auto ulast	= get_unwrapped(last);
+	for (; ufirst != ulast; ++ufirst)
+		if (pred(DREF(ufirst)))
+			return false;
+	return true;
+}
+
+template <class _Iter, class _Pr>
+WHP_NODISCARD WHP_CONSTEXPR bool all_of_2range(_Iter first1, _Iter first2, size_t n, _Pr pred)
+{
+	auto ufirst1		= get_unwrapped(first1);
+	auto ufirst2		= get_unwrapped(first2);
+	const auto ulast	= get_unwrapped(first1 + n);
+	for (; ufirst1 != ulast; ++ufirst1, ++ufirst2)
+		if (!pred(DREF(ufirst1), DREF(ufirst2)))
+			return false;
+	return true;
+}
+
+template <class _Iter, class _Pr>
+WHP_NODISCARD WHP_CONSTEXPR bool any_of_2range(_Iter first1, _Iter first2, size_t n, _Pr pred)
+{
+	auto ufirst1		= get_unwrapped(first1);
+	auto ufirst2		= get_unwrapped(first2);
+	const auto ulast	= get_unwrapped(first1 + n);
+	for (; ufirst1 != ulast; ++ufirst1, ++ufirst2)
+		if (pred(DREF(ufirst1), DREF(ufirst2)))
+			return true;
+	return false;
+}
+
+template <class _Iter, class _Pr>
+WHP_NODISCARD WHP_CONSTEXPR bool none_of_2range(_Iter first1, _Iter first2, size_t n, _Pr pred)
+{
+	auto ufirst1		= get_unwrapped(first1);
+	auto ufirst2		= get_unwrapped(first2);
+	const auto ulast	= get_unwrapped(first1 + n);
+	for (; ufirst1 != ulast; ++ufirst1, ++ufirst2)
+		if (pred(DREF(ufirst1), DREF(ufirst2)))
+			return false;
+	return true;
+}
+
 
 namespace detail_algorithms
 {

@@ -52,10 +52,6 @@ void game_layer::on_attach()
 	m_monkey.set_scale({ 2.0f, 2.0f });
 	m_monkey.set_movement_state(true);
 	m_monkey.set_speed(m_camera_controller.get_zoom_level() * m_camera_controller.get_camera_translation_speed() * 1.5f);
-
-	class x{};
-
-	whip::arithmetic_array<x, 5> y{};
 }
 
 void game_layer::on_detach()

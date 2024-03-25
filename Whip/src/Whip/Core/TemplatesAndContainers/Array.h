@@ -392,10 +392,13 @@ public:
 
 	constexpr void fill(const_reference _Val) noexcept
 	{
-		for (auto i = begin(); i != end(); ++i)
-		{
-			*i = _Val;
-		}
+		pointer temp_beg = m_data;
+		const_pointer temp_end = m_data + _Size;
+		if (detail_utility::is_all_bits_zero(_Val))
+			detail_utility::fill_zero_memset(temp_beg, _Size);
+		else
+			for (; temp_beg != temp_end; ++temp_beg)
+				DREF(temp_beg) = _Val;
 	}
 
 	constexpr void swap(array& right) noexcept
@@ -434,9 +437,35 @@ public:
 		return m_data + _Size;
 	}
 
+#ifdef __cpp_concepts
+	constexpr bool operator==(const array& right) const noexcept 
+		requires equality_and_not_equality_compareable<_Ty>
+	{
+		pointer temp_beg = m_data;
+		const_pointer temp_end = m_data + _Size;
+		pointer temp_beg2 = right.m_data;
+		for (; temp_beg != temp_end; ++temp_beg, ++temp_beg2)
+			if (DREF(temp_beg) != DREF(temp_beg2))
+				return false;
+		return true;
+	}
+
+	constexpr bool operator!=(const array& right) const noexcept
+		requires equality_and_not_equality_compareable<_Ty>
+	{
+		pointer temp_beg = m_data;
+		const_pointer temp_end = m_data + _Size;
+		pointer temp_beg2 = right.m_data;
+		for (; temp_beg != temp_end; ++temp_beg, ++temp_beg2)
+			if (DREF(temp_beg) != DREF(temp_beg2))
+				return true;
+		return false;
+	}
+#endif // __cpp_concepts
+
 	_Ty m_data[_Size];
 private:
-	void throw_oran()
+	WHP_NORETURN void throw_oran()
 	{
 		std::_Xout_of_range("array subscript out of range");
 	}
@@ -607,6 +636,16 @@ public:
 	constexpr const_pointer unchecked_end() const noexcept
 	{
 		return data();
+	}
+
+	constexpr bool operator==(const array& right) const noexcept
+	{
+		return true;
+	}
+
+	constexpr bool operator!=(const array& right) const noexcept
+	{
+		return false;
 	}
 };
 

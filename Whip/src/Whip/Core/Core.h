@@ -35,6 +35,12 @@
 #define WHP_NODISCARD20 
 #endif //_WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
 
+#if _WHP_HAS_CPP_ATTRIBUTE(noreturn)
+#define WHP_NORETURN [[noreturn]]
+#else // !_WHP_HAS_CPP_ATTRIBUTE(noreturn)
+#define WHP_NORETURN
+#endif //_WHP_HAS_CPP_ATTRIBUTE(noreturn)
+
 #if _HAS_CXX17
 #define WHP_INLINE inline			// inline keyword for constants
 #else // _HAS_CXX17

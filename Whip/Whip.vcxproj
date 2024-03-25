@@ -165,6 +165,7 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Any.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ArithmeticArray.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Array.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Bitset.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Concepts.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\FindOperator.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h" />

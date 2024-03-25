@@ -10,18 +10,35 @@
 #include <Whip/Core/TemplatesAndContainers/Iterator.h>
 #include <Whip/Core/TemplatesAndContainers/Concepts.h>
 
-#if !defined(__cpp_concepts)
-#define WHP_REQUIRE_ARITHMETIC(T) requires whip::arithmetic<T>
-#define WHP_ENABLE_IF_ARITHMETIC(T)
-#else // !(__cpp_concepts)
-#define WHP_REQUIRE_ARITHMETIC(T)
-#define WHP_ENABLE_IF_ARITHMETIC(T) , whip::enable_if_t<std::is_arithmetic_v<T>, int> = 0
-#endif // __cpp_concepts
+// arithmetic array uses algorithms
+#include <Whip/Core/TemplatesAndContainers/Algorithms.h> 
 
 _WHIP_START
 
-template <class _Ty WHP_ENABLE_IF_ARITHMETIC(_Ty)>
-WHP_REQUIRE_ARITHMETIC(_Ty)
+template <class _Ty>
+WHP_INLINE constexpr bool is_bitwiseable_v = whip::is_any_of_v<_Ty, int, char, short, long, unsigned int, unsigned char, unsigned short, unsigned long>;
+
+template <class _Ty>
+struct is_bitwiseable : bool_constant<is_bitwiseable_v<_Ty>> {};
+
+#if defined(__cpp_concepts)
+template <class _Ty>
+concept bitwiseable = is_bitwiseable_v<_Ty>;
+#endif // __cpp_concepts
+
+#if defined(__cpp_concepts)
+#define WHP_REQUIRE_ARITHMETIC(T) requires _WHIP arithmetic<T>
+#define WHP_REQUIRE_BITWISEABLE(T) requires _WHIP bitwiseable<T>
+#define WHP_ENABLE_IF_ARITHMETIC(T)
+#define WHP_ENABLE_IF_BITWISEABLE(T)
+#else // !(__cpp_concepts)
+#define WHP_REQUIRE_ARITHMETIC(T)
+#define WHP_REQUIRE_BITWISEABLE(T) 
+#define WHP_ENABLE_IF_ARITHMETIC(T) , _WHIP enable_if_t<std::is_arithmetic_v<T>, int> = 0
+#define WHP_ENABLE_IF_BITWISEABLE(T) , _WHIP enable_if_t<_WHIP is_bitwiseable_v<T>, int> = 0
+#endif // __cpp_concepts
+
+template <class _Ty>
 class arithmetic_array_iterator : public iterator_base<_Ty>
 {
 public:
@@ -132,8 +149,7 @@ private:
     size_type m_offset;
 };
 
-template <class _Ty WHP_ENABLE_IF_ARITHMETIC(_Ty)>
-WHP_REQUIRE_ARITHMETIC(_Ty)
+template <class _Ty>
 class const_arithmetic_array_iterator : public iterator_base<const _Ty>
 {
 public:
@@ -235,7 +251,6 @@ private:
 };
 
 template <class _Ty>
-WHP_REQUIRE_ARITHMETIC(_Ty)
 struct pointer_traits<arithmetic_array_iterator<_Ty>>
 {
 	using pointer = arithmetic_array_iterator<_Ty>;
@@ -249,7 +264,6 @@ struct pointer_traits<arithmetic_array_iterator<_Ty>>
 };
 
 template <class _Ty>
-WHP_REQUIRE_ARITHMETIC(_Ty)
 struct pointer_traits<const_arithmetic_array_iterator<_Ty>>
 {
     using pointer = const_arithmetic_array_iterator<_Ty>;
@@ -262,17 +276,9 @@ struct pointer_traits<const_arithmetic_array_iterator<_Ty>>
     }
 };
 
-namespace detail_arithmetic_array
-{
-	template <class _Ty1, class _Ty2 WHP_ENABLE_IF_ARITHMETIC(_Ty1)>
-	WHP_REQUIRE_ARITHMETIC(_Ty)
-	class arithmetic_array_base {};
-}
-
-
 template <class _Ty, size_t _Size>
 WHP_REQUIRE_ARITHMETIC(_Ty)
-class arithmetic_array : private detail_arithmetic_array::arithmetic_array_base<_Ty, whip::integral_constant<size_t, _Size>>
+class arithmetic_array
 {
 public:
 	using value_type				= _Ty;
@@ -418,10 +424,7 @@ public:
 
 	constexpr void fill(const_reference _Val) noexcept
 	{
-		for (auto i = begin(); i != end(); ++i)
-		{
-			*i = _Val;
-		}
+		_WHIP fill(m_data, m_data + _Size, _Val);
 	}
 
 	constexpr void swap(arithmetic_array& right) noexcept
@@ -460,6 +463,133 @@ public:
 		return m_data + _Size;
 	}
 
+	// --------------------------------------------------------------
+	// -------------------- ASSIGNMENT OPERATORS --------------------
+	// --------------------------------------------------------------
+
+	constexpr arithmetic_array& operator=(_Ty value) noexcept
+	{
+		_WHIP fill(m_data, m_data + _Size, value);
+	}
+
+	constexpr arithmetic_array& operator=(const arithmetic_array& right) noexcept
+	{
+		::memcpy(m_data, right.m_data, _Size * sizeof(_Ty));
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator+=(_Ty value) noexcept
+	{
+		_WHIP for_each(m_data, m_data + _Size, [value](_Ty& data) { data += value; });
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator+=(const arithmetic_array& right) noexcept
+	{
+		size_t idx = 0;
+		_WHIP for_each(m_data, m_data + _Size, [right, &idx](_Ty& data) { data += right[idx++]; });
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator-=(_Ty value) noexcept
+	{
+		_WHIP for_each(m_data, m_data + _Size, [value](_Ty& data) { data -= value; });
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator-=(const arithmetic_array& right) noexcept
+	{
+		size_t idx = 0;
+		_WHIP for_each(m_data, m_data + _Size, [right, &idx](_Ty& data) { data -= right[idx++]; });
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator*=(_Ty value) noexcept
+	{
+		_WHIP for_each(m_data, m_data + _Size, [value](_Ty& data) { data *= value; });
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator*=(const arithmetic_array& right) noexcept
+	{
+		size_t idx = 0;
+		_WHIP for_each(m_data, m_data + _Size, [right, &idx](_Ty& data) { data *= right[idx++]; });
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator/=(_Ty value) noexcept
+	{
+		_WHIP for_each(m_data, m_data + _Size, [value](_Ty& data) { data /= value; });
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator/=(const arithmetic_array& right) noexcept
+	{
+		size_t idx = 0;
+		_WHIP for_each(m_data, m_data + _Size, [right, &idx](_Ty& data) { data /= right[idx++]; });
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator%=(_Ty value) noexcept
+	{
+		_WHIP for_each(m_data, m_data + _Size, [value](_Ty& data) { data %= value; });
+		return *this;
+	}
+
+	constexpr arithmetic_array& operator%=(const arithmetic_array& right) noexcept
+	{
+		size_t idx = 0;
+		_WHIP for_each(m_data, m_data + _Size, [right, &idx](_Ty& data) { data %= right[idx++]; });
+		return *this;
+	}
+
+	// --------------------------------------------------------------
+	// -------------------- RELATIONAL OPERATORS --------------------
+	// --------------------------------------------------------------
+
+	constexpr bool operator==(const arithmetic_array& right) const noexcept
+	{
+		return _WHIP all_of_2range(m_data, right.m_data, _Size, _WHIP equal_to<_Ty>{});
+	}
+
+	constexpr bool operator!=(const arithmetic_array& right) const noexcept
+	{
+		return _WHIP any_of_2range(m_data, right.m_data, _Size, _WHIP not_equal_to<_Ty>{});
+	}
+
+	// --------------------------------------------------------------
+	// -------------- INCREMENT AND DECREMENT OPERATORS -------------
+	// --------------------------------------------------------------
+
+	constexpr arithmetic_array& operator++() noexcept
+	{
+		_WHIP for_each(m_data, m_data + _Size, [](_Ty& data) { ++data; });
+		return *this;
+	}
+
+	constexpr arithmetic_array operator++(int) noexcept
+	{
+		arithmetic_array temp{};
+		temp.copy(*this);
+		this->operator++();
+		return temp;
+	}
+
+	constexpr arithmetic_array& operator--() noexcept
+	{
+		_WHIP for_each(m_data, m_data + _Size, [](_Ty& data) { --data; });
+		return *this;
+	}
+
+	constexpr arithmetic_array operator--(int) noexcept
+	{
+		arithmetic_array temp{};
+		temp.copy(*this);
+		this->operator--();
+		return temp;
+	}
+	
+public:
 	_Ty m_data[_Size];
 private:
 	void throw_oran()
@@ -656,4 +786,6 @@ struct tuple_element<_Idx, arithmetic_array<_Ty, _Size>>
 _WHIP_END
 
 #undef WHP_REQUIRE_ARITHMETIC
+#undef WHP_REQUIRE_BITWISEABLE
 #undef WHP_ENABLE_IF_ARITHMETIC
+#undef WHP_ENABLE_IF_BITWISEABLE

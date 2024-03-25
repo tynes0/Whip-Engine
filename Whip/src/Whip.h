@@ -44,6 +44,7 @@
 #include <Whip/Core/TemplatesAndContainers/Range.h>
 #include <Whip/Core/TemplatesAndContainers/Vector.h>
 #include <Whip/Core/TemplatesAndContainers/Array.h>
+#include <Whip/Core/TemplatesAndContainers/Bitset.h>
 #include <Whip/Core/TemplatesAndContainers/ArithmeticArray.h>
 #include <Whip/Core/TemplatesAndContainers/Optional.h>
 #include <Whip/Core/TemplatesAndContainers/Any.h>

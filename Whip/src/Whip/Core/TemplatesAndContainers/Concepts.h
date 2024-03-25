@@ -53,13 +53,28 @@ concept equality_comparable_with = requires(T const& t, U const& u)
 };
 
 template <class T>
-concept partial_comparable = equality_comparable<T> && requires(T const& t)
+concept not_equality_comparable = requires(T const& t)
+{
+    { t != t } -> same_as<bool>;
+};
+
+template <class T>
+concept equality_and_not_equality_compareable = equality_comparable<T> && not_equality_comparable<T>;
+
+template <class T, class U>
+concept not_equality_comparable_with = requires(T const& t, U const& u)
+{
+    { t != u } -> same_as<bool>;
+};
+
+template <class T>
+concept less_then_compareable = equality_comparable<T> && requires(T const& t)
 {
     { t < t } -> same_as<bool>;
 };
 
 template <class T, class U>
-concept partial_comparable_with = equality_comparable_with<T, U>&& requires(T const& t, U const& u)
+concept partial_comparable_with = equality_comparable_with<T, U> && requires(T const& t, U const& u)
 {
     { t < u } -> same_as<bool>;
     { t > u } -> same_as<bool>;

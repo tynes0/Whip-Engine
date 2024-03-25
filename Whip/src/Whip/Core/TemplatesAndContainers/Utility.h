@@ -148,43 +148,46 @@ template <>
 struct _Is_character_or_byte_or_bool<std::byte> : true_type {};
 #endif // __cpp_lib_byte
 
-template <class _FwdIt, class _Ty>
-WHP_INLINE constexpr bool fill_memset_is_safe = std::conjunction_v<std::is_scalar<_Ty>, 
-	_Is_character_or_byte_or_bool<std::_Unwrap_enum_t<remove_reference_t<std::_Iter_ref_t<_FwdIt>>>>,
-	std::negation<std::is_volatile<remove_reference_t<std::_Iter_ref_t<_FwdIt>>>>, 
-	std::is_assignable<std::_Iter_ref_t<_FwdIt>, const _Ty&>>;
-
-template <class _FwdIt, class _Ty>
-WHP_INLINE constexpr bool fill_zero_memset_is_safe = std::conjunction_v<std::is_scalar<_Ty>, 
-	std::is_scalar<std::_Iter_value_t<_FwdIt>>, std::negation<std::is_member_pointer<std::_Iter_value_t<_FwdIt>>>,
-	std::negation<std::is_volatile<remove_reference_t<std::_Iter_ref_t<_FwdIt>>>>, 
-	std::is_assignable<std::_Iter_ref_t<_FwdIt>, const _Ty&>>;
-
-template <class _CtgIt, class _Ty>
-void fill_memset(_CtgIt _Dest, const _Ty _Val, const size_t _Count) 
+namespace detail_utility
 {
-	std::_Iter_value_t<_CtgIt> _Dest_val = _Val;
-	::memset(to_address(_Dest), static_cast<unsigned char>(_Dest_val), _Count);
-}
+	template <class _FwdIt, class _Ty>
+	WHP_INLINE constexpr bool fill_memset_is_safe = std::conjunction_v<std::is_scalar<_Ty>,
+		_Is_character_or_byte_or_bool<std::_Unwrap_enum_t<remove_reference_t<std::_Iter_ref_t<_FwdIt>>>>,
+		std::negation<std::is_volatile<remove_reference_t<std::_Iter_ref_t<_FwdIt>>>>,
+		std::is_assignable<std::_Iter_ref_t<_FwdIt>, const _Ty&>>;
 
-template <class _CtgIt>
-void fill_zero_memset(_CtgIt _Dest, const size_t _Count) 
-{
-	::memset(to_address(_Dest), 0, _Count * sizeof(std::_Iter_value_t<_CtgIt>));
-}
+	template <class _FwdIt, class _Ty>
+	WHP_INLINE constexpr bool fill_zero_memset_is_safe = std::conjunction_v<std::is_scalar<_Ty>,
+		std::is_scalar<std::_Iter_value_t<_FwdIt>>, std::negation<std::is_member_pointer<std::_Iter_value_t<_FwdIt>>>,
+		std::negation<std::is_volatile<remove_reference_t<std::_Iter_ref_t<_FwdIt>>>>,
+		std::is_assignable<std::_Iter_ref_t<_FwdIt>, const _Ty&>>;
 
-template <class _Ty>
-WHP_NODISCARD bool is_all_bits_zero(const _Ty& _Val) 
-{
-	WHP_CORE_ASSERT(std::is_scalar_v<_Ty> && !std::is_member_pointer_v<_Ty>, "value is not scalar or member pointer.");
-	if constexpr (is_same_v<_Ty, nullptr_t>) 
+	template <class _CtgIt, class _Ty>
+	void fill_memset(_CtgIt _Dest, const _Ty _Val, const size_t _Count)
 	{
-		return true;
+		std::_Iter_value_t<_CtgIt> _Dest_val = _Val;
+		::memset(to_address(_Dest), static_cast<unsigned char>(_Dest_val), _Count);
 	}
-	else 
+
+	template <class _CtgIt>
+	void fill_zero_memset(_CtgIt _Dest, const size_t _Count)
 	{
-		constexpr _Ty zero{};
-		return ::memcmp(&_Val, &zero, sizeof(_Ty)) == 0;
+		::memset(to_address(_Dest), 0, _Count * sizeof(std::_Iter_value_t<_CtgIt>));
+	}
+
+	template <class _Ty>
+	WHP_NODISCARD bool is_all_bits_zero(const _Ty & _Val)
+	{
+		WHP_CORE_ASSERT(std::is_scalar_v<_Ty> && !std::is_member_pointer_v<_Ty>, "value is not scalar or member pointer.");
+		if constexpr (is_same_v<_Ty, nullptr_t>)
+		{
+			return true;
+		}
+		else
+		{
+			constexpr _Ty zero{};
+			return ::memcmp(&_Val, &zero, sizeof(_Ty)) == 0;
+		}
 	}
 }
 
