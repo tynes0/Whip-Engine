@@ -13,6 +13,8 @@
 
 #define WHP_BIND_EVENT_FN(FUN) std::bind(&FUN, this, std::placeholders::_1)					// Whip event functions binder
 
+#define _WHP_HAS_CPP_VERSION(x) _HAS_CXX##x
+
 #ifndef __has_cpp_attribute
 #define _WHP_HAS_CPP_ATTRIBUTE(x) 0
 #elif defined(__CUDACC__)
@@ -152,5 +154,20 @@ _WHIP_START
 typedef unsigned int renderer_id_t;
 
 using ref_counter_t = unsigned long;
+
+namespace detail_core
+{
+	template <typename... _Args> WHP_CONSTEXPR void ignore_unused(const _Args&...) {}
+}
+
+constexpr auto is_constant_evaluated(bool default_value = false) noexcept -> bool
+{
+#ifdef __cpp_lib_is_constant_evaluated
+	detail_core::ignore_unused(default_value);
+	return std::is_constant_evaluated();
+#else
+	return default_value;
+#endif
+}
 
 _WHIP_END

@@ -159,6 +159,73 @@ public:
         construct<std::char_traits<_Elem>>(str, count, elem0, elem1);
     }
 
+    WHP_CONSTEXPR23 bitset& set() noexcept
+    {
+#if _WHP_HAS_CPP_VERSION(23)
+        if (_WHIP is_constant_evaluated())
+        {
+            for (auto& item : m_data)
+                item = static_cast<_Ty>(-1);
+        }
+        else
+#endif
+        {
+            ::memset(&m_data, 0xFF, sizeof(m_data));
+        }
+        trim();
+        return *this;
+    }
+
+    WHP_CONSTEXPR23 bitset& set(const size_t position, bool value = true)
+    {
+        if (_Bits <= position)
+            throw_oran();
+        return set_unchecked(position, value);
+    }
+
+    WHP_CONSTEXPR23 bitset& reset() noexcept
+    {
+#if _WHP_HAS_CPP_VERSION(23)
+        if (_WHIP is_constant_evaluated())
+        {
+            for (auto& item : m_data)
+                item = 0;
+        }
+        else
+#endif
+        {
+            ::memset(&m_data, 0, sizeof(m_data));
+        }
+        return *this;
+    }
+
+    WHP_CONSTEXPR23 bitset& reset(const size_t position)
+    {
+        return set(position, false);
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 bitset operator~() const noexcept
+    {
+        bitset temp = *this;
+        temp.flip();
+        return temp;
+    }
+
+    WHP_CONSTEXPR23 bitset& flip() noexcept
+    {
+        for (size_t wpos = 0; wpos <= words; ++wpos)
+            m_data[wpos] = ~m_data[wpos];
+        trim();
+        return *this;
+    }
+
+    WHP_CONSTEXPR23 bitset& flip(const size_t position)
+    {
+        if (_Bits <= position)
+            throw_oran();
+        return flip_unchecked(position);
+    }
+
 private:
     WHP_CONSTEXPR23 void trim() noexcept
     {
