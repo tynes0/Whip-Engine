@@ -52,6 +52,14 @@ void game_layer::on_attach()
 	m_monkey.set_scale({ 2.0f, 2.0f });
 	m_monkey.set_movement_state(true);
 	m_monkey.set_speed(m_camera_controller.get_zoom_level() * m_camera_controller.get_camera_translation_speed() * 1.5f);
+
+	whip::bitset<10> bs{ "1001001010" };
+
+	auto it = whip::begin(bs);
+	auto eit = whip::end(bs);
+
+	for (; it != eit; ++it)
+		WHP_CORE_DEBUG(*it);
 }
 
 void game_layer::on_detach()

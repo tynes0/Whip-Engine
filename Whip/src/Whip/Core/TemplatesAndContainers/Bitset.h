@@ -5,16 +5,24 @@
 
 #include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
 #include <Whip/Core/TemplatesAndContainers/Hash.h>
+#include <Whip/Core/TemplatesAndContainers/Iterator.h>
+#include <Whip/Core/TemplatesAndContainers/Allocator.h>
 
 _WHIP_START
 
 template <size_t _Bits>
 class bitset;
+template <size_t _Bits>
+class bitset_iterator;
+template <size_t _Bits>
+class bitset_const_iterator;
 
 template <size_t _Bits>
 class bitset_reference 
 {
     friend bitset<_Bits>; 
+    friend bitset_iterator<_Bits>;
+    friend bitset_const_iterator<_Bits>;
 
 public:
     WHP_CONSTEXPR23 ~bitset_reference() noexcept {}
@@ -54,6 +62,82 @@ private:
 
     bitset<_Bits>* m_bitset;
     size_t m_pos;
+};
+
+template <size_t _Bits>
+class bitset_iterator : private whip::iterator_base<bool>
+{
+public:
+    using m_base        = iterator_base<bool>;
+    using value_type    = bool;
+    using pointer       = bitset<_Bits>*;
+    using reference     = bitset_reference<_Bits>;
+    using size_type     = typename m_base::size_type;
+    using diff_type     = typename m_base::diff_type;
+
+    constexpr bitset_iterator(bitset<_Bits>* data = nullptr, size_type offset = 0) : m_ptr(data), m_offset(offset) {}
+
+    constexpr bitset_iterator(const bitset_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
+
+    constexpr ~bitset_iterator() {}
+
+    reference operator*() const
+    {
+        return reference(DREF(m_ptr), m_offset);
+    }
+
+    bitset_iterator& operator++()
+    {
+        ++m_offset;
+        return *this;
+    }
+
+    bitset_iterator operator++(int)
+    {
+        bitset_iterator temp(*this);
+        ++(*this);
+        return temp;
+    }
+
+    bitset_iterator& operator--()
+    {
+        --m_offset;
+        return *this;
+    }
+
+    bitset_iterator operator--(int)
+    {
+        bitset_iterator temp(*this);
+        --(*this);
+        return temp;
+    }
+
+    bool operator==(const bitset_iterator& other) const
+    {
+        return ((m_ptr == other.m_ptr) && (m_offset == other.m_offset));
+    }
+
+    bool operator==(bitset_iterator&& other) const
+    {
+        bool res = ((m_ptr == other.m_ptr) && (m_offset == other.m_offset));
+        other.m_ptr = nullptr;
+        return res;
+    }
+
+    bool operator!=(const bitset_iterator& other) const
+    {
+        return !(this->operator==(move(other)));
+    }
+
+    constexpr void reset(pointer ptr = nullptr, size_type offset = 0) noexcept
+    {
+        m_ptr = ptr;
+        m_offset = offset;
+    }
+
+private:
+    bitset<_Bits>* m_ptr;
+    size_type m_offset;
 };
 
 template <size_t _Bits>
@@ -155,8 +239,27 @@ public:
     {
         if (count == std::basic_string<_Elem>::npos)
             count = std::char_traits<_Elem>::length(str);
-
         construct<std::char_traits<_Elem>>(str, count, elem0, elem1);
+    }
+
+    WHP_CONSTEXPR23 bitset& operator&=(const bitset& right) noexcept
+    {
+        for (size_t wpos = 0; wpos <= words; ++wpos)
+            m_data[wpos] &= right.m_data[wpos];
+        return *this;
+    }
+
+    WHP_CONSTEXPR23 bitset& operator|=(const bitset& right) noexcept
+    {
+        for (size_t wpos = 0; wpos <= words; ++wpos)
+            m_data[wpos] |= right.m_data[wpos]; return *this;
+    }
+
+    WHP_CONSTEXPR23 bitset& operator^=(const bitset& right) noexcept 
+    {
+        for (size_t wpos = 0; wpos <= words; ++wpos)
+            m_data[wpos] ^= right.m_data[wpos]; 
+        return *this;
     }
 
     WHP_CONSTEXPR23 bitset& set() noexcept
@@ -226,6 +329,121 @@ public:
         return flip_unchecked(position);
     }
 
+    WHP_NODISCARD WHP_CONSTEXPR23 unsigned long to_ulong() const noexcept(_Bits <= 32)
+    {
+        constexpr bool bits_zero    = _Bits == 0;
+        constexpr bool bits_small   = _Bits <= 32;
+        constexpr bool bits_large   = _Bits > 64;
+        if constexpr (bits_zero)
+            return 0;
+        else if constexpr (bits_small)
+            return static_cast<unsigned long>(m_data[0]);
+        else
+        {
+            if constexpr (bits_large)
+                for (size_t idx = 1; idx <= words; ++idx)
+                    if (m_data[idx] != 0)
+                        throw_oflow();
+            if (m_data[0] > ULONG_MAX)
+                throw_oflow();
+            return static_cast<unsigned long>(m_data[0]);
+        }
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 unsigned long long to_ullong() const noexcept(_Bits <= 64)
+    {
+        constexpr bool bits_zero = _Bits == 0;
+        constexpr bool bits_large = _Bits > 64;
+        if constexpr (bits_zero)
+            return 0;
+        else
+        {
+            if constexpr (bits_large)
+                for (size_t idx = 1; idx <= words; ++idx)
+                    if (m_data[idx] != 0)
+                        throw_oflow();
+            return m_data[0];
+        }
+    }
+
+    template <class _Elem = char, class _Traits = std::char_traits<_Elem>, class _Alloc = allocator<_Elem>>
+    WHP_NODISCARD WHP_CONSTEXPR23 std::basic_string<_Elem, _Traits, _Alloc> to_string(const _Elem elem0 = static_cast<_Elem>('0'), const _Elem elem1 = static_cast<_Elem>('1')) const
+    {
+        std::basic_string<_Elem, _Traits, _Alloc> str;
+        str.reserve(_Bits);
+        for (auto pos = _Bits; 0 < pos;)
+            str.push_back(subscript(--pos) ? elem1 : elem0);
+        return str;
+    }
+
+    // todo (maybe): count method
+
+    WHP_NODISCARD constexpr size_t size() const noexcept
+    {
+        return _Bits;
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 bool operator==(const bitset& right) const noexcept
+    {
+#if _WHP_HAS_CPP_VERSION(23)
+        if (_WHIP is_constant_evaluated())
+        {
+            for (size_t i = 0; i <= words; ++i)
+                if (m_data[i] != right.m_data[i])
+                    return false;
+            return true;
+        }
+        else
+#endif // _WHP_HAS_CPP_VERSION(23)
+        {
+            return ::memcmp(&m_data[0], &right.m_data[0], sizeof(m_data)) == 0;
+        }
+    }
+
+#if !_WHP_HAS_CPP_VERSION(20)
+    WHP_NODISCARD bool operator!=(const bitset& right) const noexcept 
+    {
+        return !(*this == right);
+    }
+#endif // !_WHP_HAS_CPP_VERSION(23)
+
+    WHP_NODISCARD WHP_CONSTEXPR23 bool test(const size_t position) const
+    {
+        if (_Bits <= position)
+            throw_oran();
+        return subscript(position);
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 bool any() const noexcept
+    {
+        for (size_t wpos = 0; wpos <= words; ++wpos)
+            if (m_data[wpos] != 0)
+                return true;
+        return false;
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 bool none() const noexcept
+    {
+        return !any();
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 bool all() const noexcept
+    {
+        constexpr bool zero_length = _Bits == 0;
+        if constexpr (zero_length)
+            return true;
+        constexpr bool no_padding = _Bits % bits_per_word == 0;
+        for (size_t wpos = 0; wpos < words + no_padding; ++wpos)
+            if (m_data[wpos] != ~static_cast<_Ty>(0))
+                return false;
+        return no_padding || m_data[words] == (static_cast<_Ty>(1) << (_Bits % bits_per_word)) - 1;
+    }
+
+    WHP_NODISCARD _Ty get_word(size_t wpos) const noexcept
+    {
+        return m_data[wpos];
+    }
+
 private:
     WHP_CONSTEXPR23 void trim() noexcept
     {
@@ -274,6 +492,18 @@ private:
 
     _Ty m_data[words + 1];
 };
+
+template <size_t _Bits>
+constexpr bitset_iterator<_Bits> begin(bitset<_Bits>& bits) noexcept
+{
+    return { &bits, 0 };
+}
+
+template <size_t _Bits>
+constexpr bitset_iterator<_Bits> end(bitset<_Bits>& bits) noexcept
+{
+    return { &bits, _Bits };
+}
 
 template <size_t _Bits>
 struct hash<bitset<_Bits>> 
