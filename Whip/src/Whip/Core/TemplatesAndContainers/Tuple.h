@@ -1,6 +1,11 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
+
+#if !_WHP_HAS_CPP_VERSION(17)
+_EMIT_WHP_WARNING(WHP0002, "The contents of whip::tuple are available only with C++17 or later.");
+#else //_WHP_HAS_CPP_VERSION(17)
+
 #include <Whip/Core/TemplatesAndContainers/Tag.h>
 #include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
 #include <Whip/Core/TemplatesAndContainers/Utility.h>
@@ -953,3 +958,5 @@ struct tuple_element<I, tuple<T...>>
 #undef WHP_CAT_BY_FORWARDING_TUPLE
 
 _WHIP_END
+
+#endif //_WHP_HAS_CPP_VERSION(17)

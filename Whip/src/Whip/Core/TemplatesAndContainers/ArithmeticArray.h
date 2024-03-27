@@ -1,9 +1,11 @@
 #pragma once
 
-#include <stdexcept>
-#include <cstring>
-
 #include <Whip/Core/Core.h>
+
+#if !_WHP_HAS_CPP_VERSION(20)
+_EMIT_WHP_WARNING(WHP0004, "The contents of whip::arithmetic_array are available only with C++20 or later.");
+#else //_WHP_HAS_CPP_VERSION(20)
+
 #include <Whip/Core/Log.h>
 #include <Whip/Core/TemplatesAndContainers/TypeTraits.h>    
 #include <Whip/Core/TemplatesAndContainers/Utility.h>
@@ -14,11 +16,10 @@
 // arithmetic array uses algorithms
 #include <Whip/Core/TemplatesAndContainers/Algorithms.h> 
 
-_WHIP_START
+#include <stdexcept>
+#include <cstring>
 
-#if !_WHP_TEST_CPP_FT(concepts)
-constexpr const char* whip_arithmetic_array_library_error_message = "c++ concepts is not avaible";
-#else // !_WHP_TEST_CPP_FT(concepts)
+_WHIP_START
 
 template <class _Ty>
 WHP_INLINE constexpr bool is_bitwiseable_v = whip::is_any_of_v<_Ty, int, char, short, long, unsigned int, unsigned char, unsigned short, unsigned long>;
@@ -895,6 +896,6 @@ struct tuple_element<_Idx, arithmetic_array<_Ty, _Size>>
 	using type = _Ty;
 };
 
-#endif // !_WHP_TEST_CPP_FT(concepts)
-
 _WHIP_END
+
+#endif // _WHP_HAS_CPP_VERSION(20)

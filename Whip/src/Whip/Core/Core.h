@@ -13,9 +13,38 @@
 
 #define WHP_BIND_EVENT_FN(FUN) std::bind(&FUN, this, std::placeholders::_1)					// Whip event functions binder
 
-#define _WHP_HAS_CPP_VERSION(x) _HAS_CXX##x
+#define _WHP_STRINGIZE_(x) #x
+#define _WHP_STRINGIZE(x) _WHP_STRINGIZE_(x)
 
-#define _WHP_TEST_CPP_FT(x) __cpp_##x
+#define _WHP_CONCATENATE_(a, b) a ## b
+#define _WHP_CONCATENATE(a, b)  _WHP_CONCATENATE_(a, b)
+
+#define _WHP_HAS_CPP_VERSION(x) _WHP_CONCATENATE(_HAS_CXX, x)
+
+#define _WHP_TEST_CPP_FT(x) _WHP_CONCATENATE(__cpp_, x)
+
+#if defined(__CUDACC__) || defined(__INTEL_COMPILER)
+#define _WHP_PRAGMA(PRAGMA) __pragma(PRAGMA)
+#else
+#define _WHP_PRAGMA(PRAGMA) _Pragma(#PRAGMA)
+#endif
+
+#define _WHP_PRAGMA_MESSAGE(MESSAGE) _WHP_PRAGMA(message(MESSAGE))
+
+#define _EMIT_WHP_MESSAGE(MESSAGE)   _WHP_PRAGMA_MESSAGE(__FILE__ "(" _WHP_STRINGIZE(__LINE__) "): " MESSAGE)
+
+#ifdef _WHP_DISABLE_EMIT_WARNINGS
+#define _EMIT_WHP_WARNING(NUMBER, MESSAGE) 
+#else // _WHP_DISABLE_EMIT_WARNINGS
+#define _EMIT_WHP_WARNING(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("warning " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_WARNINGS to suppress this warning)") static_assert(true, "")
+#endif // _WHP_DISABLE_EMIT_WARNINGS
+
+#ifdef _WHP_DISABLE_EMIT_ERROR
+#define _EMIT_WHP_ERROR(NUMBER, MESSAGE) 
+#else // _WHP_DISABLE_EMIT_ERROR
+#define _EMIT_WHP_ERROR(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("error " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_ERROR to suppress this error)") static_assert(false, "Error in Whip Library usage.")
+#endif // _WHP_DISABLE_EMIT_ERROR
+
 
 #ifndef __has_cpp_attribute
 	#define _WHP_HAS_CPP_ATTRIBUTE(x) 0

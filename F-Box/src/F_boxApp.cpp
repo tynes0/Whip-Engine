@@ -1,5 +1,3 @@
-#include <Whip.h>
-
 #include "F_boxApp2d.h"
 #include "game/game.h"
 

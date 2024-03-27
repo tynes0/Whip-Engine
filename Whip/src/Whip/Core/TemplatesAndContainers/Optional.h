@@ -15,7 +15,7 @@ struct nullopt_t
 	constexpr explicit nullopt_t(init_tag) {}
 };
 
-inline constexpr nullopt_t nullopt{ nullopt_t::init_tag{} };
+WHP_INLINE constexpr nullopt_t nullopt{ nullopt_t::init_tag{} };
 
 class bad_optional_access : public std::logic_error
 {

@@ -34,8 +34,8 @@ void fbox_app2D::on_attach()
 	uint32_t vertical_count = static_cast<uint32_t>((m_sprite_sheet->get_height() + pixel_diff.y) / (sprite_size.y + pixel_diff.y));
 	uint32_t horizontal_count = static_cast<uint32_t>((m_sprite_sheet->get_width() + pixel_diff.x) / (sprite_size.x + pixel_diff.x));
 	int idx = 0;
-	for (auto y : whip::range(vertical_count))
-		for (auto x : whip::range(horizontal_count))
+	for (auto y : whip::irange(vertical_count))
+		for (auto x : whip::irange(horizontal_count))
 			m_texture_map[idx++] = whip::sub_texture2D::create_from_coords(m_sprite_sheet, { x, y }, sprite_size, pixel_diff);
 
 }
@@ -73,9 +73,9 @@ void fbox_app2D::on_update(whip::timestep ts)
 		
 		whip::renderer2D::draw_quad({ 0, 0, 0 }, { 500.0f, 500.0f }, m_square_color);
 
-		for (auto y : whip::range(100))
+		for (auto y : whip::irange(100))
 		{
-			for (auto x : whip::range(3000))
+			for (auto x : whip::irange(3000))
 			{
 				whip::renderer2D::draw_quad({ x, y, 1.0f }, { 1.0f, 1.0f }, m_chill_character_frame);
 			}

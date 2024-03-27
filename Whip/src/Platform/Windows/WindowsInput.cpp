@@ -40,7 +40,7 @@ WHP_NODISCARD float windows_input::get_mouse_posx_impl()
 
 WHP_NODISCARD float windows_input::get_mouse_posy_impl()
 {
-	auto posY = get_mouse_pos_impl().first;
+	auto posY = get_mouse_pos_impl().second;
 	return posY;
 }
 

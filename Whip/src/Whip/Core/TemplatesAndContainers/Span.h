@@ -1,6 +1,11 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
+
+#if !_WHP_HAS_CPP_VERSION(20)
+_EMIT_WHP_WARNING(WHP0003, "The contents of whip::span are available only with C++20 or later.");
+#else //_WHP_HAS_CPP_VERSION(20)
+
 #include <Whip/Core/TemplatesAndContainers/Utility.h>
 #include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
 #include <Whip/Core/TemplatesAndContainers/Iterator.h>
@@ -9,8 +14,6 @@
 #include <compare>
 
 _WHIP_START
-
-#if _HAS_CXX20
 
 inline constexpr size_t dynamic_extent = static_cast<size_t>(-1);
 
@@ -455,5 +458,5 @@ WHP_NODISCARD auto as_writable_bytes(span<_Ty, _Extent> sp) noexcept
     return return_type{ reinterpret_cast<std::byte*>(sp.data()), sp.size_bytes() };
 }
 
-#endif //_HAS_CXX20
 _WHIP_END
+#endif //_WHP_HAS_CPP_VERSION(20)

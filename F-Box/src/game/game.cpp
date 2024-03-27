@@ -27,8 +27,8 @@ void game_layer::on_attach()
 	uint32_t vertical_count = static_cast<uint32_t>((m_sprite_sheet->get_height() + pixel_diff.y) / (sprite_size.y + pixel_diff.y));
 	uint32_t horizontal_count = static_cast<uint32_t>((m_sprite_sheet->get_width() + pixel_diff.x) / (sprite_size.x + pixel_diff.x));
 	int idx = 0;
-	for (auto y : whip::range(vertical_count))
-		for (auto x : whip::range(horizontal_count))
+	for (auto y : whip::irange(vertical_count))
+		for (auto x : whip::irange(horizontal_count))
 			m_texture_map[idx++] = whip::sub_texture2D::create_from_coords(m_sprite_sheet, { x, y }, sprite_size, pixel_diff);
 	m_character.add_still_frame("C:\\Dev\\Whip\\F-Box\\assets\\game\\textures\\character\\frame_1.png");
 	m_character.add_changed_movement_frame("C:\\Dev\\Whip\\F-Box\\assets\\game\\textures\\character\\frame_2.png");

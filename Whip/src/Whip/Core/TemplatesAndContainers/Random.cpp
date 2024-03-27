@@ -175,7 +175,7 @@ bool split_mix64::operator!=(const split_mix64& right) const noexcept
 }
 
 
-#if _WHP_TEST_CPP_FT(concepts)
+#if _WHP_HAS_CPP_VERSION(20)
 
 constexpr xoshiro256plus::xoshiro256plus(uint64_t seed) noexcept : m_state(split_mix64{seed}.generate_seed_sequence<4>()) {}
 
@@ -223,8 +223,7 @@ constexpr void xoshiro256plus::long_jump() noexcept
 {
 }
 
-
-#endif // _WHP_TEST_CPP_FT(concepts)
+#endif // _WHP_HAS_CPP_VERSION(20)
 
 #undef ROTL64
 #undef ROTL32

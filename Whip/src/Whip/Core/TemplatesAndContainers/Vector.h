@@ -670,6 +670,7 @@ WHP_INLINE WHP_CONSTEXPR void swap(vector<_Ty>& lhs, vector < _Ty>& rhs) noexcep
 
 _WHIP_END
 #else // _WHP_HAS_CPP_VERSION(17)
+_EMIT_WHP_WARNING(WHP0001, "The contents of whip::vector are available only with C++17 or later.");
 #include <vector>
 _WHIP_START
 template <class _Ty>

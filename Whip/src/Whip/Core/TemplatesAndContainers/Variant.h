@@ -1,6 +1,11 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
+
+#if !_WHP_HAS_CPP_VERSION(20)
+_EMIT_WHP_WARNING(WHP0005, "The contents of whip::variant are available only with C++20 or later."); 
+#else // _WHP_HAS_CPP_VERSION(20)
+
 #include <Whip/Core/Log.h>
 #include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
 #include <Whip/Core/TemplatesAndContainers/Utility.h>
@@ -14,10 +19,6 @@
 #include <memory>
 
 _WHIP_START
-
-#if !defined(_HAS_CXX20) || !_HAS_CXX20
-constexpr const char* whip_variant_library_error_message = "whip variant is only avaible c++20 and above.";
-#else 
 
 #define WHP_FWD(x) static_cast<decltype(x)&&>(x)
 #define WHP_MOV(x) static_cast<std::remove_reference_t<decltype(x)>&&>(x)
@@ -1128,6 +1129,5 @@ template <class... Ts>
 #undef WHP_FWD
 #undef WHP_MOV
 
-#endif // _HAS_CXX20
-
 _WHIP_END
+#endif // _WHP_HAS_CPP_VERSION(20)
