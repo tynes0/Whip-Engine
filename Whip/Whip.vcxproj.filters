@@ -19,14 +19,14 @@
     <Filter Include="src\Whip\Core">
       <UniqueIdentifier>{2CA53D5E-9865-B994-61A0-0212CD1FFE70}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Whip\Core\TemplatesAndContainers">
+      <UniqueIdentifier>{B39B5873-9F82-1A6B-48D3-8088349993D1}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\Whip\Debug">
       <UniqueIdentifier>{CAA5FE25-B673-F22B-9F07-63528B74CE90}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Whip\Events">
       <UniqueIdentifier>{B8B15DE9-243D-CBAD-2D4E-4EA2995827AE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Whip\Events\Event Callback Functions">
-      <UniqueIdentifier>{8F032E12-7B80-2155-A4FD-216990D9BDE8}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Whip\ImGui">
       <UniqueIdentifier>{7E105D26-6ADE-502C-5372-C1523FDF2C91}</UniqueIdentifier>
@@ -87,9 +87,6 @@
     <ClInclude Include="src\Whip.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Allocator.h">
-      <Filter>src\Whip\Core</Filter>
-    </ClInclude>
     <ClInclude Include="src\Whip\Core\Application.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
@@ -99,10 +96,10 @@
     <ClInclude Include="src\Whip\Core\EntryPoint.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Input.h">
+    <ClInclude Include="src\Whip\Core\Filesystem.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Iterator.h">
+    <ClInclude Include="src\Whip\Core\Input.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\KeyCodes.h">
@@ -117,25 +114,94 @@
     <ClInclude Include="src\Whip\Core\Log.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Memory.h">
-      <Filter>src\Whip\Core</Filter>
-    </ClInclude>
     <ClInclude Include="src\Whip\Core\MouseButtonCodes.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Pair.h">
+    <ClInclude Include="src\Whip\Core\StringOperations.h">
       <Filter>src\Whip\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Algorithms.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Allocator.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Any.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ArithmeticArray.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Array.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Bitset.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Concepts.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\FindOperator.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Hash.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Invoker.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Iterator.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\MathDef.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Memory.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\MemoryUtil.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Optional.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Pair.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Random.h">
-      <Filter>src\Whip\Core</Filter>
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Timestep.h">
-      <Filter>src\Whip\Core</Filter>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Range.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ReferenceWrapper.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Span.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tag.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tuple.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\TypeTraits.h">
-      <Filter>src\Whip\Core</Filter>
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Utility.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Variant.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Vector.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\Timestep.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\Window.h">
@@ -184,6 +250,9 @@
       <Filter>src\Whip\Render</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Render\Shader.h">
+      <Filter>src\Whip\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Render\SubTexture2D.h">
       <Filter>src\Whip\Render</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Render\Texture.h">
@@ -1446,30 +1515,6 @@
     <ClInclude Include="vendor\stb_image\stb_image.h">
       <Filter>vendor\stb_image</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Array.h" />
-    <ClInclude Include="src\Whip\Render\SubTexture2D.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Hash.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Range.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Array.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Algorithms.h" />
-    <ClInclude Include="src\Whip\Core\StringOperations.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\FindOperator.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Any.h" />
-    <ClInclude Include="src\Whip\Core\Filesystem.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Vector.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\MemoryUtil.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Optional.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Variant.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Span.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tuple.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Invoker.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ReferenceWrapper.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Concepts.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tag.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\MathDef.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ArithmeticArray.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Bitset.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">
@@ -1499,6 +1544,9 @@
     <ClCompile Include="src\Whip\Core\Application.cpp">
       <Filter>src\Whip\Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\Whip\Core\Filesystem.cpp">
+      <Filter>src\Whip\Core</Filter>
+    </ClCompile>
     <ClCompile Include="src\Whip\Core\Layer.cpp">
       <Filter>src\Whip\Core</Filter>
     </ClCompile>
@@ -1508,8 +1556,14 @@
     <ClCompile Include="src\Whip\Core\Log.cpp">
       <Filter>src\Whip\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Random.cpp">
+    <ClCompile Include="src\Whip\Core\StringOperations.cpp">
       <Filter>src\Whip\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Any.cpp">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Random.cpp">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\ImGui\ImGuiBuild.cpp">
       <Filter>src\Whip\ImGui</Filter>
@@ -1541,6 +1595,9 @@
     <ClCompile Include="src\Whip\Render\Shader.cpp">
       <Filter>src\Whip\Render</Filter>
     </ClCompile>
+    <ClCompile Include="src\Whip\Render\SubTexture2D.cpp">
+      <Filter>src\Whip\Render</Filter>
+    </ClCompile>
     <ClCompile Include="src\Whip\Render\Texture.cpp">
       <Filter>src\Whip\Render</Filter>
     </ClCompile>
@@ -1553,9 +1610,5 @@
     <ClCompile Include="vendor\stb_image\stb_image.cpp">
       <Filter>vendor\stb_image</Filter>
     </ClCompile>
-    <ClCompile Include="src\Whip\Render\SubTexture2D.cpp" />
-    <ClCompile Include="src\Whip\Core\StringOperations.cpp" />
-    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Any.cpp" />
-    <ClCompile Include="src\Whip\Core\Filesystem.cpp" />
   </ItemGroup>
 </Project>

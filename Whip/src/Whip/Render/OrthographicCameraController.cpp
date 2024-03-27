@@ -16,7 +16,7 @@ void orthographic_camera_controller::on_update(timestep ts)
 		m_camera_position.x -= cos(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
 		m_camera_position.y -= sin(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
 	}
-	else if (input::is_key_pressed(buttons.camera_to_right))
+	if (input::is_key_pressed(buttons.camera_to_right))
 	{
 		m_camera_position.x += cos(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
 		m_camera_position.y += sin(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
@@ -26,7 +26,7 @@ void orthographic_camera_controller::on_update(timestep ts)
 		m_camera_position.x -= -sin(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
 		m_camera_position.y -= cos(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
 	}
-	else if (input::is_key_pressed(buttons.camera_to_up))
+	if (input::is_key_pressed(buttons.camera_to_up))
 	{
 		m_camera_position.x += -sin(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
 		m_camera_position.y += cos(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
@@ -37,7 +37,7 @@ void orthographic_camera_controller::on_update(timestep ts)
 		{
 			m_camera_rotation += m_camera_rotation_speed * ts;
 		}
-		else if (input::is_key_pressed(buttons.camera_rotation_right))
+		if (input::is_key_pressed(buttons.camera_rotation_right))
 		{
 			m_camera_rotation -= m_camera_rotation_speed * ts;
 		}
@@ -45,7 +45,7 @@ void orthographic_camera_controller::on_update(timestep ts)
 		{
 			m_camera_rotation -= 360.0f;
 		}
-		else if (m_camera_rotation <= -180.0f)
+		if (m_camera_rotation <= -180.0f)
 		{
 			m_camera_rotation += 360.0f;
 		}

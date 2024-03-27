@@ -17,11 +17,11 @@
 #endif // max
 
 #ifdef WHP_PLATFORM_WINDOWS
-#ifdef _WIN64
-#define _WHIP_MT_UNROLL_MORE
-#endif // _WIN64
+	#ifdef _WIN64
+		#define _WHIP_MT_UNROLL_MORE
+	#endif // _WIN64
 #else // !WHP_PLATFORM_WINDOWS
-// #error whip only supports windows for now!
+// empty here
 #endif // WHP_PLATFORM_WINDOWS
 
 _WHIP_START
@@ -131,6 +131,8 @@ private:
 	state_type m_state;
 };
 
+#if _WHP_TEST_CPP_FT(concepts)
+
 class xoshiro256plus : private detail_random::random_base
 {
 public:
@@ -153,6 +155,8 @@ public:
 private:
 	state_type m_state;
 };
+
+#endif // _WHP_TEST_CPP_FT(concepts)
 
 namespace detail_random
 {

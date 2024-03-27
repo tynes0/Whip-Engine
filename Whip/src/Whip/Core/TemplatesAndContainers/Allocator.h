@@ -1,11 +1,13 @@
 #pragma once
 
 #include "Whip/Core/Core.h"
+#include "Whip/Core/Log.h"
 
 _WHIP_START
 
 template <typename _Ty>
-class allocator {
+class allocator 
+{
 public:
 	using value_type = _Ty;
 	using pointer = _Ty*;

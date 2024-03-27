@@ -187,8 +187,13 @@ std::string string_operations::reverse(const std::string& str)
 
 std::string& string_operations::reverse_directly(std::string& str)
 {
+#if	_WHP_HAS_CPP_VERSION(17)
 	char* fp = str.data();
 	char* ep = str.data() + str.size() - 1;
+#else // _WHP_HAS_CPP_VERSION(17)
+	char* fp = &str[0];
+	char* ep = &str[str.size() - 1];
+#endif // _WHP_HAS_CPP_VERSION(17)
 	while (ep > fp)
 	{
 		char temp = DREF(fp);
@@ -223,8 +228,13 @@ std::string& string_operations::reverse_in_place_directly(std::string& str, size
 {
 	if (offset + length > str.size())
 		return str;
-	char* fp = str.data() + offset;
-	char* ep = str.data() + offset + length - 1;
+#if	_WHP_HAS_CPP_VERSION(17)
+	char* fp = str.data();
+	char* ep = str.data() + str.size() - 1;
+#else // _WHP_HAS_CPP_VERSION(17)
+	char* fp = &str[0];
+	char* ep = &str[str.size() - 1];
+#endif // _WHP_HAS_CPP_VERSION(17)
 	size_t i = offset;
 	size_t j = offset + length - 1;
 	while (fp < ep)
@@ -242,7 +252,11 @@ std::string string_operations::remove_prefix(const std::string& str, size_t leng
 	if (str.size() <= length)
 		return result;
 	result.resize(str.size() - length);
+#if _WHP_HAS_CPP_VERSION(17)
 	std::copy(str.begin() + length, str.end(), result.data());
+#else // _WHP_HAS_CPP_VERSION(17)
+	::memcpy(&result[0], &DREF(str.begin() + length), (str.size() - length));
+#endif // _WHP_HAS_CPP_VERSION(17)
 	return result;
 }
 
@@ -260,7 +274,11 @@ std::string string_operations::remove_suffix(const std::string& str, size_t leng
 	if (str.size() <= length)
 		return result;
 	result.resize(str.size() - length);
+#if _WHP_HAS_CPP_VERSION(17)
 	std::copy(str.begin(), str.end() - length, result.data());
+#else // _WHP_HAS_CPP_VERSION(17)
+	::memcpy(&result[0], &DREF(str.begin()), (str.size() - length));
+#endif // _WHP_HAS_CPP_VERSION(17)
 	return result;
 }
 

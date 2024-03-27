@@ -222,9 +222,6 @@ public:
 
     static constexpr size_type extent = _Extent;
 
-    /*template <size_t _Ext = _Extent, enable_if_t<_Ext == 0 || _Ext == dynamic_extent, int> = 0>
-    constexpr span() noexcept {}*/
-
     constexpr span() noexcept requires (_Extent == 0 || _Extent == dynamic_extent) = default;
 
     constexpr explicit(_Extent != dynamic_extent) span(pointer ptr, size_type count) noexcept : base(ptr, count) 

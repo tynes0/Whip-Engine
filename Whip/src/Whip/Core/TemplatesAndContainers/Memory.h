@@ -4,6 +4,7 @@
 #include "Utility.h"
 #include "TypeTraits.h"
 #include "Allocator.h"
+#include "Pair.h"
 
 _WHIP_START
 
@@ -1269,12 +1270,15 @@ private:
 	}
 };
 
+#if _WHP_HAS_CPP_VERSION(17)
 
 template <class _Ty>
 wshared_ptr(wweak_ptr<_Ty>) -> wshared_ptr<_Ty>;
 
 template <class _Ty, class _Dx>
 wshared_ptr(wunique_ptr<_Ty, _Dx>) -> wshared_ptr<_Ty>;
+
+#endif
 
 template <class _Ty1, class _Ty2>
 WHP_NODISCARD bool operator==(const wshared_ptr<_Ty1>& left, const wshared_ptr<_Ty2>& right) noexcept
@@ -1642,7 +1646,7 @@ WHP_SMART_PTR_NODISCARD constexpr wunique_ptr<T> make_wunique_for_overwrite()
 	return wunique_ptr<T>(new T);
 }
 
-template <class T, class Dx, enable_if_t<std::is_swappable_v<Dx>, int> = 0>
+template <class T, class Dx, enable_if_t<is_swappable_v<Dx>, int> = 0>
 constexpr void swap(wunique_ptr<T, Dx>& left, wunique_ptr<T, Dx>& right) noexcept
 {
 	left.swap(right);

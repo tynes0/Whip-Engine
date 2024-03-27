@@ -9,6 +9,7 @@
 
 _WHIP_START
 
+// NOTE THAT: range_iterator not usable in algorithms header
 template <class _Ty, class _Sty, enable_if_t<std::is_arithmetic_v<_Ty>&& std::is_arithmetic_v<_Sty>, int> = 0>
 class range_iterator : public iterator_base<_Ty>
 {

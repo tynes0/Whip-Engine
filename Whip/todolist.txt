@@ -1,0 +1,10 @@
+
+1 - whip::aops fonksiyonlarýný tamamla
+2 - bitset_const_iterator'ü yap
+3 - random sýnýflarýný tamamla
+4 - hash sýnýflarýný .cpp dosyalarýna da böl ve macrolarla çalýþ
+5 - arithmetic_array'i bitir
+6 - algorithms header'ýný geliþtir
+7 - pair header'ýný geliþtir
+8 - filesystem header'ýný geliþtir
+9 - string operations header'ýný geliþtir

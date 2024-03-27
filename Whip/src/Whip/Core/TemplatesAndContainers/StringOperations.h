@@ -2,11 +2,11 @@
 
 #include <string>
 
-#include "Core.h"
-#include "Log.h"
-#include "TemplatesAndContainers/Algorithms.h"
-#include "TemplatesAndContainers/Iterator.h"
-#include "TemplatesAndContainers/Vector.h"
+#include "Whip/Core/Core.h"
+#include "Whip/Core/Log.h"
+#include "Whip/Core/TemplatesAndContainers/Algorithms.h"
+#include "Whip/Core/TemplatesAndContainers/Iterator.h"
+#include "Whip/Core/TemplatesAndContainers/Vector.h"
 
 _WHIP_START
 
@@ -106,6 +106,7 @@ public:
 	WHP_NODISCARD static bool is_printable(const std::string& str);
 };
 
+#if	_WHP_HAS_CPP_VERSION(17)
 // --------------------- STRING FORMATTER ---------------------
 class string_formatter
 {
@@ -187,13 +188,13 @@ private:
 		_Ty m_argument;
 	};
 
-	class argument_array : public std::vector<argument_base*>
+	class argument_array : public whip::vector<argument_base*>
 	{
 	public:
 		argument_array() {}
 		~argument_array()
 		{
-			for_each(make_basic_iterator(begin()), make_basic_iterator(end(), true), [](argument_base* arg_ptr)->void { delete arg_ptr; });
+			for_each(begin(), end(), [](argument_base* arg_ptr)->void { delete arg_ptr; });
 		}
 	};
 
@@ -240,7 +241,8 @@ private:
 		transfer_to_array(arg_array, args...);
 	}
 };
+#endif // _WHP_HAS_CPP_VERSION(17)
 
 _WHIP_END
 
-#include "TemplatesAndContainers/FindOperator.h"
+#include "Whip/Core/TemplatesAndContainers/FindOperator.h"

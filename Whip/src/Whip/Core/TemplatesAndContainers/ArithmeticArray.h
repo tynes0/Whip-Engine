@@ -9,11 +9,16 @@
 #include <Whip/Core/TemplatesAndContainers/Utility.h>
 #include <Whip/Core/TemplatesAndContainers/Iterator.h>
 #include <Whip/Core/TemplatesAndContainers/Concepts.h>
+#include <Whip/Core/TemplatesAndContainers/Bitset.h>
 
 // arithmetic array uses algorithms
 #include <Whip/Core/TemplatesAndContainers/Algorithms.h> 
 
 _WHIP_START
+
+#if !_WHP_TEST_CPP_FT(concepts)
+constexpr const char* whip_arithmetic_array_library_error_message = "c++ concepts is not avaible";
+#else // !_WHP_TEST_CPP_FT(concepts)
 
 template <class _Ty>
 WHP_INLINE constexpr bool is_bitwiseable_v = whip::is_any_of_v<_Ty, int, char, short, long, unsigned int, unsigned char, unsigned short, unsigned long>;
@@ -21,22 +26,8 @@ WHP_INLINE constexpr bool is_bitwiseable_v = whip::is_any_of_v<_Ty, int, char, s
 template <class _Ty>
 struct is_bitwiseable : bool_constant<is_bitwiseable_v<_Ty>> {};
 
-#if defined(__cpp_concepts)
 template <class _Ty>
 concept bitwiseable = is_bitwiseable_v<_Ty>;
-#endif // __cpp_concepts
-
-#if defined(__cpp_concepts)
-#define WHP_REQUIRE_ARITHMETIC(T) requires _WHIP arithmetic<T>
-#define WHP_REQUIRE_BITWISEABLE(T) requires _WHIP bitwiseable<T>
-#define WHP_ENABLE_IF_ARITHMETIC(T)
-#define WHP_ENABLE_IF_BITWISEABLE(T)
-#else // !(__cpp_concepts)
-#define WHP_REQUIRE_ARITHMETIC(T)
-#define WHP_REQUIRE_BITWISEABLE(T) 
-#define WHP_ENABLE_IF_ARITHMETIC(T) , _WHIP enable_if_t<std::is_arithmetic_v<T>, int> = 0
-#define WHP_ENABLE_IF_BITWISEABLE(T) , _WHIP enable_if_t<_WHIP is_bitwiseable_v<T>, int> = 0
-#endif // __cpp_concepts
 
 template <class _Ty>
 class arithmetic_array_iterator : public iterator_base<_Ty>
@@ -277,7 +268,7 @@ struct pointer_traits<const_arithmetic_array_iterator<_Ty>>
 };
 
 template <class _Ty, size_t _Size>
-WHP_REQUIRE_ARITHMETIC(_Ty)
+	requires arithmetic<_Ty>
 class arithmetic_array
 {
 public:
@@ -557,6 +548,127 @@ public:
 		return _WHIP any_of_2range(m_data, right.m_data, _Size, _WHIP not_equal_to<_Ty>{});
 	}
 
+	constexpr bitset<_Size> operator>(const arithmetic_array& right) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] > right.m_data[i])
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator>(_Ty value) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] > value)
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator<(const arithmetic_array& right) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] < right.m_data[i])
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator<(_Ty value) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] < value)
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator>=(const arithmetic_array& right) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] >= right.m_data[i])
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator>=(_Ty value) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] >= value)
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator<=(const arithmetic_array& right) const noexcept
+	{
+		bitset<_Size> result{};
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] <= right.m_data[i])
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator<=(_Ty value) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] <= value)
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	// --------------------------------------------------------------
+	// ---------------------- LOGICAL OPERATORS ---------------------
+	// --------------------------------------------------------------
+
+	constexpr bitset<_Size> operator&&(const arithmetic_array& right) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] && right[i])
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator&&(_Ty value) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] && value)
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator||(const arithmetic_array& right) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] || right[i])
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator||(_Ty value) const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (m_data[i] || value)
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
+	constexpr bitset<_Size> operator!() const noexcept
+	{
+		bitset<_Size> result{}; // all bits false initialized
+		for (size_t i = 0; i < _Size; ++i)
+			if (!m_data[i])
+				result[_Size - i - 1] = true;
+		return result;
+	}
+
 	// --------------------------------------------------------------
 	// -------------- INCREMENT AND DECREMENT OPERATORS -------------
 	// --------------------------------------------------------------
@@ -599,7 +711,7 @@ private:
 };
 
 template <class _Ty>
-WHP_REQUIRE_ARITHMETIC(_Ty)
+	requires arithmetic<_Ty>
 class arithmetic_array<_Ty, 0>
 {
 public:
@@ -783,9 +895,6 @@ struct tuple_element<_Idx, arithmetic_array<_Ty, _Size>>
 	using type = _Ty;
 };
 
-_WHIP_END
+#endif // !_WHP_TEST_CPP_FT(concepts)
 
-#undef WHP_REQUIRE_ARITHMETIC
-#undef WHP_REQUIRE_BITWISEABLE
-#undef WHP_ENABLE_IF_ARITHMETIC
-#undef WHP_ENABLE_IF_BITWISEABLE
+_WHIP_END

@@ -1,6 +1,6 @@
 #include "whippch.h"
-#include "Filesystem.h"
 
+#include "Filesystem.h"
 #include "StringOperations.h"
 
 #ifdef WHP_PLATFORM_WINDOWS

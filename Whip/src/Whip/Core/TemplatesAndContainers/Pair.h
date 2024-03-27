@@ -22,7 +22,7 @@ struct pair
 	first_type first;
 	second_type second;
 
-	constexpr static bool nothrow_swappable = (std::is_nothrow_swappable_v<_Ty1> && std::is_nothrow_swappable_v<_Ty2>);
+	constexpr static bool nothrow_swappable = (is_nothrow_swappable_v<_Ty1> && is_nothrow_swappable_v<_Ty2>);
 
 	template <class _Uty1 = _Ty1, class _Uty2 = _Ty2>
 	constexpr explicit(!conjunction_v<std::_Is_implicitly_default_constructible<_Uty1>, std::_Is_implicitly_default_constructible<_Uty2>>)
@@ -169,7 +169,7 @@ struct trio
 	using second_type = _Ty2;
 	using third_type = _Ty3;
 
-	constexpr static bool nothrow_swappable = (std::is_nothrow_swappable_v<_Ty1> && std::is_nothrow_swappable_v<_Ty2> && std::is_nothrow_swappable_v<_Ty3>);
+	constexpr static bool nothrow_swappable = (is_nothrow_swappable_v<_Ty1> && is_nothrow_swappable_v<_Ty2> && is_nothrow_swappable_v<_Ty3>);
 
 	first_type first;
 	second_type second;

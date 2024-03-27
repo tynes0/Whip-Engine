@@ -1,5 +1,4 @@
 #include "game.h"
-#include <span>
 
 static const uint32_t s_test_map_w = 20;
 static int s_test_map[]
@@ -17,7 +16,7 @@ game_layer::game_layer()
 
 void game_layer::on_attach()
 {
-	whip::whp_logger logger = whip::log::create_logger("GAME");
+	whip::logger l_logger = whip::log::create_logger("GAME");
 	m_camera_controller.set_camera_position({ 0.0f, 0.0f, 0.0f });
 	m_camera_controller.set_zoom_level(5.0f);
 	m_camera_controller.set_camera_translation_speed(0.5f);
@@ -52,14 +51,6 @@ void game_layer::on_attach()
 	m_monkey.set_scale({ 2.0f, 2.0f });
 	m_monkey.set_movement_state(true);
 	m_monkey.set_speed(m_camera_controller.get_zoom_level() * m_camera_controller.get_camera_translation_speed() * 1.5f);
-
-	whip::bitset<10> bs{ "1001001010" };
-
-	auto it = whip::begin(bs);
-	auto eit = whip::end(bs);
-
-	for (; it != eit; ++it)
-		WHP_CORE_DEBUG(*it);
 }
 
 void game_layer::on_detach()
@@ -79,18 +70,6 @@ void game_layer::on_update(whip::timestep ts)
 		whip::render_command::set_clear_color({ 0.1f, 0.1f, 0.1f, 1.0f });
 		whip::render_command::clear();
 	}
-
-	/*if (m_monkey.get_position().x > m_monkey.get_default_position().x + 5.0f && m_monkey.get_last_x_face() == character::rotation::right)
-	{
-		m_monkey.set_x_face(character::rotation::left);
-		m_monkey.set_change_state(false);
-	}
-	else if (m_monkey.get_position().x < m_monkey.get_default_position().x - 5.0f && m_monkey.get_last_x_face() == character::rotation::left)
-	{
-		m_monkey.set_x_face(character::rotation::right);
-		m_monkey.set_change_state(true);
-	}
-	m_monkey.move(m_monkey.get_last_x_face());*/
 	
 	if (whip::input::is_key_released(WHP_KEY_RIGHT) || whip::input::is_key_released(WHP_KEY_LEFT) || whip::input::is_key_released(WHP_KEY_DOWN) || whip::input::is_key_released(WHP_KEY_UP))
 		m_character.set_movement_state(false);

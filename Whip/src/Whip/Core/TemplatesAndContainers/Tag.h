@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
-#include "Utility.h"
 #include "TypeTraits.h"
 #include "Concepts.h"
 
@@ -18,7 +17,7 @@ constexpr tag<I> tag_v{};
 template <size_t N>
 using tag_range = std::make_index_sequence<N>;
 
-#ifdef __cpp_concepts
+#if _WHP_TEST_CPP_FT(concepts)
 
 template <class T>
 concept indexable = stateless<T> || requires(T t)
@@ -26,7 +25,7 @@ concept indexable = stateless<T> || requires(T t)
     t[tag<0>()];
 };
 
-#endif // __cpp_concepts
+#endif // _WHP_TEST_CPP_FT(concepts)
 
 inline namespace literals
 {
@@ -35,7 +34,7 @@ inline namespace literals
         namespace detail_tag_literals
         {
             template <char... D>
-            constexpr size_t _size_t_from_digits()
+            constexpr size_t size_t_from_digits()
             {
                 static_assert((('0' <= D && D <= '9') && ...), "Must be integral literal");
                 size_t num = 0;
@@ -44,7 +43,7 @@ inline namespace literals
         }
 
         template <char... D>
-        constexpr auto operator""_tag() noexcept -> tag<detail_tag_literals::_size_t_from_digits<D...>()>
+        constexpr auto operator""_tag() noexcept -> tag<detail_tag_literals::size_t_from_digits<D...>()>
         {
             return {};
         }

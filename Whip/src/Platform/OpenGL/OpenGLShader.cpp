@@ -2,7 +2,7 @@
 #include "OpenGLShader.h"
 
 #include "Whip/Core/TemplatesAndContainers/Array.h"
-#include "Whip/Core/Filesystem.h"
+#include "Whip/Core/TemplatesAndContainers/Filesystem.h"
 
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -103,8 +103,17 @@ void opengl_shader::compile(const std::unordered_map<GLenum, std::string>& shade
 	WHP_CORE_ASSERT(shader_sources.size() <= 2, "Whip Engine only supports 2 shaders for now!");
 	array<GLenum, 2> gl_shader_IDs;
 	uint32_t gl_shader_ID_index = 0;
+
+#if _WHP_HAS_CPP_VERSION(17)
 	for (auto& [type, source] : shader_sources)
+#else
+	for(auto& item : shader_sources)
+#endif
 	{
+#if !_WHP_HAS_CPP_VERSION(17)
+		auto& type = item.first;
+		auto& source = item.second;
+#endif
 		GLuint shader = glCreateShader(type);
 		const char* source_c_str = source.c_str();
 		glShaderSource(shader, 1, &source_c_str, 0);

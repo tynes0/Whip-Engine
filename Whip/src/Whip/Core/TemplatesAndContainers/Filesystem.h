@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Core.h"
-
-#include <string>
+#include "Whip/Core/Core.h"
 #include <Whip/Core/TemplatesAndContainers/Vector.h>
 #include <Whip/Core/TemplatesAndContainers/Pair.h>
+
+#include <string>
 
 _WHIP_START
 

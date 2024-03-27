@@ -1,12 +1,14 @@
 #pragma once
 
 #include "Whip/Core/Core.h"
+
+#if _WHP_HAS_CPP_VERSION(17)
+
 #include "Whip/Core/Log.h"
 #include "Iterator.h"
 #include "Pair.h"
 #include "MemoryUtil.h"
 #include "Utility.h"
-#include "MathDef.h"
 
 #include <cstring>
 #include <initializer_list>
@@ -667,3 +669,10 @@ WHP_INLINE WHP_CONSTEXPR void swap(vector<_Ty>& lhs, vector < _Ty>& rhs) noexcep
 }
 
 _WHIP_END
+#else // _WHP_HAS_CPP_VERSION(17)
+#include <vector>
+_WHIP_START
+template <class _Ty>
+class vector : public std::vector<_Ty> {};
+_WHIP_END
+#endif // _WHP_HAS_CPP_VERSION(17)

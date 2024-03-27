@@ -23,7 +23,7 @@ project "Whip"
 	kind "StaticLib"
 	staticruntime "on"
 	language "C++"
-	cppdialect "C++20"
+	cppdialect "C++latest"
 
 	targetdir ("bin/" ..outputdir.. "/%{prj.name}")
 	objdir ("bin-int/" ..outputdir.. "/%{prj.name}")
@@ -95,7 +95,7 @@ project "F-Box"
 	kind "ConsoleApp"
 	staticruntime "On"
 	language "C++"
-	cppdialect "C++17"
+	cppdialect "C++20"
 
 	targetdir ("bin/" ..outputdir.. "/%{prj.name}")
 	objdir ("bin-int/" ..outputdir.. "/%{prj.name}")

@@ -15,12 +15,14 @@
 
 #define _WHP_HAS_CPP_VERSION(x) _HAS_CXX##x
 
+#define _WHP_TEST_CPP_FT(x) __cpp_##x
+
 #ifndef __has_cpp_attribute
-#define _WHP_HAS_CPP_ATTRIBUTE(x) 0
+	#define _WHP_HAS_CPP_ATTRIBUTE(x) 0
 #elif defined(__CUDACC__)
-#define _WHP_HAS_CPP_ATTRIBUTE(x) 0
+	#define _WHP_HAS_CPP_ATTRIBUTE(x) 0
 #else
-#define _WHP_HAS_CPP_ATTRIBUTE(x) __has_cpp_attribute(x)
+	#define _WHP_HAS_CPP_ATTRIBUTE(x) __has_cpp_attribute(x)
 #endif
 
 #if _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
@@ -32,39 +34,47 @@
 #endif // WHP_HAS_CPP_ATTRIBUTE(nodiscard)
 
 #if _WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
-#define WHP_NODISCARD20 [[nodiscard]]
+	#define WHP_NODISCARD20 [[nodiscard]]
 #else // _WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
-#define WHP_NODISCARD20 
+	#define WHP_NODISCARD20 
 #endif //_WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
 
 #if _WHP_HAS_CPP_ATTRIBUTE(noreturn)
-#define WHP_NORETURN [[noreturn]]
+	#define WHP_NORETURN [[noreturn]]
 #else // !_WHP_HAS_CPP_ATTRIBUTE(noreturn)
-#define WHP_NORETURN
+	#define WHP_NORETURN
 #endif //_WHP_HAS_CPP_ATTRIBUTE(noreturn)
 
 #if _HAS_CXX17
-#define WHP_INLINE inline			// inline keyword for constants
+	#define WHP_INLINE inline			// inline keyword for constants
 #else // _HAS_CXX17
-#define WHP_INLINE					// inline keyword for constants
+	#define WHP_INLINE					// inline keyword for constants
 #endif // _HAS_CXX17
 
-#if _HAS_CXX17
-#define WHP_CONSTEXPR17 constexpr
+#if _MSC_VER
+	#define WHP_FORCE_INLINE __forceinline
+#elif __GNUC__ || __clang__
+	#define WHP_FORCE_INLINE [[gnu::always_inline]]
 #else
-#define WHP_CONSTEXPR17 inline
+	#define WHP_FORCE_INLINE
+#endif
+
+#if _HAS_CXX17
+	#define WHP_CONSTEXPR17 constexpr
+#else
+	#define WHP_CONSTEXPR17
 #endif
 
 #if _HAS_CXX20
-#define WHP_CONSTEXPR constexpr		// constexpr keyword for constants
+	#define WHP_CONSTEXPR constexpr		// constexpr keyword for constants
 #else
-#define WHP_CONSTEXPR inline		// constexpr keyword for constants
+	#define WHP_CONSTEXPR		// constexpr keyword for constants
 #endif // _HAS_CXX20
 
 #if _HAS_CXX23
-#define WHP_CONSTEXPR23 constexpr
+	#define WHP_CONSTEXPR23 constexpr
 #else
-#define WHP_CONSTEXPR23 inline
+	#define WHP_CONSTEXPR23
 #endif
 
 #pragma push_macro("msvc")
@@ -79,21 +89,21 @@
 #define _WHP_HAS_MSVC_ATTRIBUTE(x) _WHP_HAS_CPP_ATTRIBUTE(msvc::x)
 
 #if _WHP_HAS_MSVC_ATTRIBUTE(known_semantics)
-#define _WHP_MSVC_KNOWN_SEMANTICS [[msvc::known_semantics]]
+	#define _WHP_MSVC_KNOWN_SEMANTICS [[msvc::known_semantics]]
 #else
-#define _WHP_MSVC_KNOWN_SEMANTICS
+	#define _WHP_MSVC_KNOWN_SEMANTICS
 #endif
 
 #if _WHP_HAS_MSVC_ATTRIBUTE(noop_dtor)
-#define _WHP_MSVC_NOOP_DTOR [[msvc::noop_dtor]]
+	#define _WHP_MSVC_NOOP_DTOR [[msvc::noop_dtor]]
 #else
-#define _WHP_MSVC_NOOP_DTOR
+	#define _WHP_MSVC_NOOP_DTOR
 #endif
 
 #if _WHP_HAS_MSVC_ATTRIBUTE(intrinsic)
-#define _WHP_MSVC_INTRINSIC [[msvc::intrinsic]]
+	#define _WHP_MSVC_INTRINSIC [[msvc::intrinsic]]
 #else
-#define _WHP_MSVC_INTRINSIC
+	#define _WHP_MSVC_INTRINSIC
 #endif
 
 #undef _WHP_HAS_MSVC_ATTRIBUTE

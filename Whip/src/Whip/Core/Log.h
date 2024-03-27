@@ -8,15 +8,15 @@
 
 _WHIP_START
 
-typedef std::shared_ptr<spdlog::logger> whp_logger;
+typedef std::shared_ptr<spdlog::logger> logger;
 
 class WHIP_API log
 {
 private:
-	static whp_logger s_core_logger;
-	static whp_logger s_client_logger;
+	static logger s_core_logger;
+	static logger s_client_logger;
 public:
-	enum class whip_log_level : int
+	enum class log_level : int
 	{
 		trace,
 		debug,
@@ -29,18 +29,17 @@ public:
 	};
 public:
 	static void init();
-	WHP_NODISCARD_MSG("Client logger returned as unnecessary") inline static const whp_logger& get_client_logger() { return s_client_logger; }
-	WHP_NODISCARD_MSG("Core logger returned as unnecessary") inline static const whp_logger& get_core_logger() { return s_core_logger; }
+	WHP_NODISCARD_MSG("Client logger returned as unnecessary") inline static const logger& get_client_logger() { return s_client_logger; }
+	WHP_NODISCARD_MSG("Core logger returned as unnecessary") inline static const logger& get_core_logger() { return s_core_logger; }
 	
-	WHP_NODISCARD_MSG("Created logger returned as unnecessary") static whp_logger create_logger(const std::string& logger_name, whip_log_level log_level = whip_log_level::trace);
+	WHP_NODISCARD_MSG("Created logger returned as unnecessary") static logger create_logger(const std::string& logger_name, log_level log_level = log_level::trace);
 	
-	inline static void set_log(whp_logger& logger, const std::string& logger_name, whip_log_level log_level);
-	WHP_NODISCARD_MSG("Spdlog level returned as unnecessary") inline static spdlog::level::level_enum whip_log_level_to_spdlog_level(whip_log_level log_level);
+	static void set_log(logger& logger, const std::string& logger_name, log_level log_level);
+	WHP_NODISCARD inline static spdlog::level::level_enum whip_log_level_to_spdlog_level(log_level log_level);
 };
 
 _WHIP_END
 
-// LOG SISTEMI KULLANIMI: Bu macro aktif olarak  
 
 // Core log macros
 #define WHP_CORE_TRACE(...)				_WHIP log::get_core_logger()->trace(__VA_ARGS__)

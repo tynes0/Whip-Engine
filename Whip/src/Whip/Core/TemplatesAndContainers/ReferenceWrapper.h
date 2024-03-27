@@ -11,83 +11,8 @@ _WHIP_START
 
 namespace detail_refwraper
 {
-
-	template <class... _Types>
-	struct arg_types {}; // provide argument_type, etc. when sizeof...(_Types) is 1 or 2
-
-	template <class _Ty1>
-	struct arg_types<_Ty1> 
-	{
-		using _ARGUMENT_TYPE_NAME _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS = _Ty1;
-	};
-
-	template <class _Ty1, class _Ty2>
-	struct arg_types<_Ty1, _Ty2> 
-	{
-		using _FIRST_ARGUMENT_TYPE_NAME _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS = _Ty1;
-		using _SECOND_ARGUMENT_TYPE_NAME _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS = _Ty2;
-	};
-
 	template <class _Ty>
-	struct function_args {}; // determine whether _Ty is a function
-
-#define _FUNCTION_ARGS(CALL_OPT, CV_OPT, REF_OPT, NOEXCEPT_OPT)                                           \
-    template <class _Ret, class... _Types>                                                                \
-    struct function_args<_Ret CALL_OPT(_Types...) CV_OPT REF_OPT NOEXCEPT_OPT> : arg_types<_Types...> {  \
-    };
-
-	_NON_MEMBER_CALL_CV_REF_NOEXCEPT(_FUNCTION_ARGS)
-#undef _FUNCTION_ARGS
-
-#define _FUNCTION_ARGS_ELLIPSIS(CV_REF_NOEXCEPT_OPT)                                                            \
-    template <class _Ret, class... _Types>                                                                      \
-    struct function_args<_Ret(_Types..., ...) CV_REF_NOEXCEPT_OPT> { /* no calling conventions for ellipsis */ \
-    };
-
-		_CLASS_DEFINE_CV_REF_NOEXCEPT(_FUNCTION_ARGS_ELLIPSIS)
-#undef _FUNCTION_ARGS_ELLIPSIS
-
-		template <class _Ty, class = void>
-	struct weak_result_type {}; // default definition
-
-	_STL_DISABLE_DEPRECATED_WARNING
-		template <class _Ty>
-	struct weak_result_type<_Ty, void_t<typename _Ty::result_type>> 
-	{
-		using _RESULT_TYPE_NAME _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS = typename _Ty::result_type;
-	};
-	_STL_RESTORE_DEPRECATED_WARNING
-
-		template <class _Ty, class = void>
-	struct weak_argument_type : weak_result_type<_Ty> {}; // default definition
-
-	_STL_DISABLE_DEPRECATED_WARNING
-		template <class _Ty>
-	struct weak_argument_type<_Ty, void_t<typename _Ty::argument_type>> : weak_result_type<_Ty> {
-		// defined if _Ty::argument_type exists
-		using _ARGUMENT_TYPE_NAME _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS = typename _Ty::argument_type;
-	};
-	_STL_RESTORE_DEPRECATED_WARNING
-
-		template <class _Ty, class = void>
-	struct weak_binary_args : weak_argument_type<_Ty> {}; // default definition
-
-	_STL_DISABLE_DEPRECATED_WARNING
-		template <class _Ty>
-	struct weak_binary_args<_Ty, void_t<typename _Ty::first_argument_type,
-		typename _Ty::second_argument_type>>
-		: weak_argument_type<_Ty>
-	{
-		using _FIRST_ARGUMENT_TYPE_NAME _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS = typename _Ty::first_argument_type;
-		using _SECOND_ARGUMENT_TYPE_NAME _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS = typename _Ty::second_argument_type;
-	};
-	_STL_RESTORE_DEPRECATED_WARNING
-
-		template <class _Ty>
-	using weak_types = conditional_t<std::is_function_v<remove_pointer_t<_Ty>>, function_args<remove_pointer_t<_Ty>>, conditional_t<std::is_member_function_pointer_v<_Ty>, std::_Is_memfunptr<remove_cv_t<_Ty>>, weak_binary_args<_Ty>>>;
-
-	template <class _Ty>
-	void refwrap_ctor_fun(identity_t<_Ty&>) noexcept; // not defined
+	void refwrap_ctor_fun(identity_t<_Ty&>) noexcept;
 	template <class _Ty>
 	void refwrap_ctor_fun(identity_t<_Ty&&>) = delete;
 
@@ -95,8 +20,7 @@ namespace detail_refwraper
 	struct refwrap_has_ctor_from : false_type {};
 
 	template <class _Ty, class _Uty>
-	struct refwrap_has_ctor_from<_Ty, _Uty, void_t<decltype(refwrap_ctor_fun<_Ty>(whip::declval<_Uty>()))>>
-		: true_type {};
+	struct refwrap_has_ctor_from<_Ty, _Uty, void_t<decltype(refwrap_ctor_fun<_Ty>(whip::declval<_Uty>()))>> : true_type {};
 }
 
 template <class _Ty>

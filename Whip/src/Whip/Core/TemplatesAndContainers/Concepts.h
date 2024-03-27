@@ -6,9 +6,9 @@
 #include <type_traits>
 _WHIP_START
 
-#if !defined(__cpp_concepts)
+#if !_WHP_TEST_CPP_FT(concepts)
 constexpr const char* whip_concept_library_error_message = "c++ concepts is not avaible";
-#else // !(__cpp_concepts)
+#else // !_WHP_TEST_CPP_FT(concepts)
 
 template <class T>
 concept arithmetic = std::is_integral_v<T> || std::is_floating_point_v<T>;
@@ -79,6 +79,6 @@ concept partial_comparable_with = equality_comparable_with<T, U> && requires(T c
     { t < u } -> same_as<bool>;
     { t > u } -> same_as<bool>;
 };
-#endif // __cpp_concepts
+#endif // _WHP_TEST_CPP_FT(concepts)
 
 _WHIP_END

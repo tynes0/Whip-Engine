@@ -34,13 +34,13 @@ WHP_NODISCARD bool windows_input::is_mouse_button_pressed_impl(int button)
 
 WHP_NODISCARD float windows_input::get_mouse_posx_impl()
 {
-	auto [posX, posY] = get_mouse_pos_impl();
+	auto posX = get_mouse_pos_impl().first;
 	return posX;
 }
 
 WHP_NODISCARD float windows_input::get_mouse_posy_impl()
 {
-	auto[posX, posY] = get_mouse_pos_impl();
+	auto posY = get_mouse_pos_impl().first;
 	return posY;
 }
 

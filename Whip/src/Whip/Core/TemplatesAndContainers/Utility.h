@@ -6,21 +6,9 @@
 
 _WHIP_START
 
-struct wrap_base
-{
-	wrap_base() {}
-	virtual ~wrap_base() {}
-};
-
 template <class _Ty>
-struct wrap : public wrap_base
+struct wrap
 {
-	wrap() {}
-
-	wrap(const _Ty& value) : m_value(value) {}
-
-	virtual ~wrap() override {}
-
 	_Ty m_value;
 };
 
@@ -92,10 +80,10 @@ struct pointer_traits<_Ty*>
 };
 
 template <class _Ty, class = void>
-inline constexpr bool has_to_address = false;
+WHP_INLINE constexpr bool has_to_address = false;
 
 template <class _Ty>
-inline constexpr bool has_to_address<_Ty, void_t<decltype(pointer_traits<_Ty>::to_address(whip::declval<const _Ty&>()))>> = true;
+WHP_INLINE constexpr bool has_to_address<_Ty, void_t<decltype(pointer_traits<_Ty>::to_address(whip::declval<const _Ty&>()))>> = true;
 
 template <class _Ty>
 WHP_NODISCARD constexpr _Ty* to_address(_Ty* const _Val) noexcept 
@@ -285,18 +273,28 @@ WHP_NODISCARD constexpr _Ty&& forward(remove_reference_t<_Ty>&& _Arg) noexcept
 	return static_cast<_Ty&&>(_Arg);
 }
 
-// !!!!!!!WARNING!!!!! NOT TOTALY SAFE! Just use for whip iterator or normal pointer
+template <class _Iter, class = void>
+WHP_INLINE constexpr bool unwrappable_v = false;
+
 template <class _Iter>
-WHP_NODISCARD decltype(auto) get_unwrapped(_Iter&& it)
+WHP_INLINE constexpr bool unwrappable_v<_Iter,void_t<decltype(_WHIP declval<std::_Remove_cvref_t<_Iter>&>().reset(_WHIP declval<_Iter>().unwrapped()))>> = true;
+
+template <class _Iter, class = void>
+WHP_INLINE constexpr bool has_nothrow_unwrapped = false;
+template <class _Iter>
+WHP_INLINE constexpr bool has_nothrow_unwrapped<_Iter, void_t<decltype(_WHIP declval<_Iter>().unwrapped())>> = noexcept(_WHIP declval<_Iter>().unwrapped());
+
+template <class _Iter>
+WHP_NODISCARD decltype(auto) get_unwrapped(_Iter&& it)	noexcept(!unwrappable_v<_Iter> || has_nothrow_unwrapped<_Iter>)
 {
 	if constexpr (is_pointer_v<std::decay_t<_Iter>>)
-	{
-		return it + 0;
-	}
-	else // whip iterator -> i hope 
-	{
-		return it.unwrapped();
-	}
+		return it + 0; // default pointer case
+	else if constexpr (unwrappable_v<_Iter>)
+		return static_cast<_Iter&&>(it).unwrapped(); // whip iterator case
+	else if constexpr (std::_Unwrappable_v<_Iter>)
+		return static_cast<_Iter&&>(it)._Unwrapped(); // std iterator case
+	else 
+		return static_cast<_Iter&&>(it); // default case
 }
 
 template <class _Iter, class _UIter, class = void>
@@ -306,12 +304,14 @@ template <class _Iter, class _UIter>
 WHP_INLINE constexpr bool wrapped_resetable_v<_Iter, _UIter, void_t<decltype(_WHIP declval<_Iter&>().reset(_STD declval<_UIter>()))>> = true;
 
 template <class _Iter, class _UIter>
-constexpr void reset_wrapped(_Iter& _It, _UIter&& _UIt) 
+constexpr void reset_wrapped(_Iter& it, _UIter&& _UIt)
 {
-	if constexpr (wrapped_resetable_v<_Iter, _UIter>) 
-		_It.reset(_WHIP forward<_UIter>(_UIt));
+	if constexpr (wrapped_resetable_v<_Iter, _UIter>)
+		it.reset(_WHIP forward<_UIter>(_UIt)); // whip iterator case
+	else if constexpr (std::_Wrapped_seekable_v<_Iter, _UIter>)
+		it._Seek_to(_WHIP forward<_UIter>(_UIt)); // std iterator case
 	else
-		_It = _WHIP forward<_UIter>(_UIt);
+		it = _WHIP forward<_UIter>(_UIt); // default case
 }
 
 template <class _Iter>
@@ -380,5 +380,4 @@ WHP_NODISCARD constexpr const _Elem* data(std::initializer_list<_Elem> _Ilist) n
 
 _WHIP_END
 
-#include "Pair.h"
 #include "ExternalOperatorWrapper.h"

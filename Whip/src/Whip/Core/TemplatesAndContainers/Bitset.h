@@ -8,6 +8,8 @@
 #include <Whip/Core/TemplatesAndContainers/Iterator.h>
 #include <Whip/Core/TemplatesAndContainers/Allocator.h>
 
+#include <iostream>
+
 _WHIP_START
 
 template <size_t _Bits>
@@ -65,21 +67,21 @@ private:
 };
 
 template <size_t _Bits>
-class bitset_iterator : private whip::iterator_base<bool>
+class bitset_iterator : public whip::iterator_base<bool>
 {
 public:
     using m_base        = iterator_base<bool>;
     using value_type    = bool;
-    using pointer       = bitset<_Bits>*;
+    using pointer       = bitset_iterator;
     using reference     = bitset_reference<_Bits>;
     using size_type     = typename m_base::size_type;
     using diff_type     = typename m_base::diff_type;
 
-    constexpr bitset_iterator(bitset<_Bits>* data = nullptr, size_type offset = 0) : m_ptr(data), m_offset(offset) {}
+    WHP_CONSTEXPR23 bitset_iterator(bitset<_Bits>* data = nullptr, size_type offset = 0) : m_ptr(data), m_offset(offset) {}
 
-    constexpr bitset_iterator(const bitset_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
+    WHP_CONSTEXPR23 bitset_iterator(const bitset_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
 
-    constexpr ~bitset_iterator() {}
+    WHP_CONSTEXPR23 ~bitset_iterator() {}
 
     reference operator*() const
     {
@@ -128,11 +130,55 @@ public:
     {
         return !(this->operator==(move(other)));
     }
+    /////////////////////////////////////////////////////////
+    ///// We need this compare operators in here because ////
+    //////// bitset_iteretor is not unwrappable and /////////
+    /////////// verify_range uses this operators ////////////
+    /////////////////////////////////////////////////////////
+
+    bool operator>(const bitset_iterator& other) const
+    {
+        if (m_ptr != other.m_ptr)
+            return false; // maybe true? how can we understand this? maybe we can compare pointers
+        return m_offset > other.m_offset;
+    }
+
+    bool operator<(const bitset_iterator& other) const
+    {
+        if (m_ptr != other.m_ptr)
+            return false; // maybe true? how can we understand this? maybe we can compare pointers
+        return m_offset < other.m_offset;
+    }
+
+    /////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////
+
+    bitset_iterator operator+(size_type n) const
+    {
+        return bitset_iterator(m_ptr, m_offset + n);
+    }
+
+    bitset_iterator operator-(size_type n) const
+    {
+        return bitset_iterator(m_ptr, m_offset - n);
+    }
 
     constexpr void reset(pointer ptr = nullptr, size_type offset = 0) noexcept
     {
-        m_ptr = ptr;
+        m_ptr = ptr.m_ptr;
         m_offset = offset;
+    }
+
+    // bitset_iterator is not unwrappable
+    pointer unwrapped() noexcept
+    {
+        return *this;
+    }
+
+    const pointer unwrapped() const noexcept
+    {
+        return *this;
     }
 
 private:
@@ -144,7 +190,11 @@ template <size_t _Bits>
 class bitset
 { 
 public:
-    using reference = bitset_reference<_Bits>;
+    using reference                 = bitset_reference<_Bits>;
+    using iterator                  = bitset_iterator<_Bits>;
+    using const_iterator            = bitset_iterator<_Bits>;
+    using reverse_iterator          = _WHIP reverse_iterator<bitset_iterator<_Bits>>;
+    using const_reverse_iterator    = _WHIP reverse_iterator<bitset_iterator<_Bits>>;
 
 #pragma warning(push)
 #pragma warning(disable : 4296) // expression is always true
@@ -259,6 +309,41 @@ public:
     {
         for (size_t wpos = 0; wpos <= words; ++wpos)
             m_data[wpos] ^= right.m_data[wpos]; 
+        return *this;
+    }
+
+    WHP_CONSTEXPR23 bitset& operator<<=(size_t position) noexcept
+    {
+        const auto word_shift = static_cast<ptrdiff_t> (position / bits_per_word);
+        if (word_shift != 0)
+            for (ptrdiff_t wpos = words; 0 <= wpos; --wpos)
+                m_data[wpos] = word_shift <= wpos ? m_data[wpos - word_shift] : 0;
+
+        if ((position %= bits_per_word) != 0)
+        {
+            for (ptrdiff_t wpos = words; 0 < wpos; --wpos)
+                m_data[wpos] = (m_data[wpos] << position) | (m_data[wpos - 1] >> (bits_per_word - position));
+
+            m_data[0] <<= position;
+        }
+        trim();
+        return *this;
+    }
+
+    WHP_CONSTEXPR23 bitset& operator>>=(size_t position) noexcept
+    {
+        const auto word_shift = static_cast<ptrdiff_t> (position / bits_per_word);
+        if (word_shift != 0)
+            for (ptrdiff_t wpos = 0; wpos <= words; ++wpos)
+                m_data[wpos] = word_shift <= words - wpos ? m_data[wpos + word_shift] : 0;
+
+        if ((position %= bits_per_word) != 0)
+        {
+            for (ptrdiff_t wpos = 0; wpos < words; ++wpos)
+                m_data[wpos] = (m_data[wpos] >> position) | (m_data[wpos + 1] << (bits_per_word - position));
+
+            m_data[0] >>= position;
+        }
         return *this;
     }
 
@@ -439,9 +524,43 @@ public:
         return no_padding || m_data[words] == (static_cast<_Ty>(1) << (_Bits % bits_per_word)) - 1;
     }
 
+    WHP_NODISCARD WHP_CONSTEXPR23 bitset operator<<(const size_t position) const noexcept
+    {
+        bitset temp = *this;
+        temp <<= position;
+        return temp;
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 bitset operator>>(const size_t position) const noexcept
+    {
+        bitset temp = *this;
+        temp >>= position;
+        return temp;
+    }
+
     WHP_NODISCARD _Ty get_word(size_t wpos) const noexcept
     {
         return m_data[wpos];
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 iterator begin() noexcept
+    {
+        return iterator(this, 0);
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 iterator end() noexcept
+    {
+        return iterator(this, _Bits);
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 reverse_iterator rbegin() noexcept
+    {
+        return reverse_iterator(end());
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 reverse_iterator rend() noexcept
+    {
+        return reverse_iterator(begin());
     }
 
 private:
@@ -494,15 +613,107 @@ private:
 };
 
 template <size_t _Bits>
-constexpr bitset_iterator<_Bits> begin(bitset<_Bits>& bits) noexcept
+WHP_NODISCARD WHP_CONSTEXPR23 bitset_iterator<_Bits> begin(bitset<_Bits>& bits) noexcept
 {
     return { &bits, 0 };
 }
 
 template <size_t _Bits>
-constexpr bitset_iterator<_Bits> end(bitset<_Bits>& bits) noexcept
+WHP_NODISCARD WHP_CONSTEXPR23 bitset_iterator<_Bits> end(bitset<_Bits>& bits) noexcept
 {
     return { &bits, _Bits };
+}
+
+template <size_t _Bits>
+WHP_NODISCARD WHP_CONSTEXPR23 bitset<_Bits> operator&(const bitset<_Bits>& left, const bitset<_Bits>& right)
+{
+    bitset<_Bits> ans = left;
+    ans &= right;
+    return ans;
+}
+
+template <size_t _Bits>
+WHP_NODISCARD WHP_CONSTEXPR23 bitset<_Bits> operator|(const bitset<_Bits>& left, const bitset<_Bits>& right)
+{
+    bitset<_Bits> ans = left;
+    ans |= right;
+    return ans;
+}
+
+template <size_t _Bits>
+WHP_NODISCARD WHP_CONSTEXPR23 bitset<_Bits> operator^(const bitset<_Bits>&left, const bitset<_Bits>& right)
+{
+    bitset<_Bits> ans = left;
+    ans ^= right;
+    return ans;
+}
+
+template <class _Elem, class _Traits, size_t _Bits>
+std::basic_ostream<_Elem, _Traits>& operator<<(std::basic_ostream<_Elem, _Traits>& ostr, const bitset<_Bits>& right)
+{
+    using _Ctype = typename std::basic_ostream<_Elem, _Traits>::_Ctype;
+    const _Ctype& ctype_fac = std::use_facet<_Ctype>(ostr.getloc());
+    const _Elem elem0 = ctype_fac.widen('0');
+    const _Elem elem1 = ctype_fac.widen('1');
+    return ostr << right.template to_string<_Elem, _Traits, allocator<_Elem>>(elem0, elem1);
+}
+
+// todo: fix this shit !
+template <class _Elem, class _Traits, size_t _Bits>
+std::basic_istream<_Elem, _Traits>& operator>>(std::basic_istream<_Elem, _Traits>& istr, bitset<_Bits>& right)
+{
+    using _Istr_t = std::basic_istream<_Elem, _Traits>;
+    using _Ctype = typename _Istr_t::_Ctype;
+    const _Ctype& ctype_fac = std::use_facet<_Ctype>(istr.getloc());
+    const _Elem elem0 = ctype_fac.widen('0');
+    const _Elem elem1 = ctype_fac.widen('1');
+    typename _Istr_t::iostate state = _Istr_t::goodbit;
+    bool changed = false;
+    std::string str;
+    const typename _Istr_t::sentry _Ok(istr);
+
+    if (_Ok) 
+    {
+        try
+        {
+            typename _Traits::int_type meta = istr.rdbuf()->sgetc();
+            for (size_t count = right.size(); 0 < count; meta = istr.rdbuf()->snextc(), (void) --count)
+            {
+                _Elem ch;
+                if (_Traits::eq_int_type(_Traits::eof(), meta))
+                {
+                    state |= _Istr_t::eofbit;
+                    break;
+                }
+                else if ((ch = _Traits::to_char_type(meta)) != elem0 && ch != elem1)
+                    break;
+                else if (str.max_size() <= str.size())
+                {
+                    state |= _Istr_t::failbit;
+                    break;
+                }
+                else
+                {
+                    str.push_back('0' + (ch == elem1));
+                    changed = true;
+                }
+            }
+        }
+        catch (...)
+        {
+            istr.setstate(_Istr_t::badbit, true);
+        }
+    }
+
+    constexpr bool _Has_bits = _Bits > 0;
+
+    if constexpr (_Has_bits)
+        if (!changed)
+            state |= _Istr_t::failbit;
+
+    istr.setstate(state);
+    right = bitset<_Bits>(str);
+    return istr;
 }
 
 template <size_t _Bits>

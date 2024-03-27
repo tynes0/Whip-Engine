@@ -3,6 +3,7 @@
 #include "Whip/Core/Core.h"
 #include "TypeTraits.h"
 #include "Utility.h"
+#include "Pair.h"
 
 _WHIP_START
 
@@ -246,12 +247,14 @@ private:
     size_type m_offset;
 };
 
+#if _WHP_HAS_CPP_VERSION(17)
 template <class _Iter>
 constexpr decltype(auto) make_basic_iterator(_Iter iter, bool is_end = false)
 {
     basic_iterator result = (!is_end) ? &DREF(iter) : ((&(DREF(iter - 1))) + 1);
     return result;
 }
+#endif // _WHP_HAS_CPP_VERSION(17)
 
 template <class _Ty>
 struct pointer_traits<basic_iterator<_Ty>>

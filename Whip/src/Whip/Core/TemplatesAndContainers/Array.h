@@ -437,7 +437,7 @@ public:
 		return m_data + _Size;
 	}
 
-#ifdef __cpp_concepts
+#if _WHP_TEST_CPP_FT(concepts)
 	constexpr bool operator==(const array& right) const noexcept 
 		requires equality_and_not_equality_compareable<_Ty>
 	{
@@ -461,7 +461,7 @@ public:
 				return true;
 		return false;
 	}
-#endif // __cpp_concepts
+#endif // _WHP_TEST_CPP_FT(concepts)
 
 	_Ty m_data[_Size];
 private:
