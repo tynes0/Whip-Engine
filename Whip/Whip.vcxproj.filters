@@ -96,9 +96,6 @@
     <ClInclude Include="src\Whip\Core\EntryPoint.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\Filesystem.h">
-      <Filter>src\Whip\Core</Filter>
-    </ClInclude>
     <ClInclude Include="src\Whip\Core\Input.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
@@ -115,9 +112,6 @@
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\MouseButtonCodes.h">
-      <Filter>src\Whip\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Whip\Core\StringOperations.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Algorithms.h">
@@ -142,6 +136,9 @@
       <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Filesystem.h">
       <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\FindOperator.h">
@@ -181,6 +178,9 @@
       <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Span.h">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\StringOperations.h">
       <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tag.h">
@@ -1544,9 +1544,6 @@
     <ClCompile Include="src\Whip\Core\Application.cpp">
       <Filter>src\Whip\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\Whip\Core\Filesystem.cpp">
-      <Filter>src\Whip\Core</Filter>
-    </ClCompile>
     <ClCompile Include="src\Whip\Core\Layer.cpp">
       <Filter>src\Whip\Core</Filter>
     </ClCompile>
@@ -1556,13 +1553,16 @@
     <ClCompile Include="src\Whip\Core\Log.cpp">
       <Filter>src\Whip\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\Whip\Core\StringOperations.cpp">
-      <Filter>src\Whip\Core</Filter>
-    </ClCompile>
     <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Any.cpp">
       <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClCompile>
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Filesystem.cpp">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClCompile>
     <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Random.cpp">
+      <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\StringOperations.cpp">
       <Filter>src\Whip\Core\TemplatesAndContainers</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\ImGui\ImGuiBuild.cpp">

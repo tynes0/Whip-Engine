@@ -25,6 +25,4 @@ public:
 	void end();
 };
 
-#define GET_IM_IO ImGui::GetIO();
-
 _WHIP_END

@@ -28,7 +28,7 @@ void imgui_layer::on_attach()
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = GET_IM_IO; (void)io;
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;		//Enable keyboard controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;		//Enable gamepad controls
@@ -80,7 +80,7 @@ void imgui_layer::end()
 {
 	WHP_PROFILE_FUNCTION();
 
-	ImGuiIO& io = GET_IM_IO;
+	ImGuiIO& io = ImGui::GetIO();
 	io.DisplaySize = ImVec2((float)application::get().get_window().get_width(), (float)application::get().get_window().get_height());
 
 	// RENDERING

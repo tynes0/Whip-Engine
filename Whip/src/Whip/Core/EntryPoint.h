@@ -1,6 +1,9 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
+#include <Whip/Core/Log.h>
+#include <Whip/Core/Application.h>
+#include <Whip/Debug/Instrumentor.h>
 
 #ifdef WHP_PLATFORM_WINDOWS
 

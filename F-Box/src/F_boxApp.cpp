@@ -6,8 +6,8 @@ class f_box : public whip::application
 public:
 	f_box()
 	{
-		//push_layer(new fbox_app2D());
-		push_layer(new game_layer());
+		push_layer(new fbox_app2D());
+		//push_layer(new game_layer());
 	}
 	~f_box()
 	{

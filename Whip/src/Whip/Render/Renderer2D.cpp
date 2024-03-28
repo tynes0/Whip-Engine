@@ -81,8 +81,8 @@ void renderer2D::init()
 
 	uint32_t offset = 0;
 
-#pragma warning (push)
-#pragma warning (disable : 6386)
+_WHP_PRAGMA_WARNING(push)
+_WHP_PRAGMA_WARNING_DISABLE(6386)
 
 	for (uint32_t i = 0; i < s_data.max_indices; i += 6)
 	{
@@ -96,7 +96,7 @@ void renderer2D::init()
 		offset += 4;
 	}
 
-#pragma warning(pop)
+_WHP_PRAGMA_WARNING(pop)
 
 	ref<index_buffer> quad_index_buffer;
 	quad_index_buffer = index_buffer::create(quad_indices, s_data.max_indices);
@@ -107,7 +107,7 @@ void renderer2D::init()
 	uint32_t white_texture_data = 0xffffffff;
 	s_data.white_texture->set_data(&white_texture_data, sizeof(white_texture_data));
 
-	int samplers[s_data.max_texture_slots];
+	whip::array<int, s_data.max_texture_slots> samplers;
 
 	for (int i = 0; i < s_data.max_texture_slots; ++i)
 		samplers[i] = i;
@@ -116,7 +116,7 @@ void renderer2D::init()
 	s_data.texture_shader = shader::create("texture", "assets\\shaders\\texture.vert", "assets\\shaders\\texture.frag");
 
 	s_data.texture_shader->bind();
-	s_data.texture_shader->set_int_array("u_textures", samplers, s_data.max_texture_slots);
+	s_data.texture_shader->set_int_array("u_textures", samplers.data(), s_data.max_texture_slots);
 
 	s_data.texture_slots[0] = s_data.white_texture;
 
@@ -218,8 +218,7 @@ void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, con
 		s_data.texture_slots[s_data.texture_slot_index++] = tex;
 	}
 
-	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
-		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
+	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
 	for (size_t i = 0; i < quad_vertex_count; ++i)
 		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], color, texture_coords[i], texture_index, tiling_factor);
@@ -257,8 +256,7 @@ void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, con
 		s_data.texture_slots[s_data.texture_slot_index++] = tex;
 	}
 
-	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
-		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
+	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
 	for (size_t i = 0; i < quad_vertex_count; ++i)
 		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], color, texture_coords[i], texture_index, tiling_factor);

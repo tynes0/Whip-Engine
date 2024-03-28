@@ -6,6 +6,21 @@
 
 _WHIP_START
 
+namespace detail_utility
+{
+	template <typename... _Args> WHP_CONSTEXPR void ignore_unused(const _Args&...) {}
+}
+
+constexpr auto is_constant_evaluated(bool default_value = false) noexcept -> bool
+{
+#if _WHP_TEST_CPP_FT(lib_is_constant_evaluated)
+	detail_utility::ignore_unused(default_value);
+	return std::is_constant_evaluated();
+#else
+	return default_value;
+#endif
+}
+
 template <class _Ty>
 struct wrap
 {
@@ -236,28 +251,6 @@ template <class _Ty, size_t _Size>
 WHP_NODISCARD constexpr _Ty* end(_Ty(&_Array)[_Size]) noexcept
 {
 	return _Array + _Size;
-}
-
-WHP_NODISCARD constexpr float calculate_aspect_ratio(float x, float y)
-{
-	return (x / y);
-}
-
-template <class _Ty, enable_if_t<std::is_arithmetic_v<_Ty>, int> = 0>
-constexpr _Ty wabs(const _Ty& _val) noexcept
-{
-	return (_val < 0) ? (-_val) : _val;
-}
-
-template <class _Ty, enable_if_t<std::is_floating_point_v<_Ty>, int> = 0>
-constexpr _Ty wceil(const _Ty& _val) noexcept
-{
-	_Ty result = static_cast<_Ty>(static_cast<long long>(_val));
-	if (_val > result)
-	{
-		result += 1;
-	}
-	return result;
 }
 
 template <class _Ty>

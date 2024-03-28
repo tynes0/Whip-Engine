@@ -161,10 +161,10 @@ public:
         {
             auto end_timepoint = std::chrono::high_resolution_clock::now();
 
-            long long start = std::chrono::time_point_cast<std::chrono::microseconds>(m_start_timepoint).time_since_epoch().count();
-            long long end = std::chrono::time_point_cast<std::chrono::microseconds>(end_timepoint).time_since_epoch().count();
+            long long l_start = std::chrono::time_point_cast<std::chrono::microseconds>(m_start_timepoint).time_since_epoch().count();
+            long long l_end = std::chrono::time_point_cast<std::chrono::microseconds>(end_timepoint).time_since_epoch().count();
 
-            WHP_CORE_DEBUG("{0} -> {1} microseconds", m_name, end - start);
+            WHP_CORE_DEBUG("{0} -> {1} microseconds", m_name, l_end - l_start);
 
             m_stopped = true;
         }

@@ -1,10 +1,22 @@
 
-1 - whip::aops fonksiyonlarýný tamamla
-2 - bitset_const_iterator'ü yap
-3 - random sýnýflarýný tamamla
-4 - hash sýnýflarýný .cpp dosyalarýna da böl ve macrolarla çalýþ
-5 - arithmetic_array'i bitir
-6 - algorithms header'ýný geliþtir
-7 - pair header'ýný geliþtir
-8 - filesystem header'ýný geliþtir
-9 - string operations header'ýný geliþtir
+##################################################
+############## WHIP ENGINE TODOLIST ##############
+##################################################
+####
+####--> whip::vector'ü tamir et! (EN ONEMLISI) >> yapýldý, fakat geliþtirilmeye devam edilmeli
+####--> whip::aops fonksiyonlarýný tamamla
+####--> bitset_const_iterator'ü yap
+####--> whip::array'in constexpr durumlarýný ve random sýnýflarýnýn constexpr durumlarýný güncelle
+####--> random sýnýflarýný tamamla
+####--> hash sýnýflarýný .cpp dosyasýna da böl ve macrolarla çalýþ
+####--> arithmetic_array'i bitir
+####--> algorithms header'ýný geliþtir -> find fonksiyonunu yap ve layerstack.cpp'yi düzenle
+####--> pair header'ýný geliþtir
+####--> filesystem header'ýný geliþtir
+####--> string operations header'ýný geliþtir
+####--> whip::tuple'a bi bak hatalar var sanki
+####--> whip::unordered_map! -> hash'i düzelttikten sonra
+####
+##################################################
+##################################################
+##################################################

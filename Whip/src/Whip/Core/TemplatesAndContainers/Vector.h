@@ -311,7 +311,8 @@ public:
         if constexpr (std::is_trivial_v<_Ty>)
             std::memcpy(m_data, right.m_data, right.m_capacities.second * sizeof(_Ty));
         else
-            memory::copy_range(DREF(right.begin()), DREF(right.end()), m_data);
+            memory::copy_range(right.begin().unwrapped(), right.end().unwrapped(), m_data);
+        return *this;
     }
 
     WHP_CONSTEXPR vector& operator=(vector&& right) noexcept
@@ -405,10 +406,12 @@ public:
         }
         else
         {
+            auto ufirst = begin().unwrapped();
+            auto ulast  = end().unwrapped();
             allocator<_Ty> al;
             _Ty* new_data = al.allocate(new_cap);
-            memory::copy_range(begin().unwrapped(), end().unwrapped(), new_data);
-            memory::destruct_range(begin().unwrapped(), end().unwrapped());
+            memory::copy_range(ufirst, ulast, new_data);
+            memory::destruct_range(ufirst, ulast);
             allocator<_Ty>{}.deallocate(m_data, 1);
             m_data = new_data;
         }
@@ -425,10 +428,12 @@ public:
             }
             else
             {
+                auto ufirst = begin().unwrapped();
+                auto ulast  = end().unwrapped();
                 allocator<_Ty> al;
                 _Ty* new_data = al.allocate(m_capacities.second);
-                memory::copy_range(begin().unwrapped(), end().unwrapped(), new_data);
-                memory::destruct_range(begin().unwrapped(), end().unwrapped());
+                memory::copy_range(ufirst, ulast, new_data);
+                memory::destruct_range(ufirst, ulast);
                 allocator<_Ty>{}.deallocate(m_data, 1);
                 m_data = new_data;
             }
@@ -443,34 +448,127 @@ public:
         m_capacities.second = 0;
     }
 
-    WHP_CONSTEXPR void erase(size_t offset)
-    {
-        WHP_CORE_ASSERT(offset < m_capacities.second, "Passed value is equal or greater than the size. (vector)");
-        if constexpr (!std::is_trivial_v<_Ty>)
-            allocator<_Ty>{}.destroy((begin() + offset).unwrapped());
-        (m_data + offset) = (m_data + offset + 1);
-    }
-
     WHP_CONSTEXPR void erase(iterator position)
     {
-        WHP_CORE_ASSERT(position >= begin() && position < end(), "Position is not within the vector.");
-        if (position + 1 < end())
-            std::memmove(position.unwrapped(), position.unwrapped() + 1, (end() - position - 1) * sizeof(_Ty));
+        auto ufirst = begin().unwrapped();
+        auto ulast  = end().unwrapped();
+        auto upos   = position.unwrapped();
+
+        WHP_CORE_ASSERT(upos >= ufirst && upos < ulast, "Position is not within the vector.");
+        if (upos + 1 < ulast)
+            std::memmove(upos, upos + 1, ulast - upos - 1 * sizeof(_Ty));
         if constexpr (!std::is_trivial_v<_Ty>)
-            allocator<_Ty>{}.destroy(end().unwrapped());
+            allocator<_Ty>{}.destroy(ulast);
         m_capacities.second--;
     }
 
     WHP_CONSTEXPR void erase(iterator start, iterator last)
     {
-        WHP_CORE_ASSERT(start >= begin() && start < end() && last <= end(), "Invalid range.");
+        auto ufirst     = begin().unwrapped();
+        auto ulast      = end().unwrapped();
+        auto ufirst2    = start.unwrapped();
+        auto ulast2     = last.unwrapped();
+
+        WHP_CORE_ASSERT(ufirst2 >= ufirst && ufirst2 < ulast  && ulast2 <= ulast, "Invalid range.");
         size_type distance = last - start;
-        if (end() - start > 0)
-            std::memmove(start.unwrapped(), start.unwrapped() + distance, (end() - end()) * sizeof(_Ty));
+        if (static_cast<size_t>(ulast - ufirst2) > 0)
+            std::memmove(ufirst2, ufirst2 + distance, static_cast<size_t>(m_capacities.second - distance) * sizeof(_Ty));
         for (size_type i = 0; i < distance; i++)
             if constexpr (!std::is_trivial_v<_Ty>)
-                allocator<_Ty>{}.destroy(end() - i - 1);
+                allocator<_Ty>{}.destroy(ulast - i - 1);
         m_capacities.second -= distance;
+    }
+
+    WHP_CONSTEXPR void erase(size_t offset)
+    {
+        WHP_CORE_ASSERT(offset < m_capacities.second, "Passed value is equal or greater than the size. (vector)");
+        erase(begin() + offset);
+    }
+
+    WHP_CONSTEXPR iterator insert(iterator position, const _Ty& value)
+    {
+        ptrdiff_t diff = position.unwrapped() - begin().unwrapped();
+
+        if (m_capacities.first == m_capacities.second)
+            reserve(m_capacities.first * m_grow_factor + 1);
+
+        auto ufirst = begin().unwrapped();
+        auto ulast = end().unwrapped();
+        auto upos = begin().unwrapped() + diff;
+
+        WHP_CORE_ASSERT(upos >= ufirst && upos <= ulast, "Position is not within the vector.");
+
+        std::memmove(upos + 1, upos, (ulast - upos) * sizeof(_Ty));
+
+        if constexpr (!std::is_trivial_v<_Ty>)
+            allocator<_Ty>{}.construct(upos, value);
+        else
+            *upos = value;
+
+        m_capacities.second++;
+
+        return iterator(upos, m_capacities.second);
+    }
+
+    WHP_CONSTEXPR void insert(iterator position, size_t count, const _Ty& value)
+    {
+        ptrdiff_t diff = position.unwrapped() - begin().unwrapped();
+
+        if (m_capacities.first == m_capacities.second)
+            reserve(m_capacities.first * m_grow_factor + 1);
+
+        auto ufirst = begin().unwrapped();
+        auto ulast = end().unwrapped();
+        auto upos = begin().unwrapped() + diff;
+
+        WHP_CORE_ASSERT(upos >= ufirst && upos <= ulast, "Position is not within the vector.");
+
+        size_t distance = ulast - upos;
+        if (distance > 0)
+            std::memmove(upos + count, upos, distance * sizeof(_Ty));
+
+        for (size_t i = 0; i < count; i++)
+        {
+            if constexpr (!std::is_trivial_v<_Ty>)
+                allocator<_Ty>{}.construct(upos + i, value);
+            else
+                *(upos + i) = value;
+        }
+
+        m_capacities.second += count;
+    }
+
+    template <class _InputIter>
+    WHP_CONSTEXPR void insert(iterator position, _InputIter first, _InputIter last)
+    {
+        ptrdiff_t diff = position.unwrapped() - begin().unwrapped();
+
+        if (first == last)
+            return;
+
+        size_t count = std::distance(first, last);
+        if (m_capacities.first == m_capacities.second)
+            reserve(m_capacities.first * m_grow_factor + count);
+
+        auto ufirst = begin().unwrapped();
+        auto ulast  = end().unwrapped();
+        auto upos = begin().unwrapped() + diff;
+
+        WHP_CORE_ASSERT(upos >= ufirst && upos <= ulast, "Position is not within the vector.");
+
+        size_t distance = ulast - upos;
+        if (distance > 0)
+            std::memmove(upos + count, upos, distance * sizeof(_Ty));
+
+        for (size_t i = 0; first != last; ++first, ++i)
+        {
+            if constexpr (!std::is_trivial_v<_Ty>)
+                allocator<_Ty>{}.construct(upos + i, *first);
+            else
+                *(upos + i) = *first;
+        }
+
+        m_capacities.second += count;
     }
 
     WHP_CONSTEXPR void push_back(const _Ty& value)
@@ -495,17 +593,31 @@ public:
         m_capacities.second++;
     }
 
-    template <typename... Args>
-    WHP_CONSTEXPR iterator emplace(const_iterator position, Args&&... args)
+    template <class... _Args>
+    WHP_CONSTEXPR iterator emplace(iterator position, _Args&&... args)
     {
-        WHP_CORE_ASSERT(position >= begin() && position <= end(), "Position is not within the vector.");
-        if (m_capacities.second == m_capacities.first)
+        static_assert(!std::is_trivial_v<_Ty>, "Use insert() instead of emplace() with trivial types.");
+        ptrdiff_t diff = position.unwrapped() - begin().unwrapped();
+
+        if (m_capacities.first == m_capacities.second)
             reserve(m_capacities.first * m_grow_factor + 1);
-        if (position < end())
-            std::memmove(position.unwrapped() + 1, position.unwrapped(), (end() - position) * sizeof(_Ty));
-        allocator<_Ty>{}.construct(position.unwrapped(), whip::forward<Args>(args)...);
+
+        auto ufirst = begin().unwrapped();
+        auto ulast = end().unwrapped();
+        auto upos = begin().unwrapped() + diff;
+
+        WHP_CORE_ASSERT(upos >= ufirst && upos <= ulast, "Position is not within the vector.");
+
+        size_type index = upos - ufirst;
+
+        if (index < m_capacities.second)
+            std::move_backward(m_data + index, m_data + m_capacities.second, m_data + m_capacities.first);
+
+        allocator<_Ty>{}.construct(m_data + index, std::forward<_Args>(args)...);
+
         m_capacities.second++;
-        return iterator(position.unwrapped());
+
+        return iterator(m_data + index, m_capacities.second);
     }
     
     template <class... _Args>
@@ -670,7 +782,7 @@ WHP_INLINE WHP_CONSTEXPR void swap(vector<_Ty>& lhs, vector < _Ty>& rhs) noexcep
 
 _WHIP_END
 #else // _WHP_HAS_CPP_VERSION(17)
-_EMIT_WHP_WARNING(WHP0001, "The contents of whip::vector are available only with C++17 or later.");
+_EMIT_WHP_WARNING(WHP0001, "The contents of whip::vector are available only with C++17 or later. in C++17- whip::vector is child of std::vector");
 #include <vector>
 _WHIP_START
 template <class _Ty>

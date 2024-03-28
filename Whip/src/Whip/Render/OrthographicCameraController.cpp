@@ -1,5 +1,6 @@
 #include "whippch.h"
 #include "OrthographicCameraController.h"
+#include "Whip/Core/TemplatesAndContainers/MathDef.h"
 
 
 _WHIP_START

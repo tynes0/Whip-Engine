@@ -184,7 +184,7 @@ constexpr xoshiro256plus::xoshiro256plus(state_type state) noexcept :m_state(sta
 constexpr xoshiro256plus::result_type xoshiro256plus::operator()() noexcept
 {
     const uint64_t result = m_state[0] + m_state[3];
-    const uint32_t t = m_state[1] << 17;
+    const uint64_t t = m_state[1] << 17;
     m_state[2] ^= m_state[0];
     m_state[3] ^= m_state[1];
     m_state[1] ^= m_state[2];

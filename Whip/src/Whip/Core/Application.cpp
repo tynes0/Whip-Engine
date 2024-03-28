@@ -17,7 +17,6 @@ application::application()
 	s_instance = this;
 	m_window = scope<window>(window::create());
 	m_window->set_event_callback(WHP_BIND_EVENT_FN(application::on_event));
-	m_window->set_event_callback(std::bind(&application::on_event, this, std::placeholders::_1));
 	m_window->set_vsync(false);
 	renderer::init();
 
@@ -38,11 +37,9 @@ void application::run()
 
 	while (m_running)
 	{
-		//WHP_PROFILE_SCOPE("application::run -> 1 loop");
 		float time = (float)glfwGetTime();
 		timestep ts = time - m_last_frame_time;
 		m_last_frame_time = time;
-		//WHP_CORE_DEBUG("Delta time = {0}s ({1}ms)", ts, ts.get_milliseconds());
 
 		if (!m_minimized)
 		{

@@ -2,15 +2,16 @@
 
 #include <Whip/Core/Core.h>
 #include <Whip/Core/Layer.h>
+#include <Whip/Core/TemplatesAndContainers/Vector.h>
 
 _WHIP_START
 
 
 class WHIP_API layer_stack
 {
-	using layer_ptr_iter = std::vector<layer*>::iterator;
+	using layer_ptr_iter = vector<layer*>::iterator;
 private:
-	std::vector<layer*> m_layers;  // katmanlar
+	vector<layer*> m_layers;  // katmanlar
 	size_t m_layer_insert_index = 0;
 public:
 	layer_stack();

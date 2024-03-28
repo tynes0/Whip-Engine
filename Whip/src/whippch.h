@@ -1,8 +1,8 @@
 #pragma once
-
 #ifndef _WHIPPCH_
 #define _WHIPPCH_
 
+#include <Whip/Core/Core.h>
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -18,11 +18,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#if _HAS_CXX17
-#include <filesystem>
-#endif // _HAS_CXX17
 
-#include <Whip/Core/Core.h>
+#if _WHP_HAS_CPP_VERSION(17)
+#include <filesystem>
+#endif // _WHP_HAS_CPP_VERSION(17)
 #ifdef WHP_PLATFORM_WINDOWS
 	#include <Windows.h>
 #endif // WHP_PLATFORM_WINDOWS

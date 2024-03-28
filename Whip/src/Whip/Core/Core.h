@@ -24,25 +24,27 @@
 #define _WHP_TEST_CPP_FT(x) _WHP_CONCATENATE(__cpp_, x)
 
 #if defined(__CUDACC__) || defined(__INTEL_COMPILER)
-#define _WHP_PRAGMA(PRAGMA) __pragma(PRAGMA)
+	#define _WHP_PRAGMA(PRAGMA) __pragma(PRAGMA)
 #else
-#define _WHP_PRAGMA(PRAGMA) _Pragma(#PRAGMA)
+	#define _WHP_PRAGMA(PRAGMA) _Pragma(#PRAGMA)
 #endif
 
 #define _WHP_PRAGMA_MESSAGE(MESSAGE) _WHP_PRAGMA(message(MESSAGE))
+#define _WHP_PRAGMA_WARNING(MESSAGE) _WHP_PRAGMA(warning(MESSAGE))
+#define _WHP_PRAGMA_WARNING_DISABLE(warning_code) _WHP_PRAGMA(warning(disable : warning_code))
 
 #define _EMIT_WHP_MESSAGE(MESSAGE)   _WHP_PRAGMA_MESSAGE(__FILE__ "(" _WHP_STRINGIZE(__LINE__) "): " MESSAGE)
 
 #ifdef _WHP_DISABLE_EMIT_WARNINGS
-#define _EMIT_WHP_WARNING(NUMBER, MESSAGE) 
+	#define _EMIT_WHP_WARNING(NUMBER, MESSAGE)
 #else // _WHP_DISABLE_EMIT_WARNINGS
-#define _EMIT_WHP_WARNING(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("warning " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_WARNINGS to suppress this warning)") static_assert(true, "")
+	#define _EMIT_WHP_WARNING(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("warning " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_WARNINGS to suppress this warning)") static_assert(true, "")
 #endif // _WHP_DISABLE_EMIT_WARNINGS
 
 #ifdef _WHP_DISABLE_EMIT_ERROR
-#define _EMIT_WHP_ERROR(NUMBER, MESSAGE) 
+	#define _EMIT_WHP_ERROR(NUMBER, MESSAGE)
 #else // _WHP_DISABLE_EMIT_ERROR
-#define _EMIT_WHP_ERROR(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("error " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_ERROR to suppress this error)") static_assert(false, "Error in Whip Library usage.")
+	#define _EMIT_WHP_ERROR(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("error " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_ERROR to suppress this error)") static_assert(false, "Error in Whip Library usage.")
 #endif // _WHP_DISABLE_EMIT_ERROR
 
 
@@ -55,8 +57,8 @@
 #endif
 
 #if _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
-	#define WHP_NODISCARD [[nodiscard]]							// nodiscard attribute define
-	#define WHP_NODISCARD_MSG(msg) [[nodiscard(msg)]]			// nodiscard attribute define
+	#define WHP_NODISCARD [[nodiscard]]								// nodiscard attribute define
+	#define WHP_NODISCARD_MSG(msg) [[nodiscard(msg)]]				// nodiscard attribute define
 #else // WHP_HAS_CPP_ATTRIBUTE(nodiscard)
 	#define WHP_NODISCARD 											// nodiscard attribute define
 	#define WHP_NODISCARD_MSG(msg)									// nodiscard attribute define
@@ -74,7 +76,7 @@
 	#define WHP_NORETURN
 #endif //_WHP_HAS_CPP_ATTRIBUTE(noreturn)
 
-#if _HAS_CXX17
+#if _WHP_HAS_CPP_VERSION(17)
 	#define WHP_INLINE inline			// inline keyword for constants
 #else // _HAS_CXX17
 	#define WHP_INLINE					// inline keyword for constants
@@ -88,19 +90,19 @@
 	#define WHP_FORCE_INLINE
 #endif
 
-#if _HAS_CXX17
+#if _WHP_HAS_CPP_VERSION(17)
 	#define WHP_CONSTEXPR17 constexpr
 #else
 	#define WHP_CONSTEXPR17
 #endif
 
-#if _HAS_CXX20
+#if _WHP_HAS_CPP_VERSION(20)
 	#define WHP_CONSTEXPR constexpr		// constexpr keyword for constants
 #else
 	#define WHP_CONSTEXPR		// constexpr keyword for constants
-#endif // _HAS_CXX20
+#endif // _WHP_HAS_CPP_VERSION(20)
 
-#if _HAS_CXX23
+#if _WHP_HAS_CPP_VERSION(23)
 	#define WHP_CONSTEXPR23 constexpr
 #else
 	#define WHP_CONSTEXPR23
@@ -193,20 +195,5 @@ _WHIP_START
 typedef unsigned int renderer_id_t;
 
 using ref_counter_t = unsigned long;
-
-namespace detail_core
-{
-	template <typename... _Args> WHP_CONSTEXPR void ignore_unused(const _Args&...) {}
-}
-
-constexpr auto is_constant_evaluated(bool default_value = false) noexcept -> bool
-{
-#ifdef __cpp_lib_is_constant_evaluated
-	detail_core::ignore_unused(default_value);
-	return std::is_constant_evaluated();
-#else
-	return default_value;
-#endif
-}
 
 _WHIP_END

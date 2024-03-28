@@ -107,7 +107,7 @@
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>/MD %(AdditionalOptions)</AdditionalOptions>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
     <Link>
@@ -133,7 +133,7 @@
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>/MD %(AdditionalOptions)</AdditionalOptions>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
     <Link>
@@ -158,14 +158,12 @@
     <ClInclude Include="src\Whip\Core\Application.h" />
     <ClInclude Include="src\Whip\Core\Core.h" />
     <ClInclude Include="src\Whip\Core\EntryPoint.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Filesystem.h" />
     <ClInclude Include="src\Whip\Core\Input.h" />
     <ClInclude Include="src\Whip\Core\KeyCodes.h" />
     <ClInclude Include="src\Whip\Core\Layer.h" />
     <ClInclude Include="src\Whip\Core\LayerStack.h" />
     <ClInclude Include="src\Whip\Core\Log.h" />
     <ClInclude Include="src\Whip\Core\MouseButtonCodes.h" />
-    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\StringOperations.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Algorithms.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Allocator.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Any.h" />
@@ -174,6 +172,7 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Bitset.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Concepts.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ExternalOperatorWrapper.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Filesystem.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\FindOperator.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Hash.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Invoker.h" />
@@ -187,6 +186,7 @@
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Range.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\ReferenceWrapper.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Span.h" />
+    <ClInclude Include="src\Whip\Core\TemplatesAndContainers\StringOperations.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tag.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\Tuple.h" />
     <ClInclude Include="src\Whip\Core\TemplatesAndContainers\TypeTraits.h" />
@@ -642,13 +642,13 @@
     <ClCompile Include="src\Platform\Windows\WindowsInput.cpp" />
     <ClCompile Include="src\Platform\Windows\WindowsWindow.cpp" />
     <ClCompile Include="src\Whip\Core\Application.cpp" />
-    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Filesystem.cpp" />
     <ClCompile Include="src\Whip\Core\Layer.cpp" />
     <ClCompile Include="src\Whip\Core\LayerStack.cpp" />
     <ClCompile Include="src\Whip\Core\Log.cpp" />
-    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\StringOperations.cpp" />
     <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Any.cpp" />
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Filesystem.cpp" />
     <ClCompile Include="src\Whip\Core\TemplatesAndContainers\Random.cpp" />
+    <ClCompile Include="src\Whip\Core\TemplatesAndContainers\StringOperations.cpp" />
     <ClCompile Include="src\Whip\ImGui\ImGuiBuild.cpp" />
     <ClCompile Include="src\Whip\ImGui\ImGuiLayer.cpp" />
     <ClCompile Include="src\Whip\Render\Buffer.cpp" />
@@ -677,9 +677,6 @@
     <ProjectReference Include="vendor\ImGui\ImGui.vcxproj">
       <Project>{C0FF640D-2C14-8DBE-F595-301E616989EF}</Project>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="todolist.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

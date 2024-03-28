@@ -2,11 +2,14 @@
 #ifndef _WHIP_
 #define _WHIP_
 
-// Whip application
-#include <Whip/Core/Application.h>
+// Core file
+#include <Whip/Core/Core.h>
 
 // Whip logging system
 #include <Whip/Core/Log.h>
+
+// Whip application
+#include <Whip/Core/Application.h>
 
 // Layer stuff and imGui layer
 #include <Whip/ImGui/ImGuiLayer.h>
@@ -37,20 +40,22 @@
 // -------------------------------------
 
 // Templates And Containers
+#include <Whip/Core/TemplatesAndContainers/MathDef.h>
+#include <Whip/Core/TemplatesAndContainers/Vector.h> // in c++14 whip::vector is child of std::vector, special implamentation is only c++17 and above
+#include <Whip/Core/TemplatesAndContainers/Array.h>
+#include <Whip/Core/TemplatesAndContainers/Bitset.h>
+#include <Whip/Core/TemplatesAndContainers/ArithmeticArray.h> // only c++20 and above
+#include <Whip/Core/TemplatesAndContainers/Span.h> // only c++20 and above
+#include <Whip/Core/TemplatesAndContainers/Any.h>
+#include <Whip/Core/TemplatesAndContainers/Optional.h>
+#include <Whip/Core/TemplatesAndContainers/Pair.h>
+#include <Whip/Core/TemplatesAndContainers/Tuple.h> // only c++17 and above
+#include <Whip/Core/TemplatesAndContainers/Variant.h> // only c++20 and above
+#include <Whip/Core/TemplatesAndContainers/Hash.h>
+#include <Whip/Core/TemplatesAndContainers/Algorithms.h>
 #include <Whip/Core/TemplatesAndContainers/StringOperations.h>
 #include <Whip/Core/TemplatesAndContainers/Filesystem.h>
 #include <Whip/Core/TemplatesAndContainers/Range.h>
-#include <Whip/Core/TemplatesAndContainers/Array.h>
-#include <Whip/Core/TemplatesAndContainers/Bitset.h>
-#include <Whip/Core/TemplatesAndContainers/Optional.h>
-#include <Whip/Core/TemplatesAndContainers/Any.h>
-#include <Whip/Core/TemplatesAndContainers/Hash.h>
-#include <Whip/Core/TemplatesAndContainers/Algorithms.h>
-#include <Whip/Core/TemplatesAndContainers/Vector.h> // in c++14 whip::vector is child of std::vector, special implamentation is only c++17 and above
 #include <Whip/Core/TemplatesAndContainers/Random.h> // xoshiro is only c++20 and above
-#include <Whip/Core/TemplatesAndContainers/Tuple.h> // only c++17 and above
-#include <Whip/Core/TemplatesAndContainers/Variant.h> // only c++20 and above
-#include <Whip/Core/TemplatesAndContainers/ArithmeticArray.h> // only c++20 and above
-#include <Whip/Core/TemplatesAndContainers/Span.h> // only c++20 and above
 
 #endif // ! _WHIP_

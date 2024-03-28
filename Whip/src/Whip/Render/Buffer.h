@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
+#include <Whip/Core/TemplatesAndContainers/Vector.h>
 #include <Whip/Core/TemplatesAndContainers/Memory.h>
 
 _WHIP_START
@@ -25,18 +26,18 @@ WHP_NODISCARD static uint32_t shader_data_type_size(shader_data_type type)
 {
 	switch (type)
 	{
-	case whip::shader_data_type::none:			WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
-	case whip::shader_data_type::Float:			return sizeof(float);
-	case whip::shader_data_type::Float2:		return sizeof(float) * 2;
-	case whip::shader_data_type::Float3:		return sizeof(float) * 3;
-	case whip::shader_data_type::Float4:		return sizeof(float) * 4;
-	case whip::shader_data_type::Mat3:			return sizeof(float) * 3 * 3;
-	case whip::shader_data_type::Mat4:			return sizeof(float) * 4 * 4;
-	case whip::shader_data_type::Bool:			return sizeof(bool);
-	case whip::shader_data_type::Int:			return sizeof(int);
-	case whip::shader_data_type::Int2:			return sizeof(int) * 2;
-	case whip::shader_data_type::Int3:			return sizeof(int) * 3;
-	case whip::shader_data_type::Int4:			return sizeof(int) * 4;
+	case shader_data_type::none:		WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
+	case shader_data_type::Float:		return sizeof(float);
+	case shader_data_type::Float2:		return sizeof(float) * 2;
+	case shader_data_type::Float3:		return sizeof(float) * 3;
+	case shader_data_type::Float4:		return sizeof(float) * 4;
+	case shader_data_type::Mat3:		return sizeof(float) * 3 * 3;
+	case shader_data_type::Mat4:		return sizeof(float) * 4 * 4;
+	case shader_data_type::Bool:		return sizeof(bool);
+	case shader_data_type::Int:			return sizeof(int);
+	case shader_data_type::Int2:		return sizeof(int) * 2;
+	case shader_data_type::Int3:		return sizeof(int) * 3;
+	case shader_data_type::Int4:		return sizeof(int) * 4;
 	}
 	WHP_CORE_ASSERT(false, "Unknown shader_data_type!");
 	return 0;
@@ -59,18 +60,18 @@ struct buffer_element
 	{
 		switch (type)
 		{
-		case _WHIP shader_data_type::none:			WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
-		case _WHIP shader_data_type::Float:			return 1;
-		case _WHIP shader_data_type::Float2:		return 2;
-		case _WHIP shader_data_type::Float3:		return 3;
-		case _WHIP shader_data_type::Float4:		return 4;
-		case _WHIP shader_data_type::Mat3:			return 3 * 3;
-		case _WHIP shader_data_type::Mat4:			return 4 * 4;
-		case _WHIP shader_data_type::Bool:			return 1;
-		case _WHIP shader_data_type::Int:			return 1;
-		case _WHIP shader_data_type::Int2:			return 2;
-		case _WHIP shader_data_type::Int3:			return 3;
-		case _WHIP shader_data_type::Int4:			return 4;
+		case shader_data_type::none:		WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
+		case shader_data_type::Float:		return 1;
+		case shader_data_type::Float2:		return 2;
+		case shader_data_type::Float3:		return 3;
+		case shader_data_type::Float4:		return 4;
+		case shader_data_type::Mat3:		return 3 * 3;
+		case shader_data_type::Mat4:		return 4 * 4;
+		case shader_data_type::Bool:		return 1;
+		case shader_data_type::Int:			return 1;
+		case shader_data_type::Int2:		return 2;
+		case shader_data_type::Int3:		return 3;
+		case shader_data_type::Int4:		return 4;
 		}
 		WHP_CORE_ASSERT(false, "Unknown shader_data_type!");
 		return 0;
@@ -79,10 +80,10 @@ struct buffer_element
 
 class buffer_layout
 {
-	using buffer_element_iter		= std::vector<buffer_element>::iterator;
-	using buffer_element_const_iter = std::vector<buffer_element>::const_iterator;
+	using buffer_element_iter		= vector<buffer_element>::iterator;
+	using buffer_element_const_iter = vector<buffer_element>::const_iterator;
 private:
-	std::vector<buffer_element> m_elements;
+	vector<buffer_element> m_elements;
 	uint64_t m_stride = 0;
 private:
 	void calculate_offsets_and_stride()
@@ -106,7 +107,7 @@ public:
 	}
 
 	WHP_NODISCARD inline const uint64_t get_stride() const { return m_stride; }
-	WHP_NODISCARD inline const std::vector<buffer_element>& get_elements() const { return m_elements; }
+	WHP_NODISCARD inline const vector<buffer_element>& get_elements() const { return m_elements; }
 
 	WHP_NODISCARD buffer_element_iter begin() { return m_elements.begin(); }
 	WHP_NODISCARD buffer_element_iter end() { return m_elements.end(); }

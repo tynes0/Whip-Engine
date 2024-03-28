@@ -211,4 +211,26 @@ struct less_equal<void>
     using is_transparent = int;
 };
 
+WHP_NODISCARD constexpr float calculate_aspect_ratio(float x, float y)
+{
+    return (x / y);
+}
+
+template <class _Ty, enable_if_t<std::is_arithmetic_v<_Ty>, int> = 0>
+constexpr _Ty wabs(const _Ty& _val) noexcept
+{
+    return (_val < 0) ? (-_val) : _val;
+}
+
+template <class _Ty, enable_if_t<std::is_floating_point_v<_Ty>, int> = 0>
+constexpr _Ty wceil(const _Ty& _val) noexcept
+{
+    _Ty result = static_cast<_Ty>(static_cast<long long>(_val));
+    if (_val > result)
+    {
+        result += 1;
+    }
+    return result;
+}
+
 _WHIP_END

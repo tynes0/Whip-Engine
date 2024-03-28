@@ -15,13 +15,13 @@ layer_stack::~layer_stack()
 
 void layer_stack::push_layer(layerptr layer)
 {
-	m_layers.emplace(m_layers.begin() + m_layer_insert_index, layer);
+	m_layers.insert(m_layers.begin() + m_layer_insert_index, layer);
 	m_layer_insert_index++;
 }
 
 void layer_stack::push_overlay(layerptr overlay)
 {
-	m_layers.emplace_back(overlay);
+	m_layers.push_back(overlay);
 }
 
 void layer_stack::pop_layer(layerptr layer)

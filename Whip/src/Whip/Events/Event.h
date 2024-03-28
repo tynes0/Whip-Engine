@@ -3,6 +3,7 @@
 #include <Whip/Core/Core.h>
 #include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
 #include <string>
+#include <functional>
 
 _WHIP_START
 
