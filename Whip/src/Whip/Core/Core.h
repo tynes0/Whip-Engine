@@ -23,6 +23,16 @@
 
 #define _WHP_TEST_CPP_FT(x) _WHP_CONCATENATE(__cpp_, x)
 
+#if !_WHP_HAS_CPP_VERSION(17)
+	#define _WHP_DISABLED_WARNING_C4984 4984
+#else // !_WHP_HAS_CPP_VERSION(17)
+	#define _WHP_DISABLED_WARNING_C4984
+#endif // !_WHP_HAS_CPP_VERSION(17)
+
+#define _WHP_DISABLED_WARNINGS	\
+4514 4619 5053					\
+_WHP_DISABLED_WARNING_C4984
+
 #if defined(__CUDACC__) || defined(__INTEL_COMPILER)
 	#define _WHP_PRAGMA(PRAGMA) __pragma(PRAGMA)
 #else
@@ -38,13 +48,13 @@
 #ifdef _WHP_DISABLE_EMIT_WARNINGS
 	#define _EMIT_WHP_WARNING(NUMBER, MESSAGE)
 #else // _WHP_DISABLE_EMIT_WARNINGS
-	#define _EMIT_WHP_WARNING(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("warning " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_WARNINGS to suppress this warning)") static_assert(true, "")
+	#define _EMIT_WHP_WARNING(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("warning " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_WARNINGS to suppress this warning)")
 #endif // _WHP_DISABLE_EMIT_WARNINGS
 
 #ifdef _WHP_DISABLE_EMIT_ERROR
 	#define _EMIT_WHP_ERROR(NUMBER, MESSAGE)
 #else // _WHP_DISABLE_EMIT_ERROR
-	#define _EMIT_WHP_ERROR(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("error " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_ERROR to suppress this error)") static_assert(false, "Error in Whip Library usage.")
+	#define _EMIT_WHP_ERROR(NUMBER, MESSAGE) _EMIT_WHP_MESSAGE("error " #NUMBER ": " MESSAGE " (define _WHP_DISABLE_EMIT_ERROR to suppress this error)")
 #endif // _WHP_DISABLE_EMIT_ERROR
 
 
@@ -58,16 +68,20 @@
 
 #if _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
 	#define WHP_NODISCARD [[nodiscard]]								// nodiscard attribute define
-	#define WHP_NODISCARD_MSG(msg) [[nodiscard(msg)]]				// nodiscard attribute define
 #else // WHP_HAS_CPP_ATTRIBUTE(nodiscard)
 	#define WHP_NODISCARD 											// nodiscard attribute define
-	#define WHP_NODISCARD_MSG(msg)									// nodiscard attribute define
 #endif // WHP_HAS_CPP_ATTRIBUTE(nodiscard)
 
 #if _WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
 	#define WHP_NODISCARD20 [[nodiscard]]
+	#define WHP_NODISCARD_MSG(msg) [[nodiscard(msg)]]
 #else // _WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
 	#define WHP_NODISCARD20 
+	#if _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
+		#define WHP_NODISCARD_MSG(msg) [[nodiscard]]				
+	#else // _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
+		#define WHP_NODISCARD_MSG(msg) 
+	#endif // _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
 #endif //_WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
 
 #if _WHP_HAS_CPP_ATTRIBUTE(noreturn)

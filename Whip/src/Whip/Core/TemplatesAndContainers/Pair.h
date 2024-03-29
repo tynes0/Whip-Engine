@@ -1,20 +1,21 @@
 #pragma once
 
+#ifndef _WHIP_PAIR_
+#define _WHIP_PAIR_
+
 #include "TypeTraits.h"
 #include "Utility.h"
 #include "ReferenceWrapper.h"
 #include "Tag.h"
 
-// TODO: improve
-
 #pragma warning(push)
-#pragma warning(disable : 5053)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
 #define WHP_PAIR_CHECK_IDX(I) whip::enable_if_t<I == 0 || I == 1, int> = 0
 #define WHP_TRIO_CHECK_IDX(I) whip::enable_if_t<I == 0 || I == 1 || I == 2, int> = 0
-#define WHP_PAIR_CHECK_2_IDXS(I1, I2) whip::enable_if_t<(I1 == 0 || I1 == 1) && (I2 == 0 || I2 == 1), int> = 0
+#define WHP_PAIR_CHECK_3_IDXS(I1, I2, I3) whip::enable_if_t<(I1 == 0 || I1 == 1) && (I2 == 0 || I2 == 1) && (I3 == 0 || I3 == 1) , int> = 0
 #define WHP_TRIO_CHECK_2_IDXS(I1, I2) whip::enable_if_t<(I1 == 0 || I1 == 1 || I1 == 2) && (I2 == 0 || I2 == 1 || I2 == 2), int> = 0
 
 template <class _Ty1, class _Ty2 = _Ty1>
@@ -279,26 +280,26 @@ WHP_INLINE constexpr decltype(auto) get(const pair<A, B>& pr)
 template <size_t I, class A, class B, WHP_PAIR_CHECK_IDX(I)>
 WHP_INLINE constexpr decltype(auto) get(pair<A, B>&& pr)
 {
-	return static_cast<pair<A, B>&&>(pr)[tag_v<I>];
+	return _WHIP forward<pair<A, B>>(pr)[tag_v<I>];
 }
 
 template <class F, class A, class B>
 WHP_INLINE constexpr decltype(auto) apply(F&& func, pair<A, B>& pr)
 {
-	return static_cast<F&&>(func)(pr.first, pr.second);
+	return _WHIP forward<F>(func)(pr.first, pr.second);
 }
 
 template <class F, class A, class B>
 
 WHP_INLINE constexpr decltype(auto) apply(F&& func, const pair<A, B>& pr)
 {
-	return static_cast<F&&>(func)(pr.first, pr.second);
+	return _WHIP forward<F>(func)(pr.first, pr.second);
 }
 
 template <class F, class A, class B>
 WHP_INLINE constexpr decltype(auto) apply(F&& func, pair<A, B>&& pr)
 {
-	return static_cast<F&&>(func)(static_cast<pair<A, B>&&>(pr).first, static_cast<pair<A, B>&&>(pr).second);
+	return _WHIP forward<F>(func)(_WHIP forward<pair<A, B>>(pr).first, _WHIP forward<pair<A, B>>(pr).second);
 }
 
 
@@ -322,6 +323,12 @@ struct tuple_element<1, pair<A, B>>
 {
 	using type = B;
 };
+
+template <size_t I1, size_t I2, size_t I3, class A, class B, WHP_PAIR_CHECK_3_IDXS(I1, I2, I3)>
+WHP_INLINE constexpr decltype(auto) trio_from_pair(pair<A, B>& pr)
+{
+	return make_trio<typename tuple_element<I1, pair<A, B>>::type, typename tuple_element<I2, pair<A, B>>::type, typename tuple_element<I3, pair<A, B>>::type>(_WHIP forward<pair<A, B>>(pr)[tag_v<I1>], _WHIP forward<pair<A, B>>(pr)[tag_v<I2>], _WHIP forward<pair<A, B>>(pr)[tag_v<I3>]);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// TRIO ////////////////////////////////////
@@ -350,26 +357,26 @@ WHP_INLINE constexpr decltype(auto) get(const trio<A, B, C>& tr)
 template <size_t I, class A, class B, class C, WHP_TRIO_CHECK_IDX(I)>
 WHP_INLINE constexpr decltype(auto) get(trio<A, B, C>&& tr)
 {
-	return static_cast<trio<A, B, C>&&>(tr)[tag_v<I>];
+	return _WHIP forward<trio<A, B, C>>(tr)[tag_v<I>];
 }
 
 template <class F, class A, class B, class C>
 WHP_INLINE constexpr decltype(auto) apply(F&& func, trio<A, B, C>& tr)
 {
-	return static_cast<F&&>(func)(tr.first, tr.second, tr.third);
+	return _WHIP forward<F>(func)(tr.first, tr.second, tr.third);
 }
 
 template <class F, class A, class B, class C>
 
 WHP_INLINE constexpr decltype(auto) apply(F&& func, const trio<A, B, C>& tr)
 {
-	return static_cast<F&&>(func)(tr.first, tr.second, tr.third);
+	return _WHIP forward<F>(func)(tr.first, tr.second, tr.third);
 }
 
 template <class F, class A, class B, class C>
 WHP_INLINE constexpr decltype(auto) apply(F&& func, trio<A, B, C>&& tr)
 {
-	return static_cast<F&&>(func)(static_cast<trio<A, B, C>&&>(tr).first, static_cast<trio<A, B, C>&&>(tr).second, static_cast<trio<A, B, C>&&>(tr).third);
+	return _WHIP forward<F>(func)(_WHIP forward<trio<A, B, C>>(tr).first, _WHIP forward<trio<A, B, C>>(tr).second, _WHIP forward<trio<A, B, C>>(tr).third);
 }
 
 template <class A, class B, class C>
@@ -400,9 +407,9 @@ struct tuple_element<2, trio<A, B, C>>
 };
 
 template <size_t I1, size_t I2, class A, class B, class C, WHP_TRIO_CHECK_2_IDXS(I1, I2)>
-WHP_INLINE constexpr decltype(auto) pair_from_trio(trio<A, B, C>& tr)
+WHP_INLINE constexpr decltype(auto) pair_from_trio(trio<A, B, C>&& tr)
 {
-	return make_pair<typename tuple_element<I1, trio<A, B, C>>::type, typename tuple_element<I2, trio<A, B, C>>::type>(tr[tag_v<I1>], tr[tag_v<I2>]);
+	return make_pair<typename tuple_element<I1, trio<A, B, C>>::type, typename tuple_element<I2, trio<A, B, C>>::type>(_WHIP forward<trio<A, B, C>>(tr)[tag_v<I1>], _WHIP forward<trio<A, B, C>>(tr)[tag_v<I2>]);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -411,9 +418,11 @@ WHP_INLINE constexpr decltype(auto) pair_from_trio(trio<A, B, C>& tr)
 
 #undef WHP_PAIR_CHECK_IDX
 #undef WHP_TRIO_CHECK_IDX
-#undef WHP_PAIR_CHECK_2_IDXS
+#undef WHP_PAIR_CHECK_3_IDXS
 #undef WHP_TRIO_CHECK_2_IDXS
 
 _WHIP_END
 
 #pragma warning(pop)
+
+#endif // !_WHIP_PAIR_

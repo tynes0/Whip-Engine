@@ -1,14 +1,20 @@
 #pragma once
+#ifndef _WHIP_CONCEPTS_
+#define _WHIP_CONCEPTS_
 
 #include <Whip/Core/Core.h>
 #include "TypeTraits.h"
 
 #include <type_traits>
-_WHIP_START
 
 #if !_WHP_TEST_CPP_FT(concepts)
-constexpr const char* whip_concept_library_error_message = "c++ concepts is not avaible";
+_EMIT_WHP_WARNING(WHP0005, "The contents of whip concept library are available only with C++20 concept support.");
 #else // !_WHP_TEST_CPP_FT(concepts)
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
+
+_WHIP_START
 
 template <class T>
 concept arithmetic = std::is_integral_v<T> || std::is_floating_point_v<T>;
@@ -79,6 +85,11 @@ concept partial_comparable_with = equality_comparable_with<T, U> && requires(T c
     { t < u } -> same_as<bool>;
     { t > u } -> same_as<bool>;
 };
-#endif // _WHP_TEST_CPP_FT(concepts)
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // _WHP_HAS_CPP_VERSION(20)
+
+#endif // !_WHIP_CONCEPTS_

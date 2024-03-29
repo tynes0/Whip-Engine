@@ -1611,4 +1611,9 @@
       <Filter>vendor\stb_image</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="error_codes.md">
+      <Filter>src\Whip</Filter>
+    </None>
+  </ItemGroup>
 </Project>

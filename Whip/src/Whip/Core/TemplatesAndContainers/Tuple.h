@@ -1,9 +1,11 @@
 #pragma once
+#ifndef _WHIP_TUPLE_
+#define _WHIP_TUPLE_
 
 #include <Whip/Core/Core.h>
 
 #if !_WHP_HAS_CPP_VERSION(17)
-_EMIT_WHP_WARNING(WHP0002, "The contents of whip::tuple are available only with C++17 or later.");
+_EMIT_WHP_WARNING(WHP0001, "The contents of whip::tuple are available only with C++17 or later.");
 #else //_WHP_HAS_CPP_VERSION(17)
 
 #include <Whip/Core/TemplatesAndContainers/Tag.h>
@@ -12,6 +14,9 @@ _EMIT_WHP_WARNING(WHP0002, "The contents of whip::tuple are available only with 
 #include <Whip/Core/TemplatesAndContainers/ReferenceWrapper.h>
 #include <Whip/Core/TemplatesAndContainers/Concepts.h>
 #include <Whip/Core/TemplatesAndContainers/Pair.h>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 #define WHP_TUPLE_COMPARISON_OPERATOR_1(type, member, op)                      \
     WHP_FORCE_INLINE constexpr auto operator op(type const& other)             \
@@ -959,4 +964,8 @@ struct tuple_element<I, tuple<T...>>
 
 _WHIP_END
 
+#pragma warning(pop)
+
 #endif //_WHP_HAS_CPP_VERSION(17)
+
+#endif // !_WHIP_TUPLE_

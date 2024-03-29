@@ -1,7 +1,12 @@
 #pragma once
+#ifndef _WHIP_EXTERNAL_OPERATOR_WRAPPER_
+#define _WHIP_EXTERNAL_OPERATOR_WRAPPER_
 
 #include "Whip/Core/Core.h"
 #include "TypeTraits.h"
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -51,3 +56,7 @@ inline auto operator >=(external_operator_left_hand_side<_Ty1, _FunTy> const& le
 }
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_EXTERNAL_OPERATOR_WRAPPER_

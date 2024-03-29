@@ -1,10 +1,15 @@
 #pragma once
+#ifndef _WHIP_TAG_
+#define _WHIP_TAG_
 
 #include <Whip/Core/Core.h>
 #include "TypeTraits.h"
 #include "Concepts.h"
 
 #include <type_traits>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -51,3 +56,7 @@ inline namespace literals
 }
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_TAG_

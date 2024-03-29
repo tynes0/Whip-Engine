@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _WHIP_ANY_
+#define _WHIP_ANY_
 
 #include <typeinfo>
 #include <type_traits>
@@ -6,6 +8,9 @@
 #include "Whip/Core/Core.h"
 #include "Whip/Core/TemplatesAndContainers/Utility.h"
 #include "Whip/Core/TemplatesAndContainers/TypeTraits.h"
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -209,3 +214,7 @@ namespace aops
 } // namespace aops
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_ANY_

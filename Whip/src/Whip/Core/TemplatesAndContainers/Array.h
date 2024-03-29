@@ -1,9 +1,14 @@
 #pragma once
+#ifndef _WHIP_ARRAY_
+#define _WHIP_ARRAY_
 
 #include "Whip/Core/Core.h"
 #include "Utility.h"
 #include "Iterator.h"
 #include "Whip/Core/Log.h"
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -27,70 +32,70 @@ public:
 
     ~array_iterator() {}
 
-    reference operator*() const
+    WHP_CONSTEXPR17 reference operator*() const
     {
         return *(m_ptr + m_offset);
     }
 
-    array_iterator& operator++()
+	WHP_CONSTEXPR17 array_iterator& operator++()
     {
         ++m_offset;
         return *this;
     }
 
-    array_iterator operator++(int)
+	WHP_CONSTEXPR17 array_iterator operator++(int)
     {
         array_iterator temp(*this);
         ++(*this);
         return temp;
     }
 
-    array_iterator& operator--()
+	WHP_CONSTEXPR17 array_iterator& operator--()
     {
         --m_offset;
         return *this;
     }
 
-    array_iterator operator--(int)
+	WHP_CONSTEXPR17 array_iterator operator--(int)
     {
         array_iterator temp(*this);
         --(*this);
         return temp;
     }
 
-    WHP_CONSTEXPR bool operator==(const array_iterator& other)
+    WHP_CONSTEXPR17 bool operator==(const array_iterator& other)
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-	WHP_CONSTEXPR bool operator==(array_iterator&& other)
+	WHP_CONSTEXPR17 bool operator==(array_iterator&& other)
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-	WHP_CONSTEXPR bool operator!=(const array_iterator& other)
+	WHP_CONSTEXPR17 bool operator!=(const array_iterator& other)
     {
         return !(this->operator==(move(other)));
     }
 
-    array_iterator operator+(size_type n) const
+	WHP_CONSTEXPR17 array_iterator operator+(size_type n) const
     {
         return array_iterator(m_ptr, m_offset + n);
     }
 
-    size_type operator+(const array_iterator& other) const
+	WHP_CONSTEXPR17 size_type operator+(const array_iterator& other) const
     {
         pointer other_ptr = other.m_ptr + other.m_offset;
         pointer ptr = m_ptr + m_offset;
         return ptr + other_ptr;
     }
 
-    array_iterator operator-(size_type n) const
+	WHP_CONSTEXPR17 array_iterator operator-(size_type n) const
     {
         return array_iterator(m_ptr, m_offset - n);
     }
 
-    size_type operator-(const array_iterator& other) const
+	WHP_CONSTEXPR17 size_type operator-(const array_iterator& other) const
     {
         pointer other_ptr = other.m_ptr + other.m_offset;
         pointer ptr = m_ptr + m_offset;
@@ -103,12 +108,12 @@ public:
         m_offset = offset;
     }
 
-	pointer unwrapped()
+	constexpr pointer unwrapped()
 	{
 		return (m_ptr + m_offset);
 	}
 
-	const pointer unwrapped() const
+	constexpr const pointer unwrapped() const
 	{
 		return (m_ptr + m_offset);
 	}
@@ -130,73 +135,69 @@ public:
     using diff_type     = typename m_base::diff_type;
 
 
-    const_array_iterator(pointer ptr = nullptr, size_type offset = 0)
-        : m_ptr(ptr), m_offset(offset)
-    {}
+	WHP_CONSTEXPR17 const_array_iterator(pointer ptr = nullptr, size_type offset = 0) : m_ptr(ptr), m_offset(offset) {}
 
-    const_array_iterator(const array_iterator<_Ty>& other)
-        : m_ptr(other.m_ptr), m_offset(other.m_offset)
-    {}
+	WHP_CONSTEXPR17 const_array_iterator(const array_iterator<_Ty>& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
 
-    ~const_array_iterator() {}
+	WHP_CONSTEXPR17 ~const_array_iterator() {}
 
-    reference operator*() const
+	WHP_CONSTEXPR17 reference operator*() const
     {
         return *(m_ptr + m_offset);
     }
 
-    const_array_iterator& operator++()
+	WHP_CONSTEXPR17 const_array_iterator& operator++()
     {
         ++m_offset;
         return *this;
     }
 
-    const_array_iterator operator++(int)
+	WHP_CONSTEXPR17 const_array_iterator operator++(int)
     {
         const_array_iterator temp(*this);
         ++(*this);
         return temp;
     }
 
-    const_array_iterator& operator--()
+	WHP_CONSTEXPR17 const_array_iterator& operator--()
     {
         --m_offset;
         return *this;
     }
 
-    const_array_iterator operator--(int)
+	WHP_CONSTEXPR17 const_array_iterator operator--(int)
     {
         const_array_iterator temp(*this);
         --(*this);
         return temp;
     }
 
-	WHP_CONSTEXPR bool operator==(const const_array_iterator& other) const
+	WHP_CONSTEXPR17 bool operator==(const const_array_iterator& other) const
 	{
 		return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
 	}
 
-	WHP_CONSTEXPR bool operator==(const_array_iterator&& other) const
+	WHP_CONSTEXPR17 bool operator==(const_array_iterator&& other) const
 	{
 		return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
 	}
 
-	WHP_CONSTEXPR bool operator!=(const const_array_iterator& other) const
+	WHP_CONSTEXPR17 bool operator!=(const const_array_iterator& other) const
 	{
 		return !(this->operator==(move(other)));
 	}
 
-    const_array_iterator operator+(size_type n) const
+	WHP_CONSTEXPR17 const_array_iterator operator+(size_type n) const
     {
         return const_array_iterator(m_ptr, m_offset + n);
     }
 
-    const_array_iterator operator-(size_type n) const
+	WHP_CONSTEXPR17 const_array_iterator operator-(size_type n) const
     {
         return const_array_iterator(m_ptr, m_offset - n);
     }
 
-    size_type operator-(const const_array_iterator& other) const
+	WHP_CONSTEXPR17 size_type operator-(const const_array_iterator& other) const
     {
         pointer other_ptr = other.m_ptr + other.m_offset;
         pointer ptr = m_ptr + m_offset;
@@ -209,7 +210,7 @@ public:
 		m_offset = offset;
 	}
 
-	pointer unwrapped() const
+	constexpr pointer unwrapped() const
 	{
 		return (m_ptr + m_offset);
 	}
@@ -261,13 +262,13 @@ public:
 	using reverse_iterator			= _WHIP reverse_iterator<array_iterator<_Ty>>;
 	using const_reverse_iterator	= _WHIP reverse_iterator<const_array_iterator<_Ty>>;
 
-	constexpr reference operator[](size_type index) noexcept
+	WHP_CONSTEXPR reference operator[](size_type index) noexcept
 	{
 		WHP_ASSERT(index < _Size, "array subscript out of range");
 		return *(m_data + index);
 	}
 
-	constexpr const_reference operator[](size_type index) const noexcept
+	WHP_CONSTEXPR const_reference operator[](size_type index) const noexcept
 	{
 		WHP_ASSERT(index < _Size, "array subscript out of range");
 		return *(m_data + index);
@@ -283,77 +284,77 @@ public:
 		return _Size;
 	}
 
-	constexpr iterator begin() noexcept
+	WHP_CONSTEXPR17 iterator begin() noexcept
 	{
 		return iterator(m_data);
 	}
 
-	constexpr iterator end() noexcept
+	WHP_CONSTEXPR17 iterator end() noexcept
 	{
 		return iterator(m_data, _Size);
 	}
 
-	constexpr const_iterator begin() const noexcept
+	WHP_CONSTEXPR17 const_iterator begin() const noexcept
 	{
 		return const_iterator(m_data);
 	}
 
-	constexpr const_iterator end() const noexcept
+	WHP_CONSTEXPR17 const_iterator end() const noexcept
 	{
 		return const_iterator(m_data, _Size);
 	}
 
-	constexpr const_iterator cbegin() const noexcept
+	WHP_CONSTEXPR17 const_iterator cbegin() const noexcept
 	{
 		return const_iterator(m_data);
 	}
 
-	constexpr const_iterator cend() const noexcept
+	WHP_CONSTEXPR17 const_iterator cend() const noexcept
 	{
 		return const_iterator(m_data, _Size);
 	}
 
-	constexpr reverse_iterator rbegin() noexcept
+	WHP_CONSTEXPR17 reverse_iterator rbegin() noexcept
 	{
 		return reverse_iterator(end());
 	}
 
-	constexpr reverse_iterator rend() noexcept
+	WHP_CONSTEXPR17 reverse_iterator rend() noexcept
 	{
 		return reverse_iterator(begin());
 	}
 
-	constexpr const_reverse_iterator rbegin() const noexcept
+	WHP_CONSTEXPR17 const_reverse_iterator rbegin() const noexcept
 	{
 		return const_reverse_iterator(cend());
 	}
 
-	constexpr const_reverse_iterator rend() const noexcept
+	WHP_CONSTEXPR17 const_reverse_iterator rend() const noexcept
 	{
 		return const_reverse_iterator(cbegin());
 	}
 
-	constexpr const_reverse_iterator crbegin() const noexcept
+	WHP_CONSTEXPR17 const_reverse_iterator crbegin() const noexcept
 	{
 		return const_reverse_iterator(cend());
 	}
 
-	constexpr const_reverse_iterator crend() const noexcept
+	WHP_CONSTEXPR17 const_reverse_iterator crend() const noexcept
 	{
 		return const_reverse_iterator(cbegin());
 	}
 
-	constexpr pointer data() noexcept
+	WHP_CONSTEXPR17 pointer data() noexcept
 	{
 		return m_data;
 	}
 
-	constexpr const_pointer data() const noexcept
+	WHP_CONSTEXPR17 const_pointer data() const noexcept
 	{
 		return m_data;
 	}
 
-	constexpr reference at(size_t index)
+	WHP_CONSTEXPR17 reference at(size_t index)
 	{
 		if (index >= _Size) throw_oran();
 		return *(m_data + index);
@@ -365,7 +366,7 @@ public:
 		return *(m_data + index);
 	}
 
-	constexpr reference front() noexcept
+	WHP_CONSTEXPR17 reference front() noexcept
 	{
 		return m_data[0];
 	}
@@ -375,7 +376,7 @@ public:
 		return m_data[0];
 	}
 
-	constexpr reference back() noexcept
+	WHP_CONSTEXPR17 reference back() noexcept
 	{
 		return m_data[_Size - 1];
 	}
@@ -390,7 +391,7 @@ public:
 		return false;
 	}
 
-	constexpr void fill(const_reference _Val) noexcept
+	WHP_CONSTEXPR void fill(const_reference _Val) noexcept
 	{
 		pointer temp_beg = m_data;
 		const_pointer temp_end = m_data + _Size;
@@ -401,7 +402,7 @@ public:
 				DREF(temp_beg) = _Val;
 	}
 
-	constexpr void swap(array& right) noexcept
+	WHP_CONSTEXPR void swap(array& right) noexcept
 	{
 		if (addressof(right) != this)
 		{
@@ -409,7 +410,7 @@ public:
 		}
 	}
 
-	constexpr void copy(const array& other) noexcept
+	WHP_CONSTEXPR void copy(const array& other) noexcept
 	{
 		if (addressof(other) != this)
 		{
@@ -417,22 +418,22 @@ public:
 		}
 	}
 
-	constexpr pointer unchecked_begin() noexcept
+	WHP_CONSTEXPR17 pointer unchecked_begin() noexcept
 	{
 		return m_data;
 	}
 
-	constexpr const_pointer unchecked_begin() const noexcept
+	WHP_CONSTEXPR17 const_pointer unchecked_begin() const noexcept
 	{
 		return m_data;
 	}
 
-	constexpr pointer unchecked_end() noexcept
+	WHP_CONSTEXPR17 pointer unchecked_end() noexcept
 	{
 		return m_data + _Size;
 	}
 
-	constexpr const_pointer unchecked_end() const noexcept
+	WHP_CONSTEXPR17 const_pointer unchecked_end() const noexcept
 	{
 		return m_data + _Size;
 	}
@@ -487,13 +488,15 @@ public:
 	using reverse_iterator			= _WHIP reverse_iterator<array_iterator<_Ty>>;
 	using const_reverse_iterator	= _WHIP reverse_iterator<const_array_iterator<_Ty>>;
 
-	constexpr reference operator[](size_type index)
+	WHP_CONSTEXPR17 reference operator[](size_type index)
 	{
+		WHP_CORE_ASSERT(false, "whip::array<T, 0>::operator[]() is invalid");
 		return *data();
 	}
 
-	constexpr const_reference operator[](size_type index) const
+	WHP_CONSTEXPR17 const_reference operator[](size_type index) const
 	{
+		WHP_CORE_ASSERT(false, "whip::array<T, 0>::operator[]() is invalid");
 		return *data();
 	}
 
@@ -507,103 +510,107 @@ public:
 		return 0;
 	}
 
-	constexpr iterator begin() noexcept
+	WHP_CONSTEXPR17 iterator begin() noexcept
 	{
 		return iterator{};
 	}
 
-	constexpr iterator end() noexcept
+	WHP_CONSTEXPR17 iterator end() noexcept
 	{
 		return iterator{};
 	}
 
-	constexpr const_iterator begin() const noexcept
+	WHP_CONSTEXPR17 const_iterator begin() const noexcept
 	{
 		return const_iterator{};
 	}
 
-	constexpr const_iterator end() const noexcept
+	WHP_CONSTEXPR17 const_iterator end() const noexcept
 	{
 		return const_iterator{};
 	}
 
-	constexpr const_iterator cbegin() const noexcept
+	WHP_CONSTEXPR17 const_iterator cbegin() const noexcept
 	{
 		return const_iterator{};
 	}
 
-	constexpr const_iterator cend() const noexcept
+	WHP_CONSTEXPR17 const_iterator cend() const noexcept
 	{
 		return const_iterator{};
 	}
 
-	constexpr reverse_iterator rbegin() noexcept
+	WHP_CONSTEXPR17 reverse_iterator rbegin() noexcept
 	{
 		return reverse_iterator{};
 	}
 
-	constexpr reverse_iterator rend() noexcept
+	WHP_CONSTEXPR17 reverse_iterator rend() noexcept
 	{
 		return reverse_iterator{};
 	}
 
-	constexpr const_reverse_iterator rbegin() const noexcept
+	WHP_CONSTEXPR17 const_reverse_iterator rbegin() const noexcept
 	{
 		return const_reverse_iterator{};
 	}
 
-	constexpr const_reverse_iterator rend() const noexcept
+	WHP_CONSTEXPR17 const_reverse_iterator rend() const noexcept
 	{
 		return const_reverse_iterator{};
 	}
 
-	constexpr const_reverse_iterator crbegin() const noexcept
+	WHP_CONSTEXPR17 const_reverse_iterator crbegin() const noexcept
 	{
 		return const_reverse_iterator{};
 	}
 
-	constexpr const_reverse_iterator crend() const noexcept
+	WHP_CONSTEXPR17 const_reverse_iterator crend() const noexcept
 	{
 		return const_reverse_iterator{};
 	}
 
-	constexpr pointer data() noexcept
+	WHP_CONSTEXPR17 pointer data() noexcept
 	{
 		return nullptr;
 	}
 
-	constexpr const_pointer data() const noexcept
+	WHP_CONSTEXPR17 const_pointer data() const noexcept
 	{
 		return nullptr;
 	}
 
-	constexpr reference at(size_t index) noexcept
+	WHP_NORETURN WHP_CONSTEXPR17 reference at(size_t index) noexcept
 	{
+		throw_oran();
+	}
+
+	WHP_NORETURN WHP_CONSTEXPR17 const_reference at(size_t index) const noexcept
+	{
+		throw_oran();
+	}
+
+	WHP_CONSTEXPR17 reference front() noexcept
+	{
+		WHP_CORE_ASSERT(false, "whip::array<T, 0>::front() is invalid");
 		return *data();
 	}
 
-	constexpr const_reference at(size_t index) const noexcept
+	WHP_CONSTEXPR17 const_reference front() const noexcept
 	{
+		WHP_CORE_ASSERT(false, "whip::array<T, 0>::front() is invalid");
 		return *data();
 	}
 
-	constexpr reference front() noexcept
+	WHP_CONSTEXPR17 reference back() noexcept
 	{
+		WHP_CORE_ASSERT(false, "whip::array<T, 0>::back() is invalid");
 		return *data();
 	}
 
-	constexpr const_reference front() const noexcept
+	WHP_CONSTEXPR17 const_reference back() const noexcept
 	{
-		return *data();
-	}
-
-	constexpr reference back() noexcept
-	{
-		return *data();
-	}
-
-	constexpr const_reference back() const noexcept
-	{
+		WHP_CORE_ASSERT(false, "whip::array<T, 0>::back() is invalid");
 		return *data();
 	}
 
@@ -612,40 +619,46 @@ public:
 		return true;
 	}
 
-	constexpr void fill(const_reference _Val) noexcept {}
+	WHP_CONSTEXPR void fill(const_reference _Val) noexcept {}
 
-	constexpr void swap(array& other) noexcept {}
+	WHP_CONSTEXPR void swap(array& other) noexcept {}
 
-	constexpr void copy(const array& other) noexcept {}
+	WHP_CONSTEXPR void copy(const array& other) noexcept {}
 
-	constexpr pointer unchecked_begin() noexcept
+	WHP_CONSTEXPR17 pointer unchecked_begin() noexcept
 	{
 		return data();
 	}
 
-	constexpr const_pointer unchecked_begin() const noexcept
+	WHP_CONSTEXPR17 const_pointer unchecked_begin() const noexcept
 	{
 		return data();
 	}
 
-	constexpr pointer unchecked_end() noexcept
+	WHP_CONSTEXPR17 pointer unchecked_end() noexcept
 	{
 		return data();
 	}
 
-	constexpr const_pointer unchecked_end() const noexcept
+	WHP_CONSTEXPR17 const_pointer unchecked_end() const noexcept
 	{
 		return data();
 	}
 
-	constexpr bool operator==(const array& right) const noexcept
+	WHP_CONSTEXPR17 bool operator==(const array& right) const noexcept
 	{
 		return true;
 	}
 
-	constexpr bool operator!=(const array& right) const noexcept
+	WHP_CONSTEXPR17 bool operator!=(const array& right) const noexcept
 	{
 		return false;
+	}
+
+private:
+	WHP_NORETURN void throw_oran()
+	{
+		std::_Xout_of_range("array subscript out of range");
 	}
 };
 
@@ -665,5 +678,8 @@ struct tuple_element<_Idx, array<_Ty, _Size>>
 	using type = _Ty;
 };
 
-
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_ARRAY_

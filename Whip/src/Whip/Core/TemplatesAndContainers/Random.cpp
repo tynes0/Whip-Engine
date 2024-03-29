@@ -41,12 +41,12 @@ unsigned int xrand(unsigned int seed)
     return xrseed;
 }
 
-constexpr float float_from_bits(const uint32_t i) noexcept
+WHP_CONSTEXPR float float_from_bits(const uint32_t i) noexcept
 {
     return (i >> 8) * 0x1.0p-24f;
 }
 
-constexpr double double_from_bits(const uint64_t i) noexcept
+WHP_CONSTEXPR double double_from_bits(const uint64_t i) noexcept
 {
     return (i >> 11) * 0x1.0p-53;
 }
@@ -144,9 +144,9 @@ void mersenne_twister::generate_numbers() noexcept
 #define ROTL64(x, s) ((x << s) | (x >> (64 - s)))
 #define ROTL32(x, s) ((x << s) | (x >> (32 - s)))
 
-constexpr split_mix64::split_mix64(state_type state) noexcept : m_state(state) {}
+WHP_CONSTEXPR split_mix64::split_mix64(state_type state) noexcept : m_state(state) {}
 
-constexpr split_mix64::result_type split_mix64::operator()() noexcept
+WHP_CONSTEXPR split_mix64::result_type split_mix64::operator()() noexcept
 {
     std::uint64_t z = (m_state += 0x9e3779b97f4a7c15);
     z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
@@ -154,12 +154,12 @@ constexpr split_mix64::result_type split_mix64::operator()() noexcept
     return z ^ (z >> 31);
 }
 
-constexpr split_mix64::state_type split_mix64::get_state() const noexcept
+WHP_CONSTEXPR split_mix64::state_type split_mix64::get_state() const noexcept
 {
     return m_state;
 }
 
-constexpr void split_mix64::set_state(state_type state) noexcept
+WHP_CONSTEXPR void split_mix64::set_state(state_type state) noexcept
 {
     m_state = state;
 }
@@ -177,11 +177,11 @@ bool split_mix64::operator!=(const split_mix64& right) const noexcept
 
 #if _WHP_HAS_CPP_VERSION(20)
 
-constexpr xoshiro256plus::xoshiro256plus(uint64_t seed) noexcept : m_state(split_mix64{seed}.generate_seed_sequence<4>()) {}
+WHP_CONSTEXPR xoshiro256plus::xoshiro256plus(uint64_t seed) noexcept : m_state(split_mix64{seed}.generate_seed_sequence<4>()) {}
 
-constexpr xoshiro256plus::xoshiro256plus(state_type state) noexcept :m_state(state) {}
+WHP_CONSTEXPR xoshiro256plus::xoshiro256plus(state_type state) noexcept :m_state(state) {}
 
-constexpr xoshiro256plus::result_type xoshiro256plus::operator()() noexcept
+WHP_CONSTEXPR xoshiro256plus::result_type xoshiro256plus::operator()() noexcept
 {
     const uint64_t result = m_state[0] + m_state[3];
     const uint64_t t = m_state[1] << 17;
@@ -194,7 +194,7 @@ constexpr xoshiro256plus::result_type xoshiro256plus::operator()() noexcept
     return result;
 }
 
-constexpr void xoshiro256plus::jump() noexcept
+WHP_CONSTEXPR void xoshiro256plus::jump() noexcept
 {
     constexpr whip::array<uint64_t, 4> jump_arr = { 0x180ec6d33cfd0aba, 0xd5a61266f0c9392c, 0xa9582618e03fc9aa, 0x39abdc4529b1661c };
     whip::array<uint64_t, 4> s = { 0, 0, 0, 0 };
@@ -219,7 +219,7 @@ constexpr void xoshiro256plus::jump() noexcept
     m_state[3] = s[3];
 }
 
-constexpr void xoshiro256plus::long_jump() noexcept
+WHP_CONSTEXPR void xoshiro256plus::long_jump() noexcept
 {
 }
 

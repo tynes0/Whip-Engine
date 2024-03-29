@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef _WHIP_PANDOM_
+#define _WHIP_PANDOM_
+
 #include <Whip/Core/Core.h>
 #include <Whip/Core/Log.h>
 
@@ -24,6 +27,9 @@
 // empty here
 #endif // WHP_PLATFORM_WINDOWS
 
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
+
 _WHIP_START
 
 namespace detail_random
@@ -41,8 +47,8 @@ void sxrand(unsigned int seed);
 unsigned int wrand(unsigned int seed);
 unsigned int xrand(unsigned int seed);
 
-constexpr float float_from_bits(const uint32_t i) noexcept;
-constexpr double double_from_bits(const uint64_t i) noexcept;
+WHP_CONSTEXPR float float_from_bits(const uint32_t i) noexcept;
+WHP_CONSTEXPR double double_from_bits(const uint64_t i) noexcept;
 
 namespace detail_random
 {
@@ -109,18 +115,18 @@ public:
 	using state_type	= uint64_t;
 	using result_type	= uint64_t;
 
-	WHP_NODISCARD20 explicit constexpr split_mix64(state_type state = detail_random::default_seed) noexcept;
-	constexpr result_type operator()() noexcept;
-	WHP_NODISCARD constexpr state_type get_state() const noexcept;
-	constexpr void set_state(state_type state) noexcept;
+	WHP_NODISCARD20 explicit WHP_CONSTEXPR split_mix64(state_type state = detail_random::default_seed) noexcept;
+	WHP_CONSTEXPR result_type operator()() noexcept;
+	WHP_NODISCARD WHP_CONSTEXPR state_type get_state() const noexcept;
+	WHP_CONSTEXPR void set_state(state_type state) noexcept;
 	WHP_NODISCARD bool operator==(const split_mix64& right) const noexcept;
 	WHP_NODISCARD bool operator!=(const split_mix64& right) const noexcept;
 
-	WHP_NODISCARD static constexpr result_type(min)() { return std::numeric_limits<result_type>::lowest(); }
-	WHP_NODISCARD static constexpr result_type(max)() { return (std::numeric_limits<result_type>::max)(); }
+	WHP_NODISCARD static WHP_CONSTEXPR result_type(min)() { return std::numeric_limits<result_type>::lowest(); }
+	WHP_NODISCARD static WHP_CONSTEXPR result_type(max)() { return (std::numeric_limits<result_type>::max)(); }
 
 	template <size_t N>
-	WHP_NODISCARD constexpr whip::array<uint64_t, N> generate_seed_sequence() noexcept
+	WHP_NODISCARD WHP_CONSTEXPR whip::array<uint64_t, N> generate_seed_sequence() noexcept
 	{
 		whip::array<uint64_t, N> seeds = {};
 		for (auto& seed : seeds)
@@ -141,19 +147,19 @@ public:
 	using state_type = whip::array<uint64_t, 4>;
 	using result_type = uint64_t;
 
-	WHP_NODISCARD20 explicit constexpr xoshiro256plus(uint64_t seed = detail_random::default_seed) noexcept;
-	WHP_NODISCARD20 explicit constexpr xoshiro256plus(state_type state) noexcept;
+	WHP_NODISCARD20 explicit WHP_CONSTEXPR xoshiro256plus(uint64_t seed = detail_random::default_seed) noexcept;
+	WHP_NODISCARD20 explicit WHP_CONSTEXPR xoshiro256plus(state_type state) noexcept;
 
-	constexpr result_type operator()() noexcept;
-	constexpr void jump() noexcept;
-	constexpr void long_jump() noexcept;
-	WHP_NODISCARD constexpr state_type get_state() const noexcept;
-	constexpr void set_state(const state_type& state) noexcept;
+	WHP_CONSTEXPR result_type operator()() noexcept;
+	WHP_CONSTEXPR void jump() noexcept;
+	WHP_CONSTEXPR void long_jump() noexcept;
+	WHP_NODISCARD WHP_CONSTEXPR state_type get_state() const noexcept;
+	WHP_CONSTEXPR void set_state(const state_type& state) noexcept;
 	WHP_NODISCARD bool operator==(const xoshiro256plus& right) const noexcept;
 	WHP_NODISCARD bool operator!=(const xoshiro256plus& right) const noexcept;
 
-	WHP_NODISCARD static constexpr result_type(min)() { return std::numeric_limits<result_type>::lowest(); }
-	WHP_NODISCARD static constexpr result_type(max)() { return (std::numeric_limits<result_type>::max)(); }
+	WHP_NODISCARD static WHP_CONSTEXPR result_type(min)() { return std::numeric_limits<result_type>::lowest(); }
+	WHP_NODISCARD static WHP_CONSTEXPR result_type(max)() { return (std::numeric_limits<result_type>::max)(); }
 private:
 	state_type m_state;
 };
@@ -292,3 +298,7 @@ private:
 };
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_PANDOM_

@@ -1,8 +1,11 @@
 #pragma once
+#ifndef _WHIP_TYPE_TRAITS_
+#define _WHIP_TYPE_TRAITS_
 
 #include "Whip/Core/Core.h"
 
-// TODO: inline -> WHP_INLINE
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -47,35 +50,40 @@ struct enable_if<true, _Ty>
 template <bool _Test, class _Ty = void>
 using enable_if_t = typename enable_if<_Test, _Ty>::type;
 
-template <class _Ty, class = void>
-struct _Add_reference 
-{ // add reference (non-referenceable type)
-	using _Lvalue = _Ty;
-	using _Rvalue = _Ty;
+namespace detail_type_traits
+{
+	template <class _Ty, class = void>
+	struct add_reference
+	{ // add reference (non-referenceable type)
+		using _Lvalue = _Ty;
+		using _Rvalue = _Ty;
+	};
+
+	template <class _Ty>
+	struct add_reference<_Ty, void_t<_Ty&>>
+	{ // (referenceable type)
+		using _lvalue = _Ty&;
+		using _rvalue = _Ty&&;
+	};
+}
+
+template <class _Ty>
+struct add_lvalue_reference 
+{
+	using type = typename detail_type_traits::add_reference<_Ty>::_lvalue;
 };
 
 template <class _Ty>
-struct _Add_reference<_Ty, void_t<_Ty&>> 
-{ // (referenceable type)
-	using _lvalue = _Ty&;
-	using _rvalue = _Ty&&;
+using add_lvalue_reference_t = typename detail_type_traits::add_reference<_Ty>::_lvalue;
+
+template <class _Ty>
+struct add_rvalue_reference 
+{
+	using type = typename detail_type_traits::add_reference<_Ty>::_rvalue;
 };
 
 template <class _Ty>
-struct add_lvalue_reference {
-	using type = typename _Add_reference<_Ty>::_lvalue;
-};
-
-template <class _Ty>
-using add_lvalue_reference_t = typename _Add_reference<_Ty>::_lvalue;
-
-template <class _Ty>
-struct add_rvalue_reference {
-	using type = typename _Add_reference<_Ty>::_rvalue;
-};
-
-template <class _Ty>
-using add_rvalue_reference_t = typename _Add_reference<_Ty>::_rvalue;
+using add_rvalue_reference_t = typename detail_type_traits::add_reference<_Ty>::_rvalue;
 
 template <class _Ty>
 add_rvalue_reference_t<_Ty> declval() noexcept {}
@@ -319,23 +327,89 @@ WHP_INLINE constexpr bool is_void_v = is_same_v<remove_cv_t<_Ty>, void>;
 template <class _Ty>
 struct is_void : bool_constant<is_void_v<_Ty>> {};
 
-template <bool _First_value, class _First, class... _Rest>
-struct _Disjunction {
-	using type = _First;
-};
+namespace detail_type_traits
+{
+	template <class, class = void_t<>>
+	struct has_value_type_helper : false_type {};
 
-template <class _False, class _Next, class... _Rest>
-struct _Disjunction<false, _False, _Next, _Rest...> {
-	using type = typename _Disjunction<_Next::value, _Next, _Rest...>::type;
-};
+	template <class _Ty>
+	struct has_value_type_helper<_Ty, void_t<typename _Ty::value_type>> : true_type {};
+
+	template <class, class = void_t<>>
+	struct has_difference_type_helper : false_type {};
+
+	template <class _Ty>
+	struct has_difference_type_helper<_Ty, void_t<typename _Ty::difference_type>> : true_type {};
+
+	template <class, class = void_t<>>
+	struct has_pointer_type_helper : false_type {};
+
+	template <class _Ty>
+	struct has_pointer_type_helper<_Ty, void_t<typename _Ty::pointer>> : true_type {};
+
+	template <class, class = void_t<>>
+	struct has_reference_type_helper : false_type {};
+
+	template <class _Ty>
+	struct has_reference_type_helper<_Ty, void_t<typename _Ty::reference>> : true_type {};
+
+	template <class, class = void_t<>>
+	struct has_size_type_helper : false_type {};
+
+	template <class _Ty>
+	struct has_size_type_helper<_Ty, void_t<typename _Ty::size_type>> : true_type {};
+}
+
+template <class _Ty>
+struct has_value_type : public detail_type_traits::has_value_type_helper<_Ty> {};
+
+template <class _Ty>
+WHP_INLINE constexpr bool has_value_type_v = has_value_type<_Ty>::value;
+
+template <class _Ty>
+struct has_difference_type : public detail_type_traits::has_difference_type_helper<_Ty> {};
+
+template <class _Ty>
+WHP_INLINE constexpr bool has_difference_type_v = has_difference_type<_Ty>::value;
+
+template <class _Ty>
+struct has_size_type : public detail_type_traits::has_size_type_helper<_Ty> {};
+
+template <class _Ty>
+WHP_INLINE constexpr bool has_size_type_v = has_size_type<_Ty>::value;
+
+template <class _Ty>
+struct has_pointer_type : public detail_type_traits::has_pointer_type_helper<_Ty> {};
+
+template <class _Ty>
+WHP_INLINE constexpr bool has_pointer_type_v = has_pointer_type<_Ty>::value;
+
+template <class _Ty>
+struct has_reference_type : public detail_type_traits::has_reference_type_helper<_Ty> {};
+
+template <class _Ty>
+WHP_INLINE constexpr bool has_reference_type_v = has_reference_type<_Ty>::value;
+
+namespace detail_type_traits
+{
+	template <bool _First_value, class _First, class... _Rest>
+	struct disjunction_helper
+	{
+		using type = _First;
+	};
+
+	template <class _False, class _Next, class... _Rest>
+	struct disjunction_helper<false, _False, _Next, _Rest...>
+	{
+		using type = typename disjunction_helper<_Next::value, _Next, _Rest...>::type;
+	};
+}
 
 template <class... _Traits>
 struct disjunction : false_type {}; // If _Traits is empty, false_type
 
 template <class _First, class... _Rest>
-struct disjunction<_First, _Rest...> : _Disjunction<_First::value, _First, _Rest...>::type {
-	// the first true trait in _Traits, or the last trait if none are true
-};
+struct disjunction<_First, _Rest...> : detail_type_traits::disjunction_helper<_First::value, _First, _Rest...>::type {};
 
 template <class... _Traits>
 WHP_INLINE constexpr bool disjunction_v = disjunction<_Traits...>::value;
@@ -508,13 +582,15 @@ template <class _Ty, unsigned int _Ix = 0>
 struct extent : integral_constant<size_t, extent_v<_Ty, _Ix>> {};
 
 template <typename... Args>
-struct conjunction : std::true_type {};
+struct conjunction : true_type {};
 
 template <typename T, typename... Args>
 struct conjunction<T, Args...> : conditional_t<T::value, conjunction<Args...>, T> {};
 
 template <typename... Args>
 WHP_INLINE constexpr bool conjunction_v = conjunction<Args...>::value;
+
+// TODO: ALL WHIP!
 
 template <class _Ty1, class _Ty2>
 struct is_swappable_with : std::_Is_swappable_with<_Ty1, _Ty2>::type {};
@@ -540,120 +616,122 @@ struct is_nothrow_swappable : std::_Is_nothrow_swappable<_Ty>::type {};
 template <class _Ty>
 WHP_INLINE constexpr bool is_nothrow_swappable_v = std::_Is_nothrow_swappable<_Ty>::value;
 
-template <bool>
-struct _Select 
-{ // Select between aliases that extract either their first or second parameter
-	template <class _Ty1, class>
-	using _Apply = _Ty1;
-};
-
-template <>
-struct _Select<false>
+namespace detail_type_traits
 {
-	template <class, class _Ty2>
-	using _Apply = _Ty2;
-};
+	template <bool>
+	struct _Select
+	{
+		template <class _Ty1, class>
+		using _Apply = _Ty1;
+	};
 
-template <size_t>
-struct _Make_signed2;
+	template <>
+	struct _Select<false>
+	{
+		template <class, class _Ty2>
+		using _Apply = _Ty2;
+	};
 
-template <>
-struct _Make_signed2<1> 
-{
-	template <class>
-	using _Apply = signed char;
-};
+	template <size_t>
+	struct _Make_signed2;
 
-template <>
-struct _Make_signed2<2>
-{
-	template <class>
-	using _Apply = short;
-};
+	template <>
+	struct _Make_signed2<1>
+	{
+		template <class>
+		using _Apply = signed char;
+	};
 
-template <>
-struct _Make_signed2<4>
-{
+	template <>
+	struct _Make_signed2<2>
+	{
+		template <class>
+		using _Apply = short;
+	};
+
+	template <>
+	struct _Make_signed2<4>
+	{
+		template <class _Ty>
+		using _Apply = typename _Select<is_same_v<_Ty, long> || is_same_v<_Ty, unsigned long>>::template _Apply<long, int>;
+	};
+
+	template <>
+	struct _Make_signed2<8>
+	{
+		template <class>
+		using _Apply = long long;
+	};
+
 	template <class _Ty>
-	using _Apply = typename _Select<is_same_v<_Ty, long> || is_same_v<_Ty, unsigned long>>::template _Apply<long, int>;
-};
+	using _Make_signed1 = typename _Make_signed2<sizeof(_Ty)>::template _Apply<_Ty>;
 
-template <>
-struct _Make_signed2<8>
-{
-	template <class>
-	using _Apply = long long;
-};
+
+	template <size_t>
+	struct _Make_unsigned2;
+
+	template <>
+	struct _Make_unsigned2<1>
+	{
+		template <class>
+		using _Apply = unsigned char;
+	};
+
+	template <>
+	struct _Make_unsigned2<2>
+	{
+		template <class>
+		using _Apply = unsigned short;
+	};
+
+	template <>
+	struct _Make_unsigned2<4>
+	{
+		template <class _Ty>
+		using _Apply = typename _Select<is_same_v<_Ty, long> || is_same_v<_Ty, unsigned long>>::template _Apply<unsigned long, unsigned int>;
+	};
+
+	template <>
+	struct _Make_unsigned2<8>
+	{
+		template <class>
+		using _Apply = unsigned long long;
+	};
+
+	template <class _Ty>
+	using _Make_unsigned1 = typename _Make_unsigned2<sizeof(_Ty)>::template _Apply<_Ty>;
+
+}
 
 template <class _Ty>
-using _Make_signed1 = // signed partner to cv-unqualified _Ty
-typename _Make_signed2<sizeof(_Ty)>::template _Apply<_Ty>;
-
-template <class _Ty>
-struct make_signed { // signed partner to _Ty
-	static_assert(std::_Is_nonbool_integral<_Ty> || std::is_enum_v<_Ty>,
-		"make_signed<T> requires that T shall be a (possibly cv-qualified) "
-		"integral type or enumeration but not a bool type.");
-
-	using type = typename remove_cv<_Ty>::template _Apply<_Make_signed1>;
+struct make_signed 
+{ 
+	static_assert(std::_Is_nonbool_integral<_Ty> || std::is_enum_v<_Ty>, "make_signed<T> requires that T shall be a (possibly cv-qualified) integral type or enumeration but not a bool type.");
+	using type = typename remove_cv<_Ty>::template _Apply<detail_type_traits::_Make_signed1>;
 };
 
 template <class _Ty>
 using make_signed_t = typename make_signed<_Ty>::type;
 
-template <size_t>
-struct _Make_unsigned2; // Choose make_unsigned strategy by type size
-
-template <>
-struct _Make_unsigned2<1>
-{
-	template <class>
-	using _Apply = unsigned char;
-};
-
-template <>
-struct _Make_unsigned2<2> 
-{
-	template <class>
-	using _Apply = unsigned short;
-};
-
-template <>
-struct _Make_unsigned2<4> 
-{
-	template <class _Ty>
-	using _Apply = // assumes LLP64
-		typename _Select<is_same_v<_Ty, long> || is_same_v<_Ty, unsigned long>>::template _Apply<unsigned long,
-		unsigned int>;
-};
-
-template <>
-struct _Make_unsigned2<8> 
-{
-	template <class>
-	using _Apply = unsigned long long;
-};
-
-template <class _Ty>
-using _Make_unsigned1 = // unsigned partner to cv-unqualified _Ty
-typename _Make_unsigned2<sizeof(_Ty)>::template _Apply<_Ty>;
-
 template <class _Ty>
 struct make_unsigned
 { // unsigned partner to _Ty
-	static_assert(std::_Is_nonbool_integral<_Ty> || std::is_enum_v<_Ty>,
-		"make_unsigned<T> requires that T shall be a (possibly cv-qualified) "
-		"integral type or enumeration but not a bool type.");
+	static_assert(std::_Is_nonbool_integral<_Ty> || std::is_enum_v<_Ty>, "make_unsigned<T> requires that T shall be a (possibly cv-qualified) integral type or enumeration but not a bool type.");
 
-	using type = typename remove_cv<_Ty>::template _Apply<_Make_unsigned1>;
+	using type = typename remove_cv<_Ty>::template _Apply<detail_type_traits::_Make_unsigned1>;
 };
 
 template <class _Ty>
 using make_unsigned_t = typename make_unsigned<_Ty>::type;
 
 template <class _Rep>
-constexpr make_unsigned_t<_Rep> _Unsigned_value(_Rep _Val) { // makes _Val unsigned
+constexpr make_unsigned_t<_Rep> to_unsigned(_Rep _Val) 
+{
 	return static_cast<make_unsigned_t<_Rep>>(_Val);
 }
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_TYPE_TRAITS_

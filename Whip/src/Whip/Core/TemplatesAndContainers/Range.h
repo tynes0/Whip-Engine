@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _WHIP_RANGE_
+#define _WHIP_RANGE_
 
 #include <type_traits>
 
@@ -7,63 +9,66 @@
 #include "TypeTraits.h"
 #include "Utility.h"
 
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
+
 _WHIP_START
 
-// NOTE THAT: range_iterator not usable in algorithms header
+// NOTE THAT: range_iterator has NOT a pointer data!
 template <class _Ty, class _Sty, enable_if_t<std::is_arithmetic_v<_Ty>&& std::is_arithmetic_v<_Sty>, int> = 0>
-class range_iterator : public iterator_base<_Ty>
+class range_iterator : public iterator_base<const _Ty>
 {
 public:
 
-    range_iterator(_Ty value, _Sty step) : m_value(value), m_step(step) {}
+    WHP_CONSTEXPR17 range_iterator(_Ty value, _Sty step) : m_value(value), m_step(step) {}
 
-    range_iterator(const range_iterator& other) : m_value(other.m_value), m_step(other.m_step) {}
+    WHP_CONSTEXPR17 range_iterator(const range_iterator& other) : m_value(other.m_value), m_step(other.m_step) {}
 
-    range_iterator& operator=(const range_iterator& other)
+    WHP_CONSTEXPR17 range_iterator& operator=(const range_iterator& other)
     {
         m_value = other.m_value;
         m_step = other.m_step;
     }
 
-    range_iterator(range_iterator&& other) : m_value(move(other.m_value)), m_step(move(other.m_step)) {}
+    WHP_CONSTEXPR17 range_iterator(range_iterator&& other) : m_value(move(other.m_value)), m_step(move(other.m_step)) {}
 
-    _Ty operator*() const
+    WHP_CONSTEXPR17 _Ty operator*() const
     {
         return m_value;
     }
 
-    range_iterator& operator++()
+    WHP_CONSTEXPR17 range_iterator& operator++()
     {
         m_value += static_cast<_Ty>(m_step);
         return (*this);
     }
 
-    range_iterator operator++(int)
+    WHP_CONSTEXPR17 range_iterator operator++(int)
     {
         range_iterator temp = *this;
         m_value += static_cast<_Ty>(m_step);
         return temp;
     }
 
-    range_iterator& operator--()
+    WHP_CONSTEXPR17 range_iterator& operator--()
     {
         m_value -= static_cast<_Ty>(m_step);
         return (*this);
     }
 
-    range_iterator operator--(int)
+    WHP_CONSTEXPR17 range_iterator operator--(int)
     {
         range_iterator temp = *this;
         m_value -= static_cast<_Ty>(m_step);
         return temp;
     }
 
-    bool operator==(const range_iterator& right) const
+    WHP_CONSTEXPR17 bool operator==(const range_iterator& right) const
     {
         return ((m_step == right.m_step) && (m_step > 0)) ? (m_value >= right.m_value) : (m_value <= right.m_value);
     }
 
-    bool operator!=(const range_iterator& right) const
+    WHP_CONSTEXPR17 bool operator!=(const range_iterator& right) const
     {
         return !this->operator==(right);
     }
@@ -210,3 +215,7 @@ using drange    = range<double>;
 using ldrange   = range<long double>;
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_RANGE_

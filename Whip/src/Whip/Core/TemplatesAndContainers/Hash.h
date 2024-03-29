@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _WHIP_HASH_
+#define _WHIP_HASH_
 
 #include "Whip/Core/Core.h"
 #include "TypeTraits.h"
@@ -6,6 +8,8 @@
 #include <type_traits>
 #include <string>
 
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -370,3 +374,7 @@ struct hash<std::string>
 #undef WHIP_HASH_TRIVIAL_ASSERT
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_HASH_

@@ -1,6 +1,11 @@
 #pragma once
+#ifndef _WHIP_MATH_DEF_
+#define _WHIP_MATH_DEF_
 
 #include <Whip/Core/Core.h>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -234,3 +239,7 @@ constexpr _Ty wceil(const _Ty& _val) noexcept
 }
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_MATH_DEF_

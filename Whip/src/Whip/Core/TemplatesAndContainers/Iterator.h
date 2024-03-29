@@ -1,9 +1,14 @@
 #pragma once
+#ifndef _WHIP_ITERATOR_
+#define _WHIP_ITERATOR_
 
 #include "Whip/Core/Core.h"
 #include "TypeTraits.h"
 #include "Utility.h"
 #include "Pair.h"
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -17,20 +22,47 @@ struct iterator_base
 	using diff_type		= _Diff;
 };
 
+template <class _WhipIter, bool _Has_value_type = has_value_type_v<_WhipIter>>
+struct is_const_whip_iterator
+{
+    static constexpr bool value = is_base_of_v< iterator_base<const std::remove_cv_t<typename _WhipIter::value_type>>, _WhipIter>;
+};
+
 template <class _WhipIter>
-struct is_const_whip_iterator : bool_constant<is_base_of_v<iterator_base<const remove_cv_t<typename _WhipIter::value_type>>, _WhipIter>> {};
+struct is_const_whip_iterator<_WhipIter, false>
+{
+    static constexpr bool value = false;
+};
 
 template <class _WhipIter>
 WHP_INLINE constexpr bool is_const_whip_iterator_v = is_const_whip_iterator<_WhipIter>::value;
 
-template <class _WhipIter>
-struct is_non_const_whip_iterator : bool_constant<is_base_of_v<iterator_base<remove_cv_t<typename _WhipIter::value_type>>, _WhipIter>> {};
+template <class _WhipIter, bool _Has_value_type = has_value_type_v<_WhipIter>>
+struct is_non_const_whip_iterator
+{
+    static constexpr bool value = is_base_of_v<iterator_base<remove_cv_t<typename _WhipIter::value_type>>, _WhipIter>;
+};
 
 template <class _WhipIter>
-WHP_INLINE constexpr bool is_non_const_whip_iterator_v = is_non_const_whip_iterator<_WhipIter>::value;
+struct is_non_const_whip_iterator<_WhipIter, false>
+{
+    static constexpr bool value = false;
+};
 
 template <class _WhipIter>
-struct is_whip_iterator : bool_constant<is_const_whip_iterator_v<_WhipIter> || is_non_const_whip_iterator_v<_WhipIter>> {};
+WHP_INLINE constexpr bool is_non_const_whip_iterator_v = is_base_of_v<iterator_base<remove_cv_t<typename _WhipIter::value_type>>, _WhipIter>;
+
+template <class _WhipIter, bool _Has_value_type = has_value_type_v<_WhipIter>>
+struct is_whip_iterator
+{
+    static constexpr bool value = is_const_whip_iterator_v<_WhipIter> || is_non_const_whip_iterator_v<_WhipIter>;
+};
+
+template <class _WhipIter>
+struct is_whip_iterator<_WhipIter, false>
+{
+    static constexpr bool value = false;
+};
 
 template <class _WhipIter>
 WHP_INLINE constexpr bool is_whip_iterator_v = is_whip_iterator<_WhipIter>::value;
@@ -530,3 +562,7 @@ WHP_INLINE WHP_CONSTEXPR17 void swap(iterate<_Ty>& lhs, iterate<_Ty>& rhs) noexc
 }
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_ITERATOR_

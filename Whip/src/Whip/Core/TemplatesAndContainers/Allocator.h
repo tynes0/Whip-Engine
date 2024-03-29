@@ -1,7 +1,12 @@
 #pragma once
+#ifndef _WHIP_ALLOCATOR_
+#define _WHIP_ALLOCATOR_
 
 #include "Whip/Core/Core.h"
 #include "Whip/Core/Log.h"
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -25,9 +30,7 @@ public:
 	_Ty* allocate(size_t n) 
 	{
 		if (pointer ptr = static_cast<_Ty*>(::operator new(n * sizeof(_Ty))))
-		{
 			return ptr;
-		}
 		WHP_CORE_ASSERT(false, "Allocation failed.");
 		return nullptr;
 	}
@@ -38,7 +41,8 @@ public:
 	}
 
 	template <typename U>
-	void destroy(U* p) noexcept {
+	void destroy(U* p) noexcept 
+	{
 		p->~U();
 	}
 
@@ -49,18 +53,21 @@ public:
 	}
 
 	template <typename U>
-	struct rebind {
+	struct rebind
+	{
 		using other = allocator<U>;
 	};
 };
 
 template <typename _Ty, typename _Uty>
-constexpr bool operator==(const allocator<_Ty>&, const allocator<_Uty>&) noexcept {
+constexpr bool operator==(const allocator<_Ty>&, const allocator<_Uty>&) noexcept 
+{
 	return true;
 }
 
 template <typename _Ty, typename _Uty>
-constexpr bool operator!=(const allocator<_Ty>& a, const allocator<_Uty>& b) noexcept {
+constexpr bool operator!=(const allocator<_Ty>& a, const allocator<_Uty>& b) noexcept 
+{
 	return !(a == b);
 }
 
@@ -94,9 +101,7 @@ struct alloc_construct_ptr
 	~alloc_construct_ptr()
 	{
 		if (ptr)
-		{
 			al.deallocate(ptr, 1);
-		}
 	}
 
 	alloc_construct_ptr(const alloc_construct_ptr&) = delete;
@@ -105,5 +110,8 @@ struct alloc_construct_ptr
 
 struct fake_allocator {};
 
-
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_ALLOCATOR_

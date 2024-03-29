@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _WHIP_SPAN_
+#define _WHIP_SPAN_
 
 #include <Whip/Core/Core.h>
 
@@ -13,6 +15,9 @@ _EMIT_WHP_WARNING(WHP0003, "The contents of whip::span are available only with C
 #include <type_traits>
 #include <compare>
 
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
+
 _WHIP_START
 
 inline constexpr size_t dynamic_extent = static_cast<size_t>(-1);
@@ -20,8 +25,9 @@ inline constexpr size_t dynamic_extent = static_cast<size_t>(-1);
 template <class _Ty>
 struct span_iterator : public iterator_base<_Ty>
 {
-    using value_type        = std::remove_cv_t<_Ty>;
+    using value_type        = remove_cv_t<_Ty>;
     using difference_type   = ptrdiff_t;
+    using size_type         = size_t;
     using pointer           = _Ty*;
     using reference         = _Ty&;
 
@@ -459,4 +465,9 @@ WHP_NODISCARD auto as_writable_bytes(span<_Ty, _Extent> sp) noexcept
 }
 
 _WHIP_END
+
+#pragma warning(pop)
+
 #endif //_WHP_HAS_CPP_VERSION(20)
+
+#endif // !_WHIP_SPAN_

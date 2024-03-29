@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _WHIP_ARITHMETIC_ARRAY_
+#define _WHIP_ARITHMETIC_ARRAY_
 
 #include <Whip/Core/Core.h>
 
@@ -18,6 +20,9 @@ _EMIT_WHP_WARNING(WHP0004, "The contents of whip::arithmetic_array are available
 
 #include <stdexcept>
 #include <cstring>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -44,76 +49,76 @@ public:
     template <class _Ty>
     friend class const_arithmetic_array_iterator;
 
-    arithmetic_array_iterator(pointer ptr = nullptr, size_type offset = 0) : m_ptr(ptr), m_offset(offset) {}
+	WHP_CONSTEXPR17 arithmetic_array_iterator(pointer ptr = nullptr, size_type offset = 0) : m_ptr(ptr), m_offset(offset) {}
 
-    arithmetic_array_iterator(const arithmetic_array_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
+	WHP_CONSTEXPR17 arithmetic_array_iterator(const arithmetic_array_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
 
-    ~arithmetic_array_iterator() {}
+	WHP_CONSTEXPR17 ~arithmetic_array_iterator() {}
 
-    reference operator*() const
+	WHP_CONSTEXPR17 reference operator*() const
     {
         return *(m_ptr + m_offset);
     }
 
-    arithmetic_array_iterator& operator++()
+	WHP_CONSTEXPR17 arithmetic_array_iterator& operator++()
     {
         ++m_offset;
         return *this;
     }
 
-    arithmetic_array_iterator operator++(int)
+	WHP_CONSTEXPR17 arithmetic_array_iterator operator++(int)
     {
         arithmetic_array_iterator temp(*this);
         ++(*this);
         return temp;
     }
 
-    arithmetic_array_iterator& operator--()
+	WHP_CONSTEXPR17 arithmetic_array_iterator& operator--()
     {
         --m_offset;
         return *this;
     }
 
-    arithmetic_array_iterator operator--(int)
+	WHP_CONSTEXPR17 arithmetic_array_iterator operator--(int)
     {
         arithmetic_array_iterator temp(*this);
         --(*this);
         return temp;
     }
 
-    bool operator==(const arithmetic_array_iterator& other)
+	WHP_CONSTEXPR17 bool operator==(const arithmetic_array_iterator& other)
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator==(arithmetic_array_iterator&& other)
+	WHP_CONSTEXPR17 bool operator==(arithmetic_array_iterator&& other)
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator!=(const arithmetic_array_iterator& other)
+	WHP_CONSTEXPR17 bool operator!=(const arithmetic_array_iterator& other)
     {
         return !(this->operator==(move(other)));
     }
 
-    arithmetic_array_iterator operator+(size_type n) const
+	WHP_CONSTEXPR17 arithmetic_array_iterator operator+(size_type n) const
     {
         return arithmetic_array_iterator(m_ptr, m_offset + n);
     }
 
-    size_type operator+(const arithmetic_array_iterator& other) const
+	WHP_CONSTEXPR17 size_type operator+(const arithmetic_array_iterator& other) const
     {
         pointer other_ptr = other.m_ptr + other.m_offset;
         pointer ptr = m_ptr + m_offset;
         return ptr + other_ptr;
     }
 
-    arithmetic_array_iterator operator-(size_type n) const
+	WHP_CONSTEXPR17 arithmetic_array_iterator operator-(size_type n) const
     {
         return arithmetic_array_iterator(m_ptr, m_offset - n);
     }
 
-    size_type operator-(const arithmetic_array_iterator& other) const
+	WHP_CONSTEXPR17 size_type operator-(const arithmetic_array_iterator& other) const
     {
         pointer other_ptr = other.m_ptr + other.m_offset;
         pointer ptr = m_ptr + m_offset;
@@ -126,12 +131,12 @@ public:
         m_offset = offset;
     }
 
-    pointer unwrapped()
+    constexpr pointer unwrapped()
     {
         return (m_ptr + m_offset);
     }
 
-    const pointer unwrapped() const
+    constexpr const pointer unwrapped() const
     {
         return (m_ptr + m_offset);
     }
@@ -153,73 +158,73 @@ public:
     using diff_type		= typename m_base::diff_type;
 
 
-    const_arithmetic_array_iterator(pointer ptr = nullptr, size_type offset = 0)
+	WHP_CONSTEXPR17 const_arithmetic_array_iterator(pointer ptr = nullptr, size_type offset = 0)
         : m_ptr(ptr), m_offset(offset)
     {}
 
-    const_arithmetic_array_iterator(const arithmetic_array_iterator<_Ty>& other)
+	WHP_CONSTEXPR17 const_arithmetic_array_iterator(const arithmetic_array_iterator<_Ty>& other)
         : m_ptr(other.m_ptr), m_offset(other.m_offset)
     {}
 
-    ~const_arithmetic_array_iterator() {}
+	WHP_CONSTEXPR17 ~const_arithmetic_array_iterator() {}
 
-    reference operator*() const
+	WHP_CONSTEXPR17 reference operator*() const
     {
         return *(m_ptr + m_offset);
     }
 
-    const_arithmetic_array_iterator& operator++()
+	WHP_CONSTEXPR17 const_arithmetic_array_iterator& operator++()
     {
         ++m_offset;
         return *this;
     }
 
-    const_arithmetic_array_iterator operator++(int)
+	WHP_CONSTEXPR17 const_arithmetic_array_iterator operator++(int)
     {
         const_arithmetic_array_iterator temp(*this);
         ++(*this);
         return temp;
     }
 
-    const_arithmetic_array_iterator& operator--()
+	WHP_CONSTEXPR17 const_arithmetic_array_iterator& operator--()
     {
         --m_offset;
         return *this;
     }
 
-    const_arithmetic_array_iterator operator--(int)
+	WHP_CONSTEXPR17 const_arithmetic_array_iterator operator--(int)
     {
         const_arithmetic_array_iterator temp(*this);
         --(*this);
         return temp;
     }
 
-    bool operator==(const const_arithmetic_array_iterator& other) const
+	WHP_CONSTEXPR17 bool operator==(const const_arithmetic_array_iterator& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator==(const_arithmetic_array_iterator&& other) const
+	WHP_CONSTEXPR17 bool operator==(const_arithmetic_array_iterator&& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator!=(const const_arithmetic_array_iterator& other) const
+	WHP_CONSTEXPR17 bool operator!=(const const_arithmetic_array_iterator& other) const
     {
         return !(this->operator==(move(other)));
     }
 
-    const_arithmetic_array_iterator operator+(size_type n) const
+	WHP_CONSTEXPR17 const_arithmetic_array_iterator operator+(size_type n) const
     {
         return const_arithmetic_array_iterator(m_ptr, m_offset + n);
     }
 
-    const_arithmetic_array_iterator operator-(size_type n) const
+	WHP_CONSTEXPR17 const_arithmetic_array_iterator operator-(size_type n) const
     {
         return const_arithmetic_array_iterator(m_ptr, m_offset - n);
     }
 
-    size_type operator-(const const_arithmetic_array_iterator& other) const
+	WHP_CONSTEXPR17 size_type operator-(const const_arithmetic_array_iterator& other) const
     {
         pointer other_ptr = other.m_ptr + other.m_offset;
         pointer ptr = m_ptr + m_offset;
@@ -232,7 +237,7 @@ public:
         m_offset = offset;
     }
 
-    pointer unwrapped() const
+    constexpr pointer unwrapped() const
     {
         return (m_ptr + m_offset);
     }
@@ -898,4 +903,7 @@ struct tuple_element<_Idx, arithmetic_array<_Ty, _Size>>
 
 _WHIP_END
 
+#pragma warning(pop)
+
 #endif // _WHP_HAS_CPP_VERSION(20)
+#endif // !_WHIP_ARITHMETIC_ARRAY_

@@ -1,9 +1,14 @@
 #pragma once
+#ifndef _WHIP_INVOKER_
+#define _WHIP_INVOKER_
 
 #include <Whip/Core/Core.h>
 #include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
 
 #include <type_traits>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -230,37 +235,39 @@ namespace detail_invoker
     struct is_invocable_r : is_invocable_r_<_Rx, _Callable, _Args...> {};
 
 }
-#if _HAS_CXX17
-    template <class _Callable, class... _Args>
-        struct invoke_result : detail_invoker::select_invoke_traits<_Callable, _Args...> {};
 
-    template <class _Callable, class... _Args>
-        using invoke_result_t = typename detail_invoker::select_invoke_traits<_Callable, _Args...>::type;
+template <class _Callable, class... _Args>
+struct invoke_result : detail_invoker::select_invoke_traits<_Callable, _Args...> {};
 
-    template <class _Callable, class... _Args>
-        struct is_invocable : detail_invoker::select_invoke_traits<_Callable, _Args...>::is_invocable {};
+template <class _Callable, class... _Args>
+using invoke_result_t = typename detail_invoker::select_invoke_traits<_Callable, _Args...>::type;
 
-    template <class _Callable, class... _Args>
-        inline constexpr bool is_invocable_v = detail_invoker::select_invoke_traits<_Callable, _Args...>::is_invocable::value;
+template <class _Callable, class... _Args>
+struct is_invocable : detail_invoker::select_invoke_traits<_Callable, _Args...>::is_invocable {};
 
-    template <class _Callable, class... _Args>
-        struct is_nothrow_invocable : detail_invoker::select_invoke_traits<_Callable, _Args...>::is_nothrow_invocable {};
+template <class _Callable, class... _Args>
+WHP_INLINE constexpr bool is_invocable_v = detail_invoker::select_invoke_traits<_Callable, _Args...>::is_invocable::value;
 
-    template <class _Callable, class... _Args>
-        inline constexpr bool is_nothrow_invocable_v = detail_invoker::select_invoke_traits<_Callable, _Args...>::is_nothrow_invocable::value;
+template <class _Callable, class... _Args>
+struct is_nothrow_invocable : detail_invoker::select_invoke_traits<_Callable, _Args...>::is_nothrow_invocable {};
 
-    template <class _Rx, class _Callable, class... _Args>
-        struct is_invocable_r : detail_invoker::is_invocable_r_<_Rx, _Callable, _Args...> {};
+template <class _Callable, class... _Args>
+WHP_INLINE constexpr bool is_nothrow_invocable_v = detail_invoker::select_invoke_traits<_Callable, _Args...>::is_nothrow_invocable::value;
 
-    template <class _Rx, class _Callable, class... _Args>
-        inline constexpr bool is_invocable_r_v = detail_invoker::is_invocable_r_<_Rx, _Callable, _Args...>::value;
+template <class _Rx, class _Callable, class... _Args>
+struct is_invocable_r : detail_invoker::is_invocable_r_<_Rx, _Callable, _Args...> {};
 
-    template <class _Rx, class _Callable, class... _Args>
-        struct is_nothrow_invocable_r : detail_invoker::select_invoke_traits<_Callable, _Args...>::template is_nothrow_invocable_r<_Rx> {};
+template <class _Rx, class _Callable, class... _Args>
+WHP_INLINE constexpr bool is_invocable_r_v = detail_invoker::is_invocable_r_<_Rx, _Callable, _Args...>::value;
 
-    template <class _Rx, class _Callable, class... _Args>
-        inline constexpr bool is_nothrow_invocable_r_v = detail_invoker::select_invoke_traits<_Callable, _Args...>::template is_nothrow_invocable_r<_Rx>::value;
-#endif // _HAS_CXX17
+template <class _Rx, class _Callable, class... _Args>
+struct is_nothrow_invocable_r : detail_invoker::select_invoke_traits<_Callable, _Args...>::template is_nothrow_invocable_r<_Rx> {};
 
+template <class _Rx, class _Callable, class... _Args>
+WHP_INLINE constexpr bool is_nothrow_invocable_r_v = detail_invoker::select_invoke_traits<_Callable, _Args...>::template is_nothrow_invocable_r<_Rx>::value;
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_INVOKER_

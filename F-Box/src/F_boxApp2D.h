@@ -16,6 +16,6 @@ public:
 private:
 	whip::orthographic_camera_controller m_camera_controller;
 	float tm = 0;
-	glm::vec4 m_square_color = { 0.2f, 0.5f, 0.9f, 1.0f };
+	glm::vec4 m_square_color = { 0.2f, 0.4f, 0.2f, 1.0f };
 };
 

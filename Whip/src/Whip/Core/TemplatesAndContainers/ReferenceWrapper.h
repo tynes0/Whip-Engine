@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _WHIP_REFERENCE_WRAPPER_
+#define _WHIP_REFERENCE_WRAPPER_
 
 #include <Whip/Core/Core.h>
 
@@ -6,6 +8,9 @@
 #include "Invoker.h"
 
 #include <type_traits>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -95,7 +100,6 @@ WHP_NODISCARD _CONSTEXPR20 reference_wrapper<const _Ty> creference(reference_wra
 	return val;
 }
 
-#if _HAS_CXX20
 template <class _Ty>
 struct unwrap_reference 
 {
@@ -116,6 +120,9 @@ struct unwrap_ref_decay
 {
 	using type = unwrap_ref_decay_t<_Ty>;
 };
-#endif // _HAS_CXX20
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_REFERENCE_WRAPPER_

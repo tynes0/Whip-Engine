@@ -1,8 +1,13 @@
 #pragma once
+#ifndef _WHIP_UTILITY_
+#define _WHIP_UTILITY_
 
 #include "Whip/Core/Core.h"
 #include "TypeTraits.h"
 #include <xutility>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -120,39 +125,41 @@ WHP_NODISCARD constexpr auto to_address(const _Ptr& _Val) noexcept
 	}
 }
 
-template <class _Ty>
-struct _Is_character : false_type {}; // by default, not a character type
-
-template <>
-struct _Is_character<char> : true_type {}; // chars are characters
-
-template <>
-struct _Is_character<signed char> : true_type {}; // signed chars are also characters
-
-template <>
-struct _Is_character<unsigned char> : true_type {}; // unsigned chars are also characters
-
-#ifdef __cpp_char8_t
-template <>
-struct _Is_character<char8_t> : true_type {}; // UTF-8 code units are sort-of characters
-#endif // __cpp_char8_t
-
-template <class _Ty>
-struct _Is_character_or_bool : _Is_character<_Ty>::type {};
-
-template <>
-struct _Is_character_or_bool<bool> : true_type {};
-
-template <class _Ty>
-struct _Is_character_or_byte_or_bool : _Is_character_or_bool<_Ty>::type {};
-
-#ifdef __cpp_lib_byte
-template <>
-struct _Is_character_or_byte_or_bool<std::byte> : true_type {};
-#endif // __cpp_lib_byte
-
 namespace detail_utility
 {
+
+	template <class _Ty>
+	struct _Is_character : false_type {}; // by default, not a character type
+	
+	template <>
+	struct _Is_character<char> : true_type {}; // chars are characters
+	
+	template <>
+	struct _Is_character<signed char> : true_type {}; // signed chars are also characters
+	
+	template <>
+	struct _Is_character<unsigned char> : true_type {}; // unsigned chars are also characters
+	
+#if _WHP_TEST_CPP_FT(char8_t)
+	template <>
+	struct _Is_character<char8_t> : true_type {}; // UTF-8 code units are sort-of characters
+#endif // _WHP_TEST_CPP_FT(char8_t)
+	
+	template <class _Ty>
+	struct _Is_character_or_bool : _Is_character<_Ty>::type {};
+	
+	template <>
+	struct _Is_character_or_bool<bool> : true_type {};
+	
+	template <class _Ty>
+	struct _Is_character_or_byte_or_bool : _Is_character_or_bool<_Ty>::type {};
+	
+#if _WHP_TEST_CPP_FT(lib_byte)
+	template <>
+	struct _Is_character_or_byte_or_bool<std::byte> : true_type {};
+#endif // _WHP_TEST_CPP_FT(lib_byte)
+
+
 	template <class _FwdIt, class _Ty>
 	WHP_INLINE constexpr bool fill_memset_is_safe = std::conjunction_v<std::is_scalar<_Ty>,
 		_Is_character_or_byte_or_bool<std::_Unwrap_enum_t<remove_reference_t<std::_Iter_ref_t<_FwdIt>>>>,
@@ -373,4 +380,8 @@ WHP_NODISCARD constexpr const _Elem* data(std::initializer_list<_Elem> _Ilist) n
 
 _WHIP_END
 
+#pragma	warning(pop)
+
 #include "ExternalOperatorWrapper.h"
+
+#endif // !_WHIP_UTILITY_

@@ -1,7 +1,12 @@
 #pragma once
+#ifndef _WHIP_MEMORY_UTIL_
+#define _WHIP_MEMORY_UTIL_
 
 #include "Whip/Core/Core.h"
 #include "Allocator.h"
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -33,3 +38,7 @@ namespace memory
 }
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_MEMORY_UTIL_

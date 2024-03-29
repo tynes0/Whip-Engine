@@ -1,10 +1,15 @@
 #pragma once
+#ifndef _WHIP_FILESYSTEM_
+#define _WHIP_FILESYSTEM_
 
 #include "Whip/Core/Core.h"
 #include <Whip/Core/TemplatesAndContainers/Vector.h>
 #include <Whip/Core/TemplatesAndContainers/Pair.h>
 
 #include <string>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -81,3 +86,7 @@ namespace filesystem
 } // namespace filesystem
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_FILESYSTEM_

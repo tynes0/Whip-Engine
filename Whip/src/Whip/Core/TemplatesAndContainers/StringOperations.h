@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _WHIP_STRING_OPERATIONS_
+#define _WHIP_STRING_OPERATIONS_
 
 #include <string>
 
@@ -7,6 +9,9 @@
 #include "Whip/Core/TemplatesAndContainers/Algorithms.h"
 #include "Whip/Core/TemplatesAndContainers/Iterator.h"
 #include "Whip/Core/TemplatesAndContainers/Vector.h"
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -188,7 +193,7 @@ private:
 		_Ty m_argument;
 	};
 
-	class argument_array : public whip::vector<argument_base*>
+	class argument_array : public vector<argument_base*>
 	{
 	public:
 		argument_array() {}
@@ -241,8 +246,14 @@ private:
 		transfer_to_array(arg_array, args...);
 	}
 };
+#else // _WHP_HAS_CPP_VERSION(17)
+_EMIT_WHP_WARNING(WHP0007, "The whip::string_formatter class is available only with C++17 or later.");
 #endif // _WHP_HAS_CPP_VERSION(17)
 
 _WHIP_END
 
+#pragma warning(pop)
+
 #include "Whip/Core/TemplatesAndContainers/FindOperator.h"
+
+#endif // !_WHIP_STRING_OPERATIONS_

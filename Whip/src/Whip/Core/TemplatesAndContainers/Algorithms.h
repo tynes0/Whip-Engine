@@ -1,14 +1,39 @@
 #pragma once
+#ifndef _WHIP_ALGORITHMS_
+#define _WHIP_ALGORITHMS_
 
 #include "Whip/Core/Core.h"
 #include "Whip/Core/Log.h"
 #include "Utility.h"
 #include "Invoker.h"
 #include "MathDef.h"
+#include "Iterator.h"
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 // todo whip::sort
+// todo whip::find
 
 _WHIP_START
+
+//todo make this with iterator traits
+template <class _Iter>
+WHP_NODISCARD WHP_CONSTEXPR17 std::_Iter_diff_t<_Iter> distance(_Iter first, _Iter last)
+{
+	if constexpr (is_whip_iterator_v<_Iter>)
+		return last - first;
+	else
+	{
+		verify_range(first, last);
+		auto ufirst = get_unwrapped(first);
+		auto ulast = get_unwrapped(last);
+		std::_Iter_diff_t<_Iter>  off = 0;
+		for (; ufirst != ulast; ++ufirst)
+			++off;
+		return off;
+	}
+}
 
 template <class _Iter, class _Fn>
 WHP_CONSTEXPR _Fn for_each(_Iter first, _Iter last, _Fn fun)
@@ -245,3 +270,7 @@ void shuffle(_Iter first, _Iter last, _Urng&& func)
 }
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_ALGORITHMS_

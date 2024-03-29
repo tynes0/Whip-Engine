@@ -41,7 +41,7 @@
 
 // Templates And Containers
 #include <Whip/Core/TemplatesAndContainers/MathDef.h>
-#include <Whip/Core/TemplatesAndContainers/Vector.h> // in c++14 whip::vector is child of std::vector, special implamentation is only c++17 and above
+#include <Whip/Core/TemplatesAndContainers/Vector.h>
 #include <Whip/Core/TemplatesAndContainers/Array.h>
 #include <Whip/Core/TemplatesAndContainers/Bitset.h>
 #include <Whip/Core/TemplatesAndContainers/ArithmeticArray.h> // only c++20 and above

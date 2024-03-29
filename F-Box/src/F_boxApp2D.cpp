@@ -4,11 +4,7 @@
 #include <imgui/imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
-
-fbox_app2D::fbox_app2D()
-	:layer("Fbox2D"), m_camera_controller(whip::calculate_aspect_ratio(1280, 720), true)
-{
-}
+fbox_app2D::fbox_app2D() :layer("Fbox2D"), m_camera_controller(whip::calculate_aspect_ratio(1280, 720), true) {}
 
 void fbox_app2D::on_attach()
 {
@@ -20,8 +16,6 @@ void fbox_app2D::on_attach()
 
 	{
 		whip::console_timer timer("timer");
-
-
 	}
 
 }

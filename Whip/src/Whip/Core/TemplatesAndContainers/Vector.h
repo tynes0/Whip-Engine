@@ -1,17 +1,21 @@
 #pragma once
+#ifndef _WHIP_VECTOR_
+#define _WHIP_VECTOR_
 
 #include "Whip/Core/Core.h"
-
-#if _WHP_HAS_CPP_VERSION(17)
-
 #include "Whip/Core/Log.h"
+
 #include "Iterator.h"
 #include "Pair.h"
-#include "MemoryUtil.h"
 #include "Utility.h"
+#include "MemoryUtil.h"
+#include "Algorithms.h"
 
 #include <cstring>
 #include <initializer_list>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -29,76 +33,76 @@ public:
     template <class _Ty>
     friend class const_vector_iterator;
 
-    vector_iterator(pointer ptr = nullptr, size_type offset = 0) : m_ptr(ptr), m_offset(offset) {}
+    WHP_CONSTEXPR17 vector_iterator(pointer ptr = nullptr, size_type offset = 0) : m_ptr(ptr), m_offset(offset) {}
 
-    vector_iterator(const vector_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
+    WHP_CONSTEXPR17 vector_iterator(const vector_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
 
-    ~vector_iterator() {}
+    WHP_CONSTEXPR17 ~vector_iterator() {}
 
-    reference operator*() const
+    WHP_CONSTEXPR17 reference operator*() const
     {
         return *(m_ptr + m_offset);
     }
 
-    vector_iterator& operator++()
+    WHP_CONSTEXPR17 vector_iterator& operator++()
     {
         ++m_offset;
         return *this;
     }
 
-    vector_iterator operator++(int)
+    WHP_CONSTEXPR17 vector_iterator operator++(int)
     {
         vector_iterator temp(*this);
         ++(*this);
         return temp;
     }
 
-    vector_iterator& operator--()
+    WHP_CONSTEXPR17 vector_iterator& operator--()
     {
         --m_offset;
         return *this;
     }
 
-    vector_iterator operator--(int)
+    WHP_CONSTEXPR17 vector_iterator operator--(int)
     {
         vector_iterator temp(*this);
         --(*this);
         return temp;
     }
 
-    bool operator==(const vector_iterator& other)
+    WHP_CONSTEXPR17 bool operator==(const vector_iterator& other)
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator==(vector_iterator&& other)
+    WHP_CONSTEXPR17 bool operator==(vector_iterator&& other)
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator!=(const vector_iterator& other)
+    WHP_CONSTEXPR17 bool operator!=(const vector_iterator& other)
     {
         return !(this->operator==(move(other)));
     }
 
-    vector_iterator operator+(size_type n) const
+    WHP_CONSTEXPR17 vector_iterator operator+(size_type n) const
     {
         return vector_iterator(m_ptr, m_offset + n);
     }
 
-    size_type operator+(const vector_iterator& other) const
+    WHP_CONSTEXPR17 size_type operator+(const vector_iterator& other) const
     {
         pointer other_ptr = other.m_ptr + other.m_offset;
         pointer ptr = m_ptr + m_offset;
         return ptr + other_ptr;
     }
 
-    vector_iterator operator-(size_type n) const
+    WHP_CONSTEXPR17 vector_iterator operator-(size_type n) const
     {
         return vector_iterator(m_ptr, m_offset - n);
     }
 
-    size_type operator-(const vector_iterator& other) const
+    WHP_CONSTEXPR17 size_type operator-(const vector_iterator& other) const
     {
         pointer other_ptr = other.m_ptr + other.m_offset;
         pointer ptr = m_ptr + m_offset;
@@ -111,12 +115,12 @@ public:
         m_offset = offset;
     }
 
-    const pointer unwrapped() const
+    constexpr const pointer unwrapped() const
     {
         return (m_ptr + m_offset);
     }
 
-    pointer unwrapped()
+    constexpr pointer unwrapped()
     {
         return (m_ptr + m_offset);
     }
@@ -138,73 +142,73 @@ public:
     using diff_type     = typename m_base::diff_type;
 
 
-    const_vector_iterator(pointer ptr = nullptr, size_type offset = 0)
+    WHP_CONSTEXPR17 const_vector_iterator(pointer ptr = nullptr, size_type offset = 0)
         : m_ptr(ptr), m_offset(offset)
     {}
 
-    const_vector_iterator(const vector_iterator<_Ty>& other)
+    WHP_CONSTEXPR17 const_vector_iterator(const vector_iterator<_Ty>& other)
         : m_ptr(other.m_ptr), m_offset(other.m_offset)
     {}
 
-    ~const_vector_iterator() {}
+    WHP_CONSTEXPR17 ~const_vector_iterator() {}
 
-    reference operator*() const
+    WHP_CONSTEXPR17 reference operator*() const
     {
         return *(m_ptr + m_offset);
     }
 
-    const_vector_iterator& operator++()
+    WHP_CONSTEXPR17 const_vector_iterator& operator++()
     {
         ++m_offset;
         return *this;
     }
 
-    const_vector_iterator operator++(int)
+    WHP_CONSTEXPR17 const_vector_iterator operator++(int)
     {
         const_vector_iterator temp(*this);
         ++(*this);
         return temp;
     }
 
-    const_vector_iterator& operator--()
+    WHP_CONSTEXPR17 const_vector_iterator& operator--()
     {
         --m_offset;
         return *this;
     }
 
-    const_vector_iterator operator--(int)
+    WHP_CONSTEXPR17 const_vector_iterator operator--(int)
     {
         const_vector_iterator temp(*this);
         --(*this);
         return temp;
     }
 
-    bool operator==(const const_vector_iterator& other) const
+    WHP_CONSTEXPR17 bool operator==(const const_vector_iterator& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator==(const_vector_iterator&& other) const
+    WHP_CONSTEXPR17 bool operator==(const_vector_iterator&& other) const
     {
         return ((m_ptr + m_offset) == (other.m_ptr + other.m_offset));
     }
 
-    bool operator!=(const const_vector_iterator& other) const
+    WHP_CONSTEXPR17 bool operator!=(const const_vector_iterator& other) const
     {
         return !(this->operator==(move(other)));
     }
 
-    const_vector_iterator operator+(size_type n) const
+    WHP_CONSTEXPR17 const_vector_iterator operator+(size_type n) const
     {
         return const_vector_iterator(m_ptr, m_offset + n);
     }
 
-    const_vector_iterator operator-(size_type n) const
+    WHP_CONSTEXPR17 const_vector_iterator operator-(size_type n) const
     {
         return const_vector_iterator(m_ptr, m_offset - n);
     }
 
-    size_type operator-(const const_vector_iterator& other) const
+    WHP_CONSTEXPR17 size_type operator-(const const_vector_iterator& other) const
     {
         pointer other_ptr = other.m_ptr + other.m_offset;
         pointer ptr = m_ptr + m_offset;
@@ -217,7 +221,7 @@ public:
         m_offset = offset;
     }
 
-    pointer unwrapped() const
+    constexpr pointer unwrapped() const
     {
         return (m_ptr + m_offset);
     }
@@ -280,8 +284,11 @@ public:
     {
         allocator<_Ty> al;
         m_data = al.allocate(other.m_capacities.first);
-
-        if constexpr (std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+        if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+        if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
             std::memcpy(m_data, other.m_data, other.m_capacities.second * sizeof(_Ty));
         else
             memory::copy_range(other.begin().unwrapped(), other.end().unwrapped(), m_data);
@@ -296,7 +303,11 @@ public:
     {
         allocator<_Ty> al;
         m_data = al.allocate(ilist.size());
-        if constexpr (std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+        if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+        if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
             std::memcpy(m_data, ilist.begin(), ilist.size() * sizeof(_Ty));
         else
             memory::copy_range(ilist.begin(), ilist.end(), m_data);
@@ -308,7 +319,11 @@ public:
         allocator<_Ty> al;
         m_data = al.allocate(right.m_capacities.first);
 
-        if constexpr (std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+        if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+        if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
             std::memcpy(m_data, right.m_data, right.m_capacities.second * sizeof(_Ty));
         else
             memory::copy_range(right.begin().unwrapped(), right.end().unwrapped(), m_data);
@@ -325,7 +340,11 @@ public:
 
     WHP_CONSTEXPR ~vector()
     {
-        if constexpr (!std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+        if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+        if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
             memory::destruct_range(begin().unwrapped(), end().unwrapped());
         allocator<_Ty>{}.deallocate(m_data, 1);
     }
@@ -399,7 +418,11 @@ public:
             WHP_CORE_WARN("Capacity is already equal to the passed value. (vector)");
             return;
         }
-        if constexpr (std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+        if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+        if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
         {
             m_data = reinterpret_cast<_Ty*>(std::realloc(m_data, sizeof(_Ty) * new_cap));
             WHP_CORE_ASSERT(m_data != nullptr, "Reallocation failed.");
@@ -422,7 +445,11 @@ public:
     {
         if (m_capacities.first > m_capacities.second)
         {
-            if constexpr (std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+            if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+            if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
             {
                 m_data = reinterpret_cast<_Ty*>(std::realloc(m_data, sizeof(_Ty) * m_capacities.second));
             }
@@ -443,7 +470,7 @@ public:
 
     WHP_CONSTEXPR void clear() noexcept
     {
-        if constexpr (!std::is_trivial_v<_Ty>)
+        if constexpr (!is_trivial_v<_Ty>)
             memory::destruct_range(begin().unwrapped(), end().unwrapped());
         m_capacities.second = 0;
     }
@@ -457,7 +484,7 @@ public:
         WHP_CORE_ASSERT(upos >= ufirst && upos < ulast, "Position is not within the vector.");
         if (upos + 1 < ulast)
             std::memmove(upos, upos + 1, ulast - upos - 1 * sizeof(_Ty));
-        if constexpr (!std::is_trivial_v<_Ty>)
+        if constexpr (!is_trivial_v<_Ty>)
             allocator<_Ty>{}.destroy(ulast);
         m_capacities.second--;
     }
@@ -474,7 +501,7 @@ public:
         if (static_cast<size_t>(ulast - ufirst2) > 0)
             std::memmove(ufirst2, ufirst2 + distance, static_cast<size_t>(m_capacities.second - distance) * sizeof(_Ty));
         for (size_type i = 0; i < distance; i++)
-            if constexpr (!std::is_trivial_v<_Ty>)
+            if constexpr (!is_trivial_v<_Ty>)
                 allocator<_Ty>{}.destroy(ulast - i - 1);
         m_capacities.second -= distance;
     }
@@ -482,7 +509,7 @@ public:
     WHP_CONSTEXPR void erase(size_t offset)
     {
         WHP_CORE_ASSERT(offset < m_capacities.second, "Passed value is equal or greater than the size. (vector)");
-        erase(begin() + offset);
+        this->erase(begin() + offset);
     }
 
     WHP_CONSTEXPR iterator insert(iterator position, const _Ty& value)
@@ -493,14 +520,14 @@ public:
             reserve(m_capacities.first * m_grow_factor + 1);
 
         auto ufirst = begin().unwrapped();
-        auto ulast = end().unwrapped();
-        auto upos = begin().unwrapped() + diff;
+        auto ulast  = end().unwrapped();
+        auto upos   = begin().unwrapped() + diff;
 
         WHP_CORE_ASSERT(upos >= ufirst && upos <= ulast, "Position is not within the vector.");
 
         std::memmove(upos + 1, upos, (ulast - upos) * sizeof(_Ty));
 
-        if constexpr (!std::is_trivial_v<_Ty>)
+        if constexpr (!is_trivial_v<_Ty>)
             allocator<_Ty>{}.construct(upos, value);
         else
             *upos = value;
@@ -529,7 +556,7 @@ public:
 
         for (size_t i = 0; i < count; i++)
         {
-            if constexpr (!std::is_trivial_v<_Ty>)
+            if constexpr (!is_trivial_v<_Ty>)
                 allocator<_Ty>{}.construct(upos + i, value);
             else
                 *(upos + i) = value;
@@ -546,7 +573,7 @@ public:
         if (first == last)
             return;
 
-        size_t count = std::distance(first, last);
+        size_t count = distance(first, last);
         if (m_capacities.first == m_capacities.second)
             reserve(m_capacities.first * m_grow_factor + count);
 
@@ -562,7 +589,7 @@ public:
 
         for (size_t i = 0; first != last; ++first, ++i)
         {
-            if constexpr (!std::is_trivial_v<_Ty>)
+            if constexpr (!is_trivial_v<_Ty>)
                 allocator<_Ty>{}.construct(upos + i, *first);
             else
                 *(upos + i) = *first;
@@ -575,7 +602,11 @@ public:
     {
         if (m_capacities.first == m_capacities.second)
             reserve(m_capacities.first * m_grow_factor + 1);
-        if constexpr (std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+        if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+        if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
             m_data[m_capacities.second] = value;
         else
             allocator<_Ty>{}.construct(m_data + m_capacities.second, value);
@@ -586,7 +617,11 @@ public:
     {
         if (m_capacities.first == m_capacities.second)
             reserve(m_capacities.first * m_grow_factor + 1);
-        if constexpr (std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+        if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+        if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
             m_data[m_capacities.second] = value;
         else
             allocator<_Ty>{}.construct(m_data + m_capacities.second, whip::move(value));
@@ -596,7 +631,7 @@ public:
     template <class... _Args>
     WHP_CONSTEXPR iterator emplace(iterator position, _Args&&... args)
     {
-        static_assert(!std::is_trivial_v<_Ty>, "Use insert() instead of emplace() with trivial types.");
+        static_assert(!is_trivial_v<_Ty>, "Use insert() instead of emplace() with trivial types.");
         ptrdiff_t diff = position.unwrapped() - begin().unwrapped();
 
         if (m_capacities.first == m_capacities.second)
@@ -613,7 +648,7 @@ public:
         if (index < m_capacities.second)
             std::move_backward(m_data + index, m_data + m_capacities.second, m_data + m_capacities.first);
 
-        allocator<_Ty>{}.construct(m_data + index, std::forward<_Args>(args)...);
+        allocator<_Ty>{}.construct(m_data + index, _WHIP forward<_Args>(args)...);
 
         m_capacities.second++;
 
@@ -623,7 +658,7 @@ public:
     template <class... _Args>
     WHP_CONSTEXPR void emplace_back(_Args&&... args)
     {
-        static_assert(!std::is_trivial_v<_Ty>, "Use push_back() instead of emplace_back() with trivial types.");
+        static_assert(!is_trivial_v<_Ty>, "Use push_back() instead of emplace_back() with trivial types.");
 
         if (m_capacities.first == m_capacities.second)
             reserve(m_capacities.first * m_grow_factor + 1);
@@ -634,7 +669,11 @@ public:
     WHP_CONSTEXPR void pop_back()
     {
         WHP_CORE_ASSERT(m_capacities.second > 0, "Container is empty. (vector)");
-        if constexpr (!std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+        if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+        if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
             allocator<_Ty>{}.destroy(&m_data[m_capacities.second - 1]);
         m_capacities.second--;
     }
@@ -650,7 +689,11 @@ public:
         if (new_size > m_capacities.first)
             reserve(new_size);
 
-        if constexpr (!std::is_trivial_v<_Ty>)
+#if _WHP_HAS_CPP_VERSION(17)
+        if constexpr (is_trivial_v<_Ty>)
+#else // _WHP_HAS_CPP_VERSION(17)
+        if (is_trivial_v<_Ty>)
+#endif // _WHP_HAS_CPP_VERSION(17)
         {
             if (new_size > m_capacities.second)
                 memory::construct_range(m_data + m_capacities.second, m_data + new_size);
@@ -781,11 +824,7 @@ WHP_INLINE WHP_CONSTEXPR void swap(vector<_Ty>& lhs, vector < _Ty>& rhs) noexcep
 }
 
 _WHIP_END
-#else // _WHP_HAS_CPP_VERSION(17)
-_EMIT_WHP_WARNING(WHP0001, "The contents of whip::vector are available only with C++17 or later. in C++17- whip::vector is child of std::vector");
-#include <vector>
-_WHIP_START
-template <class _Ty>
-class vector : public std::vector<_Ty> {};
-_WHIP_END
-#endif // _WHP_HAS_CPP_VERSION(17)
+
+#pragma warning(pop)
+
+#endif // !_WHIP_VECTOR_

@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _WHIP_OPTIONAL_
+#define _WHIP_OPTIONAL_
 
 #include <stdexcept>
 #include <type_traits>
@@ -6,6 +8,9 @@
 #include <Whip/Core/Core.h>
 #include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
 #include <Whip/Core/TemplatesAndContainers/Utility.h>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -356,3 +361,7 @@ inline optional<_Ty> make_optional(const _Ty& value)
 }
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_OPTIONAL_

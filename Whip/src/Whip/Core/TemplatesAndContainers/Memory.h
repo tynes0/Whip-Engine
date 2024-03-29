@@ -1,10 +1,15 @@
 #pragma once
+#ifndef _WHIP_MEMORY_
+#define _WHIP_MEMORY_
 
 #include "Whip/Core/Core.h"
 #include "Utility.h"
 #include "TypeTraits.h"
 #include "Allocator.h"
 #include "Pair.h"
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -23,11 +28,11 @@ WHP_NODISCARD constexpr void* voidify_iter(_Iter it) noexcept
 
 #ifdef _HAS_CXX20
 template <class _Ty, class... _Types, class = void_t<decltype(::new(declval<void*>()) _Ty(declval<_Types>()...))>>
-#endif // _HAS_CXX20
 constexpr _Ty* construct_at(_Ty* const location, _Types&&... args) noexcept(noexcept(::new(voidify_iter(location)) _Ty(forward<_Types>(args)...)))
 {
 	return ::new (voidify_iter(location)) _Ty(forward<_Types>(args)...);
 }
+#endif // _HAS_CXX20
 
 template <class _Ty, class... _Types>
 constexpr void construct_in_place(_Ty& obj, _Types&&... args) noexcept(is_nothrow_constructible_v<_Ty, _Types...>)
@@ -1680,6 +1685,8 @@ WHP_NODISCARD enable_if_t<!is_array_v<T>, ref<T>> make_ref(_Types&&... args)
 	return std::make_shared<T, _Types...>(args...);
 }
 
-
-
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_MEMORY_

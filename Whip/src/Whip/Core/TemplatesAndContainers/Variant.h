@@ -1,9 +1,11 @@
 #pragma once
+#ifndef _WHIP_VARIANT_
+#define _WHIP_VARIANT_
 
 #include <Whip/Core/Core.h>
 
 #if !_WHP_HAS_CPP_VERSION(20)
-_EMIT_WHP_WARNING(WHP0005, "The contents of whip::variant are available only with C++20 or later."); 
+_EMIT_WHP_WARNING(WHP0002, "The contents of whip::variant are available only with C++20 or later."); 
 #else // _WHP_HAS_CPP_VERSION(20)
 
 #include <Whip/Core/Log.h>
@@ -17,6 +19,9 @@ _EMIT_WHP_WARNING(WHP0005, "The contents of whip::variant are available only wit
 #include <limits>
 #include <initializer_list>
 #include <memory>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -1130,4 +1135,9 @@ template <class... Ts>
 #undef WHP_MOV
 
 _WHIP_END
+
+#pragma warning(pop)
+
 #endif // _WHP_HAS_CPP_VERSION(20)
+
+#endif // !_WHIP_VARIANT_

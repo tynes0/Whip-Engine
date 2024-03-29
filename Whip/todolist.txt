@@ -5,6 +5,7 @@
 ####
 ####--> whip::vector'ü tamir et! (EN ONEMLISI) >> yapýldý, fakat geliþtirilmeye devam edilmeli
 ####--> whip::aops fonksiyonlarýný tamamla
+####--> iterator traits !
 ####--> bitset_const_iterator'ü yap
 ####--> whip::array'in constexpr durumlarýný ve random sýnýflarýnýn constexpr durumlarýný güncelle
 ####--> random sýnýflarýný tamamla
@@ -16,6 +17,8 @@
 ####--> string operations header'ýný geliþtir
 ####--> whip::tuple'a bi bak hatalar var sanki
 ####--> whip::unordered_map! -> hash'i düzelttikten sonra
+####--> memory header'ýný yeniden yap
+####--> bir önceki maddeye ek olarak memory ve memory util birleþebilir veya memory util, memory olur smart pointerlar ayrý dosyalarda tanýmlanýr
 ####
 ##################################################
 ##################################################

@@ -1,4 +1,6 @@
 #pragma once
+#ifndef _WHIP_BITSET_
+#define _WHIP_BITSET_
 
 #include <Whip/Core/Core.h>
 #include <Whip/Core/Log.h>
@@ -9,6 +11,9 @@
 #include <Whip/Core/TemplatesAndContainers/Allocator.h>
 
 #include <iostream>
+
+#pragma warning(push)
+#pragma warning(disable : _WHP_DISABLED_WARNINGS)
 
 _WHIP_START
 
@@ -77,56 +82,56 @@ public:
     using size_type     = typename m_base::size_type;
     using diff_type     = typename m_base::diff_type;
 
-    WHP_CONSTEXPR23 bitset_iterator(bitset<_Bits>* data = nullptr, size_type offset = 0) : m_ptr(data), m_offset(offset) {}
+    WHP_CONSTEXPR17 bitset_iterator(bitset<_Bits>* data = nullptr, size_type offset = 0) : m_ptr(data), m_offset(offset) {}
+     
+    WHP_CONSTEXPR17 bitset_iterator(const bitset_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
+     
+    WHP_CONSTEXPR17 ~bitset_iterator() {}
 
-    WHP_CONSTEXPR23 bitset_iterator(const bitset_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
-
-    WHP_CONSTEXPR23 ~bitset_iterator() {}
-
-    reference operator*() const
+    WHP_CONSTEXPR17 reference operator*() const
     {
         return reference(DREF(m_ptr), m_offset);
     }
 
-    bitset_iterator& operator++()
+    WHP_CONSTEXPR17 bitset_iterator& operator++()
     {
         ++m_offset;
         return *this;
     }
 
-    bitset_iterator operator++(int)
+    WHP_CONSTEXPR17 bitset_iterator operator++(int)
     {
         bitset_iterator temp(*this);
         ++(*this);
         return temp;
     }
 
-    bitset_iterator& operator--()
+    WHP_CONSTEXPR17 bitset_iterator& operator--()
     {
         --m_offset;
         return *this;
     }
 
-    bitset_iterator operator--(int)
+    WHP_CONSTEXPR17 bitset_iterator operator--(int)
     {
         bitset_iterator temp(*this);
         --(*this);
         return temp;
     }
 
-    bool operator==(const bitset_iterator& other) const
+    WHP_CONSTEXPR17 bool operator==(const bitset_iterator& other) const
     {
         return ((m_ptr == other.m_ptr) && (m_offset == other.m_offset));
     }
 
-    bool operator==(bitset_iterator&& other) const
+    WHP_CONSTEXPR17 bool operator==(bitset_iterator&& other) const
     {
         bool res = ((m_ptr == other.m_ptr) && (m_offset == other.m_offset));
         other.m_ptr = nullptr;
         return res;
     }
 
-    bool operator!=(const bitset_iterator& other) const
+    WHP_CONSTEXPR17 bool operator!=(const bitset_iterator& other) const
     {
         return !(this->operator==(move(other)));
     }
@@ -136,14 +141,14 @@ public:
     /////////// verify_range uses this operators ////////////
     /////////////////////////////////////////////////////////
 
-    bool operator>(const bitset_iterator& other) const
+    WHP_CONSTEXPR17 bool operator>(const bitset_iterator& other) const
     {
         if (m_ptr != other.m_ptr)
             return false; // maybe true? how can we understand this? maybe we can compare pointers
         return m_offset > other.m_offset;
     }
 
-    bool operator<(const bitset_iterator& other) const
+    WHP_CONSTEXPR17 bool operator<(const bitset_iterator& other) const
     {
         if (m_ptr != other.m_ptr)
             return false; // maybe true? how can we understand this? maybe we can compare pointers
@@ -154,12 +159,12 @@ public:
     /////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////
 
-    bitset_iterator operator+(size_type n) const
+    WHP_CONSTEXPR17 bitset_iterator operator+(size_type n) const
     {
         return bitset_iterator(m_ptr, m_offset + n);
     }
 
-    bitset_iterator operator-(size_type n) const
+    WHP_CONSTEXPR17 bitset_iterator operator-(size_type n) const
     {
         return bitset_iterator(m_ptr, m_offset - n);
     }
@@ -171,12 +176,12 @@ public:
     }
 
     // bitset_iterator is not unwrappable
-    pointer unwrapped() noexcept
+    constexpr pointer unwrapped() noexcept
     {
         return *this;
     }
 
-    const pointer unwrapped() const noexcept
+    constexpr const pointer unwrapped() const noexcept
     {
         return *this;
     }
@@ -726,3 +731,7 @@ struct hash<bitset<_Bits>>
 };
 
 _WHIP_END
+
+#pragma warning(pop)
+
+#endif // !_WHIP_BITSET_
