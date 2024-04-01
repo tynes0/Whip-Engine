@@ -97,6 +97,11 @@ struct pair
 			swap_adl(second, _Other.second);
 		}
 	}
+
+	constexpr bool types_are_the_same() const noexcept
+	{
+		return is_same_v<_Ty1, _Ty2>;
+	}
 };
 
 struct zero_then_variadic_args_t
@@ -252,6 +257,11 @@ struct trio
 			swap_adl(third, _Other.third);
 		}
 	}
+
+	constexpr bool types_are_the_same() const noexcept
+	{
+		return is_same_v<_Ty1, _Ty2> && is_same_v<_Ty1, _Ty3>;
+	}
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -262,7 +272,7 @@ template <class A, class B>
 WHP_NODISCARD constexpr pair<unwrap_reference_t<A>, unwrap_reference_t<B>> make_pair(A&& first, B&& second)
 	noexcept(is_nothrow_constructible_v<unwrap_reference_t<A>, A> && is_nothrow_constructible_v<unwrap_reference_t<B>, B>) 
 {
-	return pair<unwrap_reference_t<A>, unwrap_reference_t<B>>{ _WHIP forward<A>(first), _WHIP forward<B>(second) };
+	return pair<unwrap_reference_t<A>, unwrap_reference_t<B>>{ whip::forward<A>(first), whip::forward<B>(second) };
 }
 
 template <size_t I, class A, class B, WHP_PAIR_CHECK_IDX(I)>
@@ -280,13 +290,13 @@ WHP_INLINE constexpr decltype(auto) get(const pair<A, B>& pr)
 template <size_t I, class A, class B, WHP_PAIR_CHECK_IDX(I)>
 WHP_INLINE constexpr decltype(auto) get(pair<A, B>&& pr)
 {
-	return _WHIP forward<pair<A, B>>(pr)[tag_v<I>];
+	return whip::forward<pair<A, B>>(pr)[tag_v<I>];
 }
 
 template <class F, class A, class B>
 WHP_INLINE constexpr decltype(auto) apply(F&& func, pair<A, B>& pr)
 {
-	return _WHIP forward<F>(func)(pr.first, pr.second);
+	return whip::forward<F>(func)(pr.first, pr.second);
 }
 
 template <class F, class A, class B>
@@ -324,11 +334,6 @@ struct tuple_element<1, pair<A, B>>
 	using type = B;
 };
 
-template <size_t I1, size_t I2, size_t I3, class A, class B, WHP_PAIR_CHECK_3_IDXS(I1, I2, I3)>
-WHP_INLINE constexpr decltype(auto) trio_from_pair(pair<A, B>& pr)
-{
-	return make_trio<typename tuple_element<I1, pair<A, B>>::type, typename tuple_element<I2, pair<A, B>>::type, typename tuple_element<I3, pair<A, B>>::type>(_WHIP forward<pair<A, B>>(pr)[tag_v<I1>], _WHIP forward<pair<A, B>>(pr)[tag_v<I2>], _WHIP forward<pair<A, B>>(pr)[tag_v<I3>]);
-}
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// TRIO ////////////////////////////////////
@@ -410,6 +415,12 @@ template <size_t I1, size_t I2, class A, class B, class C, WHP_TRIO_CHECK_2_IDXS
 WHP_INLINE constexpr decltype(auto) pair_from_trio(trio<A, B, C>&& tr)
 {
 	return make_pair<typename tuple_element<I1, trio<A, B, C>>::type, typename tuple_element<I2, trio<A, B, C>>::type>(_WHIP forward<trio<A, B, C>>(tr)[tag_v<I1>], _WHIP forward<trio<A, B, C>>(tr)[tag_v<I2>]);
+}
+
+template <size_t I1, size_t I2, size_t I3, class A, class B, WHP_PAIR_CHECK_3_IDXS(I1, I2, I3)>
+WHP_INLINE constexpr decltype(auto) trio_from_pair(pair<A, B>& pr)
+{
+	return make_trio<typename tuple_element<I1, pair<A, B>>::type, typename tuple_element<I2, pair<A, B>>::type, typename tuple_element<I3, pair<A, B>>::type>(_WHIP forward<pair<A, B>>(pr)[tag_v<I1>], _WHIP forward<pair<A, B>>(pr)[tag_v<I2>], _WHIP forward<pair<A, B>>(pr)[tag_v<I3>]);
 }
 
 /////////////////////////////////////////////////////////////////////////////

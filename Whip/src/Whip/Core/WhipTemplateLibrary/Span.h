@@ -8,9 +8,9 @@
 _EMIT_WHP_WARNING(WHP0003, "The contents of whip::span are available only with C++20 or later.");
 #else //_WHP_HAS_CPP_VERSION(20)
 
-#include <Whip/Core/TemplatesAndContainers/Utility.h>
-#include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
-#include <Whip/Core/TemplatesAndContainers/Iterator.h>
+#include "Utility.h"
+#include "TypeTraits.h"
+#include "Iterator.h"
 
 #include <type_traits>
 #include <compare>

@@ -3,66 +3,6 @@
 
 _WHIP_START
 
-// --------------------- STRING SEPERATOR ---------------------
-
-vector<std::string> string_separator::seperate(const std::string& source, const std::string& token)
-{
-	vector<std::string> result;
-	// position initialized with 0
-	size_t pos = 0;
-	// last_location initialized with 0
-	size_t last_location = 0;
-	// while loop will run if this run value equals true
-	bool run = true;
-	while (run)
-	{
-		pos = source.find(token, last_location);
-		if (pos == std::string::npos)
-		{
-			// position sets end of the source
-			pos = source.size();
-			// last loop
-			run = false;
-		}
-		// add to vector
-		result.push_back(source.substr(last_location, pos - last_location));
-		last_location = pos + token.length();
-	}
-	return result;
-}
-
-WHP_NODISCARD vector<std::string> string_separator::seperate(const std::string& source, char token)
-{
-	std::string temp = "";
-	vector<std::string> result;
-
-	for (int i = 0; i < (int)source.size(); i++)
-	{
-		if (source[i] != token)
-		{
-			temp += source[i];
-		}
-		else
-		{
-			result.push_back(temp);
-			temp = "";
-		}
-	}
-	result.push_back(temp);
-
-	return result;
-}
-
-vector<std::string> string_separator::operator()(const std::string& path, const std::string& token)
-{
-	return seperate(path, token);
-}
-
-WHP_NODISCARD vector<std::string> string_separator::operator()(const std::string& path, char token)
-{
-	return seperate(path, token);
-}
-
 // --------------------- STRING OPERATIONS ---------------------
 
 bool string_operations::starts_with(const std::string& str, char token)
@@ -362,13 +302,13 @@ std::string string_operations::filled_copy(const std::string& str, char ch)
 {
 	std::string result;
 	result.resize(str.size());
-	std::fill(result.begin(), result.end(), ch);
+	whip::fill(result.begin(), result.end(), ch);
 	return result;
 }
 
 std::string& string_operations::fill(std::string& str, char ch)
 {
-	std::fill(str.begin(), str.end(), ch);
+	whip::fill(str.begin(), str.end(), ch);
 	return str;
 }
 
@@ -377,7 +317,7 @@ std::string string_operations::fill_in_place_copy(const std::string& str, char c
 	std::string result = str;
 	if (str.size() < offset + length)
 		return result;
-	std::fill(result.begin() + offset, result.begin() + offset + length, ch);
+	whip::fill(result.begin() + offset, result.begin() + offset + length, ch);
 	return result;
 }
 
@@ -385,7 +325,7 @@ std::string& string_operations::fill_in_place(std::string& str, char ch, size_t 
 {
 	if (str.size() < offset + length)
 		return str;
-	std::fill(str.begin() + offset, str.begin() + offset + length, ch);
+	whip::fill(str.begin() + offset, str.begin() + offset + length, ch);
 	return str;
 }
 
@@ -450,6 +390,47 @@ bool string_operations::is_printable(const std::string& str)
 	if (i == str.size())
 		return true;
 	return false;
+}
+
+vector<std::string> string_operations::separate_string(const std::string& source, const std::string& token)
+{
+	vector<std::string> result;
+	size_t pos = 0;
+	size_t last_location = 0;
+	while (true)
+	{
+		pos = source.find(token, last_location);
+		if (pos == std::string::npos)
+		{
+			pos = source.size();
+			break;
+		}
+		result.push_back(source.substr(last_location, pos - last_location));
+		last_location = pos + token.length();
+	}
+	return result;
+}
+
+WHP_NODISCARD vector<std::string> string_operations::separate_string(const std::string& source, char token)
+{
+	std::string temp = "";
+	vector<std::string> result;
+
+	for (int i = 0; i < (int)source.size(); i++)
+	{
+		if (source[i] != token)
+		{
+			temp += source[i];
+		}
+		else
+		{
+			result.push_back(temp);
+			temp = "";
+		}
+	}
+	result.push_back(temp);
+
+	return result;
 }
 
 _WHIP_END

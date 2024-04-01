@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
-#include <Whip/Core/TemplatesAndContainers/Memory.h>
+#include <Whip/Core/WhipTemplateLibrary/Memory.h>
 #include <string>
 #include <unordered_map>
 

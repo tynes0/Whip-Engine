@@ -9,9 +9,9 @@ _EMIT_WHP_WARNING(WHP0002, "The contents of whip::variant are available only wit
 #else // _WHP_HAS_CPP_VERSION(20)
 
 #include <Whip/Core/Log.h>
-#include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
-#include <Whip/Core/TemplatesAndContainers/Utility.h>
-#include <Whip/Core/TemplatesAndContainers/Hash.h>
+#include "TypeTraits.h"
+#include "Utility.h"
+#include "Hash.h"
 
 #include <exception>
 #include <type_traits>

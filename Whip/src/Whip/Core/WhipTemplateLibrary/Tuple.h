@@ -8,12 +8,12 @@
 _EMIT_WHP_WARNING(WHP0001, "The contents of whip::tuple are available only with C++17 or later.");
 #else //_WHP_HAS_CPP_VERSION(17)
 
-#include <Whip/Core/TemplatesAndContainers/Tag.h>
-#include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
-#include <Whip/Core/TemplatesAndContainers/Utility.h>
-#include <Whip/Core/TemplatesAndContainers/ReferenceWrapper.h>
-#include <Whip/Core/TemplatesAndContainers/Concepts.h>
-#include <Whip/Core/TemplatesAndContainers/Pair.h>
+#include "Tag.h"
+#include "TypeTraits.h"
+#include "Utility.h"
+#include "ReferenceWrapper.h"
+#include "Concepts.h"
+#include "Pair.h"
 
 #pragma warning(push)
 #pragma warning(disable : _WHP_DISABLED_WARNINGS)

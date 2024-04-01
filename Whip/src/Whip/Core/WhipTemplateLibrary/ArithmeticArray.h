@@ -9,14 +9,14 @@ _EMIT_WHP_WARNING(WHP0004, "The contents of whip::arithmetic_array are available
 #else //_WHP_HAS_CPP_VERSION(20)
 
 #include <Whip/Core/Log.h>
-#include <Whip/Core/TemplatesAndContainers/TypeTraits.h>    
-#include <Whip/Core/TemplatesAndContainers/Utility.h>
-#include <Whip/Core/TemplatesAndContainers/Iterator.h>
-#include <Whip/Core/TemplatesAndContainers/Concepts.h>
-#include <Whip/Core/TemplatesAndContainers/Bitset.h>
+#include "TypeTraits.h"
+#include "Utility.h"
+#include "Iterator.h"
+#include "Concepts.h"
+#include "Bitset.h"
 
 // arithmetic array uses algorithms
-#include <Whip/Core/TemplatesAndContainers/Algorithms.h> 
+#include "Algorithms.h"
 
 #include <stdexcept>
 #include <cstring>

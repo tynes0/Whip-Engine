@@ -8,7 +8,7 @@
 4. WHP0004 -> The contents of whip::arithmetic_array are available only with C++20 or later.
 5. WHP0005 -> The contents of whip concept library are available only with C++20 concept support.
 6. WHP0006 -> Xoshiro and xoroshiro classes are available only with C++20 or later.
-6. WHP0007 -> The whip::string_formatter class is available only with C++17 or later.
+6. WHP0007 ->
 
 >###### -> define _WHP_DISABLE_EMIT_WARNINGS before including whip to supress all warnings <-
 

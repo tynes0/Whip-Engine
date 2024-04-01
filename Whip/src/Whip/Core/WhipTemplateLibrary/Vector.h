@@ -303,11 +303,7 @@ public:
     {
         allocator<_Ty> al;
         m_data = al.allocate(ilist.size());
-#if _WHP_HAS_CPP_VERSION(17)
         if constexpr (is_trivial_v<_Ty>)
-#else // _WHP_HAS_CPP_VERSION(17)
-        if (is_trivial_v<_Ty>)
-#endif // _WHP_HAS_CPP_VERSION(17)
             std::memcpy(m_data, ilist.begin(), ilist.size() * sizeof(_Ty));
         else
             memory::copy_range(ilist.begin(), ilist.end(), m_data);
@@ -319,11 +315,7 @@ public:
         allocator<_Ty> al;
         m_data = al.allocate(right.m_capacities.first);
 
-#if _WHP_HAS_CPP_VERSION(17)
         if constexpr (is_trivial_v<_Ty>)
-#else // _WHP_HAS_CPP_VERSION(17)
-        if (is_trivial_v<_Ty>)
-#endif // _WHP_HAS_CPP_VERSION(17)
             std::memcpy(m_data, right.m_data, right.m_capacities.second * sizeof(_Ty));
         else
             memory::copy_range(right.begin().unwrapped(), right.end().unwrapped(), m_data);
@@ -418,11 +410,7 @@ public:
             WHP_CORE_WARN("Capacity is already equal to the passed value. (vector)");
             return;
         }
-#if _WHP_HAS_CPP_VERSION(17)
         if constexpr (is_trivial_v<_Ty>)
-#else // _WHP_HAS_CPP_VERSION(17)
-        if (is_trivial_v<_Ty>)
-#endif // _WHP_HAS_CPP_VERSION(17)
         {
             m_data = reinterpret_cast<_Ty*>(std::realloc(m_data, sizeof(_Ty) * new_cap));
             WHP_CORE_ASSERT(m_data != nullptr, "Reallocation failed.");
@@ -445,11 +433,7 @@ public:
     {
         if (m_capacities.first > m_capacities.second)
         {
-#if _WHP_HAS_CPP_VERSION(17)
             if constexpr (is_trivial_v<_Ty>)
-#else // _WHP_HAS_CPP_VERSION(17)
-            if (is_trivial_v<_Ty>)
-#endif // _WHP_HAS_CPP_VERSION(17)
             {
                 m_data = reinterpret_cast<_Ty*>(std::realloc(m_data, sizeof(_Ty) * m_capacities.second));
             }
@@ -602,11 +586,7 @@ public:
     {
         if (m_capacities.first == m_capacities.second)
             reserve(m_capacities.first * m_grow_factor + 1);
-#if _WHP_HAS_CPP_VERSION(17)
         if constexpr (is_trivial_v<_Ty>)
-#else // _WHP_HAS_CPP_VERSION(17)
-        if (is_trivial_v<_Ty>)
-#endif // _WHP_HAS_CPP_VERSION(17)
             m_data[m_capacities.second] = value;
         else
             allocator<_Ty>{}.construct(m_data + m_capacities.second, value);
@@ -617,11 +597,7 @@ public:
     {
         if (m_capacities.first == m_capacities.second)
             reserve(m_capacities.first * m_grow_factor + 1);
-#if _WHP_HAS_CPP_VERSION(17)
         if constexpr (is_trivial_v<_Ty>)
-#else // _WHP_HAS_CPP_VERSION(17)
-        if (is_trivial_v<_Ty>)
-#endif // _WHP_HAS_CPP_VERSION(17)
             m_data[m_capacities.second] = value;
         else
             allocator<_Ty>{}.construct(m_data + m_capacities.second, whip::move(value));
@@ -669,11 +645,7 @@ public:
     WHP_CONSTEXPR void pop_back()
     {
         WHP_CORE_ASSERT(m_capacities.second > 0, "Container is empty. (vector)");
-#if _WHP_HAS_CPP_VERSION(17)
         if constexpr (is_trivial_v<_Ty>)
-#else // _WHP_HAS_CPP_VERSION(17)
-        if (is_trivial_v<_Ty>)
-#endif // _WHP_HAS_CPP_VERSION(17)
             allocator<_Ty>{}.destroy(&m_data[m_capacities.second - 1]);
         m_capacities.second--;
     }
@@ -689,11 +661,7 @@ public:
         if (new_size > m_capacities.first)
             reserve(new_size);
 
-#if _WHP_HAS_CPP_VERSION(17)
         if constexpr (is_trivial_v<_Ty>)
-#else // _WHP_HAS_CPP_VERSION(17)
-        if (is_trivial_v<_Ty>)
-#endif // _WHP_HAS_CPP_VERSION(17)
         {
             if (new_size > m_capacities.second)
                 memory::construct_range(m_data + m_capacities.second, m_data + new_size);

@@ -6,8 +6,8 @@
 #include <type_traits>
 
 #include <Whip/Core/Core.h>
-#include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
-#include <Whip/Core/TemplatesAndContainers/Utility.h>
+#include "TypeTraits.h"
+#include "Utility.h"
 
 #pragma warning(push)
 #pragma warning(disable : _WHP_DISABLED_WARNINGS)

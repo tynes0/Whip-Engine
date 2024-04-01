@@ -1,8 +1,8 @@
 #pragma once
 
 #include <Whip/Render/Buffer.h>
-#include <Whip/Core/TemplatesAndContainers/Memory.h>
-#include <Whip/Core/TemplatesAndContainers/Vector.h>
+#include <Whip/Core/WhipTemplateLibrary/Memory.h>
+#include <Whip/Core/WhipTemplateLibrary/Vector.h>
 
 _WHIP_START
 

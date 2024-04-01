@@ -2,7 +2,7 @@
 
 #include <Whip/Core/Core.h>
 #include <Whip/Core/Layer.h>
-#include <Whip/Core/TemplatesAndContainers/Vector.h>
+#include <Whip/Core/WhipTemplateLibrary/Vector.h>
 
 _WHIP_START
 

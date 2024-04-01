@@ -382,6 +382,4 @@ _WHIP_END
 
 #pragma	warning(pop)
 
-#include "ExternalOperatorWrapper.h"
-
 #endif // !_WHIP_UTILITY_

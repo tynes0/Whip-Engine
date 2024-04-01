@@ -230,12 +230,220 @@ namespace aops
 
     double as_double(const any& data)
     {
-        return 0.0;
+        try // try to cast double
+        {
+            double value = any_cast<double>(data);
+            return value;
+        }
+        catch (bad_any_cast)
+        {
+            try // try to cast float
+            {
+                float value = any_cast<float>(data);
+                return static_cast<double>(value);
+            }
+            catch (bad_any_cast)
+            {
+                try // try to cast int
+                {
+                    double value = any_cast<int>(data);
+                    return static_cast<double>(value);
+                }
+                catch (bad_any_cast)
+                {
+                    try // try to cast long double
+                    {
+                        long double value = any_cast<long double>(data);
+                        return static_cast<double>(value);
+                    }
+                    catch (bad_any_cast)
+                    {
+                        try // try to cast char
+                        {
+                            char value = any_cast<char>(data);
+                            return static_cast<double>(value);
+                        }
+                        catch (bad_any_cast)
+                        {
+                            try // try to cast unsigned char
+                            {
+                                unsigned char value = any_cast<unsigned char>(data);
+                                return static_cast<double>(value);
+                            }
+                            catch (bad_any_cast)
+                            {
+                                try // try to cast long
+                                {
+                                    long value = any_cast<long>(data);
+                                    return static_cast<double>(value);
+                                }
+                                catch (bad_any_cast)
+                                {
+                                    try // try to cast long long
+                                    {
+                                        long long value = any_cast<long long>(data);
+                                        return static_cast<double>(value);
+                                    }
+                                    catch (bad_any_cast)
+                                    {
+                                        try // try to cast unsigned int
+                                        {
+                                            unsigned int value = any_cast<unsigned int>(data);
+                                            return static_cast<double>(value);
+                                        }
+                                        catch (bad_any_cast)
+                                        {
+                                            try // try to cast unsigned long
+                                            {
+                                                unsigned long value = any_cast<unsigned long>(data);
+                                                return static_cast<double>(value);
+                                            }
+                                            catch (bad_any_cast)
+                                            {
+                                                try // try to cast unsigned long long
+                                                {
+                                                    unsigned long long value = any_cast<unsigned long long>(data);
+                                                    return static_cast<double>(value);
+                                                }
+                                                catch (bad_any_cast)
+                                                {
+                                                    try // try to cast short
+                                                    {
+                                                        short value = any_cast<short>(data);
+                                                        return static_cast<double>(value);
+                                                    }
+                                                    catch (bad_any_cast)
+                                                    {
+                                                        try // try to cast unsigned short
+                                                        {
+                                                            unsigned short value = any_cast<unsigned short>(data);
+                                                            return static_cast<double>(value);
+                                                        }
+                                                        catch (bad_any_cast)
+                                                        {
+                                                            return 0.0;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     char as_char(const any& data)
     {
-        return 0;
+        try // try to cast char
+        {
+            char value = any_cast<char>(data);
+            return value;
+        }
+        catch (bad_any_cast)
+        {
+            try // try to cast unsigned char
+            {
+                unsigned char value = any_cast<unsigned char>(data);
+                return static_cast<char>(value);
+            }
+            catch (bad_any_cast)
+            {
+                try // try to cast int
+                {
+                    int value = any_cast<int>(data);
+                    return static_cast<char>(value);
+                }
+                catch (bad_any_cast)
+                {
+                    try // try to cast unsigned int
+                    {
+                        unsigned int value = any_cast<unsigned int>(data);
+                        return static_cast<char>(value);
+                    }
+                    catch (bad_any_cast)
+                    {
+                        try // try to cast double
+                        {
+                            double value = any_cast<double>(data);
+                            return static_cast<char>(value);
+                        }
+                        catch (bad_any_cast)
+                        {
+                            try // try to cast float
+                            {
+                                float value = any_cast<float>(data);
+                                return static_cast<char>(value);
+                            }
+                            catch (bad_any_cast)
+                            {
+                                try // try to cast long
+                                {
+                                    long value = any_cast<long>(data);
+                                    return static_cast<char>(value);
+                                }
+                                catch (bad_any_cast)
+                                {
+                                    try // try to cast long long
+                                    {
+                                        long long value = any_cast<long long>(data);
+                                        return static_cast<char>(value);
+                                    }
+                                    catch (bad_any_cast)
+                                    {
+                                        try // try to cast short
+                                        {
+                                            short value = any_cast<short>(data);
+                                            return static_cast<char>(value);
+                                        }
+                                        catch (bad_any_cast)
+                                        {
+                                            try // try to cast unsigned long
+                                            {
+                                                unsigned long value = any_cast<unsigned long>(data);
+                                                return static_cast<char>(value);
+                                            }
+                                            catch (bad_any_cast)
+                                            {
+                                                try // try to cast unsigned long long
+                                                {
+                                                    unsigned long long value = any_cast<unsigned long long>(data);
+                                                    return static_cast<char>(value);
+                                                }
+                                                catch (bad_any_cast)
+                                                {
+                                                    try // try to cast unsigned short
+                                                    {
+                                                        unsigned short value = any_cast<unsigned short>(data);
+                                                        return static_cast<char>(value);
+                                                    }
+                                                    catch (bad_any_cast)
+                                                    {
+                                                        try // try to cast long double
+                                                        {
+                                                            long double value = any_cast<long double>(data);
+                                                            return static_cast<char>(value);
+                                                        }
+                                                        catch (bad_any_cast)
+                                                        {
+                                                            return 0;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     unsigned int as_uint(const any& data)

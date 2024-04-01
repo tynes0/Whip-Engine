@@ -10,9 +10,6 @@
     <ClInclude Include="src\game\character.h">
       <Filter>game</Filter>
     </ClInclude>
-    <ClInclude Include="src\game\entity.h">
-      <Filter>game</Filter>
-    </ClInclude>
     <ClInclude Include="src\game\game.h">
       <Filter>game</Filter>
     </ClInclude>
@@ -21,9 +18,6 @@
     <ClCompile Include="src\F_boxApp.cpp" />
     <ClCompile Include="src\F_boxApp2D.cpp" />
     <ClCompile Include="src\game\character.cpp">
-      <Filter>game</Filter>
-    </ClCompile>
-    <ClCompile Include="src\game\entity.cpp">
       <Filter>game</Filter>
     </ClCompile>
     <ClCompile Include="src\game\game.cpp">

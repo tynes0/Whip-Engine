@@ -1,10 +1,19 @@
-#include "F_boxApp2D.h"// Entry Point
+#include "F_boxApp2D.h"
 #include <Whip/Core/EntryPoint.h>
 
 #include <imgui/imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
 fbox_app2D::fbox_app2D() :layer("Fbox2D"), m_camera_controller(whip::calculate_aspect_ratio(1280, 720), true) {}
+
+whip_operator(swap_op, void, int&, int&)
+{
+	int a = left;
+	left = right;
+	right = a;
+}
+
+#define _swap_ <=swap_op>=
 
 void fbox_app2D::on_attach()
 {
@@ -14,10 +23,9 @@ void fbox_app2D::on_attach()
 	m_camera_controller.set_zoom_level(5.0f);
 	m_camera_controller.set_camera_translation_speed(1.0f);
 
-	{
-		whip::console_timer timer("timer");
-	}
-
+	int a = 1, b = 2;
+	a _swap_ b;
+	WHP_CORE_DEBUG(a);
 }
 
 void fbox_app2D::on_detach()
@@ -41,13 +49,8 @@ void fbox_app2D::on_update(whip::timestep ts)
 
 	{
 		WHP_PROFILE_SCOPE("renderer draw");
-
-
 		whip::renderer2D::begin_scene(m_camera_controller.get_camera());
-		
 		whip::renderer2D::draw_quad({ 0, 0, 0 }, { 500.0f, 500.0f }, m_square_color);
-
-
 		whip::renderer2D::end_scene();
 	}
 }

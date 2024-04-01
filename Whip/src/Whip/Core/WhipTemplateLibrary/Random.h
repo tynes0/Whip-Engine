@@ -137,10 +137,6 @@ private:
 	state_type m_state;
 };
 
-#if !_WHP_HAS_CPP_VERSION(20)
-_EMIT_WHP_WARNING(WHP0006, "Xoshiro and xoroshiro classes are available only with C++20 or later.");
-#else //_WHP_HAS_CPP_VERSION(20)
-
 class xoshiro256plus : private detail_random::random_base
 {
 public:
@@ -163,8 +159,6 @@ public:
 private:
 	state_type m_state;
 };
-
-#endif // _WHP_HAS_CPP_VERSION(20)
 
 namespace detail_random
 {

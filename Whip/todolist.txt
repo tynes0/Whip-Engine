@@ -3,10 +3,9 @@
 ############## WHIP ENGINE TODOLIST ##############
 ##################################################
 ####
-####--> whip::vector'ü tamir et! (EN ONEMLISI) >> yapýldý, fakat geliþtirilmeye devam edilmeli
+####--> whip::vector'ü geliþtir
 ####--> whip::aops fonksiyonlarýný tamamla
 ####--> iterator traits !
-####--> bitset_const_iterator'ü yap
 ####--> whip::array'in constexpr durumlarýný ve random sýnýflarýnýn constexpr durumlarýný güncelle
 ####--> random sýnýflarýný tamamla
 ####--> hash sýnýflarýný .cpp dosyasýna da böl ve macrolarla çalýþ

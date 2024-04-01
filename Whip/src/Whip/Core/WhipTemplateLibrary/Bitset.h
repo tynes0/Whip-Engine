@@ -5,10 +5,10 @@
 #include <Whip/Core/Core.h>
 #include <Whip/Core/Log.h>
 
-#include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
-#include <Whip/Core/TemplatesAndContainers/Hash.h>
-#include <Whip/Core/TemplatesAndContainers/Iterator.h>
-#include <Whip/Core/TemplatesAndContainers/Allocator.h>
+#include "TypeTraits.h"
+#include "Hash.h"
+#include "Iterator.h"
+#include "Allocator.h"
 
 #include <iostream>
 
@@ -79,8 +79,8 @@ public:
     using value_type    = bool;
     using pointer       = bitset_iterator;
     using reference     = bitset_reference<_Bits>;
-    using size_type     = typename m_base::size_type;
-    using diff_type     = typename m_base::diff_type;
+    using size_type     = size_t;
+    using diff_type     = ptrdiff_t;
 
     WHP_CONSTEXPR17 bitset_iterator(bitset<_Bits>* data = nullptr, size_type offset = 0) : m_ptr(data), m_offset(offset) {}
      
@@ -90,6 +90,7 @@ public:
 
     WHP_CONSTEXPR17 reference operator*() const
     {
+        WHP_CORE_ASSERT(_Bits > m_offset, "End iterator is not referenceable.");
         return reference(DREF(m_ptr), m_offset);
     }
 
@@ -192,14 +193,134 @@ private:
 };
 
 template <size_t _Bits>
+class bitset_const_iterator : public whip::iterator_base<const bool>
+{
+public:
+    using m_base        = iterator_base<const bool>;
+    using value_type    = bool;
+    using pointer       = bitset_const_iterator;
+    using reference     = bool;
+    using size_type     = size_t;
+    using diff_type     = ptrdiff_t;
+
+    WHP_CONSTEXPR17 bitset_const_iterator(const bitset<_Bits>* const data = nullptr, size_type offset = 0) : m_ptr(data), m_offset(offset) {}
+
+    WHP_CONSTEXPR17 bitset_const_iterator(const bitset_const_iterator& other) : m_ptr(other.m_ptr), m_offset(other.m_offset) {}
+
+    WHP_CONSTEXPR17 ~bitset_const_iterator() {}
+
+    WHP_CONSTEXPR17 reference operator*() const
+    {
+        WHP_CORE_ASSERT(_Bits > m_offset, "End iterator is not reachable.");
+        return m_ptr->operator[](m_offset);
+    }
+
+    WHP_CONSTEXPR17 bitset_const_iterator& operator++()
+    {
+        ++m_offset;
+        return *this;
+    }
+
+    WHP_CONSTEXPR17 bitset_const_iterator operator++(int)
+    {
+        bitset_const_iterator temp(*this);
+        ++(*this);
+        return temp;
+    }
+
+    WHP_CONSTEXPR17 bitset_const_iterator& operator--()
+    {
+        --m_offset;
+        return *this;
+    }
+
+    WHP_CONSTEXPR17 bitset_const_iterator operator--(int)
+    {
+        bitset_const_iterator temp(*this);
+        --(*this);
+        return temp;
+    }
+
+    WHP_CONSTEXPR17 bool operator==(const bitset_const_iterator& other) const
+    {
+        return ((m_ptr == other.m_ptr) && (m_offset == other.m_offset));
+    }
+
+    WHP_CONSTEXPR17 bool operator==(bitset_const_iterator&& other) const
+    {
+        bool res = ((m_ptr == other.m_ptr) && (m_offset == other.m_offset));
+        return res;
+    }
+
+    WHP_CONSTEXPR17 bool operator!=(const bitset_const_iterator& other) const
+    {
+        return !(this->operator==(move(other)));
+    }
+    /////////////////////////////////////////////////////////
+    ///// We need this compare operators in here because ////
+    //////// bitset_iteretor is not unwrappable and /////////
+    /////////// verify_range uses this operators ////////////
+    /////////////////////////////////////////////////////////
+
+    WHP_CONSTEXPR17 bool operator>(const bitset_const_iterator& other) const
+    {
+        if (m_ptr != other.m_ptr)
+            return false; // maybe true? how can we understand this? maybe we can compare pointers
+        return m_offset > other.m_offset;
+    }
+
+    WHP_CONSTEXPR17 bool operator<(const bitset_const_iterator& other) const
+    {
+        if (m_ptr != other.m_ptr)
+            return false; // maybe true? how can we understand this? maybe we can compare pointers
+        return m_offset < other.m_offset;
+    }
+
+    /////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////
+
+    WHP_CONSTEXPR17 bitset_const_iterator operator+(size_type n) const
+    {
+        return bitset_const_iterator(m_ptr, m_offset + n);
+    }
+
+    WHP_CONSTEXPR17 bitset_const_iterator operator-(size_type n) const
+    {
+        return bitset_const_iterator(m_ptr, m_offset - n);
+    }
+
+    constexpr void reset(pointer ptr = nullptr, size_type offset = 0) noexcept
+    {
+        m_ptr = ptr.m_ptr;
+        m_offset = offset;
+    }
+
+    // bitset_const_iterator is not unwrappable
+    constexpr pointer unwrapped() noexcept
+    {
+        return *this;
+    }
+
+    constexpr const pointer unwrapped() const noexcept
+    {
+        return *this;
+    }
+
+private:
+    const bitset<_Bits>* const m_ptr;
+    size_type m_offset;
+};
+
+template <size_t _Bits>
 class bitset
 { 
 public:
     using reference                 = bitset_reference<_Bits>;
     using iterator                  = bitset_iterator<_Bits>;
-    using const_iterator            = bitset_iterator<_Bits>;
+    using const_iterator            = bitset_const_iterator<_Bits>;
     using reverse_iterator          = _WHIP reverse_iterator<bitset_iterator<_Bits>>;
-    using const_reverse_iterator    = _WHIP reverse_iterator<bitset_iterator<_Bits>>;
+    using const_reverse_iterator    = _WHIP reverse_iterator<bitset_const_iterator<_Bits>>;
 
 #pragma warning(push)
 #pragma warning(disable : 4296) // expression is always true
@@ -558,6 +679,26 @@ public:
         return iterator(this, _Bits);
     }
 
+    WHP_NODISCARD WHP_CONSTEXPR23 const_iterator begin() const noexcept
+    {
+        return const_iterator(this, 0);
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 const_iterator end() const noexcept
+    {
+        return const_iterator(this, _Bits);
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 const_iterator cbegin() const noexcept
+    {
+        return const_iterator(this, 0);
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 const_iterator cend() const noexcept
+    {
+        return const_iterator(this, _Bits);
+    }
+
     WHP_NODISCARD WHP_CONSTEXPR23 reverse_iterator rbegin() noexcept
     {
         return reverse_iterator(end());
@@ -567,6 +708,17 @@ public:
     {
         return reverse_iterator(begin());
     }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 const_reverse_iterator crbegin() const noexcept
+    {
+        return reverse_iterator(cend());
+    }
+
+    WHP_NODISCARD WHP_CONSTEXPR23 const_reverse_iterator crend() const noexcept
+    {
+        return reverse_iterator(cbegin());
+    }
+
 
 private:
     WHP_CONSTEXPR23 void trim() noexcept

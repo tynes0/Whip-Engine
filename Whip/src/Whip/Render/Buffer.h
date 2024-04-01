@@ -1,8 +1,8 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
-#include <Whip/Core/TemplatesAndContainers/Vector.h>
-#include <Whip/Core/TemplatesAndContainers/Memory.h>
+#include <Whip/Core/WhipTemplateLibrary/Vector.h>
+#include <Whip/Core/WhipTemplateLibrary/Memory.h>
 
 _WHIP_START
 

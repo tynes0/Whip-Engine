@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Whip/Core/Core.h>
+#include "Whip/Core/Core.h"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -69,8 +69,8 @@ _WHIP_END
 
 
 #ifdef WHP_ENABLE_ASSERTS
-#define WHP_ASSERT(x, ...) { if(!(x)) { WHP_CLIENT_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}", __FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } }
-#define WHP_CORE_ASSERT(x, ...) { if(!(x)) { WHP_CORE_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}", __FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } }
+#define WHP_ASSERT(x, ...) do { if(!(x)) { WHP_CLIENT_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}", __FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } } while (false)
+#define WHP_CORE_ASSERT(x, ...) do { if(!(x)) { WHP_CORE_CRITICAL("Whip Assertion Failed: File -> ({0}) Line -> ({1}) Error Message -> {2}", __FILE__, __LINE__ ,__VA_ARGS__); __debugbreak(); } } while(false)
 #else //WHP_ENABLE_ASSERTS
 #define WHP_ASSERT(x, ...)				// Whip assert not enabled
 #define WHP_CORE_ASSERT(x, ...)			// Whip core assert not enabled

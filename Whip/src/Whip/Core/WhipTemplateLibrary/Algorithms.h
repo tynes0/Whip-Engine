@@ -73,6 +73,18 @@ constexpr void fill(_Iter first, _Iter last, const _Ty& val)
 			DREF(ufirst) = val;
 }
 
+template <class _Iter, class _Ty>
+WHP_NODISCARD WHP_CONSTEXPR _Iter basic_find(_Iter first, const _Iter last, const _Ty& value)
+{
+	verify_range(first, last);
+	auto ufirst = get_unwrapped(first);
+	auto ulast = get_unwrapped(last);
+	for (; ufirst != ulast; ++ufirst)
+		if (DREF(ufirst) == value)
+			return ufirst;
+	return ulast;
+}
+
 template <class _Iter1, class _Iter2, class _Pr>
 WHP_NODISCARD WHP_CONSTEXPR _Iter1 find_first_of(_Iter1 first1, const _Iter1 last1, const _Iter2 first2, const _Iter2 last2, _Pr pred) noexcept
 {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Whip/Core/KeyCodes.h>
-#include <Whip/Core/TemplatesAndContainers/Pair.h>
+#include <Whip/Core/WhipTemplateLibrary/Pair.h>
 
 _WHIP_START
 

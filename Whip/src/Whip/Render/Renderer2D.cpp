@@ -1,7 +1,7 @@
 #include "whippch.h"
 #include "Renderer2D.h"
 
-#include <Whip/Core/TemplatesAndContainers/Array.h>
+#include <Whip/Core/WhipTemplateLibrary/Array.h>
 
 #include <Whip/Render/VertexArray.h>
 #include <Whip/Render/Shader.h>

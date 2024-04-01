@@ -1,7 +1,5 @@
 #pragma once
 
-#include <Whip.h>
-
 #include "character.h"
 
 class game_layer : public whip::layer

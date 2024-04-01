@@ -3,7 +3,7 @@
 #define _WHIP_INVOKER_
 
 #include <Whip/Core/Core.h>
-#include <Whip/Core/TemplatesAndContainers/TypeTraits.h>
+#include "TypeTraits.h"
 
 #include <type_traits>
 
