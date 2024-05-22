@@ -22,7 +22,7 @@ logger log::create_logger(const std::string& logger_name, log_level log_level)
 
 void log::set_log(logger& logger, const std::string& logger_name, log_level log_level)
 {
-	logger = spdlog::stdout_color_mt(logger_name); 
+	logger = spdlog::stdout_color_mt(logger_name);
 	logger->set_level(_WHIP log::whip_log_level_to_spdlog_level(log_level));
 }
 
@@ -38,7 +38,7 @@ spdlog::level::level_enum log::whip_log_level_to_spdlog_level(log_level log_leve
 	case log_level::critical:		return spdlog::level::critical;
 	case log_level::off:			return spdlog::level::off;
 	case log_level::levels_size:	return spdlog::level::n_levels;
-	default:							return spdlog::level::off;
+	default:						return spdlog::level::off;
 	}
 }
 

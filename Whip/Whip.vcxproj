@@ -172,7 +172,6 @@
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Array.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Bitset.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Concepts.h" />
-    <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\OperatorWrapper.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Filesystem.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Hash.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Invoker.h" />
@@ -180,6 +179,7 @@
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\MathDef.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Memory.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\MemoryUtil.h" />
+    <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\OperatorWrapper.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Optional.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Pair.h" />
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Random.h" />

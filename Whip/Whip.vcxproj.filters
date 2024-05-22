@@ -138,9 +138,6 @@
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Concepts.h">
       <Filter>src\Whip\Core\WhipTemplateLibrary</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\OperatorWrapper.h">
-      <Filter>src\Whip\Core\WhipTemplateLibrary</Filter>
-    </ClInclude>
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Filesystem.h">
       <Filter>src\Whip\Core\WhipTemplateLibrary</Filter>
     </ClInclude>
@@ -160,6 +157,9 @@
       <Filter>src\Whip\Core\WhipTemplateLibrary</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\MemoryUtil.h">
+      <Filter>src\Whip\Core\WhipTemplateLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\OperatorWrapper.h">
       <Filter>src\Whip\Core\WhipTemplateLibrary</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Core\WhipTemplateLibrary\Optional.h">

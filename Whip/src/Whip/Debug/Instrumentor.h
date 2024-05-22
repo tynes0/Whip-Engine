@@ -185,9 +185,6 @@ _WHIP_END
 #endif
 */
 #ifdef WHP_PROFILE
-// Resolve which function signature macro will be used. Note that this only
-// is resolved when the (pre)compiler starts, so the syntax highlighting
-// could mark the wrong one in your editor!
     #if defined(__GNUC__) || (defined(__MWERKS__) && (__MWERKS__ >= 0x3000)) || (defined(__ICC) && (__ICC >= 600)) || defined(__ghs__)
         #define WHP_FUNC_SIG __PRETTY_FUNCTION__
     #elif defined(__DMC__) && (__DMC__ >= 0x810)
