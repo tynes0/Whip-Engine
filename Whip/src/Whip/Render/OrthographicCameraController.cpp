@@ -1,7 +1,5 @@
 #include "whippch.h"
 #include "OrthographicCameraController.h"
-#include "Whip/Core/WhipTemplateLibrary/MathDef.h"
-
 
 _WHIP_START
 
@@ -90,7 +88,8 @@ bool orthographic_camera_controller::on_window_resized(window_resize_event& evnt
 {
 	WHP_PROFILE_FUNCTION();
 
-	m_aspect_ratio = calculate_aspect_ratio((float)evnt.get_width(), (float)evnt.get_height()); 
+	//m_aspect_ratio = calculate_aspect_ratio((float)evnt.get_width(), (float)evnt.get_height()); todo
+	m_aspect_ratio = ((float)evnt.get_width() / (float)evnt.get_height()); 
 	calculate_view();
 	return false;
 }

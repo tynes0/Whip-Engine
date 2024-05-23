@@ -5,7 +5,6 @@
 #include <Whip/Core/LayerStack.h>
 #include <Whip/ImGui/ImGuiLayer.h>
 #include <Whip/Core/Timestep.h>
-#include <Whip/Core/WhipTemplateLibrary/Memory.h>
 
 _WHIP_START
 

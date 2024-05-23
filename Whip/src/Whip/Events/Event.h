@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
-#include <Whip/Core/WhipTemplateLibrary/TypeTraits.h>
+#include <type_traits>
 #include <string>
 #include <functional>
 
@@ -67,7 +67,7 @@ public:
 	event_dispatcher(event& evnt) : m_event(evnt) {}
 
 	template <class T>
-	typename enable_if<is_base_of<event, T>::value, bool>::type dispatch(event_fn<T> func)
+	typename std::enable_if<std::is_base_of<event, T>::value, bool>::type dispatch(event_fn<T> func)
 	{
 		if (m_event.get_event_type() == T::get_static_type())
 		{

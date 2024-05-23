@@ -1,11 +1,27 @@
 #include <whippch.h>
 #include "OpenGLShader.h"
 
-#include "Whip/Core/WhipTemplateLibrary/Array.h"
-#include "Whip/Core/WhipTemplateLibrary/Filesystem.h"
-
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
+
+// temporary
+namespace filesystem
+{
+	std::string read_file(const std::string& filepath)
+	{
+		std::string result;
+		std::ifstream in(filepath, std::ios::in | std::ios::binary);
+		if (in)
+		{
+			in.seekg(0, std::ios::end);
+			result.resize(in.tellg());
+			in.seekg(0, std::ios::beg);
+			in.read(&result[0], result.size());
+			in.close();
+		}
+		return result;
+	}
+}
 
 _WHIP_START
 
@@ -28,7 +44,7 @@ opengl_shader::opengl_shader(const std::string& filepath)
 	auto shader_sources = pre_process(source);
 	compile(shader_sources);
 
-	m_name = filesystem::fetch_filename(filepath);
+	m_name = std::filesystem::path(filepath).stem().string();
 }
 
 opengl_shader::opengl_shader(const std::string& name, const std::string& filepath)
@@ -101,7 +117,7 @@ void opengl_shader::compile(const std::unordered_map<GLenum, std::string>& shade
 
 	renderer_id_t program = glCreateProgram();
 	WHP_CORE_ASSERT(shader_sources.size() <= 2, "Whip Engine only supports 2 shaders for now!");
-	array<GLenum, 2> gl_shader_IDs;
+	std::array<GLenum, 2> gl_shader_IDs;
 	uint32_t gl_shader_ID_index = 0;
 
 #if _WHP_HAS_CPP_VERSION(17)

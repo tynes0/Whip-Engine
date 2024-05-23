@@ -1,8 +1,6 @@
 #include "whippch.h"
 #include "Renderer2D.h"
 
-#include <Whip/Core/WhipTemplateLibrary/Array.h>
-
 #include <Whip/Render/VertexArray.h>
 #include <Whip/Render/Shader.h>
 #include <Whip/Render/RenderCommand.h>
@@ -39,7 +37,7 @@ struct renderer2D_data
 	quad_vertex* quad_vertex_buffer_base = nullptr;
 	quad_vertex* quad_vertex_buffer_ptr = nullptr;
 
-	array <ref<texture2D>, max_texture_slots> texture_slots;
+	std::array <ref<texture2D>, max_texture_slots> texture_slots;
 	uint32_t texture_slot_index = 1; // 0 = white texture
 
 	glm::vec4 quad_vertex_positions[4] = {};
@@ -107,7 +105,7 @@ _WHP_PRAGMA_WARNING(pop)
 	uint32_t white_texture_data = 0xffffffff;
 	s_data.white_texture->set_data(&white_texture_data, sizeof(white_texture_data));
 
-	whip::array<int, s_data.max_texture_slots> samplers;
+	std::array<int, s_data.max_texture_slots> samplers;
 
 	for (int i = 0; i < s_data.max_texture_slots; ++i)
 		samplers[i] = i;

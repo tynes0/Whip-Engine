@@ -26,7 +26,7 @@ void layer_stack::push_overlay(layerptr overlay)
 
 void layer_stack::pop_layer(layerptr layer)
 {
-	auto iterator = basic_find(m_layers.begin(), m_layers.end(), layer);
+	auto iterator = std::find(m_layers.begin(), m_layers.end(), layer);
 	if (iterator != m_layers.end())
 	{
 		m_layers.erase(iterator);
@@ -36,7 +36,7 @@ void layer_stack::pop_layer(layerptr layer)
 
 void layer_stack::pop_overlay(layerptr overlay)
 {
-	auto iterator = basic_find(m_layers.begin(), m_layers.end(), overlay);
+	auto iterator = std::find(m_layers.begin(), m_layers.end(), overlay);
 	if (iterator != m_layers.end())
 	{
 		m_layers.erase(iterator);

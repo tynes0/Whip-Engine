@@ -4,16 +4,8 @@
 #include <imgui/imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
-fbox_app2D::fbox_app2D() :layer("Fbox2D"), m_camera_controller(whip::calculate_aspect_ratio(1280, 720), true) {}
+fbox_app2D::fbox_app2D() :layer("Fbox2D"), m_camera_controller((1280 / 720), true) {}
 
-whip_operator(swap_op, void, int&, int&)
-{
-	int a = left;
-	left = right;
-	right = a;
-}
-
-#define _swap_ <=swap_op>=
 
 void fbox_app2D::on_attach()
 {
@@ -22,10 +14,6 @@ void fbox_app2D::on_attach()
 	m_camera_controller.set_camera_position({ 0.0f, 0.0f, 0.0f });
 	m_camera_controller.set_zoom_level(5.0f);
 	m_camera_controller.set_camera_translation_speed(1.0f);
-
-	int a = 1, b = 2;
-	a _swap_ b;
-	WHP_CORE_DEBUG(a);
 }
 
 void fbox_app2D::on_detach()

@@ -1,8 +1,7 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
-#include <Whip/Core/WhipTemplateLibrary/Vector.h>
-#include <Whip/Core/WhipTemplateLibrary/Memory.h>
+#include <vector>
 
 _WHIP_START
 
@@ -80,10 +79,10 @@ struct buffer_element
 
 class buffer_layout
 {
-	using buffer_element_iter		= vector<buffer_element>::iterator;
-	using buffer_element_const_iter = vector<buffer_element>::const_iterator;
+	using buffer_element_iter		= std::vector<buffer_element>::iterator;
+	using buffer_element_const_iter = std::vector<buffer_element>::const_iterator;
 private:
-	vector<buffer_element> m_elements;
+	std::vector<buffer_element> m_elements;
 	uint64_t m_stride = 0;
 private:
 	void calculate_offsets_and_stride()
@@ -107,7 +106,7 @@ public:
 	}
 
 	WHP_NODISCARD inline const uint64_t get_stride() const { return m_stride; }
-	WHP_NODISCARD inline const vector<buffer_element>& get_elements() const { return m_elements; }
+	WHP_NODISCARD inline const std::vector<buffer_element>& get_elements() const { return m_elements; }
 
 	WHP_NODISCARD buffer_element_iter begin() { return m_elements.begin(); }
 	WHP_NODISCARD buffer_element_iter end() { return m_elements.end(); }

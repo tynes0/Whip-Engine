@@ -3,7 +3,6 @@
 #include <Whip/Render/OrthographicCameraController.h>
 #include <Whip/Render/Texture.h>
 #include <Whip/Render/SubTexture2D.h>
-#include <Whip/Core/WhipTemplateLibrary/Memory.h>
 
 _WHIP_START
 
