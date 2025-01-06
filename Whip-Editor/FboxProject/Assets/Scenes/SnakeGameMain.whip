@@ -1,0 +1,129 @@
+scene: SnakeGameMain
+entities:
+  - entity: 15235015862708487916
+    tag_component:
+      tag: LeftWall
+    transform_component:
+      translation: [8.5, -5.19296066e-07, 0]
+      rotation: [0, 0, 1.57079637]
+      scale: [15.999032, 0.999939501, 1]
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 0
+      tiling_factor: 1
+  - entity: 11109643687950875278
+    tag_component:
+      tag: RightWall
+    transform_component:
+      translation: [-8.5, 4.9477444e-07, 0]
+      rotation: [0, 0, 1.57079637]
+      scale: [15.9994154, 0.999963462, 1]
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 0
+      tiling_factor: 1
+  - entity: 5872855954393608574
+    tag_component:
+      tag: DownWall
+    transform_component:
+      translation: [0, -8.5, 0]
+      rotation: [0, 0, 0]
+      scale: [18, 1, 1]
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 0
+      tiling_factor: 1
+  - entity: 7609140856838147185
+    tag_component:
+      tag: UpWall
+    transform_component:
+      translation: [0, 8.5, 0]
+      rotation: [0, 0, 0]
+      scale: [18, 1, 1]
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 0
+      tiling_factor: 1
+  - entity: 17746070019084527692
+    tag_component:
+      tag: Score
+    transform_component:
+      translation: [0, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+  - entity: 5990272877233793649
+    tag_component:
+      tag: Apple
+    transform_component:
+      translation: [0, 3.29340887, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    sprite_renderer_component:
+      color: [1, 0, 0, 1]
+      texture_handle: 0
+      tiling_factor: 1
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.5, 0.5]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: false
+      tag: Apple
+  - entity: 15262408382118468239
+    tag_component:
+      tag: Snake
+    transform_component:
+      translation: [1.25602996, 1.49011612e-08, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    sprite_renderer_component:
+      color: [0.13333334, 1, 0.443137258, 1]
+      texture_handle: 0
+      tiling_factor: 1
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.5, 0.5]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: false
+      tag: Snake
+  - entity: 625222077055793519
+    tag_component:
+      tag: Camera
+    transform_component:
+      translation: [0, 0, 25]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    camera_component:
+      camera:
+        projection_type: 0
+        perspective_FOV: 0.785398185
+        perspective_near: 0.00999999978
+        perspective_far: 1000
+        orthographic_size: 10
+        orthographic_near: -1
+        orthographic_far: 1
+      primary: true
+      fixed_aspect_ratio: false
+  - entity: 5145289030482213067
+    tag_component:
+      tag: BackGround
+    transform_component:
+      translation: [0, 0, -0.00999999978]
+      rotation: [0, 0, 0]
+      scale: [16, 16, 1]
+    sprite_renderer_component:
+      color: [0.305882365, 0.360784322, 0.423529416, 1]
+      texture_handle: 0
+      tiling_factor: 1
+  - entity: 14843017997281393140
+    tag_component:
+      tag: GameLogic
+    transform_component:
+      translation: [100, 100, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]

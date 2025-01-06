@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="..">
+      <UniqueIdentifier>{61705900-4DFC-870B-B6AA-880BA255880B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\F-Box">
+      <UniqueIdentifier>{8C722D37-783F-8842-A158-76EA8D84BDD0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip">
+      <UniqueIdentifier>{08D28747-74B1-06E3-7DC9-91B9E9276D44}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor">
+      <UniqueIdentifier>{65CFE948-519D-DD4E-3A31-4E75269EB9B3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\GLFW">
+      <UniqueIdentifier>{C4F1760D-3053-541B-B9C0-9ACD25218BDA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\Glad">
+      <UniqueIdentifier>{6C7D770D-D8DE-541B-614C-9BCDCDAC8BDA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\OpenAL-Soft">
+      <UniqueIdentifier>{FCE311BA-E8F3-BD8A-51AD-22A93DDCAC23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\Vorbis">
+      <UniqueIdentifier>{498B896C-B5F7-4467-7EEB-DCC4EA1667CF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\box2d">
+      <UniqueIdentifier>{73C151BE-5F50-DB87-086F-EF82F4DCEB2D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\imgui">
+      <UniqueIdentifier>{8F14CFBE-7BA3-5888-24C2-6C831030692E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\libogg">
+      <UniqueIdentifier>{08E7659F-7453-219A-3D47-B9F7A9724302}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\msdf-atlas-gen">
+      <UniqueIdentifier>{A7CA71F5-13E3-581F-DC8F-E8B84867EDB8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\msdf-atlas-gen\msdfgen">
+      <UniqueIdentifier>{1AFAF73E-86BE-F62E-4F24-27F9BBA79264}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip\vendor\yaml-cpp">
+      <UniqueIdentifier>{B75754C1-238F-9C58-2C99-007C984FC351}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip-Editor">
+      <UniqueIdentifier>{BCFC933C-A8CA-8742-915E-F8687DCB63A7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip-Editor\FboxProject">
+      <UniqueIdentifier>{D19150E9-BDA1-FCB9-265B-61D8128AEB52}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip-Editor\FboxProject\Assets">
+      <UniqueIdentifier>{9383943C-FFF1-E9BB-48DB-A4BBB488DF57}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip-Editor\FboxProject\Assets\Scripts">
+      <UniqueIdentifier>{CA4D4D66-3668-B007-7F8A-C09BEBE3D70E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\Whip-ScriptCore">
+      <UniqueIdentifier>{7357C3F1-5F3B-8447-C89B-7E9AB49E6EC9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\libs">
+      <UniqueIdentifier>{5A599347-C638-12E3-CF50-9DB93BAF7844}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\libs\mono">
+      <UniqueIdentifier>{626D136C-4ED0-A210-F755-DBC6E3976E93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\libs\mono\tools">
+      <UniqueIdentifier>{82C31068-6EA7-D1BD-D707-CC10C30ABC3F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="..\libs\mono\tools\checker">
+      <UniqueIdentifier>{E6032588-D213-D158-3BCD-357727FCBFF1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\F-Box\premake5.lua">
+      <Filter>..\F-Box</Filter>
+    </None>
+    <None Include="..\..\Whip-Editor\FboxProject\Assets\Scripts\premake5.lua">
+      <Filter>..\Whip-Editor\FboxProject\Assets\Scripts</Filter>
+    </None>
+    <None Include="..\..\Whip-Editor\premake5.lua">
+      <Filter>..\Whip-Editor</Filter>
+    </None>
+    <None Include="..\..\Whip-ScriptCore\premake5.lua">
+      <Filter>..\Whip-ScriptCore</Filter>
+    </None>
+    <None Include="..\..\Whip\premake5.lua">
+      <Filter>..\Whip</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\GLFW\premake5.lua">
+      <Filter>..\Whip\vendor\GLFW</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\Glad\premake5.lua">
+      <Filter>..\Whip\vendor\Glad</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\OpenAL-Soft\premake5.lua">
+      <Filter>..\Whip\vendor\OpenAL-Soft</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\Vorbis\premake5.lua">
+      <Filter>..\Whip\vendor\Vorbis</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\box2d\premake5.lua">
+      <Filter>..\Whip\vendor\box2d</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\imgui\premake5.lua">
+      <Filter>..\Whip\vendor\imgui</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\libogg\premake5.lua">
+      <Filter>..\Whip\vendor\libogg</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\msdf-atlas-gen\msdfgen\premake5.lua">
+      <Filter>..\Whip\vendor\msdf-atlas-gen\msdfgen</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\msdf-atlas-gen\premake5.lua">
+      <Filter>..\Whip\vendor\msdf-atlas-gen</Filter>
+    </None>
+    <None Include="..\..\Whip\vendor\yaml-cpp\premake5.lua">
+      <Filter>..\Whip\vendor\yaml-cpp</Filter>
+    </None>
+    <None Include="..\..\libs\mono\tools\checker\premake5.lua">
+      <Filter>..\libs\mono\tools\checker</Filter>
+    </None>
+    <None Include="..\..\premake5.lua">
+      <Filter>..</Filter>
+    </None>
+    <None Include="premake5.lua" />
+  </ItemGroup>
+</Project>

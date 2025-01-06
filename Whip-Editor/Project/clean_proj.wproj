@@ -1,0 +1,5 @@
+project:
+  name: Clean Project
+  start_scene: scenes\3dscene.whip
+  asset_directory: assets
+  script_module_path: ""

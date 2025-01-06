@@ -1,0 +1,6 @@
+project:
+  name: SnakeGame
+  start_scene: 3259197809910181710
+  asset_directory: Assets
+  asset_registry_path: asset_registry.whipr
+  script_module_path: Scripts\Binaries\Fbox.dll

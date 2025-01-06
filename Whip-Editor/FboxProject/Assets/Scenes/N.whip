@@ -1,0 +1,260 @@
+scene: N
+entities:
+  - entity: 2929460139339920773
+    tag_component:
+      tag: audio thing
+    transform_component:
+      translation: [-4.76837158e-07, -2.38418579e-07, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    script_component:
+      class_name: Fbox.TestObject
+    audio_component:
+      audio_datas:
+        - audio: 7221866678342563568
+          tag: Audio 1
+          translation: [2.5999999, 2.70000005, -3.0999999]
+          spitial: true
+          loop: true
+          gain: 1.36000001
+          pitch: 1.26999998
+          clip_start: 6.08962774
+          clip_end: 15.3255634
+          full_clip_length: 20.1972656
+          ID: 2465493219
+  - entity: 9235621154525088309
+    tag_component:
+      tag: New Entity(2)
+    transform_component:
+      translation: [2.79571438, -1.002635, 0]
+      rotation: [0, 0, 0]
+      scale: [3.37864518, 1, 1]
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 11910312095153810152
+      tiling_factor: 1
+  - entity: 14183634088071040131
+    tag_component:
+      tag: New Entity(1)
+    transform_component:
+      translation: [-0.486720264, -1, 0]
+      rotation: [0, 0, 0]
+      scale: [3.25488234, 1, 1]
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 11910312095153810152
+      tiling_factor: 1
+  - entity: 8905914831354523248
+    tag_component:
+      tag: New Entity
+    transform_component:
+      translation: [-3.79972148, -1, 0]
+      rotation: [0, 0, 0]
+      scale: [3.37864518, 1, 1]
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 11910312095153810152
+      tiling_factor: 1
+  - entity: 5332372146466366564
+    tag_component:
+      tag: Blue Text
+    transform_component:
+      translation: [-1.48249626, 1.26588154, 0]
+      rotation: [0, 0, 0]
+      scale: [0.200000003, 0.200000003, 1]
+    text_component:
+      text_string: "Blue Character\nMove: W - A - D\nInteraction: E"
+      color: [0, 0, 1, 1]
+      kerning: 0
+      line_spacing: 0
+  - entity: 14899361252575335842
+    tag_component:
+      tag: Green Text
+    transform_component:
+      translation: [0.278808773, 1.26588154, 0]
+      rotation: [0, 0, 0]
+      scale: [0.200000003, 0.200000003, 1]
+    text_component:
+      text_string: "Green Character\nMove: UP key - Left Key - Right Key\nInteraction: L"
+      color: [0.666666687, 0.65882355, 0, 1]
+      kerning: 0
+      line_spacing: 0
+  - entity: 15152723704172052190
+    tag_component:
+      tag: Floor Collider
+    transform_component:
+      translation: [-0.5, -1, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    rigidbody2D_component:
+      body_type: Static
+      fixed_rotation: false
+      gravity_scale: 1
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [5, 0.5]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: false
+      tag: Floor
+  - entity: 14382263347609350286
+    tag_component:
+      tag: Game Camera
+    transform_component:
+      translation: [0.0333579183, -0.0951530337, 9.49447441]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    camera_component:
+      camera:
+        projection_type: 0
+        perspective_FOV: 0.785398185
+        perspective_near: 0.00999999978
+        perspective_far: 1000
+        orthographic_size: 10
+        orthographic_near: -1
+        orthographic_far: 1
+      primary: true
+      fixed_aspect_ratio: false
+    script_component:
+      class_name: Fbox.Camera
+      script_fields:
+        - name: cameraDistance
+          type: Float
+          data: 6
+  - entity: 4486666511065789801
+    tag_component:
+      tag: Blue Character
+    transform_component:
+      translation: [-5, -0.150000006, 2.61934474e-10]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    script_component:
+      class_name: Fbox.Player
+      script_fields:
+        - name: EnableInputs
+          type: Bool
+          data: true
+        - name: JumpPower
+          type: Float
+          data: 1.5
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 7662381716553045395
+      tiling_factor: 1
+    rigidbody2D_component:
+      body_type: Dynamic
+      fixed_rotation: true
+      gravity_scale: 1
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.330000013, 0.330000013]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: false
+      tag: Blue Character
+  - entity: 14613231757087600454
+    tag_component:
+      tag: BCMC
+    transform_component:
+      translation: [-4.99652815, -0.150000006, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    script_component:
+      class_name: Fbox.MoveCollider
+      script_fields:
+        []
+    rigidbody2D_component:
+      body_type: Dynamic
+      fixed_rotation: false
+      gravity_scale: 1
+    box_collider2D_component:
+      offset: [0, -0.230000004]
+      size: [0.300000012, 0.100000001]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: true
+      tag: blue
+  - entity: 4500184138976070873
+    tag_component:
+      tag: Green Character
+    transform_component:
+      translation: [3.75, -0.239999995, -1.49011612e-08]
+      rotation: [0, 0, 0]
+      scale: [0.99999994, 1, 1]
+    script_component:
+      class_name: Fbox.Player
+      script_fields:
+        - name: EnableInputs
+          type: Bool
+          data: true
+        - name: JumpPower
+          type: Float
+          data: 2
+        - name: interactionKey
+          type: KeyCode
+          data: 0
+        - name: jumpKey
+          type: KeyCode
+          data: 265
+        - name: leftKey
+          type: KeyCode
+          data: 263
+        - name: rightKey
+          type: KeyCode
+          data: 262
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 13091727724414827710
+      tiling_factor: 1
+    rigidbody2D_component:
+      body_type: Dynamic
+      fixed_rotation: true
+      gravity_scale: 1
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.370000005, 0.25]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: false
+      tag: Green Character
+  - entity: 14915386168109426326
+    tag_component:
+      tag: GCMC
+    transform_component:
+      translation: [3.75, -0.239999995, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    script_component:
+      class_name: Fbox.MoveCollider
+      script_fields:
+        - name: BlueOrGreen
+          type: Bool
+          data: false
+    rigidbody2D_component:
+      body_type: Dynamic
+      fixed_rotation: false
+      gravity_scale: 1
+    box_collider2D_component:
+      offset: [0, -0.159999996]
+      size: [0.300000012, 0.100000001]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: true
+      tag: green
+  - entity: 16022833902014346427
+    tag_component:
+      tag: gamelogic
+    transform_component:
+      translation: [-0.0104236603, -5.96046448e-08, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]

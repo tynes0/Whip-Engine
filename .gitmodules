@@ -1,0 +1,27 @@
+[submodule "Whip/vendor/GLFW"]
+	path = Whip/vendor/GLFW
+	url = ../../glfw/glfw
+[submodule "Whip/vendor/glm"]
+	path = Whip/vendor/glm
+	url = ../../g-truc/glm
+[submodule "Whip/vendor/spdlog"]
+	path = Whip/vendor/spdlog
+	url = ../../gabime/spdlog
+[submodule "whip/vendor/vital"]
+	path = whip/vendor/vital
+	url = ../../tynes0/vital
+[submodule "whip/vendor/imgui"]
+	path = whip/vendor/imgui
+	url = ../../ocornut/imgui
+[submodule "Whip/vendor/yaml-cpp"]
+	path = Whip/vendor/yaml-cpp
+	url = ../../TheCherno/yaml-cpp
+[submodule "Whip/vendor/ImGuizmo"]
+	path = Whip/vendor/ImGuizmo
+	url = ../../TheCherno/ImGuizmo
+[submodule "Whip/vendor/box2d"]
+	path = Whip/vendor/box2d
+	url = ../../TheCherno/box2d
+[submodule "Whip/vendor/msdf-atlas-gen"]
+	path = Whip/vendor/msdf-atlas-gen
+	url = https://github.com/TheCherno/msdf-atlas-gen.git

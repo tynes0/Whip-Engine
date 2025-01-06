@@ -1,0 +1,20 @@
+#binaries
+**/bin/
+bin-int/
+!vendor/premake/bin/
+vendor/VulkanSDK/Bin/
+vendor/VulkanSDK/Bin32/
+vendor/VulkanSDK/Lib/
+vendor/VulkanSDK/Lib32/
+vendor/VulkanSDK/templates/
+
+# whip files
+*.log
+
+
+#vs
+.vs/
+**.sln
+**.vxproj
+**.vxproj.filters
+**.vxproj.user

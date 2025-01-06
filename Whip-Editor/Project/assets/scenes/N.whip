@@ -1,0 +1,146 @@
+scene: untitled
+entities:
+  - entity: 1
+    tag_component:
+      tag: N middle
+    transform_component:
+      translation: [-4, 0, 0]
+      rotation: [0, 0, 0.602138579]
+      scale: [0.300000012, 3.45000005, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 2
+    tag_component:
+      tag: N left
+    transform_component:
+      translation: [-5, 4.38094139e-06, -0.00044059474]
+      rotation: [0, 0, 0]
+      scale: [0.300000012, 3, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 3
+    tag_component:
+      tag: N right
+    transform_component:
+      translation: [-3, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [0.300000012, 3, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 4
+    tag_component:
+      tag: Camera A
+    transform_component:
+      translation: [0, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    camera_component:
+      camera:
+        projection_type: 1
+        perspective_FOV: 0.785398185
+        perspective_near: 0.00999999978
+        perspective_far: 1000
+        orthographic_size: 10
+        orthographic_near: -1
+        orthographic_far: 1
+      primary: true
+      fixed_aspect_ratio: false
+  - entity: 5
+    tag_component:
+      tag: Camera B
+    transform_component:
+      translation: [0, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    camera_component:
+      camera:
+        projection_type: 1
+        perspective_FOV: 0.785398185
+        perspective_near: 0.00999999978
+        perspective_far: 1000
+        orthographic_size: 10
+        orthographic_near: -1
+        orthographic_far: 1
+      primary: false
+      fixed_aspect_ratio: false
+  - entity: 6
+    tag_component:
+      tag: A middle
+    transform_component:
+      translation: [-1.5, -0.200000003, 0]
+      rotation: [0, 0, 1.57079637]
+      scale: [0.299968392, 1.08814085, 0.999999881]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 7
+    tag_component:
+      tag: A left
+    transform_component:
+      translation: [-2, 1.31033744e-08, 0]
+      rotation: [0, 0, -0.34906584]
+      scale: [0.299999833, 3.0999999, 0.999999881]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 8
+    tag_component:
+      tag: A right
+    transform_component:
+      translation: [-1.00142193, 0.00390648842, 0]
+      rotation: [0, 0, 0.34906584]
+      scale: [0.300000012, 3.0999999, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 9
+    tag_component:
+      tag: Z middle
+    transform_component:
+      translation: [1.49806786, 0, -0.000762938522]
+      rotation: [0, 0, -0.608424664]
+      scale: [0.299999595, 3.07862139, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 10
+    tag_component:
+      tag: Z bottom
+    transform_component:
+      translation: [1.5, -1.29999995, 1.16415322e-10]
+      rotation: [0, 0, 1.57079637]
+      scale: [0.299982578, 2, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 11
+    tag_component:
+      tag: Z top
+    transform_component:
+      translation: [1.5, 1.35000002, 0]
+      rotation: [0, 0, 1.57079637]
+      scale: [0.29996717, 2, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 12
+    tag_component:
+      tag: L bottom
+    transform_component:
+      translation: [3.5, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [0.300000012, 3, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 13
+    tag_component:
+      tag: L left
+    transform_component:
+      translation: [4.51846313, -1.35002339, -0.000663757091]
+      rotation: [0, 0, 1.57079637]
+      scale: [0.299938649, 1.99975455, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]
+  - entity: 14
+    tag_component:
+      tag: I all
+    transform_component:
+      translation: [6, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [0.300000012, 3, 1]
+    sprite_renderer_component:
+      color: [0, 0.313725501, 0.588235319, 1]

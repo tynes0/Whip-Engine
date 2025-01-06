@@ -1,0 +1,6 @@
+project:
+  name: fbox-project
+  start_scene: 12408939897192404025
+  asset_directory: Assets
+  asset_registry_path: asset_registry.whipr
+  script_module_path: Scripts\Binaries\Fbox.dll

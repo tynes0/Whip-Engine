@@ -1,0 +1,5 @@
+project:
+  name: ""
+  start_scene: assets\scenes\empty_scene.whip
+  asset_directory: ""
+  script_module_path: ""

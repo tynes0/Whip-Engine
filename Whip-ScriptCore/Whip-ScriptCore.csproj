@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <ProjectGuid>{28835EC3-940E-CC87-9D1F-4F7C092A2888}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Whip-ScriptCore</RootNamespace>
+    <AssemblyName>Whip-ScriptCore</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <OutputPath>..\Whip-Editor\Resources\Scripts\</OutputPath>
+    <BaseIntermediateOutputPath>..\Whip-Editor\Resources\Scripts\Intermediates\Debug\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
+    <DefineConstants>
+    </DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>true</Optimize>
+    <OutputPath>..\Whip-Editor\Resources\Scripts\</OutputPath>
+    <BaseIntermediateOutputPath>..\Whip-Editor\Resources\Scripts\Intermediates\Release\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
+    <DefineConstants>
+    </DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Dist|x64' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <Optimize>true</Optimize>
+    <OutputPath>..\Whip-Editor\Resources\Scripts\</OutputPath>
+    <BaseIntermediateOutputPath>..\Whip-Editor\Resources\Scripts\Intermediates\Dist\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
+    <DefineConstants>
+    </DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+  </ItemGroup>
+  <ItemGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+  </ItemGroup>
+  <ItemGroup Condition=" '$(Configuration)|$(Platform)' == 'Dist|x64' ">
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Source\Whip\Animation.cs" />
+    <Compile Include="Source\Whip\AssetHandle.cs" />
+    <Compile Include="Source\Whip\AssetManager.cs" />
+    <Compile Include="Source\Whip\AssetType.cs" />
+    <Compile Include="Source\Whip\AudioManager.cs" />
+    <Compile Include="Source\Whip\AudioData.cs" />
+    <Compile Include="Source\Whip\Input.cs" />
+    <Compile Include="Source\Whip\InternalCalls.cs" />
+    <Compile Include="Source\Whip\KeyCode.cs" />
+    <Compile Include="Source\Whip\Logger.cs" />
+    <Compile Include="Source\Whip\MouseButtonCode.cs" />
+    <Compile Include="Source\Whip\Scene\AudioComponent.cs" />
+    <Compile Include="Source\Whip\Scene\BoxCollider2DComponent.cs" />
+    <Compile Include="Source\Whip\Scene\CameraComponent.cs" />
+    <Compile Include="Source\Whip\Scene\CircleCollider2DComponent.cs" />
+    <Compile Include="Source\Whip\Scene\CircleRendererComponent.cs" />
+    <Compile Include="Source\Whip\Scene\Component.cs" />
+    <Compile Include="Source\Whip\Scene\Entity.cs" />
+    <Compile Include="Source\Whip\Scene\Rigidbody2DComponent.cs" />
+    <Compile Include="Source\Whip\Scene\SpriteRendererComponent.cs" />
+    <Compile Include="Source\Whip\Scene\TextComponent.cs" />
+    <Compile Include="Source\Whip\Scene\TransformComponent.cs" />
+    <Compile Include="Source\Whip\Timer.cs" />
+    <Compile Include="Source\Whip\Vector2.cs" />
+    <Compile Include="Source\Whip\Vector3.cs" />
+    <Compile Include="Source\Whip\Vector4.cs" />
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

@@ -1,0 +1,11 @@
+name: test_anim
+loop: false
+frames:
+  - handle: 7662381716553045395
+    duration: 0.100000001
+  - handle: 13091727724414827710
+    duration: 0.200000003
+  - handle: 13091727724414827710
+    duration: 0.150000006
+  - handle: 16669571840788983229
+    duration: 0.759323537

@@ -1,0 +1,87 @@
+scene: untitled
+entities:
+  - entity: 6962580596323751231
+    tag_component:
+      tag: platform
+    transform_component:
+      translation: [1.58901405, -12, 0]
+      rotation: [0, 0, 0.377137989]
+      scale: [20, 20, 1]
+    sprite_renderer_component:
+      color: [1, 1, 0, 1]
+      texture_path: C:\Dev\Whip Engine\Whip-Editor\Project\assets\textures\dirt_0.png
+      tiling_factor: 10
+    rigidbody2D_component:
+      body_type: Static
+      fixed_rotation: false
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.5, 0.5]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+  - entity: 16730677138948673550
+    tag_component:
+      tag: circle
+    transform_component:
+      translation: [0.77276063, -1.02232814, 0]
+      rotation: [0, 0, -2.71667767]
+      scale: [1.00000632, 1.00000632, 1]
+    circle_renderer_component:
+      color: [0.490196079, 0.258823544, 0.454901963, 1]
+      thickness: 1
+      fade: 0.0209999997
+    rigidbody2D_component:
+      body_type: Dynamic
+      fixed_rotation: false
+    circle_collider2D_component:
+      offset: [0, 0]
+      radius: 0.5
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+  - entity: 14917611946269392498
+    tag_component:
+      tag: cube
+    transform_component:
+      translation: [2.74452257, 0.0439649187, -0.0278072953]
+      rotation: [0, 0, 0.327500731]
+      scale: [1.20000005, 0.613089859, 1]
+    script_component:
+      class_name: Fbox.Player
+    sprite_renderer_component:
+      color: [0.70588237, 0.788235307, 0.835294127, 1]
+      texture_path: C:\Dev\Whip Engine\Whip-Editor\Project\assets\textures\checkerboard.jpg
+      tiling_factor: 1
+    rigidbody2D_component:
+      body_type: Dynamic
+      fixed_rotation: false
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.5, 0.5]
+      density: 0.0799999982
+      friction: 0.5
+      restitution: 0.360000014
+      restitution_threshold: 0.5
+  - entity: 6962580596323750633
+    tag_component:
+      tag: game camera
+    transform_component:
+      translation: [0, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    camera_component:
+      camera:
+        projection_type: 1
+        perspective_FOV: 0.785398185
+        perspective_near: 0.00999999978
+        perspective_far: 1000
+        orthographic_size: 10
+        orthographic_near: -1
+        orthographic_far: 1
+      primary: true
+      fixed_aspect_ratio: false
+    script_component:
+      class_name: Fbox.Camera
