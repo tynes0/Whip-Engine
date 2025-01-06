@@ -11,10 +11,12 @@ vendor/VulkanSDK/templates/
 # whip files
 *.log
 
-
 #vs
 .vs/
 **.sln
 **.vxproj
 **.vxproj.filters
 **.vxproj.user
+
+#FOR NOW!
+Whip/vendor
