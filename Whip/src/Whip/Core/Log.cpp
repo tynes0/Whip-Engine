@@ -76,7 +76,7 @@ void editor_log::init()
 	std::filesystem::create_directory("log");
 	s_log_filepath = std::filesystem::current_path() / "log/client.log";
 	std::string path = s_log_filepath.string();
-	s_editor_logger = spdlog::rotating_logger_mt("WHIP", path, MAX_FILE_SIZE, MAX_FILES);
+	s_editor_logger = spdlog::rotating_logger_mt("WHIP", path, MAX_FILE_SIZE, MAX_FILES - 1);
 	s_editor_logger->set_level(spdlog::level::trace);
 	s_editor_logger->flush_on(spdlog::level::trace);
 	s_editor_logger->set_pattern("level::%l,%^[%T] %n: %v%$");

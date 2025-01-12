@@ -4,6 +4,7 @@
 
 #include <Whip/Core/Core.h>
 #include <Whip/Render/Texture.h>
+#include <Whip/UI/UI_popup_handler.h>
 
 #include <filesystem>
 #include <map>
@@ -24,6 +25,8 @@ public:
 	void on_settings_popup();
 	void refresh_asset_tree();
 private:
+	void init_popups();
+
 	ref<project> m_project;
 	ref<thumbnail_cache> m_thumbnail_cache;
 
@@ -55,8 +58,8 @@ private:
 	};
 
 	std::vector<tree_node> m_tree_nodes;
-
 	std::map<std::filesystem::path, std::vector<std::filesystem::path>> m_asset_tree;
+	UI::popup_handler m_subtexture_popup;
 
 	enum class mode
 	{

@@ -11,6 +11,7 @@
 #include <Whip/Asset/asset_manager.h>
 #include <Whip/Asset/texture_importer.h>
 #include <Whip/Asset/scene_importer.h>
+#include <Whip/Asset/texture_atlas_parser.h>
 
 #include <array>
 
@@ -21,6 +22,7 @@
 
 _WHIP_START
 
+static std::vector<ref<texture2D>> sprites;
 
 editor_layer::editor_layer() : layer("Fbox2D") 
 {
@@ -80,12 +82,18 @@ void editor_layer::on_attach()
 		.set_popup_name("Popup Testing")
 		.set_height(300.f)
 		.set_width(400.f)
-		.add([]() { ImGui::Text("This is some text message for popup testing. Do not mind this window if you see that."); })
+		.add([]() { ImGui::Text("This is a text message for popup testing. Do not mind this window if you see that."); })
 		.add([]() { static float fv = 0; ImGui::SliderFloat("##Float value", &fv, 0.0f, 10000.0f); })
 		.same_line()
 		.add([]() { static int iv = 0; ImGui::SliderInt("##Int value", &iv, 0, 1000000); })
 		.add_dual_handle_slider(0, 100, &v1, &v2)
 		.add_button([this]() { m_popup_handler.set_show_state(false); }, "Close", 100);
+
+	//ref<texture2D> sheet = texture_importer::load_texture2D("assets\\game\\textures\\Objects.png");
+	//texture_atlas_parser parser(sheet);
+	//parser.detect_sprites_auto();
+	//sprites = parser.get_sprites();
+	//int a = 56;
 }
 
 void editor_layer::on_detach()
@@ -124,7 +132,12 @@ void editor_layer::on_update(timestep ts)
 		case scane_state::edit:
 		{
 			m_editor_camera.on_update(ts);
-
+			renderer2D::begin_scene(m_editor_camera);
+			for (size_t i = 0; i < sprites.size(); ++i)
+			{
+				renderer2D::draw_quad(glm::vec3(i * 2, 2, 0), glm::vec2(1, 1.f), sprites.at(i));
+			}
+			renderer2D::end_scene();
 			m_active_scene->on_update_editor(ts, m_editor_camera);
 			break;
 		}

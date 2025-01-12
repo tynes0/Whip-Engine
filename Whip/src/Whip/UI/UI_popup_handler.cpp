@@ -14,9 +14,9 @@ UI::popup_handler& UI::popup_handler::add(const function_type& func)
 	return *this;
 }
 
-UI::popup_handler& UI::popup_handler::same_line()
+UI::popup_handler& UI::popup_handler::add(const function_type_with_data& func)
 {
-	m_draw_list.emplace_back([]() { ImGui::SameLine(); });
+	//m_draw_list_with_data.emplace_back(func);
 	return *this;
 }
 
@@ -38,6 +38,24 @@ UI::popup_handler& UI::popup_handler::add_button(const function_type& callback, 
 	return *this;
 }
 
+UI::popup_handler& UI::popup_handler::add_button(const function_type_with_data& callback, const std::string& label, float width, float height, bool visible)
+{
+	/*m_draw_list_with_data.emplace_back([=](raw_buffer data)
+		{
+			if (visible)
+			{
+				if (ImGui::Button(label.c_str(), ImVec2(width, height)))
+					callback(data);
+			}
+			else
+			{
+				if (ImGui::InvisibleButton(label.c_str(), ImVec2(width, height)))
+					callback(data);
+			}
+		});*/
+	return *this;
+}
+
 UI::popup_handler& UI::popup_handler::add_drag_drop(asset_type type, const std::function<void(asset_handle)>& callback, const char* label, float width, float height, bool visible, const std::function<void()>& error_callback)
 {
 	m_draw_list.emplace_back([=]() 
@@ -53,6 +71,12 @@ UI::popup_handler& UI::popup_handler::add_dual_handle_slider(float slider_min, f
 		{
 			UI::draw_dual_handle_slider(slider_min, slider_max, value1, value2, slider_width, slider_height, show_texts);
 		});
+	return *this;
+}
+
+UI::popup_handler& UI::popup_handler::same_line()
+{
+	m_draw_list.emplace_back([]() { ImGui::SameLine(); });
 	return *this;
 }
 
@@ -87,6 +111,11 @@ void UI::popup_handler::on_imgui_render()
 		}
 
 	}
+}
+
+void UI::popup_handler::load_user_data(raw_buffer user_data)
+{
+	m_user_data = user_data;
 }
 
 _WHIP_END

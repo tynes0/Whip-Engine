@@ -14,11 +14,12 @@ _WHIP_START
 struct console_data 
 {
 	std::vector<std::pair<log::level, std::string>> buffer;
-	std::streamoff last_stream_index = 0;
-	std::atomic<bool> running;
 	std::thread file_watcher_thread;
 	std::ifstream stream;
 	std::mutex mtx;
+	std::streamoff last_stream_index = 0;
+	std::atomic<bool> running;
+	std::atomic<bool> filestream_was_open;
 
 	static constexpr size_t max_console_lines = 500;
 	static constexpr size_t erase_count = 100;
@@ -28,31 +29,42 @@ console_data g_data;
 
 namespace utils
 {
-	static void reset_console_data()
+	static void clear_filestream_context()
 	{
-		g_data.buffer.clear();
+		if (!g_data.stream.is_open())
+			return; // not opened
+		g_data.stream.clear();
 		g_data.last_stream_index = 0;
+	}
+
+	static bool reopen()
+	{
+		if (g_data.stream.is_open())
+			return true; // already opened
+		g_data.stream.open(editor_log::get_log_filepath());
+		return g_data.stream.is_open();
 	}
 
 	static void reset_buffer()
 	{
 		if (!g_data.stream)
 		{
+			if (g_data.filestream_was_open.load())
+			{
+				if (reopen())
+					goto skip_error;
+			}
 			WHP_CLIENT_ERROR("[Console Panel] Filestream is undefined!");
 			return;
+		skip_error:;
 		}
-		
+
 		g_data.stream.seekg(0, std::ios::end);
 		std::streampos end_pos = g_data.stream.tellg();
-
 		if (end_pos < g_data.last_stream_index)
 		{
-			if (end_pos >= editor_log::MAX_FILE_SIZE - 1)
-				g_data.last_stream_index = 0;
-			else
-			{
-				reset_console_data();
-			}
+			clear_filestream_context();
+			return;
 		}
 		g_data.stream.seekg(g_data.last_stream_index);
 
@@ -127,8 +139,14 @@ void consol_panel::initialize()
 	if (editor_log::should_log())
 	{
 		g_data.stream.open(editor_log::get_log_filepath());
+		if (g_data.stream.is_open())
+			g_data.filestream_was_open.store(true);
+		else
+			g_data.filestream_was_open.store(false);
+
 		utils::reset_buffer();
 		g_data.running.store(true);
+
 		if (!g_data.file_watcher_thread.joinable())
 			g_data.file_watcher_thread = std::thread(utils::monitor_flag);
 	}

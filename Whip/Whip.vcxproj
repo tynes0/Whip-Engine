@@ -171,6 +171,7 @@
     <ClInclude Include="src\Whip\Asset\font_importer.h" />
     <ClInclude Include="src\Whip\Asset\runtime_asset_manager.h" />
     <ClInclude Include="src\Whip\Asset\scene_importer.h" />
+    <ClInclude Include="src\Whip\Asset\texture_atlas_parser.h" />
     <ClInclude Include="src\Whip\Asset\texture_importer.h" />
     <ClInclude Include="src\Whip\Asset\utils.h" />
     <ClInclude Include="src\Whip\Audio\audio_engine.h" />
@@ -695,6 +696,7 @@
     <ClCompile Include="src\Whip\Asset\font_importer.cpp" />
     <ClCompile Include="src\Whip\Asset\runtime_asset_manager.cpp" />
     <ClCompile Include="src\Whip\Asset\scene_importer.cpp" />
+    <ClCompile Include="src\Whip\Asset\texture_atlas_parser.cpp" />
     <ClCompile Include="src\Whip\Asset\texture_importer.cpp" />
     <ClCompile Include="src\Whip\Audio\audio_engine.cpp" />
     <ClCompile Include="src\Whip\Audio\audio_source.cpp" />

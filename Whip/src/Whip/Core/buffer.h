@@ -7,23 +7,16 @@
 
 _WHIP_START
 	// Non-owning raw buffer class
-struct raw_buffer
+	struct raw_buffer
 {
 	uint8_t* data = nullptr;
 	uint64_t size = 0;
 
 	raw_buffer() = default;
-
-	raw_buffer(uint64_t size_in)
-	{
-		allocate(size_in);
-	}
-
+	raw_buffer(uint64_t size_in) { allocate(size_in); }
 	raw_buffer(const void* data_in, uint64_t size_in) : data((uint8_t*)data_in), size(size_in) {}
-
 	raw_buffer(const raw_buffer&) = default;
 	raw_buffer& operator=(const raw_buffer&) = default;
-
 	raw_buffer(nullptr_t) {};
 	raw_buffer& operator=(nullptr_t) { release(); };
 
@@ -36,44 +29,63 @@ struct raw_buffer
 
 	void allocate(uint64_t size_in)
 	{
+		if (size_in == size) return;
+
 		release();
 
-		data = (uint8_t*)std::malloc(size_in);
+		data = new uint8_t[size_in];
+		WHP_CORE_ASSERT(data, "Memory allocation failed!");
 		size = size_in;
 	}
 
 	void release()
 	{
-		std::free(data);
+		delete[] data;
 		data = nullptr;
 		size = 0;
 	}
 
+	uint8_t* unbound()
+	{
+		uint8_t* buf = data;
+		data = nullptr;
+		size = 0;
+		return buf;
+	}
+
+	template <class T>
+	void store(const T& data)
+	{
+		allocate(sizeof(T));
+		std::memcpy(this->data, &data, size);
+	}
+
+	template <class T>
+	T& load()
+	{
+		WHP_CORE_ASSERT(sizeof(T) <= size, "Buffer overflow!");
+		return *as<T>();
+	}
+
+	template <class T>
+	bool can_cast_to() const { return sizeof(T) <= size; }
 	template<typename T>
-	T* as()
-	{
-		return (T*)data;
-	}
-
-	operator bool() const
-	{
-		return (bool)data;
-	}
-
-	size_t operator-(const raw_buffer& buffer)
-	{
-		return data - buffer.data;
-	}
+	T* as() { return (T*)data; }
+	const uint8_t* begin() const { return data; }
+	const uint8_t* end() const { return data + size; }
+	operator bool() const { return (bool)data; }
+	size_t operator-(const raw_buffer& buffer) { return data - buffer.data; }
 };
 
 struct scoped_buffer
 {
 	scoped_buffer(raw_buffer buffer) : m_buffer(buffer) {}
 	scoped_buffer(uint64_t size) : m_buffer(size) {}
-
 	~scoped_buffer() { m_buffer.release(); }
 
 	uint8_t* data() { return m_buffer.data; }
+	const uint8_t* data() const { return m_buffer.data; }
+	uint8_t* unbound() { return m_buffer.unbound(); }
 	uint64_t size() const { return m_buffer.size; }
 
 	template<typename T>
@@ -84,18 +96,31 @@ private:
 	raw_buffer m_buffer;
 };
 
-template <size_t _Size>
+namespace detail
+{
+	template <uint64_t Size, uint64_t Align>
+	concept valid_align = ((Size & (Size - 1)) == 0) && Size >= Align;
+}
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 6385 6386)
+#endif
+
+template <size_t _MinimumSize, uint64_t _Align = 1>
+	requires detail::valid_align<_MinimumSize, _Align>
 struct stack_buffer
 {
-	uint8_t data[_Size];
-	static constexpr size_t size = _Size;
+	uint8_t alignas(_Align) data[(_MinimumSize + _Align - 1) & ~(_Align - 1)];
+	static constexpr size_t size = sizeof(data);
+	static constexpr uint64_t align = _Align;
 
-	void zero()
+	constexpr void zero()
 	{
 		std::memset(data, 0, size);
 	}
 
-	void set(const void* src, size_t copy_size = 0)
+	constexpr void set(const void* src, size_t copy_size = 0)
 	{
 		if (copy_size == 0 || copy_size > size)
 			copy_size = size;
@@ -103,52 +128,52 @@ struct stack_buffer
 	}
 
 	template <class T>
-	void set_value(const T& value)
+	constexpr void store(const T& value)
 	{
 		static_assert(sizeof(T) <= size, "Type too large!");
-		std::memcpy(data, &value, size);
+		std::memcpy(data, &value, sizeof(value));
 	}
 
 	template<class T>
-	T* as()
+	constexpr T* as()
 	{
 		return (T*)data;
 	}
 
 	template<class T>
-	const T* as() const
+	constexpr const T* as() const
 	{
 		return (T*)data;
 	}
 
 	template <class T>
-	T& value()
+	constexpr T& load()
 	{
 		static_assert(sizeof(T) <= size, "Type too large!");
 		return *as<T>();
 	}
 
 	template <class T>
-	const T& value() const
+	constexpr const T& load() const
 	{
 		static_assert(sizeof(T) <= size, "Type too large!");
 		return *as<T>();
 	}
 
-	bool is_filled_with_zero() const
+	constexpr bool filled_with_zeros() const
 	{
-		uint8_t temp[size]{0};
-		return std::memcmp(data, temp, size);
+		uint8_t temp[size]{};
+		return (std::memcmp(data, temp, size) == 0);
 	}
 
-	bool const is_null() const
-	{
-		return false;
-	}
+	constexpr bool const is_null() const { return false; }
+
+	template <class T>
+	static constexpr bool fit = sizeof(T) <= size;
 };
 
 template<>
-struct stack_buffer<0>
+struct stack_buffer<0, 0>
 {
 	uint8_t* data = nullptr;
 	static constexpr size_t size = 0;
@@ -156,17 +181,23 @@ struct stack_buffer<0>
 	void zero() {}
 	void set(const void*, size_t = 0) {}
 	template <class T>
-	void set_value(const T&) { static_assert(false, "null stack buffer!"); }
+	void store(const T&) { static_assert(false, "null stack buffer!"); }
 	template<class T>
 	T* as() { return nullptr; }
 	template<class T>
 	const T* as() const { return nullptr; }
 	template <class T>
-	T& value() { static_assert(false, "null stack buffer!"); return *as<T>(); }
+	T& load() { static_assert(false, "null stack buffer!"); return *as<T>(); }
 	template <class T>
-	const T& value() const { static_assert(false, "null stack buffer!"); return *as<T>(); }
-	bool is_filled_with_zero() const { return true; }
+	const T& load() const { static_assert(false, "null stack buffer!"); return *as<T>(); }
+	bool filled_with_zeros() const { return true; }
 	bool is_null() const { return true; }
+	template <class>
+	static constexpr bool fit = false;
 };
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif // _MSC_VER
 
 _WHIP_END

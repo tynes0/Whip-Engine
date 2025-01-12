@@ -133,17 +133,6 @@ void content_browser_panel::on_imgui_render()
 					static constexpr ImVec2 popup_size(50.0f, 50.0f);
 					if (ImGui::MenuItem("Import Subtextures"))
 					{
-						auto& app = application::get();
-						auto& window = app.get_window();
-
-						ImVec2 window_size{ (float)window.get_width(), (float)window.get_height() };
-						ImVec2 window_pos{ (float)window.get_position().first, (float)window.get_position().second };
-						ImVec2 popup_pos = ImVec2{ ((window_size.x - popup_size.x) * 0.5f) + window_pos.x, ((window_size.y - popup_size.y) * 0.5f) + window_pos.y };
-
-						ImGui::SetNextWindowSize(popup_size);
-						ImGui::SetNextWindowPos(popup_pos);
-						ImGui::PushTextWrapPos(popup_size.y);
-						ImGui::OpenPopup("Import Subtextures");
 						if (ImGui::BeginPopupModal("Import Subtextures", NULL, ImGuiWindowFlags_AlwaysAutoResize))
 						{
 							static float size[]{ 0,0 };
@@ -301,6 +290,34 @@ void content_browser_panel::refresh_asset_tree()
 			}
 		});
 	
+}
+
+void content_browser_panel::init_popups()
+{
+	static float sprite_width = 0.0f, sprite_height = 0.0f;
+
+	m_subtexture_popup
+		.set_popup_name("Import Subtextures")
+		.set_width(200).set_height(200)
+		.add([]() { ImGui::Text("Sprite Width:"); })
+		.same_line()
+		.add([]() { ImGui::InputFloat("##SpriteWidth", &sprite_width); })
+		.add([]() { ImGui::Text("Sprite Height:"); })
+		.same_line()
+		.add([]() { ImGui::InputFloat("##SpriteHeight", &sprite_height); })
+		//.add_button([](raw_buffer user_data)
+		//	{ 
+		//		asset_handle handle = user_data.load<asset_handle>(); 
+		//		auto atlas = asset_manager::get_asset<texture2D>(handle); 
+		//		/*for (uint32_t i = 0; i < atlas->get_width();)
+		//		{
+		//			for (uint32_t j = 0; j < atlas->get_height();)
+		//			{
+		//				atlas->create_from_coords();
+		//			}
+		//		*/
+		//	}, "Import", 50, 25);
+		;
 }
 
 _WHIP_END

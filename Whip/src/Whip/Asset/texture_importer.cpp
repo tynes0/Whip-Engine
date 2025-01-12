@@ -1,5 +1,6 @@
 #include "whippch.h"
 #include "texture_importer.h"
+#include "asset_manager.h"
 
 #include <Whip/Project/project.h>
 
@@ -57,7 +58,6 @@ ref<texture2D> texture_importer::load_texture2D(const std::filesystem::path& pat
 	ref<texture2D> texture = texture2D::create(spec, data);
 	data.release();
 	return texture;
-
 }
 
 _WHIP_END

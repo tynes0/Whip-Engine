@@ -1659,6 +1659,7 @@
     <ClInclude Include="src\Whip\Asset\animation_importer.h" />
     <ClInclude Include="src\Whip\Asset\asset_registry.h" />
     <ClInclude Include="src\Whip\Physics\physics_world.h" />
+    <ClInclude Include="src\Whip\Asset\texture_atlas_parser.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">
@@ -1874,5 +1875,6 @@
     <ClCompile Include="src\Whip\Asset\asset_registry.cpp" />
     <ClCompile Include="src\Whip\Physics\physics2D.cpp" />
     <ClCompile Include="src\Whip\Physics\physics_world.cpp" />
+    <ClCompile Include="src\Whip\Asset\texture_atlas_parser.cpp" />
   </ItemGroup>
 </Project>

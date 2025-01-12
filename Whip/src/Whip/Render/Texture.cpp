@@ -20,6 +20,8 @@ ref<texture2D> texture2D::create(const texture_specification& specification, raw
 
 ref<texture2D> texture2D::create_from_coords(const ref<texture2D>& atlas, const glm::vec2& coords, const glm::vec2& cell_size, const glm::vec2& pixel_size_between_sprites, const glm::vec2& sprite_size)
 {
+	if (!atlas)
+		return nullptr;
 	// Koordinatlarý hesapla
 	glm::vec2 empty_pixel_size = { pixel_size_between_sprites.x * coords.x, pixel_size_between_sprites.y * coords.y };
 	uint32_t atlas_width = atlas->get_width();
@@ -54,9 +56,11 @@ ref<texture2D> texture2D::create_from_coords(const ref<texture2D>& atlas, const 
 	spec.height = sprite_height;
 	spec.format = image_format::RGBA8;
 
-	return texture2D::create(spec, sprite_data);
+	auto result = texture2D::create(spec, sprite_data);
+	atlas_data.release();
+	sprite_data.release();
+	return result;
 }
-
 
 void texture2D::flip_texture_buffer(raw_buffer& buffer, int width, int height, int channels, flip_direction_t direction)
 {
@@ -71,7 +75,7 @@ void texture2D::flip_texture_buffer(raw_buffer& buffer, int width, int height, i
 	if (direction & flip_direction_horizontal)
 	{
 		size_t bytes_per_row = (size_t)width * channels;
-		raw_buffer temp(2048);
+		stack_buffer<2048> temp{};
 		raw_buffer bytes = buffer;
 
 		for (int row = 0; row < height; row++) 
@@ -101,7 +105,7 @@ void texture2D::flip_texture_buffer(raw_buffer& buffer, int width, int height, i
 	{
 		int row;
 		size_t bytes_per_row = (size_t)width * channels;
-		raw_buffer temp(2048);
+		stack_buffer<2048> temp{};
 		raw_buffer bytes = buffer;
 
 		for (row = 0; row < (height >> 1); row++)

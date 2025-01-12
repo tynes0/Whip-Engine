@@ -58,13 +58,13 @@ struct script_field_instance
 	template<typename T>
 	T get_value()
 	{
-		return m_buffer.value<T>();
+		return m_buffer.load<T>();
 	}
 
 	template<typename T>
 	void set_value(T value)
 	{
-		m_buffer.set_value(value);
+		m_buffer.store<T>(value);
 	}
 private:
 	stack_buffer<16> m_buffer;
