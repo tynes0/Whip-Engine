@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core.h"
+#include "Log.h"
 #include <cstdint>
 #include <cstring>
 #include <type_traits>

@@ -4,7 +4,7 @@
 #include <Whip/Core/Log.h>
 
 #ifdef _DEBUG
-#define WHP_PROFILE
+// #define WHP_PROFILE // closed manually
 #endif
 
 #ifndef WHP_PROFILE

@@ -3,6 +3,7 @@
 #include "Core.h"
 
 #include <type_traits>
+#include <string>
 
 _WHIP_START
 
