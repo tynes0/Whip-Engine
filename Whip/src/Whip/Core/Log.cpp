@@ -62,8 +62,8 @@ spdlog::level::level_enum log::whip_log_level_to_spdlog_level(level log_level)
 	case level::trace:			return spdlog::level::trace;
 	case level::debug:			return spdlog::level::debug;
 	case level::info:			return spdlog::level::info;
-	case level::warn:			return spdlog::level::warn;
-	case level::err:			return spdlog::level::err;
+	case level::warning:		return spdlog::level::warn;
+	case level::error:			return spdlog::level::err;
 	case level::critical:		return spdlog::level::critical;
 	case level::off:			return spdlog::level::off;
 	case level::levels_size:	return spdlog::level::n_levels;
@@ -86,18 +86,6 @@ void editor_log::erase()
 {
 	spdlog::drop(s_editor_logger->name());
 	s_editor_logger.reset();
-}
-
-WHP_NODISCARD log::level editor_log::whip_log_level_from_string(const std::string& level)
-{
-	if (level == "trace") return log::level::trace;
-	if (level == "debug") return log::level::debug;
-	if (level == "info") return log::level::info;
-	if (level == "warning") return log::level::warn;
-	if (level == "error") return log::level::err;
-	if (level == "critical") return log::level::critical;
-
-	return log::level::trace;
 }
 
 _WHIP_END

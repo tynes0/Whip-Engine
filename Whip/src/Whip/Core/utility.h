@@ -1,18 +1,20 @@
 #pragma once
 
 #include "Core.h"
+#include "Log.h"
 
 #include <type_traits>
 #include <string>
+#include <fstream>
 
 _WHIP_START
 
-template <class _Ty, std::enable_if_t<std::is_unsigned_v<_Ty>, int> = 0>
-static constexpr _Ty npos = static_cast<_Ty>(-1);
+template <class T, std::enable_if_t<std::is_unsigned_v<T>, int> = 0>
+inline constexpr T npos = static_cast<T>(-1);
 
 namespace utils
 {
-	static std::string read_file(const std::string& filepath)
+	inline std::string read_file(const std::string& filepath)
 	{
 		std::string result;
 		std::ifstream istr(filepath, std::ios::in | std::ios::binary);
@@ -28,7 +30,7 @@ namespace utils
 		return result;
 	}
 
-	static std::string fetch_filename(const std::string& filepath)
+	inline std::string fetch_filename(const std::string& filepath)
 	{
 		size_t last_slash = filepath.find_last_of("/\\");
 		last_slash = (last_slash == std::string::npos) ? 0 : last_slash + 1;

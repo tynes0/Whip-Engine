@@ -8,6 +8,8 @@
 #include <type_traits>
 #include <string_view>
 
+#include "../vendor/frenum/frenum.h"
+
 _WHIP_START
 
 using asset_handle = UUID;
@@ -22,10 +24,8 @@ enum class asset_type : uint16_t
 	animation,
 	entity,
 };
-static constexpr uint16_t g_asset_type_count = 7;
 
-std::string_view asset_type_to_string(asset_type type);
-asset_type asset_type_from_string(std::string_view asset_t);
+MakeFrenumInNamespace(whip, asset_type, none, scene, texture2D, audio, font, animation, entity)
 
 class asset
 {

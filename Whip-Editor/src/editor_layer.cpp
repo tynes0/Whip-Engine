@@ -13,6 +13,8 @@
 #include <Whip/Asset/scene_importer.h>
 #include <Whip/Asset/texture_atlas_parser.h>
 
+#include "Helpers/icon_manager.h"
+
 #include <array>
 
 #include <imgui/imgui.h>
@@ -22,31 +24,13 @@
 
 _WHIP_START
 
-static std::vector<ref<texture2D>> sprites;
-
 editor_layer::editor_layer() : layer("Fbox2D") 
 {
 }
 
-
 void editor_layer::on_attach()
 {
     WHP_PROFILE_FUNCTION();
-
-	// icons
-	m_play_icon		= texture_importer::load_texture2D("resources/icons/play_icon.png");
-	m_simulate_icon = texture_importer::load_texture2D("resources/icons/simulate_icon.png");
-	m_stop_icon		= texture_importer::load_texture2D("resources/icons/stop_icon.png");
-	m_pause_icon	= texture_importer::load_texture2D("resources/icons/pause_icon.png");
-	m_step_icon		= texture_importer::load_texture2D("resources/icons/step_icon.png");
-
-	ref<texture2D> flipped_step_icon = texture_importer::load_texture2D("resources/icons/step_icon.png", flip_direction_horizontal);
-
-	m_animation_editor_panel.load_icon(animation_editor_panel::icon::play, m_play_icon);
-	m_animation_editor_panel.load_icon(animation_editor_panel::icon::pause, m_pause_icon);
-	m_animation_editor_panel.load_icon(animation_editor_panel::icon::stop, m_stop_icon);
-	m_animation_editor_panel.load_icon(animation_editor_panel::icon::to_first_frame, flipped_step_icon); 
-	m_animation_editor_panel.load_icon(animation_editor_panel::icon::to_last_frame, m_step_icon);
 
 	m_animation_editor_panel.set_refresh_asset_tree_callback([this]() {if (m_content_browser_panel) { m_content_browser_panel->refresh_asset_tree(); } });
 
@@ -88,12 +72,6 @@ void editor_layer::on_attach()
 		.add([]() { static int iv = 0; ImGui::SliderInt("##Int value", &iv, 0, 1000000); })
 		.add_dual_handle_slider(0, 100, &v1, &v2)
 		.add_button([this]() { m_popup_handler.set_show_state(false); }, "Close", 100);
-
-	//ref<texture2D> sheet = texture_importer::load_texture2D("assets\\game\\textures\\Objects.png");
-	//texture_atlas_parser parser(sheet);
-	//parser.detect_sprites_auto();
-	//sprites = parser.get_sprites();
-	//int a = 56;
 }
 
 void editor_layer::on_detach()
@@ -132,12 +110,6 @@ void editor_layer::on_update(timestep ts)
 		case scane_state::edit:
 		{
 			m_editor_camera.on_update(ts);
-			renderer2D::begin_scene(m_editor_camera);
-			for (size_t i = 0; i < sprites.size(); ++i)
-			{
-				renderer2D::draw_quad(glm::vec3(i * 2, 2, 0), glm::vec2(1, 1.f), sprites.at(i));
-			}
-			renderer2D::end_scene();
 			m_active_scene->on_update_editor(ts, m_editor_camera);
 			break;
 		}
@@ -743,7 +715,7 @@ void editor_layer::UI_toolbar()
 
 	if(has_play_button)
 	{
-		ref<texture2D> icon = (m_scane_state == scane_state::edit || m_scane_state == scane_state::simulate) ? m_play_icon : m_stop_icon;
+		ref<texture2D> icon = (m_scane_state == scane_state::edit || m_scane_state == scane_state::simulate) ? icon_manager::get().get_icon(icon::play) : icon_manager::get().get_icon(icon::play);
 		ImGui::SetCursorPosX((ImGui::GetWindowContentRegionMax().x * 0.5f) - (size * 0.5f) - (size / 2));
 		if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 		{
@@ -757,7 +729,7 @@ void editor_layer::UI_toolbar()
 	{
 		if(has_play_button)
 			ImGui::SameLine(0, 20);
-		ref<texture2D> icon = (m_scane_state == scane_state::edit || m_scane_state == scane_state::play) ? m_simulate_icon : m_stop_icon;
+		ref<texture2D> icon = (m_scane_state == scane_state::edit || m_scane_state == scane_state::play) ? icon_manager::get().get_icon(icon::simulate) : icon_manager::get().get_icon(icon::stop);
 		if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 		{
 			if (m_scane_state == scane_state::edit || m_scane_state == scane_state::play)
@@ -771,7 +743,7 @@ void editor_layer::UI_toolbar()
 		bool is_paused = m_active_scene->is_paused();
 		ImGui::SameLine();
 		{
-			ref<texture2D> icon = m_pause_icon;
+			ref<texture2D> icon = icon_manager::get().get_icon(icon::pause);
 			if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 			{
 				m_active_scene->set_paused(!is_paused);
@@ -783,7 +755,7 @@ void editor_layer::UI_toolbar()
 		{
 			ImGui::SameLine(0, 20);
 			{
-				ref<texture2D> icon = m_step_icon;
+				ref<texture2D> icon = icon_manager::get().get_icon(icon::step_forward);
 				bool isPaused = m_active_scene->is_paused();
 				if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 				{

@@ -214,11 +214,6 @@ void renderer2D::init()
 	uint32_t white_texture_data = 0xffffffff;
 	s_data.white_texture->set_data(raw_buffer(&white_texture_data, sizeof(white_texture_data)));
 
-	std::array<int, s_data.max_texture_slots> samplers;
-
-	for (int i = 0; i < s_data.max_texture_slots; ++i)
-		samplers[i] = i;
-
 	s_data.quad_shader		= shader::create("assets\\shaders\\renderer2D_quad.glsl");
 	s_data.circle_shader	= shader::create("assets\\shaders\\renderer2D_circle.glsl");
 	s_data.line_shader		= shader::create("assets\\shaders\\renderer2D_line.glsl");
@@ -415,7 +410,7 @@ void renderer2D::draw_quad(const glm::mat4& transform, const ref<sub_texture2D>&
 	s_data.stats.quad_counts++;
 }
 
-
+	
 void renderer2D::draw_quad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color)
 {
 	draw_quad({ position.x, position.y, 0.0f }, size, color);

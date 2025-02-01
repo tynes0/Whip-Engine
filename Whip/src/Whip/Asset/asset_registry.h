@@ -115,7 +115,7 @@ private:
 	bool path_exist(const std::filesystem::path& filepath) const;
 	bool path_exist(asset_type type, const std::filesystem::path& filepath) const;
 
-	std::array<filtered_asset_registry, g_asset_type_count> m_registries;
+	std::array<filtered_asset_registry, frenum::size<asset_type>()> m_registries;
 };
 
 _WHIP_END

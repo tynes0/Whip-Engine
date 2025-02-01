@@ -55,6 +55,9 @@
     <Filter Include="src\Whip\Scripting">
       <UniqueIdentifier>{569A615C-427E-22B2-ABDE-1C0597E10C34}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Whip\Texture">
+      <UniqueIdentifier>{B4E57071-A0DE-8FC3-C910-7548B5686FCF}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\Whip\UI">
       <UniqueIdentifier>{010F4730-6DC4-BF25-F6B8-B9FC626DB629}</UniqueIdentifier>
     </Filter>
@@ -72,6 +75,9 @@
     </Filter>
     <Filter Include="vendor\coco">
       <UniqueIdentifier>{266A77C1-921F-F0B6-1B14-EA8D87C8E6BA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vendor\frenum">
+      <UniqueIdentifier>{0F733104-7B33-AD3A-446E-F6B7B0EDF116}</UniqueIdentifier>
     </Filter>
     <Filter Include="vendor\glm">
       <UniqueIdentifier>{829FC5A8-6E57-07F6-D75E-E051C335A2E6}</UniqueIdentifier>
@@ -138,6 +144,12 @@
     <ClInclude Include="src\Whip\Animation\animation2D.h">
       <Filter>src\Whip\Animation</Filter>
     </ClInclude>
+    <ClInclude Include="src\Whip\Animation\animation_manager.h">
+      <Filter>src\Whip\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Asset\animation_importer.h">
+      <Filter>src\Whip\Asset</Filter>
+    </ClInclude>
     <ClInclude Include="src\Whip\Asset\asset.h">
       <Filter>src\Whip\Asset</Filter>
     </ClInclude>
@@ -153,6 +165,12 @@
     <ClInclude Include="src\Whip\Asset\asset_metadata.h">
       <Filter>src\Whip\Asset</Filter>
     </ClInclude>
+    <ClInclude Include="src\Whip\Asset\asset_registry.h">
+      <Filter>src\Whip\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Asset\audio_importer.h">
+      <Filter>src\Whip\Asset</Filter>
+    </ClInclude>
     <ClInclude Include="src\Whip\Asset\editor_asset_manager.h">
       <Filter>src\Whip\Asset</Filter>
     </ClInclude>
@@ -163,6 +181,9 @@
       <Filter>src\Whip\Asset</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Asset\scene_importer.h">
+      <Filter>src\Whip\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Asset\texture_atlas_parser.h">
       <Filter>src\Whip\Asset</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Asset\texture_importer.h">
@@ -222,6 +243,9 @@
     <ClInclude Include="src\Whip\Core\memory.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
+    <ClInclude Include="src\Whip\Core\ref_counter.h">
+      <Filter>src\Whip\Core</Filter>
+    </ClInclude>
     <ClInclude Include="src\Whip\Core\timer_manager.h">
       <Filter>src\Whip\Core</Filter>
     </ClInclude>
@@ -259,6 +283,9 @@
       <Filter>src\Whip\Physics</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Physics\physics2D.h">
+      <Filter>src\Whip\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Whip\Physics\physics_world.h">
       <Filter>src\Whip\Physics</Filter>
     </ClInclude>
     <ClInclude Include="src\Whip\Project\project.h">
@@ -345,6 +372,9 @@
     <ClInclude Include="src\Whip\Scripting\script_glue.h">
       <Filter>src\Whip\Scripting</Filter>
     </ClInclude>
+    <ClInclude Include="src\Whip\Texture\texture_manager.h">
+      <Filter>src\Whip\Texture</Filter>
+    </ClInclude>
     <ClInclude Include="src\Whip\UI\UI_helpers.h">
       <Filter>src\Whip\UI</Filter>
     </ClInclude>
@@ -380,6 +410,9 @@
     </ClInclude>
     <ClInclude Include="vendor\coco\coco.h">
       <Filter>vendor\coco</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\frenum\frenum.h">
+      <Filter>vendor\frenum</Filter>
     </ClInclude>
     <ClInclude Include="vendor\glm\glm\common.hpp">
       <Filter>vendor\glm\glm</Filter>
@@ -1653,13 +1686,6 @@
     <ClInclude Include="vendor\stb_image\stb_image.h">
       <Filter>vendor\stb_image</Filter>
     </ClInclude>
-    <ClInclude Include="src\Whip\Core\ref_counter.h" />
-    <ClInclude Include="src\Whip\Asset\audio_importer.h" />
-    <ClInclude Include="src\Whip\Animation\animation_manager.h" />
-    <ClInclude Include="src\Whip\Asset\animation_importer.h" />
-    <ClInclude Include="src\Whip\Asset\asset_registry.h" />
-    <ClInclude Include="src\Whip\Physics\physics_world.h" />
-    <ClInclude Include="src\Whip\Asset\texture_atlas_parser.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Platform\OpenGL\OpenGLBuffer.cpp">
@@ -1698,6 +1724,12 @@
     <ClCompile Include="src\Whip\Animation\animation2D.cpp">
       <Filter>src\Whip\Animation</Filter>
     </ClCompile>
+    <ClCompile Include="src\Whip\Animation\animation_manager.cpp">
+      <Filter>src\Whip\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Asset\animation_importer.cpp">
+      <Filter>src\Whip\Asset</Filter>
+    </ClCompile>
     <ClCompile Include="src\Whip\Asset\asset.cpp">
       <Filter>src\Whip\Asset</Filter>
     </ClCompile>
@@ -1710,6 +1742,12 @@
     <ClCompile Include="src\Whip\Asset\asset_manager_base.cpp">
       <Filter>src\Whip\Asset</Filter>
     </ClCompile>
+    <ClCompile Include="src\Whip\Asset\asset_registry.cpp">
+      <Filter>src\Whip\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Asset\audio_importer.cpp">
+      <Filter>src\Whip\Asset</Filter>
+    </ClCompile>
     <ClCompile Include="src\Whip\Asset\editor_asset_manager.cpp">
       <Filter>src\Whip\Asset</Filter>
     </ClCompile>
@@ -1720,6 +1758,9 @@
       <Filter>src\Whip\Asset</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Asset\scene_importer.cpp">
+      <Filter>src\Whip\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Asset\texture_atlas_parser.cpp">
       <Filter>src\Whip\Asset</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Asset\texture_importer.cpp">
@@ -1763,6 +1804,12 @@
     </ClCompile>
     <ClCompile Include="src\Whip\Math\math.cpp">
       <Filter>src\Whip\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Physics\physics2D.cpp">
+      <Filter>src\Whip\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Whip\Physics\physics_world.cpp">
+      <Filter>src\Whip\Physics</Filter>
     </ClCompile>
     <ClCompile Include="src\Whip\Project\project.cpp">
       <Filter>src\Whip\Project</Filter>
@@ -1869,12 +1916,5 @@
     <ClCompile Include="vendor\stb_image\stb_image.cpp">
       <Filter>vendor\stb_image</Filter>
     </ClCompile>
-    <ClCompile Include="src\Whip\Asset\audio_importer.cpp" />
-    <ClCompile Include="src\Whip\Animation\animation_manager.cpp" />
-    <ClCompile Include="src\Whip\Asset\animation_importer.cpp" />
-    <ClCompile Include="src\Whip\Asset\asset_registry.cpp" />
-    <ClCompile Include="src\Whip\Physics\physics2D.cpp" />
-    <ClCompile Include="src\Whip\Physics\physics_world.cpp" />
-    <ClCompile Include="src\Whip\Asset\texture_atlas_parser.cpp" />
   </ItemGroup>
 </Project>

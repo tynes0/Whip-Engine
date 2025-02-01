@@ -28,7 +28,7 @@ ref<asset> asset_importer::import_asset(asset_handle handle, const asset_metadat
 {
 	if (s_asset_import_functions.find(metadata.type) == s_asset_import_functions.end())
 	{
-		WHP_CORE_ERROR("[Asset Manager] No importer available for asset type {}", asset_type_to_string(metadata.type));
+		WHP_CORE_ERROR("[Asset Manager] No importer available for asset type {}", frenum::to_string(metadata.type));
 		return nullptr;
 	}
 	return s_asset_import_functions.at(metadata.type)(handle, metadata);

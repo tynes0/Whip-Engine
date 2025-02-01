@@ -21,8 +21,7 @@
     <OutputPath>..\Whip-Editor\Resources\Scripts\</OutputPath>
     <BaseIntermediateOutputPath>..\Whip-Editor\Resources\Scripts\Intermediates\Debug\</BaseIntermediateOutputPath>
     <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
-    <DefineConstants>
-    </DefineConstants>
+    <DefineConstants></DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -34,8 +33,7 @@
     <OutputPath>..\Whip-Editor\Resources\Scripts\</OutputPath>
     <BaseIntermediateOutputPath>..\Whip-Editor\Resources\Scripts\Intermediates\Release\</BaseIntermediateOutputPath>
     <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
-    <DefineConstants>
-    </DefineConstants>
+    <DefineConstants></DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -47,8 +45,7 @@
     <OutputPath>..\Whip-Editor\Resources\Scripts\</OutputPath>
     <BaseIntermediateOutputPath>..\Whip-Editor\Resources\Scripts\Intermediates\Dist\</BaseIntermediateOutputPath>
     <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
-    <DefineConstants>
-    </DefineConstants>
+    <DefineConstants></DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -63,8 +60,8 @@
     <Compile Include="Source\Whip\AssetHandle.cs" />
     <Compile Include="Source\Whip\AssetManager.cs" />
     <Compile Include="Source\Whip\AssetType.cs" />
-    <Compile Include="Source\Whip\AudioManager.cs" />
     <Compile Include="Source\Whip\AudioData.cs" />
+    <Compile Include="Source\Whip\AudioManager.cs" />
     <Compile Include="Source\Whip\Input.cs" />
     <Compile Include="Source\Whip\InternalCalls.cs" />
     <Compile Include="Source\Whip\KeyCode.cs" />

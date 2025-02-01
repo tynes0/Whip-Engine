@@ -138,6 +138,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\Helpers\icon_manager.h" />
     <ClInclude Include="src\editor_layer.h" />
     <ClInclude Include="src\panels\animation_editor_panel.h" />
     <ClInclude Include="src\panels\console_panel.h" />
@@ -146,6 +147,7 @@
     <ClInclude Include="src\panels\thumbnail_cache.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Helpers\icon_manager.cpp" />
     <ClCompile Include="src\editor_layer.cpp" />
     <ClCompile Include="src\panels\animation_editor_panel.cpp" />
     <ClCompile Include="src\panels\console_panel.cpp" />

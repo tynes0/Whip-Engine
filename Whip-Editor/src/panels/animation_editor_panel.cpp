@@ -1,34 +1,18 @@
 #include "animation_editor_panel.h"
 #include <Whip/Core/Application.h>
+#include <Whip/Core/utility.h>
 #include <Whip/Project/project.h>
 #include <Whip/Asset/asset_manager.h>
 #include <Whip/Asset/animation_importer.h>
 #include <Whip/UI/UI_helpers.h>
 #include <Whip/Animation/animation_manager.h>
 #include <Whip/Utils/platform_utils.h>
+#include "../Helpers/icon_manager.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
 
 _WHIP_START
-
-namespace utils
-{
-	static constexpr const char* icon_type_to_string(animation_editor_panel::icon icon_type)
-	{
-		switch (icon_type)
-		{
-		case whip::animation_editor_panel::icon::play: return "play";
-		case whip::animation_editor_panel::icon::pause: return "pause";
-		case whip::animation_editor_panel::icon::stop: return "stop";
-		case whip::animation_editor_panel::icon::to_first_frame: return "to_first_frame";
-		case whip::animation_editor_panel::icon::to_last_frame: return "to_last_frame";
-		case whip::animation_editor_panel::icon::size:
-		default:
-			return "undefined";
-		}
-	}
-}
 
 animation_editor_panel::animation_editor_panel()
 {
@@ -84,16 +68,6 @@ void animation_editor_panel::on_imgui_render()
 	ImGui::End();
 }
 
-void animation_editor_panel::load_icon(icon icon_type, ref<texture2D> icon_texture)
-{
-	if (static_cast<unsigned char>(icon_type) >= static_cast<unsigned char>(icon::size))
-	{
-		WHP_CLIENT_ERROR("[Animation Editor Panel] Undefined icon type!");
-		return;
-	}
-	m_icons[static_cast<unsigned int>(icon_type)] = icon_texture;
-}
-
 void animation_editor_panel::draw_animation_drag_drop_area(float width, float height)
 {
 	static const auto drag_drop_callback = [this](asset_handle handle) 
@@ -117,9 +91,9 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 
 	auto draw_button = [=](icon icon_type) -> bool
 		{
-			if (m_icons[static_cast<unsigned int>(icon_type)])
+			if (frenum::contains(icon_type))
 				return ImGui::ImageButton(
-					reinterpret_cast<ImTextureID>((uint64_t)m_icons[static_cast<unsigned int>(icon_type)]->get_renderer_id()),
+					reinterpret_cast<ImTextureID>((uint64_t)icon_manager::get().get_icon(icon_type)->get_renderer_id()),
 					size,
 					ImVec2(0, 0),
 					ImVec2(1, 1),
@@ -127,10 +101,11 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 					ImVec4(0.0f, 0.0f, 0.0f, 0.0f),
 					ImVec4(1, 1, 1, 1));
 			else
-				return ImGui::Button(utils::icon_type_to_string(icon_type));
+				return ImGui::Button(frenum::to_string<icon>(icon_type).c_str());
+			
 		};
 
-	static constexpr float icon_size = static_cast<float>(icon::size);
+	static constexpr float icon_size = static_cast<float>(frenum::size<icon>());
 
 	float total_width = size.x * icon_size + ImGui::GetStyle().ItemSpacing.x * (icon_size - 1.0f);
 	float avail_width = ImGui::GetContentRegionAvail().x;
@@ -138,7 +113,7 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 	float start_x = avail_width * 0.02f;
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + start_x);
 
-	if (draw_button(icon::to_first_frame))
+	if (draw_button(icon::step_back))
 	{
 	}
 	ImGui::SameLine();
@@ -154,7 +129,7 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 	{
 	}
 	ImGui::SameLine();
-	if (draw_button(icon::to_last_frame))
+	if (draw_button(icon::step_forward))
 	{
 	}
 

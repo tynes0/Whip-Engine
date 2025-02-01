@@ -16,16 +16,6 @@ _WHIP_START
 class animation_editor_panel
 {
 public:
-	enum class icon : unsigned char
-	{
-		play = 0,
-		pause,
-		stop,
-		to_first_frame,
-		to_last_frame,
-		size
-	};
-
 	animation_editor_panel();
 	~animation_editor_panel();
 
@@ -34,7 +24,7 @@ public:
 
 	void on_imgui_render();
 
-	void load_icon(icon icon_type, ref<texture2D> icon_texture);
+	//void load_icon(icon icon_type, ref<texture2D> icon_texture);
 	void set_refresh_asset_tree_callback(const std::function<void()>& func) { m_refresh_asset_tree_callback = func; }
 private:
 	void draw_animation_drag_drop_area(float width, float height);
@@ -54,7 +44,6 @@ private:
 	int m_selected_frame_index = -1;
 	bool m_open = true;
 
-	std::array<ref<texture2D>, static_cast<size_t>(icon::size)> m_icons;
 	std::function<void()> m_refresh_asset_tree_callback;
 };
 

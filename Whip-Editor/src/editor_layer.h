@@ -28,6 +28,7 @@
 // - fix animation editor drag drop size
 // - there is an issue with scene_hierarchy_panel::draw_component (i guess...)
 // - texture manager -> g_icons with this
+// - audio_source destroy
 
 _WHIP_START
 
@@ -123,9 +124,6 @@ private:
 	animation_editor_panel m_animation_editor_panel;
 	consol_panel m_console;
 	scope<content_browser_panel> m_content_browser_panel;
-
-	// icons
-	ref<texture2D> m_play_icon, m_simulate_icon, m_stop_icon, m_pause_icon, m_step_icon;
 
 	ref<audio_source> m_audio_src;
 };

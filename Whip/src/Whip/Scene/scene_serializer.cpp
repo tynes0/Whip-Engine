@@ -271,7 +271,7 @@ namespace utils
 
 					out << YAML::BeginMap; // script_fields
 					out << YAML::Key << "name" << YAML::Value << name;
-					out << YAML::Key << "type" << YAML::Value << utils::script_field_type_to_string(field.type);
+					out << YAML::Key << "type" << YAML::Value << frenum::to_string(field.type);
 
 					out << YAML::Key << "data" << YAML::Value;
 					script_field_instance& sc_field = entity_fields.at(name);
@@ -546,7 +546,7 @@ bool scene_serializer::deserialize(const std::filesystem::path& filepath)
 						{
 							std::string name = sc_field["name"].as<std::string>();
 							std::string type_string = sc_field["type"].as<std::string>();
-							script_field_type type = utils::script_field_type_from_string(type_string);
+							script_field_type type = frenum::cast<script_field_type>(type_string).value();
 
 							script_field_instance& field_instance = entity_fields[name];
 

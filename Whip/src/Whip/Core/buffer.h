@@ -100,7 +100,7 @@ private:
 namespace detail
 {
 	template <uint64_t Size, uint64_t Align>
-	concept valid_align = ((Size & (Size - 1)) == 0) && Size >= Align;
+	concept valid_align = ((Align & (Align - 1)) == 0) && Size >= Align;
 }
 
 #ifdef _MSC_VER

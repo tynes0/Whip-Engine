@@ -1,145 +1,145 @@
 asset_registry:
   - handle: 11381240283128345762
     filepath: Scenes/physics.whip
-    type: asset_type::scene
+    type: scene
   - handle: 12408939897192404025
     filepath: Scenes/N.whip
-    type: asset_type::scene
+    type: scene
   - handle: 3259197809910181710
     filepath: Scenes/SnakeGameMain.whip
-    type: asset_type::scene
+    type: scene
   - handle: 807861937663179368
     filepath: game/textures/character/frame_1.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 11910312095153810152
     filepath: textures/PNG Grass/slice03_03.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 9883998218707963624
     filepath: textures/PNG Grass/slice02_02.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 457595418565771432
     filepath: game/textures/character/frame_4.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 5209149187099410432
     filepath: textures/PNG Grass/slice06_06.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 1235926050482352591
     filepath: textures/istanbul.jpg
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 1381901797618045202
     filepath: game/textures/character/frame_5.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 1698093905773764281
     filepath: textures/PNG Grass/slice01_01.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 4060785113878933158
     filepath: textures/PNG Grass/slice33_33.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 6522945722160215709
     filepath: textures/PNG Grass/slice05_05.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 16537052886676986397
     filepath: game/textures/character/frame_2.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 6528178745506105428
     filepath: textures/dirt_0.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 7358304365887755857
     filepath: game/textures/character/frame_3.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 7662381716553045395
     filepath: textures/character.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 12321918548411972371
     filepath: textures/Background/Purple.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 7731751794024312653
     filepath: textures/PNG Grass/slice19_19.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 11457176946638621517
     filepath: textures/PNG Grass/slice04_04.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 9144828812580870379
     filepath: textures/PNG Grass/slice25_25.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 9510154853945851114
     filepath: textures/new_bg.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 10264681718048124162
     filepath: textures/PNG Grass/slice26_26.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 10994589850343145046
     filepath: textures/PNG Grass/slice20_20.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 12591577346510988466
     filepath: textures/PNG Grass/slice14_14.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 13091727724414827710
     filepath: textures/green charater.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 13795996094995889566
     filepath: textures/Background/Blue.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 15081442114440191542
     filepath: textures/PNG Grass/slice15_15.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 15234674121272403662
     filepath: textures/bg.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 16669571840788983229
     filepath: textures/new_triangle.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 17104614555848034036
     filepath: textures/PNG Grass/slice16_16.png
-    type: asset_type::texture2D
+    type: texture2D
   - handle: 666783919880552963
     filepath: Audios/FrontLeft.ogg
-    type: asset_type::audio
+    type: audio
   - handle: 2266388037283019659
     filepath: Audios/babycry.wav
-    type: asset_type::audio
+    type: audio
   - handle: 7221866678342563568
     filepath: Audios/21-gun-salute-25444.mp3
-    type: asset_type::audio
+    type: audio
   - handle: 16310463001817711874
     filepath: Audios/guitar-em-28739.mp3
-    type: asset_type::audio
+    type: audio
   - handle: 443641890509175526
     filepath: fonts/opensans/OpenSans-Medium.ttf
-    type: asset_type::font
+    type: font
   - handle: 564044803032255607
     filepath: fonts/opensans/OpenSans-BoldItalic.ttf
-    type: asset_type::font
+    type: font
   - handle: 13289448160357508010
     filepath: fonts/opensans/OpenSans-SemiBold.ttf
-    type: asset_type::font
+    type: font
   - handle: 2772692381419320050
     filepath: fonts/opensans/OpenSans-Regular.ttf
-    type: asset_type::font
+    type: font
   - handle: 5848476561082305755
     filepath: fonts/opensans/OpenSans-ExtraBoldItalic.ttf
-    type: asset_type::font
+    type: font
   - handle: 12087164228953790491
     filepath: fonts/opensans/OpenSans-Italic.ttf
-    type: asset_type::font
+    type: font
   - handle: 6143389338267232304
     filepath: fonts/opensans/OpenSans-Bold.ttf
-    type: asset_type::font
+    type: font
   - handle: 11995544149157779513
     filepath: fonts/opensans/OpenSans-LightItalic.ttf
-    type: asset_type::font
+    type: font
   - handle: 14262320901352767949
     filepath: fonts/opensans/OpenSans-MediumItalic.ttf
-    type: asset_type::font
+    type: font
   - handle: 15234622856596366869
     filepath: fonts/opensans/OpenSans-Light.ttf
-    type: asset_type::font
+    type: font
   - handle: 17423004550335073255
     filepath: fonts/opensans/OpenSans-SemiBoldItalic.ttf
-    type: asset_type::font
+    type: font
   - handle: 11111111111111111111
     filepath: Animations/test_anim.wanim
-    type: asset_type::animation
+    type: animation
   - handle: 4491070635154493601
     filepath: Animations/char.wanim
-    type: asset_type::animation
+    type: animation

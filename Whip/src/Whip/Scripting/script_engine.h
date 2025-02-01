@@ -11,6 +11,8 @@
 #include <map>
 #include <unordered_map>
 
+#include "../vendor/frenum/frenum.h"
+
 extern "C" 
 {
 	typedef struct _MonoClass MonoClass;
@@ -37,6 +39,8 @@ enum class script_field_type
 	Entity,
 	Logger
 };
+
+MakeFrenumInNamespace(whip, script_field_type, None, String, Float, Double, Bool, Char, SByte, Short, Int, Long, Byte, UShort, UInt, ULong, KeyCode, MouseCode, Vector2, Vector3, Vector4, Entity, Logger)
 
 struct script_field
 {
@@ -201,9 +205,6 @@ private:
 
 namespace utils
 {
-	const char* script_field_type_to_string(script_field_type type);
-	script_field_type script_field_type_from_string(std::string_view field_type);
-
 	MonoString* create_string(const char* string);
 	MonoString* create_string(const wchar_t* wstring);
 }

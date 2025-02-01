@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <Filter Include="Helpers">
+      <UniqueIdentifier>{D8389B9D-4418-1A39-4D30-A50FB98E809A}</UniqueIdentifier>
+    </Filter>
     <Filter Include="panels">
       <UniqueIdentifier>{C8213A14-B4C3-64EA-9D7E-783E89BFEB3A}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Helpers\icon_manager.h">
+      <Filter>Helpers</Filter>
+    </ClInclude>
     <ClInclude Include="src\editor_layer.h" />
+    <ClInclude Include="src\panels\animation_editor_panel.h">
+      <Filter>panels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\panels\console_panel.h">
+      <Filter>panels</Filter>
+    </ClInclude>
     <ClInclude Include="src\panels\content_browser_panel.h">
       <Filter>panels</Filter>
     </ClInclude>
@@ -16,11 +28,18 @@
     <ClInclude Include="src\panels\thumbnail_cache.h">
       <Filter>panels</Filter>
     </ClInclude>
-    <ClInclude Include="src\panels\animation_editor_panel.h" />
-    <ClInclude Include="src\panels\console_panel.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Helpers\icon_manager.cpp">
+      <Filter>Helpers</Filter>
+    </ClCompile>
     <ClCompile Include="src\editor_layer.cpp" />
+    <ClCompile Include="src\panels\animation_editor_panel.cpp">
+      <Filter>panels</Filter>
+    </ClCompile>
+    <ClCompile Include="src\panels\console_panel.cpp">
+      <Filter>panels</Filter>
+    </ClCompile>
     <ClCompile Include="src\panels\content_browser_panel.cpp">
       <Filter>panels</Filter>
     </ClCompile>
@@ -31,7 +50,5 @@
       <Filter>panels</Filter>
     </ClCompile>
     <ClCompile Include="src\whip_editor_app.cpp" />
-    <ClCompile Include="src\panels\animation_editor_panel.cpp" />
-    <ClCompile Include="src\panels\console_panel.cpp" />
   </ItemGroup>
 </Project>

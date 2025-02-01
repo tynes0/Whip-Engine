@@ -7,6 +7,7 @@
 #include <Whip/Asset/texture_importer.h>
 
 #include "content_browser_panel.h"
+#include "../Helpers/icon_manager.h"
 
 #include <imgui/imgui.h>
 
@@ -20,9 +21,6 @@ content_browser_panel::content_browser_panel()
 content_browser_panel::content_browser_panel(ref<project> proj) : m_project(proj), m_thumbnail_cache(make_ref<thumbnail_cache>(proj)), m_base_directory(m_project->get_asset_directory()), m_current_directory(m_base_directory)
 {
 	m_tree_nodes.push_back(tree_node(".", 0));
-	m_directory_icon	= texture_importer::load_texture2D("resources/icons/content_browser/directory_icon.png");
-	m_file_icon			= texture_importer::load_texture2D("resources/icons/content_browser/file_icon.png");
-	m_return_icon		= texture_importer::load_texture2D("resources/icons/return_icon.png");
 	refresh_asset_tree();
 	m_mode = mode::filesystem;
 	m_initialized = true;
@@ -34,9 +32,6 @@ void content_browser_panel::init(ref<project> proj)
 	m_thumbnail_cache = make_ref<thumbnail_cache>(proj);
 	m_current_directory = m_base_directory = m_project->get_asset_directory();
 	m_tree_nodes.push_back(tree_node(".", 0));
-	m_directory_icon = texture_importer::load_texture2D("resources/icons/content_browser/directory_icon.png");
-	m_file_icon = texture_importer::load_texture2D("resources/icons/content_browser/file_icon.png");
-	m_return_icon = texture_importer::load_texture2D("resources/icons/return_icon.png");
 	refresh_asset_tree();
 	m_mode = mode::filesystem;
 	m_initialized = true;
@@ -56,7 +51,7 @@ void content_browser_panel::on_imgui_render()
 		{
 			ImGui::SameLine();
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-			ref<texture2D> icon = m_return_icon;
+			ref<texture2D> icon = icon_manager::get().get_icon(icon::back);
 			if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), { 16.0f, 16.0f }, { 0, 1 }, { 1, 0 }))
 				m_current_directory = m_current_directory.parent_path();
 			ImGui::PopStyleColor();
@@ -103,7 +98,7 @@ void content_browser_panel::on_imgui_render()
 				std::string itemStr = item.generic_string();
 
 				ImGui::PushID(itemStr.c_str());
-				ref<texture2D> icon = isDirectory ? m_directory_icon : m_file_icon;
+				ref<texture2D> icon = isDirectory ? icon_manager::get().get_icon(icon::directory) : icon_manager::get().get_icon(icon::file);
 
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
 				ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), { m_thumbnail_size, m_thumbnail_size }, { 0, 1 }, { 1, 0 });
@@ -182,15 +177,15 @@ void content_browser_panel::on_imgui_render()
 				std::string filenameString = path.filename().string();
 
 				ImGui::PushID(filenameString.c_str());
-				ref<texture2D> icon = directoryEntry.is_directory() ? m_directory_icon : m_file_icon;
+				ref<texture2D> icon = directoryEntry.is_directory() ? icon_manager::get().get_icon(icon::directory) : icon_manager::get().get_icon(icon::file);
 
 				auto relativePath = std::filesystem::relative(path, project::get_active_asset_directory());
-				ref<texture2D> thumbnail = m_directory_icon;
+				ref<texture2D> thumbnail = icon_manager::get().get_icon(icon::directory);
 				if (!directoryEntry.is_directory())
 				{
 					thumbnail = m_thumbnail_cache->get_or_create_thumbnail(relativePath);
 					if (!thumbnail)
-						thumbnail = m_file_icon;
+						thumbnail = icon_manager::get().get_icon(icon::file);
 				}
 
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));

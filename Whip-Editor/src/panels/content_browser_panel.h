@@ -42,9 +42,6 @@ private:
 	bool m_show_settings_popup = false;
 
 	bool m_initialized;
-	ref<texture2D> m_directory_icon;
-	ref<texture2D> m_file_icon;
-	ref<texture2D> m_return_icon;
 
 	struct tree_node
 	{

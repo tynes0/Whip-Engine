@@ -51,7 +51,7 @@ struct buffer_element
 	uint64_t offset;
 	bool normalized;
 
-	//buffer_element() {}
+	buffer_element() {}
 
 	buffer_element(shader_data_type type_in, const std::string& name_in, bool normalized_in = false)
 		: name(name_in), type(type_in), size(shader_data_type_size(type_in)), offset(0), normalized(normalized_in) {}

@@ -103,7 +103,9 @@ namespace utils
 				// ERROR
 				return;
 			}
-			log::level level = editor_log::whip_log_level_from_string(buf.substr(current_pos, temp - current_pos));
+
+			auto opt_level = frenum::cast<log::level>(buf.substr(current_pos, temp - current_pos));
+			log::level level = opt_level.has_value() ? *opt_level : log::level::trace;
 			current_pos = temp + 1;
 
 			next_token_pos = buf.find(token, current_pos);
@@ -187,8 +189,8 @@ void consol_panel::render_imgui_console()
 			case whip::log::level::trace:		return ImVec4(ImColor(TRACE_COLOR));
 			case whip::log::level::debug:		return ImVec4(ImColor(DEBUG_COLOR));
 			case whip::log::level::info:		return ImVec4(ImColor(INFO_COLOR));
-			case whip::log::level::warn:		return ImVec4(ImColor(WARN_COLOR));
-			case whip::log::level::err:			return ImVec4(ImColor(ERROR_COLOR));
+			case whip::log::level::warning:		return ImVec4(ImColor(WARN_COLOR));
+			case whip::log::level::error:		return ImVec4(ImColor(ERROR_COLOR));
 			case whip::log::level::critical:	return ImVec4(ImColor(CRITICAL_COLOR));
 			default:							return ImVec4(ImColor(TRACE_COLOR));
 			}

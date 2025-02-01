@@ -77,7 +77,7 @@
       <PrecompiledHeaderFile>whippch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;IMGUI_DEFINE_MATH_OPERATORS;GLFW_INCLUDE_NONE;AL_LIBTYPE_STATIC;WHP_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\stb_image;vendor\yaml-cpp\include;vendor\box2d\include;vendor\GLFW\include;vendor\Glad\include;vendor\ImGui;vendor\ImGuizmo;vendor\filewatch;vendor\coco;vendor\nps;vendor\miniaudio;vendor\glm;vendor\entt\include;vendor\msdf-atlas-gen\msdfgen;vendor\msdf-atlas-gen\msdf-atlas-gen;vendor\libogg\include;vendor\Vorbis\include;vendor\minimp3;vendor\OpenAL-Soft\include;vendor\OpenAL-Soft\src;vendor\OpenAL-Soft\src\common;vendor\alhelpers;vendor\mono\include;C:\VulkanSDK\1.3.296.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\stb_image;vendor\yaml-cpp\include;vendor\box2d\include;vendor\GLFW\include;vendor\Glad\include;vendor\ImGui;vendor\ImGuizmo;vendor\filewatch;vendor\coco;vendor\nps;vendor\frenum;vendor\miniaudio;vendor\glm;vendor\entt\include;vendor\msdf-atlas-gen\msdfgen;vendor\msdf-atlas-gen\msdf-atlas-gen;vendor\libogg\include;vendor\Vorbis\include;vendor\minimp3;vendor\OpenAL-Soft\include;vendor\OpenAL-Soft\src;vendor\OpenAL-Soft\src\common;vendor\alhelpers;vendor\mono\include;C:\VulkanSDK\1.3.296.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <MinimalRebuild>false</MinimalRebuild>
@@ -100,7 +100,7 @@
       <PrecompiledHeaderFile>whippch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;IMGUI_DEFINE_MATH_OPERATORS;GLFW_INCLUDE_NONE;AL_LIBTYPE_STATIC;WHP_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\stb_image;vendor\yaml-cpp\include;vendor\box2d\include;vendor\GLFW\include;vendor\Glad\include;vendor\ImGui;vendor\ImGuizmo;vendor\filewatch;vendor\coco;vendor\nps;vendor\miniaudio;vendor\glm;vendor\entt\include;vendor\msdf-atlas-gen\msdfgen;vendor\msdf-atlas-gen\msdf-atlas-gen;vendor\libogg\include;vendor\Vorbis\include;vendor\minimp3;vendor\OpenAL-Soft\include;vendor\OpenAL-Soft\src;vendor\OpenAL-Soft\src\common;vendor\alhelpers;vendor\mono\include;C:\VulkanSDK\1.3.296.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\stb_image;vendor\yaml-cpp\include;vendor\box2d\include;vendor\GLFW\include;vendor\Glad\include;vendor\ImGui;vendor\ImGuizmo;vendor\filewatch;vendor\coco;vendor\nps;vendor\frenum;vendor\miniaudio;vendor\glm;vendor\entt\include;vendor\msdf-atlas-gen\msdfgen;vendor\msdf-atlas-gen\msdf-atlas-gen;vendor\libogg\include;vendor\Vorbis\include;vendor\minimp3;vendor\OpenAL-Soft\include;vendor\OpenAL-Soft\src;vendor\OpenAL-Soft\src\common;vendor\alhelpers;vendor\mono\include;C:\VulkanSDK\1.3.296.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -126,7 +126,7 @@
       <PrecompiledHeaderFile>whippch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;IMGUI_DEFINE_MATH_OPERATORS;GLFW_INCLUDE_NONE;AL_LIBTYPE_STATIC;WHP_DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\stb_image;vendor\yaml-cpp\include;vendor\box2d\include;vendor\GLFW\include;vendor\Glad\include;vendor\ImGui;vendor\ImGuizmo;vendor\filewatch;vendor\coco;vendor\nps;vendor\miniaudio;vendor\glm;vendor\entt\include;vendor\msdf-atlas-gen\msdfgen;vendor\msdf-atlas-gen\msdf-atlas-gen;vendor\libogg\include;vendor\Vorbis\include;vendor\minimp3;vendor\OpenAL-Soft\include;vendor\OpenAL-Soft\src;vendor\OpenAL-Soft\src\common;vendor\alhelpers;vendor\mono\include;C:\VulkanSDK\1.3.296.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor\spdlog\include;vendor\stb_image;vendor\yaml-cpp\include;vendor\box2d\include;vendor\GLFW\include;vendor\Glad\include;vendor\ImGui;vendor\ImGuizmo;vendor\filewatch;vendor\coco;vendor\nps;vendor\frenum;vendor\miniaudio;vendor\glm;vendor\entt\include;vendor\msdf-atlas-gen\msdfgen;vendor\msdf-atlas-gen\msdf-atlas-gen;vendor\libogg\include;vendor\Vorbis\include;vendor\minimp3;vendor\OpenAL-Soft\include;vendor\OpenAL-Soft\src;vendor\OpenAL-Soft\src\common;vendor\alhelpers;vendor\mono\include;C:\VulkanSDK\1.3.296.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -185,13 +185,13 @@
     <ClInclude Include="src\Whip\Core\LayerStack.h" />
     <ClInclude Include="src\Whip\Core\Log.h" />
     <ClInclude Include="src\Whip\Core\MouseButtonCodes.h" />
-    <ClInclude Include="src\Whip\Core\ref_counter.h" />
     <ClInclude Include="src\Whip\Core\Timestep.h" />
     <ClInclude Include="src\Whip\Core\UUID.h" />
     <ClInclude Include="src\Whip\Core\Window.h" />
     <ClInclude Include="src\Whip\Core\buffer.h" />
     <ClInclude Include="src\Whip\Core\filesystem.h" />
     <ClInclude Include="src\Whip\Core\memory.h" />
+    <ClInclude Include="src\Whip\Core\ref_counter.h" />
     <ClInclude Include="src\Whip\Core\timer_manager.h" />
     <ClInclude Include="src\Whip\Core\unique_name_manager.h" />
     <ClInclude Include="src\Whip\Core\utility.h" />
@@ -234,6 +234,7 @@
     <ClInclude Include="src\Whip\Scene\scriptable_entity.h" />
     <ClInclude Include="src\Whip\Scripting\script_engine.h" />
     <ClInclude Include="src\Whip\Scripting\script_glue.h" />
+    <ClInclude Include="src\Whip\Texture\texture_manager.h" />
     <ClInclude Include="src\Whip\UI\UI_helpers.h" />
     <ClInclude Include="src\Whip\UI\UI_popup_handler.h" />
     <ClInclude Include="src\Whip\UI\UI_project.h" />
@@ -246,6 +247,7 @@
     <ClInclude Include="vendor\ImGuizmo\ImGuizmo.h" />
     <ClInclude Include="vendor\alhelpers\alhelpers.h" />
     <ClInclude Include="vendor\coco\coco.h" />
+    <ClInclude Include="vendor\frenum\frenum.h" />
     <ClInclude Include="vendor\glm\glm\common.hpp" />
     <ClInclude Include="vendor\glm\glm\detail\_features.hpp" />
     <ClInclude Include="vendor\glm\glm\detail\_fixes.hpp" />

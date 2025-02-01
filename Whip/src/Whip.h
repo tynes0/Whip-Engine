@@ -73,6 +73,8 @@
 #include <Whip/Asset/runtime_asset_manager.h>
 #include <Whip/Asset/asset_manager.h>
 
+#include <Whip/Texture/texture_manager.h>
+
 // coco -> do we realy need this?
 #include <coco/coco.h>
 #endif // ! _WHIP_

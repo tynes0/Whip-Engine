@@ -614,65 +614,6 @@ MonoObject* script_engine::instantiate_class(MonoClass* mono_class)
 
 namespace utils
 {
-	const char* script_field_type_to_string(script_field_type type)
-	{
-		switch (type)
-		{
-		case script_field_type::String:   return "String";
-		case script_field_type::Float:   return "Float";
-		case script_field_type::Double:  return "Double";
-		case script_field_type::Bool:    return "Bool";
-		case script_field_type::Char:    return "Char";
-		case script_field_type::SByte:    return "SByte";
-		case script_field_type::Short:   return "Short";
-		case script_field_type::Int:     return "Int";
-		case script_field_type::Long:    return "Long";
-		case script_field_type::Byte:   return "Byte";
-		case script_field_type::UShort:  return "UShort";
-		case script_field_type::UInt:    return "UInt";
-		case script_field_type::ULong:   return "ULong";
-		case script_field_type::KeyCode:   return "KeyCode";
-		case script_field_type::MouseCode:   return "MouseCode";
-		case script_field_type::Vector2: return "Vector2";
-		case script_field_type::Vector3: return "Vector3";
-		case script_field_type::Vector4: return "Vector4";
-		case script_field_type::Entity:  return "Entity";
-		case script_field_type::Logger:  return "Logger";
-		}
-		return "<Invalid>";
-	}
-
-	script_field_type script_field_type_from_string(std::string_view field_type)
-	{
-
-		{
-			if (field_type == "None")    return script_field_type::None;
-			if (field_type == "String")   return script_field_type::String;
-			if (field_type == "Float")   return script_field_type::Float;
-			if (field_type == "Double")  return script_field_type::Double;
-			if (field_type == "Bool")    return script_field_type::Bool;
-			if (field_type == "Char")    return script_field_type::Char;
-			if (field_type == "Byte")    return script_field_type::Byte;
-			if (field_type == "Short")   return script_field_type::Short;
-			if (field_type == "Int")     return script_field_type::Int;
-			if (field_type == "Long")    return script_field_type::Long;
-			if (field_type == "SByte")   return script_field_type::SByte;
-			if (field_type == "UShort")  return script_field_type::UShort;
-			if (field_type == "UInt")    return script_field_type::UInt;
-			if (field_type == "ULong")   return script_field_type::ULong;
-			if (field_type == "KeyCode")   return script_field_type::KeyCode;
-			if (field_type == "MouseCode")   return script_field_type::MouseCode;
-			if (field_type == "Vector2") return script_field_type::Vector2;
-			if (field_type == "Vector3") return script_field_type::Vector3;
-			if (field_type == "Vector4") return script_field_type::Vector4;
-			if (field_type == "Entity")  return script_field_type::Entity;
-			if (field_type == "Logger")  return script_field_type::Logger;
-
-			WHP_CORE_ASSERT(false, "[Script Engine] Unknown script_field_type");
-			return script_field_type::None;
-		}
-	}
-
 	MonoString* create_string(const char* string)
 	{
 		return mono_string_new(s_script_engine_data->app_domain, string);

@@ -15,6 +15,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/string_cast.hpp"
 
+#include "../frenum/frenum.h"
+
 _WHIP_START
 
 typedef std::shared_ptr<spdlog::logger> logger;
@@ -27,8 +29,8 @@ public:
 		trace,
 		debug,
 		info,
-		warn,
-		err,
+		warning,
+		error,
 		critical,
 		off,
 		levels_size
@@ -91,7 +93,6 @@ public:
 		s_editor_logger->log(log::whip_log_level_to_spdlog_level(level),message, std::forward<Args>(args)...);
 		s_file_should_reset.store(true);
 	}
-	WHP_NODISCARD static log::level whip_log_level_from_string(const std::string& level);
 
 	static constexpr size_t MAX_FILE_SIZE = 5 * 1024 * 1024;
 	static constexpr size_t MAX_FILES = 1;
@@ -109,6 +110,8 @@ private:
 };
 
 _WHIP_END
+
+MakeFrenumWithNamespace(whip::log, level, trace, debug, info, warning, error, critical, off, levels_size)
 
 // Core log macros
 #define WHP_CORE_TRACE(...)						whip::log::get_core_logger()->trace(__VA_ARGS__)
@@ -130,8 +133,8 @@ _WHIP_END
 #define WHP_EDITOR_TRACE(message, ...)			whip::editor_log::log(whip::log::level::trace ,message,__VA_ARGS__)
 #define WHP_EDITOR_DEBUG(message,...)			whip::editor_log::log(whip::log::level::debug ,message,__VA_ARGS__)
 #define WHP_EDITOR_INFO(message,...)			whip::editor_log::log(whip::log::level::info ,message,__VA_ARGS__)
-#define WHP_EDITOR_WARN(message,...)			whip::editor_log::log(whip::log::level::warn ,message,__VA_ARGS__)
-#define WHP_EDITOR_ERROR(message,...)			whip::editor_log::log(whip::log::level::err ,message,__VA_ARGS__)
+#define WHP_EDITOR_WARN(message,...)			whip::editor_log::log(whip::log::level::warning ,message,__VA_ARGS__)
+#define WHP_EDITOR_ERROR(message,...)			whip::editor_log::log(whip::log::level::error ,message,__VA_ARGS__)
 #define WHP_EDITOR_CRITICAL(message,...)		whip::editor_log::log(whip::log::level::critical ,message,__VA_ARGS__)
 
 
