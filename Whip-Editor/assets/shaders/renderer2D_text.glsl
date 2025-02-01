@@ -28,7 +28,7 @@ void main()
 #version 450 core
 
 layout(location = 0) out vec4 o_color;
-layout(location = 1) out vec4 o_entityID;
+layout(location = 1) out int o_entityID;
 
 layout (location = 0) in vec4 v_color;
 layout (location = 1) in vec2 v_texture_coord;
@@ -60,7 +60,7 @@ void main()
 
 	if (opacity == 0.0) {
 		o_color = vec4(0.0);
-		o_entityID = vec4(-1.0);
+		o_entityID = -1;
 		discard;
 	}
 
@@ -68,9 +68,9 @@ void main()
     o_color = mix(bg_color, v_color, opacity);
 
 	if (o_color.a == 0.0) {
-		o_entityID = vec4(-1.0);
+		o_entityID = -1;
 		discard;
 	}
 
-	o_entityID = vec4(v_entityID);
+	o_entityID = v_entityID;
 }
