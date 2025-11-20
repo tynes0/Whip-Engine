@@ -17,6 +17,10 @@ vendor/VulkanSDK/templates/
 **.vxproj
 **.vxproj.filters
 **.vxproj.user
+**.user
+
+.idea/
 
 #FOR NOW!
 Whip/vendor
+vendor/
