@@ -1,0 +1,68 @@
+scene: untitled
+entities:
+  - entity: 1
+    tag_component:
+      tag: Square
+    transform_component:
+      translation: [-0.293135643, -1.2815237, 0.0182621479]
+      rotation: [0, 0, 0]
+      scale: [5.10571527, 0.520588756, 1]
+    sprite_renderer_component:
+      color: [0.686274529, 0.556862772, 0.0627451017, 1]
+      tiling_factor: 1
+  - entity: 2
+    tag_component:
+      tag: Second Square
+    transform_component:
+      translation: [-0.345493317, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [0.99999994, 1, 1]
+    sprite_renderer_component:
+      color: [1, 0, 0, 1]
+      tiling_factor: 1
+    rigidbody2D_component:
+      body_type: Static
+      fixed_rotation: false
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.5, 0.5]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+  - entity: 3
+    tag_component:
+      tag: Camera A
+    transform_component:
+      translation: [-0.0453633443, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    camera_component:
+      camera:
+        projection_type: 1
+        perspective_FOV: 0.785398185
+        perspective_near: 0.00999999978
+        perspective_far: 1000
+        orthographic_size: 10
+        orthographic_near: -1
+        orthographic_far: 1
+      primary: true
+      fixed_aspect_ratio: false
+  - entity: 4
+    tag_component:
+      tag: Camera B
+    transform_component:
+      translation: [0, 0, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    camera_component:
+      camera:
+        projection_type: 1
+        perspective_FOV: 0.785398185
+        perspective_near: 0.00999999978
+        perspective_far: 1000
+        orthographic_size: 10
+        orthographic_near: -1
+        orthographic_far: 1
+      primary: false
+      fixed_aspect_ratio: false

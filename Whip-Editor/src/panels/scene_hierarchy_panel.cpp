@@ -20,8 +20,41 @@
 #include <filesystem>
 #include <cstring>
 
+#include <nps/nps_formatter.h>
+
+#include "../Helpers/script_field_helper.h"
+
 #define BEGIN_COMPONENT_TABLE_ROW(...) do { ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text(__VA_ARGS__); ImGui::TableNextColumn(); ImGui::PushItemWidth(-1); } while(false)
 #define END_COMPONENT_TABLE_ROW() do { ImGui::PopItemWidth(); } while(false)
+
+#define SWITCH_ON_SCRIPT_FIELD_TYPE(FIELD_TYPE, SCRIPT_FIELD_DRAW_TYPE)																																							\
+								do {																																															\
+									switch (FIELD_TYPE)																																											\
+									{																																															\
+									case whip::script_field_type::Float:	UI::draw_field<script_field_type::Float, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::Int:		UI::draw_field<script_field_type::Int, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;			\
+									case whip::script_field_type::Bool:		UI::draw_field<script_field_type::Bool, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::Long:		UI::draw_field<script_field_type::Long, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::Vector3:	UI::draw_field<script_field_type::Vector3, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::Vector2:	UI::draw_field<script_field_type::Vector2, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::Vector4:	UI::draw_field<script_field_type::Vector4, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::UInt:		UI::draw_field<script_field_type::UInt, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::ULong:	UI::draw_field<script_field_type::ULong, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::Double:	UI::draw_field<script_field_type::Double, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::Byte:		UI::draw_field<script_field_type::Byte, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::SByte:	UI::draw_field<script_field_type::SByte, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::Char:		UI::draw_field<script_field_type::Char, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::Short:	UI::draw_field<script_field_type::Short, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::UShort:	UI::draw_field<script_field_type::UShort, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::KeyCode:	UI::draw_field<script_field_type::KeyCode, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
+									case whip::script_field_type::MouseCode:UI::draw_field<script_field_type::MouseCode, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;	\
+									case whip::script_field_type::Entity:																																						\
+									case whip::script_field_type::None:																																							\
+									case whip::script_field_type::Logger:																																						\
+									default:																																													\
+										break;																																													\
+									}																																															\
+								} while(false)
 
 _WHIP_START
 
@@ -302,214 +335,7 @@ void scene_hierarchy_panel::draw_components(entity entity_in)
 						const auto& fields = sc_instance->get_script_class()->get_fields();
 						for (const auto& [name, field] : fields)
 						{
-							switch (field.type)
-							{
-							case whip::script_field_type::Float:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								float data = sc_instance->get_field_value<float>(name);
-								if (ImGui::DragFloat(("##" + name).c_str(), &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Int:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								int data = sc_instance->get_field_value<int>(name);
-								if (ImGui::InputInt(("##" + name).c_str(), &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Bool:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								bool data = sc_instance->get_field_value<bool>(name);
-								if (ImGui::Checkbox(("##" + name).c_str(), &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Long:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								int64_t data = sc_instance->get_field_value<int64_t>(name);
-								if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S64, &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Vector3:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								glm::vec3 data = sc_instance->get_field_value<glm::vec3>(name);
-								if (UI::draw_field_vec3_control(name.c_str(), data, 0, ImGui::GetColumnWidth())) 
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Vector2:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								glm::vec2 data = sc_instance->get_field_value<glm::vec2>(name);
-								if (UI::draw_field_vec2_control(name.c_str(), data, 0, ImGui::GetColumnWidth()))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Vector4:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								glm::vec4 data = sc_instance->get_field_value<glm::vec4>(name);
-								if (ImGui::ColorEdit4(("##" + name).c_str(), glm::value_ptr(data)))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::UInt:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								uint32_t data = sc_instance->get_field_value<uint32_t>(name);
-								if(ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U32, &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::ULong:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								uint64_t data = sc_instance->get_field_value<uint64_t>(name);
-								if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U64, &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Double:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								double data = sc_instance->get_field_value<double>(name);
-								if (ImGui::InputDouble(("##" + name).c_str(), &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Byte:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								uint8_t data = sc_instance->get_field_value<uint8_t>(name);
-								if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U8, &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::SByte:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								int8_t data = sc_instance->get_field_value<int8_t>(name);
-								if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S8, &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Char:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								char data = sc_instance->get_field_value<char>(name);
-								if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S8, &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Short:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								short data = sc_instance->get_field_value<short>(name);
-								if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S16, &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::UShort:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-								uint16_t data = sc_instance->get_field_value<uint16_t>(name);
-								if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U16, &data))
-									sc_instance->set_field_value(name, data);
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::KeyCode:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-
-								key_code data = sc_instance->get_field_value<key_code>(name);
-
-								if (ImGui::BeginCombo(name.c_str(), key::to_string(data)))
-								{
-									for (key_code i = static_cast<key_code>(key::space); i <= static_cast<key_code>(key::menu); ++i)
-									{
-										key_code current_key = i;
-										bool is_selected = (data == current_key);
-										std::string_view sv = key::to_string(current_key);
-										if (sv == "unknown")
-											continue;
-
-										if (ImGui::Selectable(sv.data(), is_selected))
-										{
-											data = current_key;
-											sc_instance->set_field_value<key_code>(name, data);
-										}
-
-										if (is_selected)
-											ImGui::SetItemDefaultFocus();
-									}
-
-									ImGui::EndCombo();
-								}
-
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-
-							case whip::script_field_type::MouseCode:
-							{
-								BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-
-								mouse_code data = sc_instance->get_field_value<mouse_code>(name);
-
-								if (ImGui::BeginCombo("MouseCode", mouse::to_string(data)))
-								{
-									for (mouse_code i = static_cast<mouse_code>(mouse::button0); i <= static_cast<mouse_code>(mouse::button_last); ++i)
-									{
-										mouse_code current_button = i;
-										bool is_selected = (data == current_button);
-										std::string_view sv = mouse::to_string(current_button);
-										if (sv == "unknown")
-											continue;
-
-										if (ImGui::Selectable(sv.data(), is_selected))
-										{
-											sc_instance->set_field_value<mouse_code>(name, current_button);
-										}
-
-										if (is_selected)
-											ImGui::SetItemDefaultFocus();
-									}
-
-									ImGui::EndCombo();
-								}
-
-								END_COMPONENT_TABLE_ROW();
-								break;
-							}
-							case whip::script_field_type::Entity:
-							case whip::script_field_type::None:
-							case whip::script_field_type::Logger:
-							default:
-								// do nothing
-								break;
-							}
+							SWITCH_ON_SCRIPT_FIELD_TYPE(field.type, while_scene_running);
 						}
 					}
 				}
@@ -524,498 +350,18 @@ void scene_hierarchy_panel::draw_components(entity entity_in)
 						for (const auto& [name, field] : fields)
 						{
 							// Field has been set in editor
-							if (entity_fields.find(name) != entity_fields.end())
+							if (entity_fields.contains(name))
 							{
 								script_field_instance& sc_field = entity_fields.at(name);
 
-								switch (field.type)
-								{
-								case whip::script_field_type::Float:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									float data = sc_field.get_value<float>();
-									if (ImGui::DragFloat(("##" + name).c_str(), &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Int:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									int data = sc_field.get_value<int>();
-									if (ImGui::InputInt(("##" + name).c_str(), &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Bool:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									bool data = sc_field.get_value<bool>();
-									if (ImGui::Checkbox(("##" + name).c_str(), &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Long:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									int64_t data = sc_field.get_value<int64_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S64, &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Vector3:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									glm::vec3 data = sc_field.get_value<glm::vec3>();
-
-									if (UI::draw_field_vec3_control(name.c_str(), data, 0, ImGui::GetColumnWidth()))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Vector2:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									glm::vec2 data = sc_field.get_value<glm::vec2>();
-
-									if (UI::draw_field_vec2_control(name.c_str(), data, 0, ImGui::GetColumnWidth()))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Vector4:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									glm::vec4 data = sc_field.get_value<glm::vec4>();
-
-									if (ImGui::ColorEdit4(("##" + name).c_str(), glm::value_ptr(data)))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::UInt:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									uint32_t data = sc_field.get_value<uint32_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U32, &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::ULong:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									uint64_t data = sc_field.get_value<uint64_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U64, &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Double:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									double data = sc_field.get_value<double>();
-									if (ImGui::InputDouble(("##" + name).c_str(), &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Byte:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									uint8_t data = sc_field.get_value<uint8_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U8, &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::SByte:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									int8_t data = sc_field.get_value<int8_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S8, &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Char:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									char data = sc_field.get_value<char>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S8, &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Short:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									short data = sc_field.get_value<short>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S16, &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::UShort:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									uint16_t data = sc_field.get_value<uint16_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U16, &data))
-										sc_field.set_value(data);
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::KeyCode:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-
-									key_code data = sc_field.get_value<key_code>();
-
-									if (ImGui::BeginCombo(name.c_str(), key::to_string(data)))
-									{
-										for (key_code i = static_cast<key_code>(key::space); i <= static_cast<key_code>(key::menu); ++i)
-										{
-											key_code current_key = i;
-											bool is_selected = (data == current_key);
-											std::string_view sv = key::to_string(current_key);
-											if (sv == "unknown")
-												continue;
-
-											if (ImGui::Selectable(sv.data(), is_selected))
-											{
-												sc_field.set_value<key_code>(current_key);
-											}
-
-											if (is_selected)
-												ImGui::SetItemDefaultFocus();
-										}
-
-										ImGui::EndCombo();
-									}
-
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::MouseCode:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-
-									key_code data = sc_field.get_value<key_code>();
-
-									if (ImGui::BeginCombo("MouseCode", mouse::to_string(data)))
-									{
-										for (mouse_code i = static_cast<mouse_code>(mouse::button0); i <= static_cast<mouse_code>(mouse::button_last); ++i)
-										{
-											mouse_code current_button = i;
-											bool is_selected = (data == current_button);
-											std::string_view sv = mouse::to_string(current_button);
-											if (sv == "unknown")
-												continue;
-
-											if (ImGui::Selectable(sv.data(), is_selected))
-											{
-												sc_field.set_value<key_code>(current_button);
-											}
-
-											if (is_selected)
-												ImGui::SetItemDefaultFocus();
-										}
-
-										ImGui::EndCombo();
-									}
-
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Entity:
-								case whip::script_field_type::None:
-								case whip::script_field_type::Logger:
-								default:
-									// do nothing
-									break;
-								}
+								SWITCH_ON_SCRIPT_FIELD_TYPE(field.type, set_in_the_editor);
 							}
 							else
 							{
 								auto& base_entity_fields = script_engine::get_base_script_field_map(component.class_name);
 								script_field_instance& sc_field = base_entity_fields.at(name);
 
-								switch (field.type)
-								{
-								case whip::script_field_type::Float:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									float data = sc_field.get_value<float>();
-									if (ImGui::DragFloat(("##" + name).c_str(), &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Int:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									int data = sc_field.get_value<int>();
-									if (ImGui::InputInt(("##" + name).c_str(), &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Bool:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									bool data = sc_field.get_value<bool>();
-									if (ImGui::Checkbox(("##" + name).c_str(), &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Long:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									int64_t data = sc_field.get_value<int64_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S64, &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Vector3:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									glm::vec3 data = sc_field.get_value<glm::vec3>();
-
-									if (UI::draw_field_vec3_control(name.c_str(), data, 0, ImGui::GetColumnWidth()))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Vector2:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									glm::vec2 data = sc_field.get_value<glm::vec2>();
-
-									if (UI::draw_field_vec2_control(name.c_str(), data, 0, ImGui::GetColumnWidth()))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Vector4:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									glm::vec4 data = sc_field.get_value<glm::vec4>();
-
-									if (ImGui::ColorEdit4(("##" + name).c_str(), glm::value_ptr(data)))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::UInt:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									uint32_t data = sc_field.get_value<uint32_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U32, &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::ULong:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									uint64_t data = sc_field.get_value<uint64_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U64, &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Double:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									double data = sc_field.get_value<double>();
-									if (ImGui::InputDouble(("##" + name).c_str(), &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Byte:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									uint8_t data = sc_field.get_value<uint8_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U8, &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::SByte:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									int8_t data = sc_field.get_value<int8_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S8, &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Char:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									char data = sc_field.get_value<char>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S8, &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Short:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									short data = sc_field.get_value<short>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_S16, &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::UShort:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-									uint16_t data = sc_field.get_value<uint16_t>();
-									if (ImGui::InputScalar(("##" + name).c_str(), ImGuiDataType_U16, &data))
-									{
-										script_field_instance& field_instance = entity_fields[name];
-										field_instance.field = field;
-										field_instance.set_value(data);
-									}
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::KeyCode:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-
-									key_code data = sc_field.get_value<key_code>();
-
-									if (ImGui::BeginCombo(name.c_str(), key::to_string(data)))
-									{
-										for (key_code i = static_cast<key_code>(key::space); i <= static_cast<key_code>(key::menu); ++i)
-										{
-											key_code current_key = i;
-											bool is_selected = (data == current_key);
-											std::string_view sv = key::to_string(current_key);
-											if (sv == "unknown")
-												continue;
-
-											if (ImGui::Selectable(sv.data(), is_selected))
-											{
-												script_field_instance& field_instance = entity_fields[name];
-												field_instance.field = field;
-												field_instance.set_value(current_key);
-											}
-
-											if (is_selected)
-												ImGui::SetItemDefaultFocus();
-										}
-
-										ImGui::EndCombo();
-									}
-
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::MouseCode:
-								{
-									BEGIN_COMPONENT_TABLE_ROW(name.c_str());
-
-									key_code data = sc_field.get_value<key_code>();
-
-									if (ImGui::BeginCombo("MouseCode", mouse::to_string(data)))
-									{
-										for (mouse_code i = static_cast<mouse_code>(mouse::button0); i <= static_cast<mouse_code>(mouse::button_last); ++i)
-										{
-											mouse_code current_button = i;
-											bool is_selected = (data == current_button);
-											std::string_view sv = mouse::to_string(current_button);
-											if (sv == "unknown")
-												continue;
-
-											if (ImGui::Selectable(sv.data(), is_selected))
-											{
-												script_field_instance& field_instance = entity_fields[name];
-												field_instance.field = field;
-												field_instance.set_value(current_button);
-											}
-
-											if (is_selected)
-												ImGui::SetItemDefaultFocus();
-										}
-
-										ImGui::EndCombo();
-									}
-
-									END_COMPONENT_TABLE_ROW();
-									break;
-								}
-								case whip::script_field_type::Entity:
-								case whip::script_field_type::None:
-								case whip::script_field_type::Logger:
-								default:
-									// do nothing
-									break;
-								}
+								SWITCH_ON_SCRIPT_FIELD_TYPE(field.type, with_base_value);
 							}
 						}
 					}
@@ -1105,7 +451,7 @@ void scene_hierarchy_panel::draw_components(entity entity_in)
 			button_label_size.x += 20.0f;
 			float button_label_width = glm::max<float>(100.0f, button_label_size.x);
 
-			static const auto drag_drop_callback = [&component](asset_handle handle)
+			const auto drag_drop_callback = [&component](asset_handle handle)
 				{
 					component.font = handle;
 				};

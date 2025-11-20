@@ -1,0 +1,50 @@
+scene: untitled
+entities:
+  - entity: 1
+    tag_component:
+      tag: Camera
+    transform_component:
+      translation: [0, 1.70000005, 4]
+      rotation: [-0.404916406, 0, 0]
+      scale: [1, 1, 1]
+    camera_component:
+      camera:
+        projection_type: 0
+        perspective_FOV: 0.52359879
+        perspective_near: 0.00999999978
+        perspective_far: 1000
+        orthographic_size: 10
+        orthographic_near: -1
+        orthographic_far: 1
+      primary: true
+      fixed_aspect_ratio: false
+  - entity: 2
+    tag_component:
+      tag: Top
+    transform_component:
+      translation: [0, 0.5, 0]
+      rotation: [1.57079637, 0.785398185, 0]
+      scale: [1, 1, 1]
+    sprite_renderer_component:
+      color: [0.874509811, 0, 0.835294127, 1]
+      tiling_factor: 1
+  - entity: 3
+    tag_component:
+      tag: Right
+    transform_component:
+      translation: [0.349999994, 0, 0.349999994]
+      rotation: [0, 0.785398185, 0]
+      scale: [1, 1, 1]
+    sprite_renderer_component:
+      color: [0.549019635, 0, 0.588235319, 1]
+      tiling_factor: 1
+  - entity: 4
+    tag_component:
+      tag: Left
+    transform_component:
+      translation: [-0.352935702, 0, 0.352934986]
+      rotation: [0, -0.785398245, 0]
+      scale: [1, 1, 1]
+    sprite_renderer_component:
+      color: [1, 0, 0.949019611, 1]
+      tiling_factor: 1

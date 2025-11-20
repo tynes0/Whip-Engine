@@ -1,0 +1,18 @@
+C:\Dev\Whip Engine\Whip-Editor\FboxProject\Assets\Scripts\Binaries\Fbox.dll
+C:\Dev\Whip Engine\Whip-Editor\FboxProject\Assets\Scripts\Binaries\Fbox.pdb
+C:\Dev\Whip Engine\Whip-Editor\FboxProject\Assets\Scripts\Binaries\Whip-ScriptCore.dll
+C:\Dev\Whip Engine\Whip-Editor\FboxProject\Assets\Scripts\Binaries\Whip-ScriptCore.pdb
+C:\Dev\Whip Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.csproj.AssemblyReference.cache
+C:\Dev\Whip Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.csproj.CoreCompileInputs.cache
+C:\Dev\Whip Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.csproj.CopyComplete
+C:\Dev\Whip Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.dll
+C:\Dev\Whip Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.pdb
+C:\Dev\Whip-Engine\Whip-Editor\FboxProject\Assets\Scripts\Binaries\Fbox.dll
+C:\Dev\Whip-Engine\Whip-Editor\FboxProject\Assets\Scripts\Binaries\Fbox.pdb
+C:\Dev\Whip-Engine\Whip-Editor\FboxProject\Assets\Scripts\Binaries\Whip-ScriptCore.dll
+C:\Dev\Whip-Engine\Whip-Editor\FboxProject\Assets\Scripts\Binaries\Whip-ScriptCore.pdb
+C:\Dev\Whip-Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.csproj.AssemblyReference.cache
+C:\Dev\Whip-Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.csproj.CoreCompileInputs.cache
+C:\Dev\Whip-Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.csproj.Up2Date
+C:\Dev\Whip-Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.dll
+C:\Dev\Whip-Engine\Whip-Editor\FboxProject\Assets\Scripts\Intermediates\Debug\Fbox.pdb

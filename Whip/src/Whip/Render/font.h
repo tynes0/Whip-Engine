@@ -24,6 +24,8 @@ public:
 	static ref<font> get_default();
 
 	virtual asset_type get_type() const override { return asset_type::font; }
+
+	static constexpr float default_point_size = 32.0f;
 private:
 	msdf_data* m_data;
 	ref<texture2D> m_atlas_texture;

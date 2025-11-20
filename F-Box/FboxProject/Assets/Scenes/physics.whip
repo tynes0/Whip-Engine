@@ -1,0 +1,154 @@
+scene: physics
+entities:
+  - entity: 9859612793469792751
+    tag_component:
+      tag: Text
+    transform_component:
+      translation: [-5.1785717, -0.402436614, 0]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    script_component:
+      class_name: Fbox.Text
+    text_component:
+      text_string: Cihan Bilgihan
+      color: [0.540540576, 0.466970772, 0.194093704, 1]
+      kerning: 0
+      line_spacing: 0
+    rigidbody2D_component:
+      body_type: Dynamic
+      fixed_rotation: false
+      gravity_scale: 1.0
+  - entity: 6962580596323751231
+    tag_component:
+      tag: platform
+    transform_component:
+      translation: [0, -12, 0]
+      rotation: [0, 0, 0]
+      scale: [20, 20, 1]
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 6528178745506105428
+      tiling_factor: 10
+    rigidbody2D_component:
+      body_type: Static
+      fixed_rotation: true
+      gravity_scale: 1.0
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.5, 0.5]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: false
+      tag: Floor
+  - entity: 16730677138948673550
+    tag_component:
+      tag: circle
+    transform_component:
+      translation: [-1.24346638, 0.670695424, 0]
+      rotation: [0, 0, 0]
+      scale: [1.00012147, 1.00012147, 1]
+    script_component:
+      class_name: Fbox.Circle
+      script_fields:
+        []
+    circle_renderer_component:
+      color: [0.490196079, 0.258823544, 0.454901963, 1]
+      thickness: 1
+      fade: 0.0209999997
+    rigidbody2D_component:
+      body_type: Static
+      fixed_rotation: false
+      gravity_scale: 1.0
+    circle_collider2D_component:
+      offset: [0, 0]
+      radius: 0.5
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: false
+      tag: ""
+  - entity: 14917611946269392498
+    tag_component:
+      tag: Player
+    transform_component:
+      translation: [8.9456749, -1.60821867, -0.0195384212]
+      rotation: [0, 0, 0]
+      scale: [0.99999994, 0.99999994, 0.999950647]
+    script_component:
+      class_name: Fbox.Player
+      script_fields:
+        - name: EnableInputs
+          type: Bool
+          data: true
+        - name: Speed
+          type: Float
+          data: 2
+    sprite_renderer_component:
+      color: [0.70588237, 0.788235307, 0.835294127, 1]
+      texture_handle: 12104011777165619187
+      tiling_factor: 1
+    rigidbody2D_component:
+      body_type: Dynamic
+      fixed_rotation: true
+      gravity_scale: 1.0
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.349999994, 0.349999994]
+      density: 0.200000003
+      friction: 0.5
+      restitution: 0.360000014
+      restitution_threshold: 0.5
+      sensor: false
+      tag: Player
+    audio_component:
+      audio_handle: 7221866678342563568
+      tag: Tag
+  - entity: 6962580596323750633
+    tag_component:
+      tag: game camera
+    transform_component:
+      translation: [-0.139339566, 0.231149912, 10.5959015]
+      rotation: [0, 0, 0]
+      scale: [1, 1, 1]
+    camera_component:
+      camera:
+        projection_type: 0
+        perspective_FOV: 0.785398185
+        perspective_near: 0.00999999978
+        perspective_far: 1000
+        orthographic_size: 20
+        orthographic_near: -1
+        orthographic_far: 1
+      primary: true
+      fixed_aspect_ratio: false
+    script_component:
+      class_name: Fbox.Camera
+      script_fields:
+        []
+  - entity: 12404665826944254961
+    tag_component:
+      tag: platform(1)
+    transform_component:
+      translation: [-20.3261681, -11.4216337, 0]
+      rotation: [0, 0, 0]
+      scale: [20, 20, 1]
+    sprite_renderer_component:
+      color: [1, 1, 1, 1]
+      texture_handle: 6528178745506105428
+      tiling_factor: 10
+    rigidbody2D_component:
+      body_type: Static
+      fixed_rotation: true
+      gravity_scale: 1.0
+    box_collider2D_component:
+      offset: [0, 0]
+      size: [0.5, 0.5]
+      density: 1
+      friction: 0.5
+      restitution: 0
+      restitution_threshold: 0.5
+      sensor: false
+      tag: Floor

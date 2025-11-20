@@ -12,6 +12,9 @@
     <ClInclude Include="src\Helpers\icon_manager.h">
       <Filter>Helpers</Filter>
     </ClInclude>
+    <ClInclude Include="src\Helpers\script_field_helper.h">
+      <Filter>Helpers</Filter>
+    </ClInclude>
     <ClInclude Include="src\editor_layer.h" />
     <ClInclude Include="src\panels\animation_editor_panel.h">
       <Filter>panels</Filter>
@@ -31,6 +34,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Helpers\icon_manager.cpp">
+      <Filter>Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Helpers\script_field_helper.cpp">
       <Filter>Helpers</Filter>
     </ClCompile>
     <ClCompile Include="src\editor_layer.cpp" />

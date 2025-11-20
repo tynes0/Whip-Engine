@@ -1,5 +1,4 @@
 #include "F_boxApp2D.h"
-//#include "game/game.h"
 
 class f_box : public whip::application
 {
@@ -9,17 +8,14 @@ public:
 	{
 		push_layer(new fbox_app2D());
 	}
-	~f_box()
-	{
-		
-	}
 };
 
 whip::application* whip::create_application(whip::application_command_line_args args)
 {
-	application_specification spec;
-	spec.properties.m_title = "F-box";
-	spec.working_directory = "../Whip-Editor";
+	whip::application_specification spec;
+	spec.properties.title = "F-box";
+	spec.properties.fullscreen = true;
 	spec.command_line_args = args;
 	return new f_box(spec);
 }
+

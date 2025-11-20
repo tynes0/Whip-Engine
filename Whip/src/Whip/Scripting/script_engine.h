@@ -45,9 +45,11 @@ MakeFrenumInNamespace(whip, script_field_type, None, String, Float, Double, Bool
 struct script_field
 {
 	script_field_type type = script_field_type::None;
+	int type_size = 0;
 	std::string name;
 
 	MonoClassField* class_field = nullptr;
+	bool is_array;
 };
 
 struct script_field_instance
@@ -56,7 +58,11 @@ struct script_field_instance
 
 	script_field_instance()
 	{
-		m_buffer.zero();
+	}
+
+	~script_field_instance()
+	{
+		m_buffer.release();
 	}
 
 	template<typename T>
@@ -70,8 +76,28 @@ struct script_field_instance
 	{
 		m_buffer.store<T>(value);
 	}
+
+	template <typename T>
+	T* get_value_array()
+	{
+		return m_buffer.as<T>();
+	}
+
+	template <typename T>
+	size_t get_array_size()
+	{
+		return m_buffer.size / sizeof(T);
+	}
+	
+	// Todo: needs an update or make a new set array index method
+	template <typename T>
+	void set_value_array(T* array, size_t size) 
+	{
+		m_buffer.allocate(size * sizeof(T));
+		std::memcpy(m_buffer.data, array, size * sizeof(T));
+	}
 private:
-	stack_buffer<16> m_buffer;
+	raw_buffer m_buffer;
 
 	friend class script_engine;
 	friend class assembly_manager;
@@ -116,25 +142,43 @@ public:
 	template<class T>
 	T get_field_value(const std::string& name)
 	{
-		static_assert(sizeof(T) <= 16, "Type too large!");
-		bool success = get_field_value_internal(name, s_field_value_buffer);
+		bool success = get_field_value_internal(name);
 		if (!success)
 			return T();
 
-		return *(T*)s_field_value_buffer;
+		return s_field_value_buffer.load<T>();
+	}
+
+	template <class T>
+	T* get_field_array(const std::string& name, size_t* size)
+	{
+		bool success = get_field_array_value_internal(name, size);
+		if (!success)
+			return nullptr;
+
+		return s_field_value_buffer.as<T>();
 	}
 
 	template<class T>
 	void set_field_value(const std::string& name, T value)
 	{
-		static_assert(sizeof(T) <= 16, "Type too large!");
+		//static_assert(sizeof(T) <= 16, "Type too large!");
 		set_field_value_internal(name, &value);
 	}
 
+	template <class T>
+	void set_field_array_index(const std::string& name, size_t index, T value)
+	{
+		set_field_array_index_value_internal(name, index, &value);
+	}
+
 	MonoObject* get_managed_object() { return m_instance; }
+	const MonoObject* get_managed_object() const { return m_instance; }
 private:
-	bool get_field_value_internal(const std::string& name, void* buffer);
+	bool get_field_value_internal(const std::string& name); // loads value to s_field_value_buffer
 	bool set_field_value_internal(const std::string& name, const void* value);
+	bool get_field_array_value_internal(const std::string& name, size_t* size); // loads value to s_field_value_buffer
+	bool set_field_array_index_value_internal(const std::string& name, size_t index, const void* value);
 private:
 	ref<script_class> m_script_class;
 	MonoObject* m_instance = nullptr;
@@ -144,7 +188,7 @@ private:
 	MonoMethod* m_on_collider_enter_method = nullptr;
 	MonoMethod* m_on_collider_exit_method = nullptr;
 
-	inline static char s_field_value_buffer[16];
+	inline static raw_buffer s_field_value_buffer;
 
 	friend class script_engine;
 };

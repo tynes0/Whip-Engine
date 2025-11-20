@@ -40,7 +40,7 @@ _WHIP_START
 
 #define ADD_INTERNAL_CALL(name, func) mono_add_internal_call(WHP_CONCATENATE("Whip.InternalCalls::", WHP_STRINGIZE(name)), func)
 
-static constexpr const char* runtime_timers_group_name = "--###RUNTIME-TIMER-TRACKER###--";
+static constexpr const char* runtime_timers_group_id = "0177f1a8-04e5-4340-a771-52fc1aac9440";
 static std::unordered_map<MonoType*, std::function<bool(entity)>> s_entity_has_component_funcs;
 static logger s_logger;
 
@@ -191,7 +191,7 @@ namespace utils
 		timer_id id = 0;
 		bool result = timer_manager::get().wait_for(tag, ms, 0, &id);
 		if (id != 0)
-			timer_manager::get().get_group_map().get(runtime_timers_group_name).add(id);
+			timer_manager::get().get_group_map().get(runtime_timers_group_id).add(id);
 		return result;
 	}
 
@@ -222,7 +222,7 @@ namespace utils
 				void* args[] = { u_data };
 				script_class::invoke_method(func, method, args);
 			}, delay_ms, static_cast<void*>(user_data));
-		timer_manager::get().get_group_map().get(runtime_timers_group_name).add(id);
+		timer_manager::get().get_group_map().get(runtime_timers_group_id).add(id);
 		return id;
 	}
 
@@ -253,39 +253,39 @@ namespace utils
 				void* args[] = { u_data };
 				script_class::invoke_method(func, method, args);
 			}, interval_ms, static_cast<void*>(user_data));
-		timer_manager::get().get_group_map().get(runtime_timers_group_name).add(id);
+		timer_manager::get().get_group_map().get(runtime_timers_group_id).add(id);
 		return id;
 	}
 
 	static void timer_pause_timer(uint64_t timer_id)
 	{
-		if(timer_manager::get().get_group_map().get(runtime_timers_group_name).exists(timer_id))
+		if(timer_manager::get().get_group_map().get(runtime_timers_group_id).exists(timer_id))
 			timer_manager::get().pause_timer(timer_id);
 	}
 
 	static void timer_resume_timer(uint64_t timer_id)
 	{
-		if (timer_manager::get().get_group_map().get(runtime_timers_group_name).exists(timer_id))
+		if (timer_manager::get().get_group_map().get(runtime_timers_group_id).exists(timer_id))
 			timer_manager::get().resume_timer(timer_id);
 	}
 
 	static void timer_stop_timer(uint64_t timer_id)
 	{
-		if (timer_manager::get().get_group_map().get(runtime_timers_group_name).exists(timer_id))
+		if (timer_manager::get().get_group_map().get(runtime_timers_group_id).exists(timer_id))
 		{
-			timer_manager::get().get_group_map().get(runtime_timers_group_name).remove(timer_id);
+			timer_manager::get().get_group_map().get(runtime_timers_group_id).remove(timer_id);
 			timer_manager::get().stop_timer(timer_id);
 		}
 	}
 
 	static void timer_clear()
 	{
-		timer_manager::get().get_group_map().get(runtime_timers_group_name).clear();
+		timer_manager::get().get_group_map().get(runtime_timers_group_id).clear();
 	}
 
 	static bool timer_exists(uint64_t id)
 	{
-		return timer_manager::get().get_group_map().get(runtime_timers_group_name).exists(id);
+		return timer_manager::get().get_group_map().get(runtime_timers_group_id).exists(id);
 	}
 
 	static uint64_t asset_manager_import_asset(MonoString* path)
@@ -1670,7 +1670,7 @@ void script_glue::on_runtime_start()
 
 void script_glue::on_runtime_stop()
 {
-	timer_manager::get().get_group_map().get(runtime_timers_group_name).clear();
+	timer_manager::get().get_group_map().get(runtime_timers_group_id).clear();
 	timer_manager::get().get_group_map(application_mode::runtime).clear();
 }
 

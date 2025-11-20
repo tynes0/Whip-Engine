@@ -88,21 +88,21 @@ font::font(const std::filesystem::path& filepath, asset_handle handle) : asset(h
 	int glyphs_loaded = m_data->font_geometry.loadCharset(font, font_scale, charset);
 	WHP_CORE_INFO("[Font Engine] Loaded {} glyphs from font (out of {})", glyphs_loaded, charset.size());
 
-
-	double em_size = 40.0;
+	msdfgen::FontMetrics font_metrics;
+	msdfgen::getFontMetrics(font_metrics, font);
 
 	msdf_atlas::TightAtlasPacker atlas_packer;
 
 	atlas_packer.setPixelRange(2.0);
 	atlas_packer.setMiterLimit(1.0);
 	atlas_packer.setPadding(0);
-	atlas_packer.setScale(em_size);
+	atlas_packer.setScale(font_metrics.emSize);
 	int remaining = atlas_packer.pack(m_data->glyphs.data(), (int)m_data->glyphs.size());
 	WHP_CORE_ASSERT(remaining == 0);
 
 	int width, height;
 	atlas_packer.getDimensions(width, height);
-	em_size = atlas_packer.getScale();
+	double em_size = atlas_packer.getScale();
 
 	uint64_t coloring_seed = 0;
 

@@ -9,7 +9,6 @@
 
 namespace YAML
 {
-
 	template<>
 	struct convert<whip::asset_handle>
 	{

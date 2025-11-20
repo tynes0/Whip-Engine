@@ -3,6 +3,7 @@ project "Whip"
 	staticruntime "off"
 	language "C++"
 	cppdialect "C++latest"
+	toolset "msc"
 
 	targetdir ("%{wks.location}/bin/" ..outputdir.. "/%{prj.name}")
 	objdir ("%{wks.location}/bin-int/" ..outputdir.. "/%{prj.name}")

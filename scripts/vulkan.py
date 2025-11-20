@@ -36,7 +36,7 @@ def check_vulkanSDK():
         return False
     elif (WHIP_VULKAN_VERSION not in VULKAN_SDK):
         print(f"Located Vulkan SDK at {VULKAN_SDK}")
-        print(f"You don't have the correct Vulkan SDK version! (Hazel requires {WHIP_VULKAN_VERSION})")
+        print(f"You don't have the correct Vulkan SDK version! (Whip requires {WHIP_VULKAN_VERSION})")
         install_vulkan_prompt()
         return False
 
@@ -44,7 +44,7 @@ def check_vulkanSDK():
     return True
 
 VulkanSDKDebugLibsURL = 'https://files.lunarg.com/SDK-1.2.170.0/VulkanSDK-1.2.170.0-DebugLibs.zip'
-OutputDirectory = "Hazel/vendor/VulkanSDK"
+OutputDirectory = "Whip/vendor/VulkanSDK"
 TempZipFile = f"{OutputDirectory}/VulkanSDK.zip"
 
 def check_vulkanSDK_debug_libs():

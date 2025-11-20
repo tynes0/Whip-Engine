@@ -11,6 +11,7 @@ namespace key
 	enum : key_code
 	{
 		// From glfw3.h
+		
 		space = 32,
 		apostrophe = 39, /* ' */
 		comma = 44, /* , */

@@ -227,6 +227,8 @@ void renderer2D::init()
 	s_data.quad_vertex_positions[3] = { -0.5f,  0.5f, 0.0f, 1.0f };
 
 	s_data.camera_uniform_buffer = uniform_buffer::create(sizeof(renderer2D_data::camera_data), 0);
+
+	set_line_width(2);
 }
 
 void renderer2D::shutdown()
@@ -275,8 +277,8 @@ void renderer2D::flush()
 {
 	if (s_data.quad_index_count)
 	{
-		uint32_t dataSize = (uint32_t)((uint8_t*)s_data.quad_vertex_buffer_ptr - (uint8_t*)s_data.quad_vertex_buffer_base);
-		s_data.quad_vertex_buffer->set_data(s_data.quad_vertex_buffer_base, dataSize);
+		uint32_t data_size = (uint32_t)((uint8_t*)s_data.quad_vertex_buffer_ptr - (uint8_t*)s_data.quad_vertex_buffer_base);
+		s_data.quad_vertex_buffer->set_data(s_data.quad_vertex_buffer_base, data_size);
 		// Bind textures
 		for (uint32_t i = 0; i < s_data.texture_slot_index; i++)
 			s_data.texture_slots[i]->bind(i);
@@ -288,8 +290,8 @@ void renderer2D::flush()
 
 	if (s_data.circle_index_count)
 	{
-		uint32_t dataSize = (uint32_t)((uint8_t*)s_data.circle_vertex_buffer_ptr - (uint8_t*)s_data.circle_vertex_buffer_base);
-		s_data.circle_vertex_buffer->set_data(s_data.circle_vertex_buffer_base, dataSize);
+		uint32_t data_size = (uint32_t)((uint8_t*)s_data.circle_vertex_buffer_ptr - (uint8_t*)s_data.circle_vertex_buffer_base);
+		s_data.circle_vertex_buffer->set_data(s_data.circle_vertex_buffer_base, data_size);
 
 		s_data.circle_shader->bind();
 		render_command::draw_indexed(s_data.circle_vertex_arr, s_data.circle_index_count);
@@ -298,8 +300,8 @@ void renderer2D::flush()
 
 	if (s_data.line_vertex_count)
 	{
-		uint32_t dataSize = (uint32_t)((uint8_t*)s_data.line_vertex_buffer_ptr - (uint8_t*)s_data.line_vertex_buffer_base);
-		s_data.line_vertex_buffer->set_data(s_data.line_vertex_buffer_base, dataSize);
+		uint32_t data_size = (uint32_t)((uint8_t*)s_data.line_vertex_buffer_ptr - (uint8_t*)s_data.line_vertex_buffer_base);
+		s_data.line_vertex_buffer->set_data(s_data.line_vertex_buffer_base, data_size);
 
 		s_data.line_shader->bind();
 		render_command::draw_lines(s_data.line_vertex_arr, s_data.line_vertex_count);
@@ -308,8 +310,8 @@ void renderer2D::flush()
 
 	if (s_data.text_index_count)
 	{
-		uint32_t dataSize = (uint32_t)((uint8_t*)s_data.text_vertex_buffer_ptr - (uint8_t*)s_data.text_vertex_buffer_base);
-		s_data.text_vertex_buffer->set_data(s_data.text_vertex_buffer_base, dataSize);
+		uint32_t data_size = (uint32_t)((uint8_t*)s_data.text_vertex_buffer_ptr - (uint8_t*)s_data.text_vertex_buffer_base);
+		s_data.text_vertex_buffer->set_data(s_data.text_vertex_buffer_base, data_size);
 
 		auto buf = s_data.text_vertex_buffer_base;
 		s_data.font_atlas_texture->bind(0);
@@ -641,7 +643,6 @@ void renderer2D::draw_string(const std::string& string, ref<font> fnt, const glm
 		texture_coord_min *= glm::vec2(texel_width, texel_height);
 		texture_coord_max *= glm::vec2(texel_width, texel_height);
 
-		// render here
 		s_data.text_vertex_buffer_ptr->position = transform * glm::vec4(quad_min, 0.0f, 1.0f);
 		s_data.text_vertex_buffer_ptr->color = params.color;
 		s_data.text_vertex_buffer_ptr->texture_coord = texture_coord_min;

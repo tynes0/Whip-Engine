@@ -136,7 +136,7 @@ namespace utils
 	}
 }
 
-void consol_panel::initialize()
+void console_panel::initialize()
 {
 	if (editor_log::should_log())
 	{
@@ -154,7 +154,7 @@ void consol_panel::initialize()
 	}
 }
 
-void consol_panel::shutdown()
+void console_panel::shutdown()
 {
 	g_data.running.store(false);
 	g_data.stream.close();
@@ -168,7 +168,7 @@ void consol_panel::shutdown()
 		std::filesystem::resize_file(editor_log::get_log_filepath(), 0);
 }
 
-void consol_panel::render_imgui_console() 
+void console_panel::on_imgui_render() 
 {
 	std::lock_guard lock(g_data.mtx);
 

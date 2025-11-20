@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/Newtonsoft.Json" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/api-doc-tools" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/api-snapshot" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/aspnetwebstack" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/bdwgc" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/binary-reference-assemblies" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/bockbuild" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/boringssl" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/cecil" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/cecil-legacy" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/corefx" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/corert" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/ikdasm" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/ikvm" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/illinker-test-assets" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/linker" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/nuget-buildtasks" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/nunit-lite" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/libs/mono/external/xunit-binaries" vcs="Git" />
+  </component>
+</project>

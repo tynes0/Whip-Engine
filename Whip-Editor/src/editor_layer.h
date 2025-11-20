@@ -15,16 +15,16 @@
 // TODOLIST
 // - entity asset
 // - Spawn and destroy entity -> cs
-// - add and destroy component (runtime) -> actually i dont think this is necessary
+// - add and destroy component (runtime) -> actually I don't think this is necessary
 // - field arrays.
-// - scene hierararch -> update properties panel -> all of them will be table
+// - scene hierarchy -> update properties panel -> all of them will be table
 // - scene settings
 // - serialize runtime
 // - add new project popup
 // - all the project settings
 // - fix font asset
 // - fix content_browser_panel asset tree
-// - symetric content_browser_panel settings
+// - symmetric content_browser_panel settings
 // - fix animation editor drag drop size
 // - there is an issue with scene_hierarchy_panel::draw_component (i guess...)
 // - texture manager -> g_icons with this
@@ -77,7 +77,7 @@ private:
 
 	void UI_toolbar();
 private:
-	enum class scane_state
+	enum class scene_state
 	{
 		edit = 0,
 		play = 1,
@@ -117,12 +117,11 @@ private:
 	int m_gizmo_type = 0;
 
 	// states
-	scane_state m_scane_state = scane_state::edit;
+	scene_state m_scene_state = scene_state::edit;
 
 	// panels
 	scene_hierarchy_panel m_scene_hierarchy_panel;
 	animation_editor_panel m_animation_editor_panel;
-	consol_panel m_console;
 	scope<content_browser_panel> m_content_browser_panel;
 
 	ref<audio_source> m_audio_src;

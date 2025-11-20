@@ -4,7 +4,6 @@
 #include <Whip/Scene/scene.h>
 #include <Whip/Scene/entity.h>
 #include <Whip/Core/memory.h>
-#include <Whip/Events/KeyEvent.h>
 
 
 _WHIP_START

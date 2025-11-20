@@ -31,9 +31,9 @@
 #include <Whip/Core/buffer.h>
 #include <Whip/Debug/Instrumentor.h>
 
-#ifdef WHP_PLATFORM_WINDOWS
-	#include <Windows.h>
-#endif // WHP_PLATFORM_WINDOWS
+//#ifdef WHP_PLATFORM_WINDOWS
+//	#include <Windows.h>
+//#endif // WHP_PLATFORM_WINDOWS
 
 
 #endif // !_WHIPPCH_

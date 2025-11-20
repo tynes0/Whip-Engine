@@ -62,7 +62,7 @@ class event_dispatcher
 {
 	template <class T>
 	using event_fn = std::function<bool(T&)>;
-private:
+	
 	event& m_event;
 public:
 	event_dispatcher(event& evnt) : m_event(evnt) {}

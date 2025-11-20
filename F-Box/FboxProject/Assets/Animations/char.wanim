@@ -1,0 +1,13 @@
+name: CharacterMove
+loop: false
+frames:
+  - handle: 807861937663179368
+    duration: 0
+  - handle: 16537052886676986397
+    duration: 0.200453907
+  - handle: 7358304365887755857
+    duration: 0.400138527
+  - handle: 457595418565771432
+    duration: 0.600344241
+  - handle: 1381901797618045202
+    duration: 0.800085902

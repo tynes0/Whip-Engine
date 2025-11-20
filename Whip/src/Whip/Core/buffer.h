@@ -8,18 +8,18 @@
 
 _WHIP_START
 	// Non-owning raw buffer class
-	struct raw_buffer
+struct raw_buffer
 {
 	uint8_t* data = nullptr;
 	uint64_t size = 0;
 
 	raw_buffer() = default;
 	raw_buffer(uint64_t size_in) { allocate(size_in); }
-	raw_buffer(const void* data_in, uint64_t size_in) : data((uint8_t*)data_in), size(size_in) {}
+	raw_buffer(const void* data_in, uint64_t size_in) : data(const_cast<uint8_t*>(static_cast<const uint8_t*>(data_in))), size(size_in) {}
 	raw_buffer(const raw_buffer&) = default;
 	raw_buffer& operator=(const raw_buffer&) = default;
-	raw_buffer(nullptr_t) {};
-	raw_buffer& operator=(nullptr_t) { release(); };
+	raw_buffer(nullptr_t) {}
+	raw_buffer& operator=(nullptr_t) { release(); return *this; }
 
 	static raw_buffer copy(raw_buffer other)
 	{
@@ -41,9 +41,12 @@ _WHIP_START
 
 	void release()
 	{
-		delete[] data;
-		data = nullptr;
-		size = 0;
+		if (data)
+		{
+			delete[] data;
+			data = nullptr;
+			size = 0;
+		}
 	}
 
 	uint8_t* unbound()
@@ -72,6 +75,8 @@ _WHIP_START
 	bool can_cast_to() const { return sizeof(T) <= size; }
 	template<typename T>
 	T* as() { return (T*)data; }
+	template<typename T>
+	const T* as() const { return (T*)data; }
 	const uint8_t* begin() const { return data; }
 	const uint8_t* end() const { return data + size; }
 	operator bool() const { return (bool)data; }

@@ -69,10 +69,13 @@ void opengl_render_API::draw_lines(const ref<vertex_array>& vertexArray, uint32_
 
 void opengl_render_API::set_line_width(float width)
 {
-	if (width < 0.1f)
-		width = 0.1f;
-	else if (width > 1.0f)
-		width = 1.0f;
+	float range[2];
+	glGetFloatv(GL_LINE_WIDTH_RANGE, range);
+
+	if (width < range[0])
+		width = range[0];
+	else if (width > range[1])
+		width = range[1];
 
 	glLineWidth(width);
 }

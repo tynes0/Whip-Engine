@@ -105,11 +105,11 @@ namespace detail
 		if (s_data.debug_log)
 		{
 			WHP_CORE_DEBUG("[Audio Engine] Audio Device Info:");
-			WHP_CORE_DEBUG("[Audio Engine] 	Name: {}", s_data.audio_device->DeviceName);
-			WHP_CORE_DEBUG("[Audio Engine] 	Sample Rate: {}", s_data.audio_device->Frequency);
-			WHP_CORE_DEBUG("[Audio Engine] 	Max Sources: {}", s_data.audio_device->SourcesMax);
-			WHP_CORE_DEBUG("[Audio Engine] 	Mono: {}", s_data.audio_device->NumMonoSources);
-			WHP_CORE_DEBUG("[Audio Engine] 	Stereo: {}", s_data.audio_device->NumStereoSources);
+			WHP_CORE_DEBUG("[Audio Engine] Name: {}", s_data.audio_device->DeviceName);
+			WHP_CORE_DEBUG("[Audio Engine] Sample Rate: {}", s_data.audio_device->Frequency);
+			WHP_CORE_DEBUG("[Audio Engine] Max Sources: {}", s_data.audio_device->SourcesMax);
+			WHP_CORE_DEBUG("[Audio Engine] Mono: {}", s_data.audio_device->NumMonoSources);
+			WHP_CORE_DEBUG("[Audio Engine] Stereo: {}", s_data.audio_device->NumStereoSources);
 		}
 	}
 

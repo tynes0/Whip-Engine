@@ -47,6 +47,9 @@ static std::unordered_map<std::string, script_field_type> s_script_field_type =
 	{ "Whip.Logger", script_field_type::Logger }
 };
 
+static constexpr size_t max_type_size = 16; // Whip.Vector4
+static constexpr size_t initial_buffer_size = 1024; // 1kb 
+
 namespace utils
 {
 	static MonoAssembly* load_mono_assembly(const std::filesystem::path& assembly_path, bool loadPDB = false)
@@ -101,18 +104,94 @@ namespace utils
 		}
 	}
 
-	static script_field_type mono_type_to_script_field_type(MonoType* monoType)
+	static std::pair<script_field_type, bool> mono_type_to_script_field_type(MonoType* monoType)
 	{
-		std::string typeName = mono_type_get_name(monoType);
+		std::string type_name = mono_type_get_name(monoType);
 
-		auto it = s_script_field_type.find(typeName);
+		bool is_array = false;
+		if (type_name.size() > 2 && type_name.back() == ']')
+		{
+			is_array = true;
+			std::string_view view(type_name); 
+			view.remove_suffix(2);
+			type_name = view;
+		}
+
+		auto it = s_script_field_type.find(type_name);
 		if (it == s_script_field_type.end())
 		{
-			WHP_CORE_ERROR("[Script Engine] Unknown type: {0}", typeName);
-			return script_field_type::None;
+			WHP_CORE_ERROR("[Script Engine] Unknown type: {0}", type_name);
+			return { script_field_type::None, false };
 		}
-		return it->second;
+		return { it->second, is_array };
 	}
+
+	static int align_of_type(script_field_type type)
+	{
+		switch (type)
+		{
+		case whip::script_field_type::None:    return 0;
+
+		case whip::script_field_type::String:  return alignof(void*);   // referans tip -> pointer
+		case whip::script_field_type::Entity:  return alignof(void*);   // referans tip
+		case whip::script_field_type::Logger:  return alignof(void*);   // referans tip
+
+		case whip::script_field_type::Float:   return alignof(float);
+		case whip::script_field_type::Double:  return alignof(double);
+		case whip::script_field_type::Bool:    return alignof(bool);
+		case whip::script_field_type::Char:    return alignof(char);
+		case whip::script_field_type::SByte:   return alignof(int8_t);
+		case whip::script_field_type::Short:   return alignof(int16_t);
+		case whip::script_field_type::Int:     return alignof(int32_t);
+		case whip::script_field_type::Long:    return alignof(int64_t);
+		case whip::script_field_type::Byte:    return alignof(uint8_t);
+		case whip::script_field_type::UShort:  return alignof(uint16_t);
+		case whip::script_field_type::UInt:    return alignof(uint32_t);
+		case whip::script_field_type::ULong:   return alignof(uint64_t);
+
+		case whip::script_field_type::KeyCode:   return alignof(key_code);
+		case whip::script_field_type::MouseCode: return alignof(mouse_code);
+
+		case whip::script_field_type::Vector2: return alignof(glm::vec2);
+		case whip::script_field_type::Vector3: return alignof(glm::vec3);
+		case whip::script_field_type::Vector4: return alignof(glm::vec4);
+
+		default:
+			return 0;
+		}
+	}
+
+	static MonoType* get_mono_type_element_type(MonoType* type)
+	{
+		if (!type)
+			return nullptr;
+
+		switch (mono_type_get_type(type))
+		{
+		case MONO_TYPE_SZARRAY: // float[]
+		{
+			MonoClass* arrayClass = mono_type_get_class(type);
+			if (!arrayClass)
+				return nullptr;
+
+			MonoClass* elemClass = mono_class_get_element_class(arrayClass);
+			return elemClass ? mono_class_get_type(elemClass) : nullptr;
+		}
+
+		case MONO_TYPE_ARRAY: // float[,]
+		{
+			MonoArrayType* arrType = mono_type_get_array_type(type);
+			if (!arrType || !arrType->eklass)
+				return nullptr;
+
+			return mono_class_get_type(arrType->eklass);
+		}
+
+		default:
+			return type;
+		}
+	}
+
 }
 
 struct script_engine_data
@@ -258,7 +337,7 @@ void script_instance::invoke_on_collider_exit(std::string_view tag)
 	}
 }
 
-bool script_instance::get_field_value_internal(const std::string& name, void* buffer)
+bool script_instance::get_field_value_internal(const std::string& name)
 {
 	const auto& fields = m_script_class->get_fields();
 	auto it = fields.find(name);
@@ -266,19 +345,77 @@ bool script_instance::get_field_value_internal(const std::string& name, void* bu
 		return false;
 
 	const script_field& field = it->second;
-	mono_field_get_value(m_instance, field.class_field, buffer);
+
+	if (static_cast<size_t>(field.type_size) > s_field_value_buffer.size)
+		s_field_value_buffer.allocate(field.type_size);
+	
+	mono_field_get_value(m_instance, field.class_field, s_field_value_buffer.data);
 	return true;
+
+
+	
+	return false;
 }
 
 bool script_instance::set_field_value_internal(const std::string& name, const void* value)
 {
 	const auto& fields = m_script_class->get_fields();
+	const auto it = fields.find(name);
+	if (it == fields.end())
+		return false;
+
+	const script_field& field = it->second;
+	mono_field_set_value(m_instance, field.class_field, const_cast<void*>(value));
+	return true;
+}
+
+bool script_instance::get_field_array_value_internal(const std::string& name, size_t* size)
+{
+	const auto& fields = m_script_class->get_fields();
 	auto it = fields.find(name);
 	if (it == fields.end())
 		return false;
 
 	const script_field& field = it->second;
-	mono_field_set_value(m_instance, field.class_field, (void*)value);
+	if (!field.is_array)
+		return false;
+
+	MonoArray* array;
+	mono_field_get_value(m_instance, field.class_field, &array);
+	if (!array)
+		return false;
+		
+	uintptr_t length = mono_array_length(array);
+	if (size != nullptr)
+		*size = length;
+		
+	size_t req_bufsiz = length * field.type_size;
+	if (req_bufsiz > s_field_value_buffer.size)
+		s_field_value_buffer.allocate(req_bufsiz);
+		
+	char* array_data = mono_array_addr_with_size(array, field.type_size, 0);
+	std::memcpy(s_field_value_buffer.data, array_data, req_bufsiz);
+	return true;
+}
+
+bool script_instance::set_field_array_index_value_internal(const std::string& name, size_t index, const void* value)
+{
+	const auto& fields = m_script_class->get_fields();
+	auto it = fields.find(name);
+	if (it == fields.end())
+		return false;
+
+	const script_field& field = it->second;
+	if (!field.is_array)
+		return false;
+
+	MonoArray* array;
+	mono_field_get_value(m_instance, field.class_field, &array);
+	if (!array)
+		return false;
+
+	char* addr = mono_array_addr_with_size(array, field.type_size, static_cast<uintptr_t>(index));
+	std::memcpy(addr, value, field.type_size);
 	return true;
 }
 
@@ -346,8 +483,31 @@ void assembly_manager::load_base_script_fields()
 	for (auto& [class_name, entity_class] : s_script_engine_data->entity_classes)
 	{
 		auto& entity_fields = s_script_engine_data->base_entity_script_fields;
+		MonoObject* instance = entity_class->instantiate();
 		for (auto& [field_name, field] : entity_class->get_fields())
-			mono_field_get_value(entity_class->instantiate(), field.class_field, entity_fields[class_name][field_name].m_buffer.as<void>());
+		{
+			if (field.is_array)
+			{
+				MonoArray* array;
+				mono_field_get_value(instance, field.class_field, &array);
+				if (!array)
+				{
+					WHP_CORE_WARN("{0}.{1} is null", class_name, field_name);
+					continue;
+				}
+				uintptr_t length = mono_array_length(array);
+				raw_buffer& buf = entity_fields[class_name][field_name].m_buffer;
+				buf.allocate(length * field.type_size);
+				char* array_data = mono_array_addr_with_size(array, field.type_size, 0);
+				std::memcpy(buf.data, array_data, buf.size);
+			}
+			else
+			{
+				raw_buffer& buf = entity_fields[class_name][field_name].m_buffer;
+				buf.allocate(max_type_size);
+				mono_field_get_value(instance, field.class_field, buf.as<void>());
+			}
+		}
 	}
 }
 
@@ -393,13 +553,24 @@ void assembly_manager::load_assembly_classes()
 		void* iterator = nullptr;
 		while (MonoClassField* field = mono_class_get_fields(mono_class, &iterator))
 		{
-			const char* fieldName = mono_field_get_name(field);
+			const char* field_name = mono_field_get_name(field);
 			uint32_t flags = mono_field_get_flags(field);
 			if (flags & FIELD_ATTRIBUTE_PUBLIC)
 			{
 				MonoType* type = mono_field_get_type(field);
-				script_field_type fieldType = utils::mono_type_to_script_field_type(type);
-				scriptClass->m_fields[fieldName] = { fieldType, fieldName, field };
+				auto [field_type, is_array] = utils::mono_type_to_script_field_type(type);
+				int alignment = utils::align_of_type(field_type);
+				int type_size = 0;
+				if (is_array)
+				{
+					MonoType* element_type = utils::get_mono_type_element_type(type);
+					type_size = mono_type_size(element_type, &alignment);
+				}
+				else
+				{
+					type_size = mono_type_size(type, &alignment);
+				}
+				scriptClass->m_fields[field_name] = { field_type, type_size, field_name, field, is_array};
 			}
 		}
 	}
@@ -410,6 +581,8 @@ void script_engine::init()
 {
 	s_script_engine_data = new script_engine_data();
 
+	script_instance::s_field_value_buffer.allocate(initial_buffer_size);
+	
 	init_mono();
 	script_glue::register_functions();
 
@@ -434,6 +607,8 @@ void script_engine::init()
 
 void script_engine::shutdown()
 {
+	script_instance::s_field_value_buffer.release();
+	
 	if (s_script_engine_data)
 	{
 		shutdown_mono();

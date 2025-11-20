@@ -37,10 +37,10 @@ application::~application()
 {
 	WHP_PROFILE_FUNCTION();
 
-	script_engine::shutdown();
-
 	for (layerptr item : m_layer_stack)
 		item->on_detach();
+
+	script_engine::shutdown();
 }
 
 void application::run()

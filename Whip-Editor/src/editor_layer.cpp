@@ -33,8 +33,7 @@ void editor_layer::on_attach()
     WHP_PROFILE_FUNCTION();
 
 	m_animation_editor_panel.set_refresh_asset_tree_callback([this]() {if (m_content_browser_panel) { m_content_browser_panel->refresh_asset_tree(); } });
-
-
+	
 	// framebuffer
     framebuffer_specification fb_spec{};
     fb_spec.attachments = { framebuffer_texture_format::RGBA8, framebuffer_texture_format::RED_INTEGER, framebuffer_texture_format::depth };
@@ -60,7 +59,7 @@ void editor_layer::on_attach()
 	}
 	// camera
     m_editor_camera = editor_camera(30.0f, 1.778f, 0.1f, 1000.0f);
-	m_console.initialize();
+	console_panel::initialize();
 	static float v1 = 0, v2 = 0;
 	m_popup_handler
 		.set_popup_name("Popup Testing")
@@ -72,12 +71,19 @@ void editor_layer::on_attach()
 		.add([]() { static int iv = 0; ImGui::SliderInt("##Int value", &iv, 0, 1000000); })
 		.add_dual_handle_slider(0, 100, &v1, &v2)
 		.add_button([this]() { m_popup_handler.set_show_state(false); }, "Close", 100);
+
 }
 
 void editor_layer::on_detach()
 {
 	WHP_PROFILE_FUNCTION();
-	m_console.shutdown();
+	console_panel::shutdown();
+	
+	if (m_scene_state == scene_state::play)
+		m_active_scene->on_runtime_stop();
+	else if (m_scene_state == scene_state::simulate)
+		m_active_scene->on_simulation_stop();
+	
 }
 
 void editor_layer::on_update(timestep ts)
@@ -105,20 +111,20 @@ void editor_layer::on_update(timestep ts)
 
 		m_framebuffer->clear_attachment(1, -1);
 
-		switch (m_scane_state)
+		switch (m_scene_state)
 		{
-		case scane_state::edit:
+		case scene_state::edit:
 		{
 			m_editor_camera.on_update(ts);
 			m_active_scene->on_update_editor(ts, m_editor_camera);
 			break;
 		}
-		case scane_state::play:
+		case scene_state::play:
 		{
 			m_active_scene->on_update_runtime(ts);
 			break;
 		}
-		case scane_state::simulate:
+		case scene_state::simulate:
 		{
 			m_editor_camera.on_update(ts);
 			m_active_scene->on_update_simulation(ts, m_editor_camera);
@@ -264,7 +270,7 @@ void editor_layer::on_imgui_render()
 
 		// gizmos
 		entity selected_entity = m_scene_hierarchy_panel.get_selected_entity();
-		if (selected_entity && m_gizmo_type != -1 && m_scane_state != scane_state::play)
+		if (selected_entity && m_gizmo_type != -1 && m_scene_state != scene_state::play)
 		{
 		    ImGuizmo::SetDrawlist();
 		    ImGuizmo::SetRect(m_viewport_bounds[0].x, m_viewport_bounds[0].y, m_viewport_bounds[1].x - m_viewport_bounds[0].x, m_viewport_bounds[1].y - m_viewport_bounds[0].y);
@@ -313,7 +319,7 @@ void editor_layer::on_imgui_render()
 	m_UI_settings.on_imgui_render();
     m_scene_hierarchy_panel.on_imgui_render();
     m_animation_editor_panel.on_imgui_render();
-	m_console.render_imgui_console();
+	console_panel::on_imgui_render();
 	m_content_browser_panel->on_imgui_render();
 	m_popup_handler.on_imgui_render();
 	
@@ -322,7 +328,7 @@ _WHP_PRAGMA_WARNING(pop)
 
 void editor_layer::on_event(event& evnt)
 {
-	if(m_scane_state == scane_state::edit)
+	if(m_scene_state == scene_state::edit)
 		m_editor_camera.on_event(evnt);
     event_dispatcher dispatcher(evnt);
     dispatcher.dispatch<key_pressed_event>([this](auto&&... args) -> decltype(auto) { return this->on_key_pressed(std::forward<decltype(args)>(args)...); });
@@ -371,11 +377,11 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
         break;
     }
 	case key::P:
-		if (control && m_scane_state != scane_state::simulate)
-			m_scane_state = scane_state::play;
+		if (control && m_scene_state != scene_state::simulate)
+			m_scene_state = scene_state::play;
         break;
 	case key::escape:
-		if(m_scane_state == scane_state::play || m_scane_state == scane_state::simulate)
+		if(m_scene_state == scene_state::play || m_scene_state == scene_state::simulate)
 			on_scene_stop();
 		break;
 	case key::D:
@@ -421,6 +427,8 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
 		on_deleted_entity();
 		break;
 	}
+    default:
+		break;
     }
     return true;
 }
@@ -443,7 +451,7 @@ bool editor_layer::on_window_drop(window_drop_event& evnt)
 void editor_layer::on_overlay_render()
 {
 	WHP_PROFILE_FUNCTION();
-	if (m_scane_state == scane_state::play)
+	if (m_scene_state == scene_state::play)
 	{
 		entity cam = m_active_scene->get_primary_camera_entity();
 		if (!cam)
@@ -489,7 +497,7 @@ void editor_layer::on_overlay_render()
 				glm::mat4 transform = glm::translate(glm::mat4(1.0f), translation)
 					* glm::scale(glm::mat4(1.0f), scale);
 
-				renderer2D::draw_circle(transform, glm::vec4(0, 1, 0, 1), 0.01f);
+				renderer2D::draw_circle(transform, glm::vec4(0, 1, 0, 1), 0.02f);
 			}
 		}
 	}
@@ -499,6 +507,7 @@ void editor_layer::on_overlay_render()
 		transform_component transform = selected_entity.get_component<transform_component>();
 		if (selected_entity.has_component<text_component>() && !selected_entity.has_component<sprite_renderer_component>() && !selected_entity.has_component<circle_renderer_component>())
 		{
+			selected_entity.get_component<text_component>();
 		}
 		else 
 			renderer2D::draw_rect(transform.get_transform(), glm::vec4(0.9f, 0.4f, 0.1f, 1.0f));
@@ -557,7 +566,7 @@ void editor_layer::new_scene()
 
 void editor_layer::open_scene(asset_handle handle)
 {
-	if (m_scane_state != scane_state::edit)
+	if (m_scene_state != scene_state::edit)
 		on_scene_stop();
 	
 	ref<scene> read_only_scene = asset_manager::get_asset<scene>(handle);
@@ -572,7 +581,7 @@ void editor_layer::open_scene(asset_handle handle)
 
 void editor_layer::close_scene()
 {
-	if (m_scane_state != scane_state::edit)
+	if (m_scene_state != scene_state::edit)
 		on_scene_stop();
 	ref<scene> new_scene = make_ref<scene>();
 	m_editor_scene = new_scene;
@@ -601,7 +610,7 @@ void editor_layer::save_scene_as()
 
 void editor_layer::reload_assembly(bool reset_app_assembly_filepath) const
 {
-	if (m_scane_state == scane_state::edit)
+	if (m_scene_state == scene_state::edit)
 		assembly_manager::reload_assembly(reset_app_assembly_filepath);
 	else
 		WHP_CORE_WARN("[Script Engine] Failed to reload assembly. Scene is running or simulating!");
@@ -614,10 +623,10 @@ void editor_layer::serialize_scene(ref<scene> scene_in, const std::filesystem::p
 
 void editor_layer::on_scene_play()
 {
-	if (m_scane_state == scane_state::simulate)
+	if (m_scene_state == scene_state::simulate)
 		on_scene_stop();
 	project::run_state(true);
-	m_scane_state = scane_state::play;
+	m_scene_state = scene_state::play;
 	script_engine::set_filewatcher_state(false);
 	m_active_scene = scene::copy(m_editor_scene);
 	m_active_scene->on_runtime_start();
@@ -627,11 +636,11 @@ void editor_layer::on_scene_play()
 
 void editor_layer::on_scene_simulate()
 {
-	if (m_scane_state == scane_state::play)
+	if (m_scene_state == scene_state::play)
 		on_scene_stop();
 
 	project::run_state(true);
-	m_scane_state = scane_state::simulate;
+	m_scene_state = scene_state::simulate;
 	script_engine::set_filewatcher_state(false);
 	m_active_scene = scene::copy(m_editor_scene);
 	m_active_scene->on_simulation_start();
@@ -646,13 +655,13 @@ void editor_layer::on_scene_simulate()
 
 void editor_layer::on_scene_stop()
 {
-	WHP_CORE_ASSERT(m_scane_state == scane_state::play || m_scane_state == scane_state::simulate, "invalid scane_state!");
+	WHP_CORE_ASSERT(m_scene_state == scene_state::play || m_scene_state == scene_state::simulate, "invalid scene_state!");
 	project::run_state(false);
-	if (m_scane_state == scane_state::play)
+	if (m_scene_state == scene_state::play)
 		m_active_scene->on_runtime_stop();
-	else if (m_scane_state == scane_state::simulate)
+	else if (m_scene_state == scene_state::simulate)
 		m_active_scene->on_simulation_stop();
-	m_scane_state = scane_state::edit;
+	m_scene_state = scene_state::edit;
 	script_engine::set_filewatcher_state(true);
 	m_active_scene = m_editor_scene;
 	m_scene_hierarchy_panel.set_context(m_active_scene);
@@ -666,7 +675,7 @@ void editor_layer::on_scene_pause()
 
 void editor_layer::on_duplicated_entity()
 {
-	if (m_scane_state != scane_state::edit)
+	if (m_scene_state != scene_state::edit)
 		return;
 
 	entity selected_entity = m_scene_hierarchy_panel.get_selected_entity();
@@ -709,19 +718,19 @@ void editor_layer::UI_toolbar()
 	float size = ImGui::GetWindowHeight() - 4.0f;
 	ImGui::SetCursorPosX((ImGui::GetWindowContentRegionMax().x * 0.5f) - (size * 0.5f));
 
-	bool has_play_button = m_scane_state == scane_state::edit|| m_scane_state == scane_state::play;
-	bool has_simulate_button = m_scane_state == scane_state::edit || m_scane_state == scane_state::simulate;
-	bool has_pause_button = m_scane_state != scane_state::edit;
+	bool has_play_button = m_scene_state == scene_state::edit|| m_scene_state == scene_state::play;
+	bool has_simulate_button = m_scene_state == scene_state::edit || m_scene_state == scene_state::simulate;
+	bool has_pause_button = m_scene_state != scene_state::edit;
 
 	if(has_play_button)
 	{
-		ref<texture2D> icon = (m_scane_state == scane_state::edit || m_scane_state == scane_state::simulate) ? icon_manager::get().get_icon(icon::play) : icon_manager::get().get_icon(icon::play);
+		ref<texture2D> icon = (m_scene_state == scene_state::edit || m_scene_state == scene_state::simulate) ? icon_manager::get().get_icon(icon::play) : icon_manager::get().get_icon(icon::play);
 		ImGui::SetCursorPosX((ImGui::GetWindowContentRegionMax().x * 0.5f) - (size * 0.5f) - (size / 2));
 		if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 		{
-			if (m_scane_state == scane_state::edit || m_scane_state == scane_state::simulate)
+			if (m_scene_state == scene_state::edit || m_scene_state == scene_state::simulate)
 				on_scene_play();
-			else if (m_scane_state == scane_state::play)
+			else if (m_scene_state == scene_state::play)
 				on_scene_stop();
 		}
 	}
@@ -729,12 +738,12 @@ void editor_layer::UI_toolbar()
 	{
 		if(has_play_button)
 			ImGui::SameLine(0, 20);
-		ref<texture2D> icon = (m_scane_state == scane_state::edit || m_scane_state == scane_state::play) ? icon_manager::get().get_icon(icon::simulate) : icon_manager::get().get_icon(icon::stop);
+		ref<texture2D> icon = (m_scene_state == scene_state::edit || m_scene_state == scene_state::play) ? icon_manager::get().get_icon(icon::simulate) : icon_manager::get().get_icon(icon::stop);
 		if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 		{
-			if (m_scane_state == scane_state::edit || m_scane_state == scane_state::play)
+			if (m_scene_state == scene_state::edit || m_scene_state == scene_state::play)
 				on_scene_simulate();
-			else if (m_scane_state == scane_state::simulate)
+			else if (m_scene_state == scene_state::simulate)
 				on_scene_stop();
 		}
 	}

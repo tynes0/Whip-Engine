@@ -1,0 +1,12 @@
+C:\Dev\Whip Engine\Whip-Editor\Resources\Scripts\Intermediates\Debug\Whip-ScriptCore.csproj.AssemblyReference.cache
+C:\Dev\Whip Engine\Whip-Editor\Resources\Scripts\Intermediates\Debug\Whip-ScriptCore.csproj.CoreCompileInputs.cache
+C:\Dev\Whip Engine\Whip-Editor\Resources\Scripts\Intermediates\Debug\Whip-ScriptCore.dll
+C:\Dev\Whip Engine\Whip-Editor\Resources\Scripts\Intermediates\Debug\Whip-ScriptCore.pdb
+C:\Dev\Whip Engine\Whip-Editor\Resources\Scripts\Whip-ScriptCore.dll
+C:\Dev\Whip Engine\Whip-Editor\Resources\Scripts\Whip-ScriptCore.pdb
+C:\Dev\Whip-Engine\Whip-Editor\Resources\Scripts\Intermediates\Debug\Whip-ScriptCore.csproj.AssemblyReference.cache
+C:\Dev\Whip-Engine\Whip-Editor\Resources\Scripts\Intermediates\Debug\Whip-ScriptCore.csproj.CoreCompileInputs.cache
+C:\Dev\Whip-Engine\Whip-Editor\Resources\Scripts\Intermediates\Debug\Whip-ScriptCore.dll
+C:\Dev\Whip-Engine\Whip-Editor\Resources\Scripts\Intermediates\Debug\Whip-ScriptCore.pdb
+C:\Dev\Whip-Engine\Whip-Editor\Resources\Scripts\Whip-ScriptCore.dll
+C:\Dev\Whip-Engine\Whip-Editor\Resources\Scripts\Whip-ScriptCore.pdb

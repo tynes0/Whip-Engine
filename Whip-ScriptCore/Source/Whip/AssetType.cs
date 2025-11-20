@@ -5,7 +5,9 @@
 		None = 0,
 		Scene,
 		Texture2D,
-		Audio
+		Audio,
+		Font,
+		Animation
 	};
 
 }

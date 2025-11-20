@@ -6,12 +6,12 @@
 
 _WHIP_START
 
-class consol_panel 
+class console_panel 
 {
 public:
 	static void initialize();
 	static void shutdown();
-	static void render_imgui_console();
+	static void on_imgui_render();
 };
 
 
