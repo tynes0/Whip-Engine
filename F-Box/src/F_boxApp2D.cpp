@@ -4,7 +4,7 @@
 #include <Whip/Scripting/script_engine.h>
 #include <Whip/Asset/asset_manager.h>
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
 fbox_app2D::fbox_app2D() : layer("Fbox2D") {}

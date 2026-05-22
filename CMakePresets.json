@@ -1,0 +1,137 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "vs2022",
+      "displayName": "Visual Studio 2022 - x64 - full bootstrap",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/vs2022",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install",
+        "WHP_BOOTSTRAP_DEPS": "ON",
+        "WHP_BOOTSTRAP_MODE": "Prompt",
+        "WHP_FETCH_DEPS": "ON",
+        "WHP_UPDATE_DEPS": "OFF",
+        "WHP_USE_LOCAL_VENDOR": "ON",
+        "WHP_BUILD_EDITOR": "ON",
+        "WHP_BUILD_FBOX": "ON",
+        "WHP_BUILD_SCRIPT_CORE": "ON",
+        "WHP_BUILD_FBOX_SCRIPTS": "ON",
+        "WHP_ENABLE_MONO": "ON",
+        "WHP_ENABLE_SHADER_COMPILER": "ON",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+      }
+    },
+    {
+      "name": "vs2022-refresh-deps",
+      "displayName": "Visual Studio 2022 - x64 - refresh fetched dependencies",
+      "inherits": "vs2022",
+      "binaryDir": "${sourceDir}/build/vs2022",
+      "cacheVariables": {
+        "WHP_UPDATE_DEPS": "ON",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+      }
+    },
+    {
+      "name": "vs2022-auto",
+      "displayName": "Visual Studio 2022 - x64 - install missing prerequisites automatically",
+      "inherits": "vs2022",
+      "binaryDir": "${sourceDir}/build/vs2022-auto",
+      "cacheVariables": {
+        "WHP_BOOTSTRAP_MODE": "Auto",
+        "WHP_BOOTSTRAP_ASSUME_YES": "ON",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+      }
+    },
+    {
+      "name": "vs2022-check",
+      "displayName": "Visual Studio 2022 - x64 - check only, no installs",
+      "inherits": "vs2022",
+      "binaryDir": "${sourceDir}/build/vs2022-check",
+      "cacheVariables": {
+        "WHP_BOOTSTRAP_MODE": "CheckOnly",
+        "WHP_BOOTSTRAP_ASSUME_YES": "OFF",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+      }
+    },
+    {
+      "name": "vs2022-native",
+      "displayName": "Visual Studio 2022 - x64 - native only",
+      "inherits": "vs2022",
+      "binaryDir": "${sourceDir}/build/vs2022-native",
+      "cacheVariables": {
+        "WHP_BUILD_SCRIPT_CORE": "OFF",
+        "WHP_BUILD_FBOX_SCRIPTS": "OFF",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+      }
+    },
+    {
+      "name": "ninja-msvc-native",
+      "displayName": "Ninja Multi-Config - native only",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build/ninja-msvc",
+      "cacheVariables": {
+        "WHP_BOOTSTRAP_DEPS": "ON",
+        "WHP_BOOTSTRAP_MODE": "Prompt",
+        "WHP_FETCH_DEPS": "ON",
+        "WHP_USE_LOCAL_VENDOR": "ON",
+        "WHP_BUILD_SCRIPT_CORE": "OFF",
+        "WHP_BUILD_FBOX_SCRIPTS": "OFF",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "vs2022-debug",
+      "configurePreset": "vs2022",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs2022-release",
+      "configurePreset": "vs2022",
+      "configuration": "Release"
+    },
+    {
+      "name": "vs2022-dist",
+      "configurePreset": "vs2022",
+      "configuration": "Dist"
+    },
+    {
+      "name": "vs2022-refresh-deps-debug",
+      "configurePreset": "vs2022-refresh-deps",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs2022-auto-debug",
+      "configurePreset": "vs2022-auto",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs2022-check-debug",
+      "configurePreset": "vs2022-check",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs2022-native-debug",
+      "configurePreset": "vs2022-native",
+      "configuration": "Debug"
+    },
+    {
+      "name": "native-debug",
+      "configurePreset": "ninja-msvc-native",
+      "configuration": "Debug"
+    },
+    {
+      "name": "native-release",
+      "configurePreset": "ninja-msvc-native",
+      "configuration": "Release"
+    }
+  ]
+}

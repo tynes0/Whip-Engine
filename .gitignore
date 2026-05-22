@@ -1,26 +1,68 @@
-#binaries
-**/bin/
+# Build output
+bin/
 bin-int/
-!vendor/premake/bin/
-vendor/VulkanSDK/Bin/
-vendor/VulkanSDK/Bin32/
-vendor/VulkanSDK/Lib/
-vendor/VulkanSDK/Lib32/
-vendor/VulkanSDK/templates/
+build/
+out/
+install/
+.whip/
+Testing/
 
-# whip files
-*.log
-
-#vs
+# Visual Studio / Rider / CMake generated files
 .vs/
-**.sln
-**.vxproj
-**.vxproj.filters
-**.vxproj.user
-**.user
-
 .idea/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.csproj.user
+*.DotSettings.user
+CMakeUserPresets.json
+cmake-build-*/
 
-#FOR NOW!
-Whip/vendor
-vendor/
+# Runtime/editor generated files
+*.log
+WhipProfile-*.json
+imgui.ini
+MonoDebugger.log
+
+# Heavy local SDK/vendor folders. These are discovered/installed by scripts/bootstrap.ps1.
+/vendor/
+/libs/
+vendor/VulkanSDK/
+libs/mono/
+Whip/vendor/mono/
+
+# Keep tiny local vendor helpers/single-file libs tracked.
+!Whip/vendor/Glad/**
+!Whip/vendor/alhelpers/**
+!Whip/vendor/coco/**
+!Whip/vendor/nps/**
+!Whip/vendor/frenum/**
+!Whip/vendor/miniaudio/**
+!Whip/vendor/minimp3/**
+!Whip/vendor/stb_image/**
+!Whip/vendor/filewatch/**
+Whip/vendor/**/bin/
+Whip/vendor/**/bin-int/
+Whip/vendor/**/*.vcxproj
+Whip/vendor/**/*.vcxproj.filters
+Whip/vendor/**/*.vcxproj.user
+Whip/vendor/**/*.sln
+
+# F-Box C# build output
+F-Box/FboxProject/Assets/Scripts/Binaries/
+F-Box/FboxProject/Assets/Scripts/Intermediates/
+F-Box/FboxProject/Assets/Scripts/.vs/
+F-Box/FboxProject/Assets/Scripts/.idea/
+
+# Editor/runtime C# output copied by old project files or CMake post-build steps.
+Whip-Editor/FboxProject/Assets/Scripts/Binaries/
+Whip-Editor/FboxProject/Assets/Scripts/Intermediates/
+Whip-Editor/FboxProject/Assets/Scripts/.vs/
+Whip-Editor/FboxProject/Assets/Scripts/.idea/
+Whip-Editor/Resources/Scripts/Intermediates/
+Whip-Editor/Resources/Scripts/*.dll
+Whip-Editor/Resources/Scripts/*.pdb
+F-Box/Resources/Scripts/Intermediates/
+F-Box/Resources/Scripts/*.dll
+F-Box/Resources/Scripts/*.pdb
