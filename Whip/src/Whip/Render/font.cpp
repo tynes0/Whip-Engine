@@ -95,7 +95,6 @@ font::font(const std::filesystem::path& filepath, asset_handle handle) : asset(h
 
 	atlas_packer.setPixelRange(2.0);
 	atlas_packer.setMiterLimit(1.0);
-	atlas_packer.setPadding(0);
 	atlas_packer.setScale(font_metrics.emSize);
 	int remaining = atlas_packer.pack(m_data->glyphs.data(), (int)m_data->glyphs.size());
 	WHP_CORE_ASSERT(remaining == 0);
@@ -109,7 +108,7 @@ font::font(const std::filesystem::path& filepath, asset_handle handle) : asset(h
 	bool expensive_coloring = true;
 	if (expensive_coloring)
 	{
-		msdf_atlas::Workload([&glyphs = m_data->glyphs, &coloring_seed](int i, int threadNo) -> bool 
+		msdf_atlas::Workload([&glyphs = m_data->glyphs, &coloring_seed](int i, int threadNo) -> bool
 			{
 			unsigned long long glyphSeed = (LCG_MULTIPLIER * (coloring_seed ^ i) + LCG_INCREMENT) * !!coloring_seed;
 			glyphs[i].edgeColoring(msdfgen::edgeColoringInkTrap, DEFAULT_ANGLE_THRESHOLD, glyphSeed);

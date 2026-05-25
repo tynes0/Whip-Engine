@@ -58,6 +58,10 @@ include(WhipOutput)
 include(WhipCompiler)
 include(WhipDependencies)
 
+if(WHP_SUPPRESS_EXTERNAL_CMAKE_WARNINGS)
+    set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "Suppress CMake deprecation warnings from third-party dependency projects." FORCE)
+endif()
+
 whip_configure_output_directories()
 whip_resolve_dependencies()
 

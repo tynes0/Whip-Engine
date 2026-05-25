@@ -24,6 +24,7 @@ cmake-build-*/
 WhipProfile-*.json
 imgui.ini
 MonoDebugger.log
+**/assets/cache/
 
 # Heavy local SDK/vendor folders. These are discovered/installed by scripts/bootstrap.ps1.
 /vendor/

@@ -13,8 +13,8 @@
 _WHP_PRAGMA_WARNING(push)
 _WHP_PRAGMA_WARNING_DISABLE(5030)
 #include <AL/al.h>
+#include <AL/alc.h>
 #include <AL/alext.h>
-#include <alc/alcmain.h>
 #include <AL/efx.h>
 _WHP_PRAGMA_WARNING(pop)
 
@@ -102,15 +102,23 @@ namespace detail
 
 	static void print_audio_device_info()
 	{
-		if (s_data.debug_log)
-		{
-			WHP_CORE_DEBUG("[Audio Engine] Audio Device Info:");
-			WHP_CORE_DEBUG("[Audio Engine] Name: {}", s_data.audio_device->DeviceName);
-			WHP_CORE_DEBUG("[Audio Engine] Sample Rate: {}", s_data.audio_device->Frequency);
-			WHP_CORE_DEBUG("[Audio Engine] Max Sources: {}", s_data.audio_device->SourcesMax);
-			WHP_CORE_DEBUG("[Audio Engine] Mono: {}", s_data.audio_device->NumMonoSources);
-			WHP_CORE_DEBUG("[Audio Engine] Stereo: {}", s_data.audio_device->NumStereoSources);
-		}
+		if (!s_data.debug_log)
+			return;
+
+		const char* device_name = alcGetString(s_data.audio_device, ALC_DEVICE_SPECIFIER);
+		ALCint sample_rate = 0;
+		ALCint mono_sources = 0;
+		ALCint stereo_sources = 0;
+
+		alcGetIntegerv(s_data.audio_device, ALC_FREQUENCY, 1, &sample_rate);
+		alcGetIntegerv(s_data.audio_device, ALC_MONO_SOURCES, 1, &mono_sources);
+		alcGetIntegerv(s_data.audio_device, ALC_STEREO_SOURCES, 1, &stereo_sources);
+
+		WHP_CORE_DEBUG("[Audio Engine] Audio Device Info:");
+		WHP_CORE_DEBUG("[Audio Engine] Name: {}", device_name ? device_name : "Unknown");
+		WHP_CORE_DEBUG("[Audio Engine] Sample Rate: {}", sample_rate);
+		WHP_CORE_DEBUG("[Audio Engine] Mono Sources: {}", mono_sources);
+		WHP_CORE_DEBUG("[Audio Engine] Stereo Sources: {}", stereo_sources);
 	}
 
 	static long vorbis_read(void* vorbis_file, char* buffer, size_t size)

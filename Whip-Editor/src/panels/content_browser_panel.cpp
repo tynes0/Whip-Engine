@@ -5,11 +5,12 @@
 #include <Whip/Project/project.h>
 #include <Whip/Asset/asset_manager.h>
 #include <Whip/Asset/texture_importer.h>
+#include <Whip/UI/UI_helpers.h>
 
 #include "content_browser_panel.h"
 #include "../Helpers/icon_manager.h"
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 
 _WHIP_START
 
@@ -52,7 +53,7 @@ void content_browser_panel::on_imgui_render()
 			ImGui::SameLine();
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
 			ref<texture2D> icon = icon_manager::get().get_icon(icon::back);
-			if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), { 16.0f, 16.0f }, { 0, 1 }, { 1, 0 }))
+			if (UI::image_button("##ContentBrowserBack", UI::to_imgui_texture_id(icon->get_renderer_id()), { 16.0f, 16.0f }, { 0, 1 }, { 1, 0 }))
 				m_current_directory = m_current_directory.parent_path();
 			ImGui::PopStyleColor();
 		}
@@ -101,7 +102,7 @@ void content_browser_panel::on_imgui_render()
 				ref<texture2D> icon = isDirectory ? icon_manager::get().get_icon(icon::directory) : icon_manager::get().get_icon(icon::file);
 
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-				ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), { m_thumbnail_size, m_thumbnail_size }, { 0, 1 }, { 1, 0 });
+				UI::image_button("##AssetIcon", UI::to_imgui_texture_id(icon->get_renderer_id()), { m_thumbnail_size, m_thumbnail_size }, { 0, 1 }, { 1, 0 });
 
 				if (ImGui::BeginPopupContextItem())
 				{
@@ -142,7 +143,7 @@ void content_browser_panel::on_imgui_render()
 						ref<texture2D> base_tex = asset_manager::get_asset<texture2D>(node->handle);
 
 						//texture2D::create_from_coords(base_tex, );
-					}				
+					}
 
 					ImGui::EndPopup();
 				}
@@ -159,7 +160,7 @@ void content_browser_panel::on_imgui_render()
 				{
 					if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && isDirectory)
 						m_current_directory /= item.filename();
-					
+
 				}
 
 				ImGui::TextWrapped(itemStr.c_str());
@@ -189,7 +190,7 @@ void content_browser_panel::on_imgui_render()
 				}
 
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-				ImGui::ImageButton((ImTextureID)(uint64_t)thumbnail->get_renderer_id(), { m_thumbnail_size, m_thumbnail_size }, { 0, 1 }, { 1, 0 });
+				UI::image_button("##FilesystemIcon", UI::to_imgui_texture_id(thumbnail->get_renderer_id()), { m_thumbnail_size, m_thumbnail_size }, { 0, 1 }, { 1, 0 });
 
 				if (ImGui::BeginPopupContextItem())
 				{
@@ -216,7 +217,7 @@ void content_browser_panel::on_imgui_render()
 			}
 		}
 	}
-	
+
 	if (ImGui::BeginPopupContextWindow(0, 1 | ImGuiPopupFlags_NoOpenOverItems))
 	{
 		if (ImGui::MenuItem("Settings"))
@@ -284,7 +285,7 @@ void content_browser_panel::refresh_asset_tree()
 				}
 			}
 		});
-	
+
 }
 
 void content_browser_panel::init_popups()
@@ -301,9 +302,9 @@ void content_browser_panel::init_popups()
 		.same_line()
 		.add([]() { ImGui::InputFloat("##SpriteHeight", &sprite_height); })
 		//.add_button([](raw_buffer user_data)
-		//	{ 
-		//		asset_handle handle = user_data.load<asset_handle>(); 
-		//		auto atlas = asset_manager::get_asset<texture2D>(handle); 
+		//	{
+		//		asset_handle handle = user_data.load<asset_handle>();
+		//		auto atlas = asset_manager::get_asset<texture2D>(handle);
 		//		/*for (uint32_t i = 0; i < atlas->get_width();)
 		//		{
 		//			for (uint32_t j = 0; j < atlas->get_height();)

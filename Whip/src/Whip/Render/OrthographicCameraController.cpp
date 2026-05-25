@@ -51,7 +51,7 @@ void orthographic_camera_controller::on_event(event& evnt)
 	WHP_PROFILE_FUNCTION();
 
 	event_dispatcher dispatcher(evnt);
-	dispatcher.dispatch<mouse_scrolled_event>([this](auto&&... args) -> decltype(auto) { return this->on_mouse_scrolled(std::forward<decltype(args)>(args)...); });
+	dispatcher.dispatch<mouse_scrolled_event>([this]<typename ...Args>(Args&&... args) -> decltype(auto) { return this->on_mouse_scrolled(std::forward<decltype(args)>(args)...); });
 	dispatcher.dispatch<window_resize_event>([this](auto&&... args) -> decltype(auto) { return this->on_window_resized(std::forward<decltype(args)>(args)...); });
 }
 

@@ -1,60 +1,27 @@
 #include "scene_hierarchy_panel.h"
 
-#include <Whip/Core/Input.h>
 #include <Whip/Scene/components.h>
 #include <Whip/UI/UI_helpers.h>
 #include <Whip/UI/UI_scoped_style.h>
 #include <Whip/Scripting/script_engine.h>
-#include <Whip/Utils/platform_utils.h>
 #include <Whip/Project/project.h>
 #include <Whip/Asset/asset_manager.h>
 #include <Whip/Asset/asset_metadata.h>
 #include <Whip/Asset/texture_importer.h>
 #include <Whip/Audio/audio_source.h>
 
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
-#include <imgui/misc/cpp/imgui_stdlib.h>
+#include <imgui.h>
+#include <imgui_internal.h>
+#include <misc/cpp/imgui_stdlib.h>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <filesystem>
 #include <cstring>
 
-#include <nps/nps_formatter.h>
-
 #include "../Helpers/script_field_helper.h"
 
 #define BEGIN_COMPONENT_TABLE_ROW(...) do { ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text(__VA_ARGS__); ImGui::TableNextColumn(); ImGui::PushItemWidth(-1); } while(false)
 #define END_COMPONENT_TABLE_ROW() do { ImGui::PopItemWidth(); } while(false)
-
-#define SWITCH_ON_SCRIPT_FIELD_TYPE(FIELD_TYPE, SCRIPT_FIELD_DRAW_TYPE)																																							\
-								do {																																															\
-									switch (FIELD_TYPE)																																											\
-									{																																															\
-									case whip::script_field_type::Float:	UI::draw_field<script_field_type::Float, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::Int:		UI::draw_field<script_field_type::Int, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;			\
-									case whip::script_field_type::Bool:		UI::draw_field<script_field_type::Bool, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::Long:		UI::draw_field<script_field_type::Long, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::Vector3:	UI::draw_field<script_field_type::Vector3, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::Vector2:	UI::draw_field<script_field_type::Vector2, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::Vector4:	UI::draw_field<script_field_type::Vector4, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::UInt:		UI::draw_field<script_field_type::UInt, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::ULong:	UI::draw_field<script_field_type::ULong, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::Double:	UI::draw_field<script_field_type::Double, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::Byte:		UI::draw_field<script_field_type::Byte, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::SByte:	UI::draw_field<script_field_type::SByte, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::Char:		UI::draw_field<script_field_type::Char, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::Short:	UI::draw_field<script_field_type::Short, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::UShort:	UI::draw_field<script_field_type::UShort, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::KeyCode:	UI::draw_field<script_field_type::KeyCode, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;		\
-									case whip::script_field_type::MouseCode:UI::draw_field<script_field_type::MouseCode, UI::script_field_draw::SCRIPT_FIELD_DRAW_TYPE>(field, entity_in, component.class_name, true); break;	\
-									case whip::script_field_type::Entity:																																						\
-									case whip::script_field_type::None:																																							\
-									case whip::script_field_type::Logger:																																						\
-									default:																																													\
-										break;																																													\
-									}																																															\
-								} while(false)
 
 _WHIP_START
 
@@ -69,14 +36,14 @@ static audio_component::audio_data* find_ac_AD(std::vector<audio_component::audi
 template<typename T, typename UIFunction>
 static void draw_component(const std::string& name, entity entity_in, UIFunction uiFunction)
 {
-	constexpr ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_FramePadding;
+	constexpr ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
 	if (entity_in.has_component<T>())
 	{
 		auto& component = entity_in.get_component<T>();
 		ImVec2 content_region_available = ImGui::GetContentRegionAvail();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{ 3, 3 });
-		float line_height = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
+		float line_height = ImGui::GetFontSize() + GImGui->Style.FramePadding.y * 2.0f;
 		ImGui::Separator();
 		bool open = ImGui::TreeNodeEx((void*)typeid(T).hash_code(), tree_node_flags, name.c_str());
 		ImGui::PopStyleVar();
@@ -228,7 +195,7 @@ void scene_hierarchy_panel::draw_components(entity entity_in)
 
 	ImGui::PopItemWidth();
 
-	
+
 	//ImGui::Spacing();
 	draw_component<transform_component>("Transform", entity_in, [](auto& component)
 		{
@@ -335,7 +302,7 @@ void scene_hierarchy_panel::draw_components(entity entity_in)
 						const auto& fields = sc_instance->get_script_class()->get_fields();
 						for (const auto& [name, field] : fields)
 						{
-							SWITCH_ON_SCRIPT_FIELD_TYPE(field.type, while_scene_running);
+							UI::draw_field_by_type(UI::script_field_draw::while_scene_running, field, entity_in, component.class_name, true);
 						}
 					}
 				}
@@ -352,16 +319,11 @@ void scene_hierarchy_panel::draw_components(entity entity_in)
 							// Field has been set in editor
 							if (entity_fields.contains(name))
 							{
-								script_field_instance& sc_field = entity_fields.at(name);
-
-								SWITCH_ON_SCRIPT_FIELD_TYPE(field.type, set_in_the_editor);
+								UI::draw_field_by_type(UI::script_field_draw::set_in_the_editor, field, entity_in, component.class_name, true);
 							}
 							else
 							{
-								auto& base_entity_fields = script_engine::get_base_script_field_map(component.class_name);
-								script_field_instance& sc_field = base_entity_fields.at(name);
-
-								SWITCH_ON_SCRIPT_FIELD_TYPE(field.type, with_base_value);
+								UI::draw_field_by_type(UI::script_field_draw::with_base_value, field, entity_in, component.class_name, true);
 							}
 						}
 					}
@@ -392,8 +354,8 @@ void scene_hierarchy_panel::draw_components(entity entity_in)
 			ImVec2 button_label_size = ImGui::CalcTextSize(label.c_str());
 			button_label_size.x += 20.0f;
 			float button_label_width = glm::max<float>(100.0f, button_label_size.x);
-			
-			static const auto drag_drop_callback = [&component](asset_handle handle) 
+
+			static const auto drag_drop_callback = [&component](asset_handle handle)
 				{
 					component.texture = handle;
 				};
@@ -584,7 +546,7 @@ void scene_hierarchy_panel::draw_components(entity entity_in)
 
 							if (ImGui::Selectable(audio_handle.tag.c_str(), is_selected))
 								component.selected_audio_index = index;
-						
+
 							if (is_selected)
 								ImGui::SetItemDefaultFocus();
 							index++;

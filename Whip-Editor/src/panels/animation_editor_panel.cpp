@@ -20,7 +20,7 @@ animation_editor_panel::animation_editor_panel()
 
 animation_editor_panel::~animation_editor_panel() {}
 
-// maybe improve 
+// maybe improve
 void animation_editor_panel::on_imgui_render()
 {
 	if (!m_open)
@@ -70,7 +70,7 @@ void animation_editor_panel::on_imgui_render()
 
 void animation_editor_panel::draw_animation_drag_drop_area(float width, float height)
 {
-	static const auto drag_drop_callback = [this](asset_handle handle) 
+	static const auto drag_drop_callback = [this](asset_handle handle)
 		{
 			m_current_animation = asset_manager::get_asset<animation2D>(handle);
 		};
@@ -92,17 +92,11 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 	auto draw_button = [=](icon icon_type) -> bool
 		{
 			if (frenum::contains(icon_type))
-				return ImGui::ImageButton(
-					reinterpret_cast<ImTextureID>((uint64_t)icon_manager::get().get_icon(icon_type)->get_renderer_id()),
-					size,
-					ImVec2(0, 0),
-					ImVec2(1, 1),
-					0,
-					ImVec4(0.0f, 0.0f, 0.0f, 0.0f),
-					ImVec4(1, 1, 1, 1));
-			else
-				return ImGui::Button(frenum::to_string<icon>(icon_type).c_str());
-			
+			{
+				const std::string button_id = "##AnimationControl" + std::to_string(static_cast<int>(icon_type));
+				return UI::image_button(button_id.c_str(), UI::to_imgui_texture_id(icon_manager::get().get_icon(icon_type)->get_renderer_id()), size, ImVec2(0, 0), ImVec2(1, 1), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), ImVec4(1, 1, 1, 1));
+			}
+			return ImGui::Button(frenum::to_string<icon>(icon_type).c_str());
 		};
 
 	static constexpr float icon_size = static_cast<float>(frenum::size<icon>());
@@ -210,7 +204,7 @@ void animation_editor_panel::draw_animation_selector(float width, float left_pad
 	if (ImGui::BeginCombo("##AnimationSelector", m_current_animation ? m_current_animation->get_name().data() : "Select Animation"))
 	{
 		const auto& reg = project::get_active()->get_editor_asset_manager()->get_asset_registry();
-		
+
 		reg.foreach(asset_type::animation, [&](const asset_registry::value_type& value)
 			{
 				auto anim = asset_manager::get_asset<animation2D>(value.first);
@@ -275,7 +269,7 @@ void animation_editor_panel::draw_frame_editor(float width)
 		return;
 
 	auto& frame = m_current_animation->get_frames()[m_selected_frame_index];
-	static const auto drag_drop_callback = [&frame](asset_handle handle) 
+	static const auto drag_drop_callback = [&frame](asset_handle handle)
 		{
 			frame.texture = handle;
 		};

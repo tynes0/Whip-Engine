@@ -11,12 +11,22 @@
 #include <mono/jit/jit.h>
 #include <mono/metadata/assembly.h>
 #include <mono/metadata/object.h>
-#include <mono/metadata/tabledef.h>
+#include <mono/metadata/metadata.h>
 #include <mono/metadata/mono-debug.h>
 #include <mono/metadata/threads.h>
 
 #include <FileWatch.h>
 #include <nps_formatter.h>
+
+
+#ifndef WHP_MONO_FIELD_ATTRIBUTE_FIELD_ACCESS_MASK
+#define WHP_MONO_FIELD_ATTRIBUTE_FIELD_ACCESS_MASK 0x0007u
+#endif
+
+#ifndef WHP_MONO_FIELD_ATTRIBUTE_PUBLIC
+#define WHP_MONO_FIELD_ATTRIBUTE_PUBLIC 0x0006u
+#endif
+
 
 _WHIP_START
 
@@ -48,7 +58,7 @@ static std::unordered_map<std::string, script_field_type> s_script_field_type =
 };
 
 static constexpr size_t max_type_size = 16; // Whip.Vector4
-static constexpr size_t initial_buffer_size = 1024; // 1kb 
+static constexpr size_t initial_buffer_size = 1024; // 1kb
 
 namespace utils
 {
@@ -112,7 +122,7 @@ namespace utils
 		if (type_name.size() > 2 && type_name.back() == ']')
 		{
 			is_array = true;
-			std::string_view view(type_name); 
+			std::string_view view(type_name);
 			view.remove_suffix(2);
 			type_name = view;
 		}
@@ -255,7 +265,7 @@ namespace utils
 	}
 }
 
-script_class::script_class(const std::string& class_namespace, const std::string& class_name, bool is_core) 
+script_class::script_class(const std::string& class_namespace, const std::string& class_name, bool is_core)
 	: m_class_namespace(class_namespace), m_class_name(class_name)
 {
 	m_mono_class = mono_class_from_name(is_core ? s_script_engine_data->core_assembly_image : s_script_engine_data->app_assembly_image, class_namespace.c_str(), class_name.c_str());
@@ -348,12 +358,12 @@ bool script_instance::get_field_value_internal(const std::string& name)
 
 	if (static_cast<size_t>(field.type_size) > s_field_value_buffer.size)
 		s_field_value_buffer.allocate(field.type_size);
-	
+
 	mono_field_get_value(m_instance, field.class_field, s_field_value_buffer.data);
 	return true;
 
 
-	
+
 	return false;
 }
 
@@ -384,15 +394,15 @@ bool script_instance::get_field_array_value_internal(const std::string& name, si
 	mono_field_get_value(m_instance, field.class_field, &array);
 	if (!array)
 		return false;
-		
+
 	uintptr_t length = mono_array_length(array);
 	if (size != nullptr)
 		*size = length;
-		
+
 	size_t req_bufsiz = length * field.type_size;
 	if (req_bufsiz > s_field_value_buffer.size)
 		s_field_value_buffer.allocate(req_bufsiz);
-		
+
 	char* array_data = mono_array_addr_with_size(array, field.type_size, 0);
 	std::memcpy(s_field_value_buffer.data, array_data, req_bufsiz);
 	return true;
@@ -555,7 +565,7 @@ void assembly_manager::load_assembly_classes()
 		{
 			const char* field_name = mono_field_get_name(field);
 			uint32_t flags = mono_field_get_flags(field);
-			if (flags & FIELD_ATTRIBUTE_PUBLIC)
+			if ((flags & WHP_MONO_FIELD_ATTRIBUTE_FIELD_ACCESS_MASK) == WHP_MONO_FIELD_ATTRIBUTE_PUBLIC)
 			{
 				MonoType* type = mono_field_get_type(field);
 				auto [field_type, is_array] = utils::mono_type_to_script_field_type(type);
@@ -582,7 +592,7 @@ void script_engine::init()
 	s_script_engine_data = new script_engine_data();
 
 	script_instance::s_field_value_buffer.allocate(initial_buffer_size);
-	
+
 	init_mono();
 	script_glue::register_functions();
 
@@ -608,7 +618,7 @@ void script_engine::init()
 void script_engine::shutdown()
 {
 	script_instance::s_field_value_buffer.release();
-	
+
 	if (s_script_engine_data)
 	{
 		shutdown_mono();

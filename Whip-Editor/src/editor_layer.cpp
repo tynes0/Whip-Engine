@@ -7,9 +7,7 @@
 #include <Whip/UI/UI_helpers.h>
 #include <Whip/UI/UI_project_loader.h>
 #include <Whip/Math/math.h>
-#include <Whip/Render/font.h>
 #include <Whip/Asset/asset_manager.h>
-#include <Whip/Asset/texture_importer.h>
 #include <Whip/Asset/scene_importer.h>
 #include <Whip/Asset/texture_atlas_parser.h>
 
@@ -17,14 +15,14 @@
 
 #include <array>
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <entt.hpp>
-#include <ImGuizmo/ImGuizmo.h>
+#include <ImGuizmo.h>
 
 _WHIP_START
 
-editor_layer::editor_layer() : layer("Fbox2D") 
+editor_layer::editor_layer() : layer("Fbox2D")
 {
 }
 
@@ -33,7 +31,7 @@ void editor_layer::on_attach()
     WHP_PROFILE_FUNCTION();
 
 	m_animation_editor_panel.set_refresh_asset_tree_callback([this]() {if (m_content_browser_panel) { m_content_browser_panel->refresh_asset_tree(); } });
-	
+
 	// framebuffer
     framebuffer_specification fb_spec{};
     fb_spec.attachments = { framebuffer_texture_format::RGBA8, framebuffer_texture_format::RED_INTEGER, framebuffer_texture_format::depth };
@@ -78,12 +76,12 @@ void editor_layer::on_detach()
 {
 	WHP_PROFILE_FUNCTION();
 	console_panel::shutdown();
-	
+
 	if (m_scene_state == scene_state::play)
 		m_active_scene->on_runtime_stop();
 	else if (m_scene_state == scene_state::simulate)
 		m_active_scene->on_simulation_stop();
-	
+
 }
 
 void editor_layer::on_update(timestep ts)
@@ -225,7 +223,7 @@ void editor_layer::on_imgui_render()
 				m_animation_editor_panel.open();
 			if (ImGui::MenuItem("Show Test Popup"))
 				m_popup_handler.set_show_state(true);
-			
+
 			static float level = 1.0f;
 			ImGui::EndMenu();
 		}
@@ -265,7 +263,7 @@ void editor_layer::on_imgui_render()
 		ImVec2 viewport_panel_size = ImGui::GetContentRegionAvail();
 		m_viewport_size = { viewport_panel_size.x, viewport_panel_size.y };
 
-		ImGui::Image(reinterpret_cast<void*>(m_framebuffer->get_color_attachment_renderer_id()), viewport_panel_size, ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
+		UI::image(UI::to_imgui_texture_id(m_framebuffer->get_color_attachment_renderer_id()), viewport_panel_size, ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
 		UI::drag_drop_target(asset_type::scene, [this](asset_handle handle) { open_scene(handle); }, "scene drag drop", false);
 
 		// gizmos
@@ -286,12 +284,12 @@ void editor_layer::on_imgui_render()
 		    bool snap = input::is_key_down(key::left_control);
 
 			ImGuizmo::Manipulate(
-				glm::value_ptr(camera_view), 
-				glm::value_ptr(camera_projection), 
-				(ImGuizmo::OPERATION)m_gizmo_type, 
-				ImGuizmo::LOCAL, 
-				glm::value_ptr(transform), 
-				nullptr, 
+				glm::value_ptr(camera_view),
+				glm::value_ptr(camera_projection),
+				(ImGuizmo::OPERATION)m_gizmo_type,
+				ImGuizmo::LOCAL,
+				glm::value_ptr(transform),
+				nullptr,
 				snap ? const_cast<float*>(glm::value_ptr(m_UI_settings.get_snap_values(m_gizmo_type))) : nullptr);
 
 		    if (ImGuizmo::IsUsing())
@@ -307,7 +305,7 @@ void editor_layer::on_imgui_render()
 		}
 		ImGui::End();
 		ImGui::PopStyleVar();
-	} // viewport 
+	} // viewport
 
 	m_UI_project.on_imgui_render(); // should be in dockspace
 
@@ -322,7 +320,7 @@ void editor_layer::on_imgui_render()
 	console_panel::on_imgui_render();
 	m_content_browser_panel->on_imgui_render();
 	m_popup_handler.on_imgui_render();
-	
+
 }
 _WHP_PRAGMA_WARNING(pop)
 
@@ -436,7 +434,7 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
 bool editor_layer::on_mouse_button_pressed(mouse_button_pressed_event& evnt)
 {
     if (evnt.get_mouse_button() == mouse::button_left)
-    {   
+    {
         if (m_viewport_hovered && !ImGuizmo::IsOver() && !input::is_key_down(key::left_alt))
             m_scene_hierarchy_panel.set_selected_entity(m_hovered_entity);
     }
@@ -509,7 +507,7 @@ void editor_layer::on_overlay_render()
 		{
 			selected_entity.get_component<text_component>();
 		}
-		else 
+		else
 			renderer2D::draw_rect(transform.get_transform(), glm::vec4(0.9f, 0.4f, 0.1f, 1.0f));
 	}
 
@@ -568,7 +566,7 @@ void editor_layer::open_scene(asset_handle handle)
 {
 	if (m_scene_state != scene_state::edit)
 		on_scene_stop();
-	
+
 	ref<scene> read_only_scene = asset_manager::get_asset<scene>(handle);
 	ref<scene> new_scene = scene::copy(read_only_scene);
 
@@ -644,7 +642,7 @@ void editor_layer::on_scene_simulate()
 	script_engine::set_filewatcher_state(false);
 	m_active_scene = scene::copy(m_editor_scene);
 	m_active_scene->on_simulation_start();
-	
+
 	m_active_scene->on_runtime_start();
 	m_last_selected_entity = m_scene_hierarchy_panel.get_selected_entity();
 	m_scene_hierarchy_panel.set_context(m_active_scene);
@@ -726,7 +724,7 @@ void editor_layer::UI_toolbar()
 	{
 		ref<texture2D> icon = (m_scene_state == scene_state::edit || m_scene_state == scene_state::simulate) ? icon_manager::get().get_icon(icon::play) : icon_manager::get().get_icon(icon::play);
 		ImGui::SetCursorPosX((ImGui::GetWindowContentRegionMax().x * 0.5f) - (size * 0.5f) - (size / 2));
-		if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
+		if (UI::image_button("##ToolbarPlay", UI::to_imgui_texture_id(icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 		{
 			if (m_scene_state == scene_state::edit || m_scene_state == scene_state::simulate)
 				on_scene_play();
@@ -739,7 +737,7 @@ void editor_layer::UI_toolbar()
 		if(has_play_button)
 			ImGui::SameLine(0, 20);
 		ref<texture2D> icon = (m_scene_state == scene_state::edit || m_scene_state == scene_state::play) ? icon_manager::get().get_icon(icon::simulate) : icon_manager::get().get_icon(icon::stop);
-		if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
+		if (UI::image_button("##ToolbarSimulate", UI::to_imgui_texture_id(icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 		{
 			if (m_scene_state == scene_state::edit || m_scene_state == scene_state::play)
 				on_scene_simulate();
@@ -753,7 +751,7 @@ void editor_layer::UI_toolbar()
 		ImGui::SameLine();
 		{
 			ref<texture2D> icon = icon_manager::get().get_icon(icon::pause);
-			if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
+			if (UI::image_button("##ToolbarPause", UI::to_imgui_texture_id(icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 			{
 				m_active_scene->set_paused(!is_paused);
 			}
@@ -766,7 +764,7 @@ void editor_layer::UI_toolbar()
 			{
 				ref<texture2D> icon = icon_manager::get().get_icon(icon::step_forward);
 				bool isPaused = m_active_scene->is_paused();
-				if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uint64_t)icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
+				if (UI::image_button("##ToolbarStepForward", UI::to_imgui_texture_id(icon->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), tint_color) && toolbar_enabled)
 				{
 					m_active_scene->step(m_UI_settings.get_step_frame());
 				}

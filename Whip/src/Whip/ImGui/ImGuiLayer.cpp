@@ -8,7 +8,7 @@
 #include <imgui_internal.h>
 
 #include <backends/imgui_impl_opengl3.h>
-#include <backends/imgui_impl_glfw.h> 
+#include <backends/imgui_impl_glfw.h>
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
@@ -131,7 +131,6 @@ void imgui_layer::set_initial_style()
 	style.LogSliderDeadzone = 3.0f;
 	style.TabRounding = 5.0f;
 	style.TabBorderSize = 1.0f;
-	style.TabMinWidthForCloseButton = 0.0f;
 	style.ColorButtonPosition = ImGuiDir_Right;
 	style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
 	style.SelectableTextAlign = ImVec2(0.0f, 0.0f);

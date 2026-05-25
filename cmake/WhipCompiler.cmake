@@ -19,3 +19,15 @@ function(whip_configure_native_target target)
         target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
     endif()
 endfunction()
+
+function(whip_suppress_external_link_warnings target)
+    if(NOT WHP_SUPPRESS_EXTERNAL_LINK_WARNINGS)
+        return()
+    endif()
+
+    if(MSVC)
+        target_link_options(${target} PRIVATE
+            /IGNORE:4098
+            /IGNORE:4099)
+    endif()
+endfunction()

@@ -87,8 +87,8 @@ namespace UI
 		}
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 0, 0 });
-		
-		float line_height = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
+
+		float line_height = ImGui::GetFontSize() + GImGui->Style.FramePadding.y * 2.0f;
 		ImVec2 buttonSize = { line_height + 3.0f, line_height };
 		ImGui::PushMultiItemsWidths(3, ImGui::GetWindowWidth() - column_width - buttonSize.x * 3 - spacing);
 
@@ -153,7 +153,7 @@ namespace UI
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 0, 0 });
 
-		float line_height = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
+		float line_height = ImGui::GetFontSize() + GImGui->Style.FramePadding.y * 2.0f;
 		ImVec2 buttonSize = { line_height + 3.0f, line_height };
 
 		column_width -= buttonSize.x * 2;
@@ -203,7 +203,7 @@ namespace UI
 
 		ImGui::PopID();
 		return changed;
-	}	
+	}
 
 	bool draw_field_vec3_control(const std::string& label_for_id, glm::vec3& values, float reset_value, float column_width)
 	{
@@ -213,7 +213,7 @@ namespace UI
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 0, 0 });
 
-		float line_height = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
+		float line_height = ImGui::GetFontSize() + GImGui->Style.FramePadding.y * 2.0f;
 		ImVec2 button_size = { line_height + 3.0f, line_height };
 
 		column_width -= button_size.x * 3;

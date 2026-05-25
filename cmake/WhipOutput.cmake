@@ -40,9 +40,10 @@ endfunction()
 function(whip_copy_directory_after_build target source_dir dest_name)
     if(EXISTS "${source_dir}")
         add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    "${source_dir}"
-                    "$<TARGET_FILE_DIR:${target}>/${dest_name}"
+            COMMAND ${CMAKE_COMMAND}
+                    -DWHP_COPY_SOURCE=${source_dir}
+                    -DWHP_COPY_DESTINATION=$<TARGET_FILE_DIR:${target}>/${dest_name}
+                    -P "${CMAKE_SOURCE_DIR}/cmake/WhipCopyDirectoryIfDifferent.cmake"
             COMMENT "Copying ${dest_name} for ${target}"
             VERBATIM)
     endif()
@@ -56,9 +57,10 @@ function(whip_copy_mono_runtime_after_build target)
     if(WHP_MONO_RUNTIME_LIB_DIR AND EXISTS "${WHP_MONO_RUNTIME_LIB_DIR}")
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${target}>/mono/lib"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    "${WHP_MONO_RUNTIME_LIB_DIR}"
-                    "$<TARGET_FILE_DIR:${target}>/mono/lib/mono"
+            COMMAND ${CMAKE_COMMAND}
+                    -DWHP_COPY_SOURCE=${WHP_MONO_RUNTIME_LIB_DIR}
+                    -DWHP_COPY_DESTINATION=$<TARGET_FILE_DIR:${target}>/mono/lib/mono
+                    -P "${CMAKE_SOURCE_DIR}/cmake/WhipCopyDirectoryIfDifferent.cmake"
             COMMENT "Copying Mono runtime assemblies for ${target}"
             VERBATIM)
     endif()

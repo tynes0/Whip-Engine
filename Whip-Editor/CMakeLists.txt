@@ -16,6 +16,7 @@ target_include_directories(Whip-Editor PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 target_link_libraries(Whip-Editor PRIVATE whip::engine)
+whip_suppress_external_link_warnings(Whip-Editor)
 
 if(TARGET Whip-ScriptCore)
     add_dependencies(Whip-Editor Whip-ScriptCore)

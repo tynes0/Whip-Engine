@@ -14,6 +14,7 @@ target_include_directories(F-Box PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 target_link_libraries(F-Box PRIVATE whip::engine)
+whip_suppress_external_link_warnings(F-Box)
 
 if(TARGET Whip-ScriptCore)
     add_dependencies(F-Box Whip-ScriptCore)

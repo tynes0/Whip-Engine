@@ -3,6 +3,7 @@
 #include <Whip/Scene/scene_serializer.h>
 #include <Whip/Scripting/script_engine.h>
 #include <Whip/Asset/asset_manager.h>
+#include <Whip/UI/UI_helpers.h>
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -90,15 +91,14 @@ void fbox_app2D::on_imgui_render()
 	ImVec2 viewport_panel_size = ImGui::GetContentRegionAvail();
 	m_viewport_size = { viewport_panel_size.x, viewport_panel_size.y };
 
-	// Framebuffer'ı göster
+	// Draw framebuffer
 	if (m_framebuffer)
 	{
-		ImGui::Image(
-			reinterpret_cast<void*>(m_framebuffer->get_color_attachment_renderer_id()), 
-			viewport_panel_size, 
-			ImVec2{ 0.0f, 1.0f }, 
-			ImVec2{ 1.0f, 0.0f }
-		);
+		whip::UI::image(
+			whip::UI::to_imgui_texture_id(m_framebuffer->get_color_attachment_renderer_id()),
+			viewport_panel_size,
+			ImVec2{ 0.0f, 1.0f },
+			ImVec2{ 1.0f, 0.0f });
 	}
 	
 	ImGui::End();
@@ -106,7 +106,7 @@ void fbox_app2D::on_imgui_render()
 
 void fbox_app2D::on_event(whip::event& evnt)
 {
-	// Input eventlerini handle et
+	// Runtime viewport currently forwards no custom layer events.
 }
 
 bool fbox_app2D::load_project(const std::filesystem::path& project_path)
