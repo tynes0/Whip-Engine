@@ -8,9 +8,10 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <cstdint>
+#include <limits>
+#include <memory>
 #include <string>
 #include <string_view>
-#include <vector>
 
 _WHIP_START
 
@@ -69,6 +70,14 @@ namespace
 	std::string array_row_label(size_t index)
 	{
 		return "[" + std::to_string(index) + "]";
+	}
+
+	size_t sanitize_array_size(int size)
+	{
+		if (size <= 0)
+			return 0;
+
+		return static_cast<size_t>(size);
 	}
 
 	script_field_instance& editor_field(entity ent, const script_field& field)
@@ -250,40 +259,182 @@ namespace
 		draw_value_contents<DrawMode, T>(field, ent, class_name, control_label(field, in_table), draw);
 	}
 
-	template <typename OnChange>
-	void draw_float_array_table(const script_field& field, float* values, size_t size, OnChange on_change)
+	template <typename OnResize>
+	bool draw_array_size_control(const script_field& field, size_t size, bool allow_resize, OnResize on_resize)
 	{
+		bool resized = false;
+		int size_value = size > static_cast<size_t>(std::numeric_limits<int>::max()) ? std::numeric_limits<int>::max() : static_cast<int>(size);
+
+		ImGui::PushID(field.name.c_str());
+		ImGui::SetNextItemWidth(96.0f);
+
+		if (!allow_resize)
+			ImGui::BeginDisabled();
+
+		if (ImGui::InputInt("Size", &size_value))
+		{
+			const size_t requested_size = sanitize_array_size(size_value);
+			if (requested_size != size)
+			{
+				on_resize(requested_size);
+				resized = true;
+			}
+		}
+
+		if (!allow_resize)
+			ImGui::EndDisabled();
+
+		if (allow_resize)
+		{
+			ImGui::SameLine();
+			if (ImGui::SmallButton("+"))
+			{
+				on_resize(size + 1);
+				resized = true;
+			}
+
+			ImGui::SameLine();
+			if (size == 0)
+				ImGui::BeginDisabled();
+
+			if (ImGui::SmallButton("Clear"))
+			{
+				on_resize(0);
+				resized = true;
+			}
+
+			if (size == 0)
+				ImGui::EndDisabled();
+		}
+
+		ImGui::PopID();
+		return resized;
+	}
+
+	template <typename T, typename DrawFn, typename OnChange, typename OnRemove>
+	bool draw_array_table(const script_field& field, T* values, size_t size, bool allow_remove, DrawFn draw, OnChange on_change, OnRemove on_remove)
+	{
+		if (size == 0)
+		{
+			ImGui::TextDisabled("Empty");
+			return false;
+		}
+
 		if (!values && size > 0)
-			return;
+		{
+			ImGui::TextDisabled("Unavailable");
+			return false;
+		}
 
 		const std::string table_id = array_table_id(field);
-		if (!ImGui::BeginTable(table_id.c_str(), 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable))
-			return;
+		const int column_count = allow_remove ? 3 : 2;
+		if (!ImGui::BeginTable(table_id.c_str(), column_count, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable))
+			return false;
+
+		ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed, 48.0f);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+		if (allow_remove)
+			ImGui::TableSetupColumn("Remove", ImGuiTableColumnFlags_WidthFixed, 32.0f);
+
+		size_t remove_index = static_cast<size_t>(-1);
 
 		for (size_t i = 0; i < size; ++i)
 		{
 			const std::string row_label = array_row_label(i);
-			table_row_scope row(true, row_label.c_str());
 
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(row_label.c_str());
+
+			ImGui::TableNextColumn();
+			ImGui::PushItemWidth(-1.0f);
 			const std::string id = array_control_label(field, row_label);
-			if (draw_float_control(id.c_str(), values[i]))
+			if (draw(id.c_str(), values[i]))
 				on_change(i);
+			ImGui::PopItemWidth();
+
+			if (allow_remove)
+			{
+				ImGui::TableNextColumn();
+				ImGui::PushID(static_cast<int>(i));
+				if (ImGui::SmallButton("X"))
+					remove_index = i;
+				ImGui::PopID();
+			}
 		}
 
 		ImGui::EndTable();
-	}
 
-	template <UI::script_field_draw DrawMode>
-	void draw_float_field(const script_field& field, entity ent, const std::string& class_name, bool in_table)
-	{
-		if (!field.is_array)
+		if (remove_index != static_cast<size_t>(-1))
 		{
-			draw_value<DrawMode, float>(field, ent, class_name, in_table, draw_float_control);
-			return;
+			on_remove(remove_index);
+			return true;
 		}
 
-		table_row_scope row(in_table, field.name.c_str());
+		return false;
+	}
 
+	template <typename T>
+	std::unique_ptr<T[]> copy_array_values(T* source, size_t size)
+	{
+		if (size == 0)
+			return nullptr;
+
+		auto values = std::make_unique<T[]>(size);
+		if (source)
+		{
+			for (size_t i = 0; i < size; ++i)
+				values[i] = source[i];
+		}
+		return values;
+	}
+
+	template <typename T>
+	std::unique_ptr<T[]> resize_array_values(T* source, size_t old_size, size_t new_size)
+	{
+		if (new_size == 0)
+			return nullptr;
+
+		auto values = std::make_unique<T[]>(new_size);
+		const size_t copy_size = old_size < new_size ? old_size : new_size;
+		if (source)
+		{
+			for (size_t i = 0; i < copy_size; ++i)
+				values[i] = source[i];
+		}
+		return values;
+	}
+
+	template <typename T>
+	std::unique_ptr<T[]> remove_array_value(T* source, size_t size, size_t remove_index)
+	{
+		if (size <= 1)
+			return nullptr;
+
+		auto values = std::make_unique<T[]>(size - 1);
+		size_t target_index = 0;
+		for (size_t i = 0; i < size; ++i)
+		{
+			if (i == remove_index)
+				continue;
+
+			values[target_index++] = source ? source[i] : T{};
+		}
+		return values;
+	}
+
+	template <typename T, typename DrawFn, typename OnChange, typename OnResize, typename OnRemove>
+	void draw_array_editor(const script_field& field, T* values, size_t size, bool allow_resize, DrawFn draw, OnChange on_change, OnResize on_resize, OnRemove on_remove)
+	{
+		if (draw_array_size_control(field, size, allow_resize, on_resize))
+			return;
+
+		draw_array_table(field, values, size, allow_resize, draw, on_change, on_remove);
+	}
+
+	template <UI::script_field_draw DrawMode, typename T, typename DrawFn>
+	void draw_array_contents(const script_field& field, entity ent, const std::string& class_name, DrawFn draw)
+	{
 		if constexpr (DrawMode == UI::script_field_draw::while_scene_running)
 		{
 			(void)class_name;
@@ -292,83 +443,94 @@ namespace
 				return;
 
 			size_t size = 0;
-			float* raw_array = sc_instance->get_field_array<float>(field.name, &size);
-			draw_float_array_table(field, raw_array, size, [&](size_t index)
+			T* raw_array = sc_instance->get_field_array<T>(field.name, &size);
+			draw_array_editor(field, raw_array, size, false, draw, [&](size_t index)
 				{
 					sc_instance->set_field_array_index(field.name, index, raw_array[index]);
+				}, [&](size_t)
+				{
+				}, [&](size_t)
+				{
 				});
 		}
 		else if constexpr (DrawMode == UI::script_field_draw::set_in_the_editor)
 		{
 			(void)class_name;
 			script_field_instance& sc_field = editor_field(ent, field);
-			const size_t size = sc_field.get_array_size<float>();
-			float* raw_array = sc_field.get_value_array<float>();
+			const size_t size = sc_field.get_array_size<T>();
+			T* raw_array = sc_field.get_value_array<T>();
 
-			std::vector<float> values;
-			if (raw_array && size > 0)
-				values.assign(raw_array, raw_array + size);
-
-			draw_float_array_table(field, values.data(), values.size(), [&](size_t)
+			draw_array_editor(field, raw_array, size, true, draw, [&](size_t)
 				{
-					sc_field.set_value_array<float>(values.data(), values.size());
+					sc_field.set_value_array<T>(raw_array, size);
+				}, [&](size_t new_size)
+				{
+					auto values = resize_array_values<T>(raw_array, size, new_size);
+					sc_field.set_value_array<T>(values.get(), new_size);
+				}, [&](size_t remove_index)
+				{
+					const size_t new_size = size > 0 ? size - 1 : 0;
+					auto values = remove_array_value<T>(raw_array, size, remove_index);
+					sc_field.set_value_array<T>(values.get(), new_size);
 				});
 		}
 		else
 		{
 			script_field_instance& sc_field = base_field(class_name, field);
-			const size_t size = sc_field.get_array_size<float>();
-			float* raw_array = sc_field.get_value_array<float>();
+			const size_t size = sc_field.get_array_size<T>();
+			T* raw_array = sc_field.get_value_array<T>();
+			auto values = copy_array_values<T>(raw_array, size);
 
-			std::vector<float> values;
-			if (raw_array && size > 0)
-				values.assign(raw_array, raw_array + size);
-
-			draw_float_array_table(field, values.data(), values.size(), [&](size_t)
+			draw_array_editor(field, values.get(), size, true, draw, [&](size_t)
 				{
-					override_field(ent, field).set_value_array<float>(values.data(), values.size());
+					override_field(ent, field).set_value_array<T>(values.get(), size);
+				}, [&](size_t new_size)
+				{
+					auto resized_values = resize_array_values<T>(raw_array, size, new_size);
+					override_field(ent, field).set_value_array<T>(resized_values.get(), new_size);
+				}, [&](size_t remove_index)
+				{
+					const size_t new_size = size > 0 ? size - 1 : 0;
+					auto resized_values = remove_array_value<T>(raw_array, size, remove_index);
+					override_field(ent, field).set_value_array<T>(resized_values.get(), new_size);
 				});
 		}
+	}
+
+	template <UI::script_field_draw DrawMode, typename T, typename DrawFn>
+	void draw_script_field(const script_field& field, entity ent, const std::string& class_name, bool in_table, DrawFn draw)
+	{
+		if (!field.is_array)
+		{
+			draw_value<DrawMode, T>(field, ent, class_name, in_table, draw);
+			return;
+		}
+
+		table_row_scope row(in_table, field.name.c_str());
+		draw_array_contents<DrawMode, T>(field, ent, class_name, draw);
 	}
 }
 
 namespace UI
 {
-	template <>
-	void draw_field<script_field_type::Float, script_field_draw::while_scene_running>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
-	{
-		draw_float_field<script_field_draw::while_scene_running>(field, ent, class_name, in_table);
-	}
-
-	template <>
-	void draw_field<script_field_type::Float, script_field_draw::set_in_the_editor>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
-	{
-		draw_float_field<script_field_draw::set_in_the_editor>(field, ent, class_name, in_table);
-	}
-
-	template <>
-	void draw_field<script_field_type::Float, script_field_draw::with_base_value>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
-	{
-		draw_float_field<script_field_draw::with_base_value>(field, ent, class_name, in_table);
-	}
-
 #define WHIP_DEFINE_SCRIPT_FIELD(SCRIPT_TYPE, VALUE_TYPE, DRAW_FUNC) \
 	template <> \
 	void draw_field<script_field_type::SCRIPT_TYPE, script_field_draw::while_scene_running>(const script_field& field, entity ent, const std::string& class_name, bool in_table) \
 	{ \
-		draw_value<script_field_draw::while_scene_running, VALUE_TYPE>(field, ent, class_name, in_table, DRAW_FUNC); \
+		draw_script_field<script_field_draw::while_scene_running, VALUE_TYPE>(field, ent, class_name, in_table, DRAW_FUNC); \
 	} \
 	template <> \
 	void draw_field<script_field_type::SCRIPT_TYPE, script_field_draw::set_in_the_editor>(const script_field& field, entity ent, const std::string& class_name, bool in_table) \
 	{ \
-		draw_value<script_field_draw::set_in_the_editor, VALUE_TYPE>(field, ent, class_name, in_table, DRAW_FUNC); \
+		draw_script_field<script_field_draw::set_in_the_editor, VALUE_TYPE>(field, ent, class_name, in_table, DRAW_FUNC); \
 	} \
 	template <> \
 	void draw_field<script_field_type::SCRIPT_TYPE, script_field_draw::with_base_value>(const script_field& field, entity ent, const std::string& class_name, bool in_table) \
 	{ \
-		draw_value<script_field_draw::with_base_value, VALUE_TYPE>(field, ent, class_name, in_table, DRAW_FUNC); \
+		draw_script_field<script_field_draw::with_base_value, VALUE_TYPE>(field, ent, class_name, in_table, DRAW_FUNC); \
 	}
 
+	WHIP_DEFINE_SCRIPT_FIELD(Float, float, draw_float_control)
 	WHIP_DEFINE_SCRIPT_FIELD(Int, int, draw_int_control)
 	WHIP_DEFINE_SCRIPT_FIELD(Bool, bool, draw_bool_control)
 	WHIP_DEFINE_SCRIPT_FIELD(Long, int64_t, draw_long_control)

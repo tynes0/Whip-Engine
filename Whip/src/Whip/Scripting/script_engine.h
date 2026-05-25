@@ -91,10 +91,21 @@ struct script_field_instance
 	
 	// Todo: needs an update or make a new set array index method
 	template <typename T>
-	void set_value_array(T* array, size_t size) 
+	void set_value_array(const T* array, size_t size)
 	{
-		m_buffer.allocate(size * sizeof(T));
-		std::memcpy(m_buffer.data, array, size * sizeof(T));
+		const size_t buffer_size = size * sizeof(T);
+		if (buffer_size == 0)
+		{
+			m_buffer.release();
+			return;
+		}
+
+		WHP_CORE_ASSERT(array, "Cannot set script field array from null data!");
+		if (m_buffer.data == reinterpret_cast<const uint8_t*>(array) && m_buffer.size == buffer_size)
+			return;
+
+		m_buffer.allocate(buffer_size);
+		std::memcpy(m_buffer.data, array, buffer_size);
 	}
 private:
 	raw_buffer m_buffer;

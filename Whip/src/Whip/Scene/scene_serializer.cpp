@@ -15,23 +15,25 @@
 #include <coco.h>
 
 #include <fstream>
+#include <memory>
 
+#ifndef YAML_CPP_STATIC_DEFINE
 #define YAML_CPP_STATIC_DEFINE
+#endif
 #include <yaml-cpp/yaml.h>
 
-#define WRITE_SCRIPT_FIELD(field_type, type)            \
-			case script_field_type::field_type:			\
-			{											\
-				out << sc_field.get_value<type>();		\
-				break;									\
+#define WRITE_SCRIPT_FIELD(field_type, type)                                    \
+			case script_field_type::field_type:                                 \
+			{                                                                  \
+				whip::utils::write_script_field_data<type>(out, sc_field);     \
+				break;                                                         \
 			}
 
-#define READ_SCRIPT_FIELD(field_type, type)				\
-	case script_field_type::field_type:					\
-	{													\
-		type data = sc_field["data"].as<type>();		\
-		field_instance.set_value(data);					\
-		break;											\
+#define READ_SCRIPT_FIELD(field_type, type)                                            \
+	case script_field_type::field_type:                                                \
+	{                                                                                  \
+		whip::utils::read_script_field_data<type>(sc_field["data"], field_instance);   \
+		break;                                                                         \
 	}
 
 namespace YAML 
@@ -171,6 +173,40 @@ static YAML::Emitter& operator<<(YAML::Emitter& out, const glm::vec4& v)
 
 namespace utils
 {
+	template <typename T>
+	void write_script_field_data(YAML::Emitter& out, script_field_instance& field_instance)
+	{
+		if (!field_instance.field.is_array)
+		{
+			out << field_instance.get_value<T>();
+			return;
+		}
+
+		const size_t size = field_instance.get_array_size<T>();
+		T* values = field_instance.get_value_array<T>();
+
+		out << YAML::BeginSeq;
+		for (size_t i = 0; i < size; ++i)
+			out << values[i];
+		out << YAML::EndSeq;
+	}
+
+	template <typename T>
+	void read_script_field_data(const YAML::Node& data_node, script_field_instance& field_instance)
+	{
+		if (!field_instance.field.is_array)
+		{
+			field_instance.set_value(data_node.as<T>());
+			return;
+		}
+
+		const size_t size = data_node ? data_node.size() : 0;
+		auto values = std::make_unique<T[]>(size);
+		for (size_t i = 0; i < size; ++i)
+			values[i] = data_node[i].as<T>();
+
+		field_instance.set_value_array<T>(values.get(), size);
+	}
 
 	static std::string rigidbody2D_body_type_to_string(rigidbody2D_component::body_type type)
 	{

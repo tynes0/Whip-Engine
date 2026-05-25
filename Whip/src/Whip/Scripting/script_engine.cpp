@@ -496,6 +496,9 @@ void assembly_manager::load_base_script_fields()
 		MonoObject* instance = entity_class->instantiate();
 		for (auto& [field_name, field] : entity_class->get_fields())
 		{
+			script_field_instance& field_instance = entity_fields[class_name][field_name];
+			field_instance.field = field;
+
 			if (field.is_array)
 			{
 				MonoArray* array;
@@ -506,14 +509,14 @@ void assembly_manager::load_base_script_fields()
 					continue;
 				}
 				uintptr_t length = mono_array_length(array);
-				raw_buffer& buf = entity_fields[class_name][field_name].m_buffer;
+				raw_buffer& buf = field_instance.m_buffer;
 				buf.allocate(length * field.type_size);
 				char* array_data = mono_array_addr_with_size(array, field.type_size, 0);
 				std::memcpy(buf.data, array_data, buf.size);
 			}
 			else
 			{
-				raw_buffer& buf = entity_fields[class_name][field_name].m_buffer;
+				raw_buffer& buf = field_instance.m_buffer;
 				buf.allocate(max_type_size);
 				mono_field_get_value(instance, field.class_field, buf.as<void>());
 			}
