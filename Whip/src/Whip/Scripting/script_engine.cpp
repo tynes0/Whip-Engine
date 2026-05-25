@@ -228,6 +228,7 @@ struct script_engine_data
 	scope<filewatch::FileWatch<std::string>> app_assembly_watcher;
 	bool assembly_reloading_pending = false;
 	bool should_reload_assembly = false;
+	bool is_shutting_down = false;
 
 #if defined(WHP_DEBUG) && 0
 	bool enable_debugging = true;
@@ -284,12 +285,18 @@ namespace utils
 
 	static void on_app_assembly_file_system_event_1(const std::string& path, const filewatch::Event change_type)
 	{
+		if (!s_script_engine_data || s_script_engine_data->is_shutting_down)
+			return;
+
 		if ((!s_script_engine_data->assembly_reloading_pending && change_type == filewatch::Event::modified) || s_script_engine_data->should_reload_assembly)
 		{
 			s_script_engine_data->assembly_reloading_pending = true;
 
 			application::get().submit_to_main_thread([]()
 				{
+					if (!s_script_engine_data || s_script_engine_data->is_shutting_down)
+						return;
+
 					s_script_engine_data->app_assembly_watcher.reset();
 					assembly_manager::reload_assembly();
 					s_script_engine_data->should_reload_assembly = false;
@@ -298,6 +305,9 @@ namespace utils
 	}
 	static void on_app_assembly_file_system_event_2(const std::string& path, const filewatch::Event change_type)
 	{
+		if (!s_script_engine_data || s_script_engine_data->is_shutting_down)
+			return;
+
 		if (!s_script_engine_data->assembly_reloading_pending && change_type == filewatch::Event::modified)
 			s_script_engine_data->should_reload_assembly = true;
 	}
@@ -600,9 +610,17 @@ bool assembly_manager::load_app_assembly(const std::filesystem::path& filepath)
 
 void assembly_manager::reload_assembly(bool reset_app_assembly_filepath)
 {
+	if (!s_script_engine_data || s_script_engine_data->is_shutting_down)
+		return;
+
+	s_script_engine_data->app_assembly_watcher.reset();
 	mono_domain_set(mono_get_root_domain(), false);
 
-	mono_domain_unload(s_script_engine_data->app_domain);
+	if (s_script_engine_data->app_domain)
+	{
+		mono_domain_unload(s_script_engine_data->app_domain);
+		s_script_engine_data->app_domain = nullptr;
+	}
 
 	assembly_manager::load_assembly(s_script_engine_data->core_assembly_filepath);
 	if (reset_app_assembly_filepath)
@@ -774,18 +792,24 @@ void script_engine::init()
 
 void script_engine::shutdown()
 {
-	script_instance::s_field_value_buffer.release();
-
 	if (s_script_engine_data)
 	{
+		s_script_engine_data->is_shutting_down = true;
+		s_script_engine_data->app_assembly_watcher.reset();
+		s_script_engine_data->entity_instances.clear();
 		shutdown_mono();
 		delete s_script_engine_data;
 		s_script_engine_data = nullptr;
 	}
+
+	script_instance::s_field_value_buffer.release();
 }
 
 void script_engine::set_filewatcher_state(bool run)
 {
+	if (!s_script_engine_data || s_script_engine_data->is_shutting_down)
+		return;
+
 	if (run)
 	{
 		s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(s_script_engine_data->app_assembly_filepath.string(), utils::on_app_assembly_file_system_event_1);
@@ -944,11 +968,20 @@ void script_engine::init_mono()
 
 void script_engine::shutdown_mono()
 {
-	mono_domain_set(mono_get_root_domain(), false);
-	mono_domain_unload(s_script_engine_data->app_domain);
-	s_script_engine_data->app_domain = nullptr;
-	mono_jit_cleanup(s_script_engine_data->root_domain);
-	s_script_engine_data->root_domain = nullptr;
+	if (MonoDomain* root_domain = mono_get_root_domain())
+		mono_domain_set(root_domain, false);
+
+	if (s_script_engine_data->app_domain)
+	{
+		mono_domain_unload(s_script_engine_data->app_domain);
+		s_script_engine_data->app_domain = nullptr;
+	}
+
+	if (s_script_engine_data->root_domain)
+	{
+		mono_jit_cleanup(s_script_engine_data->root_domain);
+		s_script_engine_data->root_domain = nullptr;
+	}
 }
 
 MonoObject* script_engine::instantiate_class(MonoClass* mono_class)

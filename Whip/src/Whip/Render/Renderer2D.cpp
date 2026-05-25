@@ -112,6 +112,13 @@ struct renderer2D_data
 
 static renderer2D_data s_data;
 
+template <typename T>
+static void release_vertex_buffer(T*& buffer)
+{
+	delete[] buffer;
+	buffer = nullptr;
+}
+
 static void set_and_increment_quad_vertex_buffer_ptr(const glm::vec3& position, const glm::vec4& color, glm::vec2 texture_coord, float texture_index, float tiling_factor, int entityID)
 {
 	s_data.quad_vertex_buffer_ptr->position = position;
@@ -233,8 +240,46 @@ void renderer2D::init()
 
 void renderer2D::shutdown()
 {
-	delete[] s_data.quad_vertex_buffer_base;
 	WHP_PROFILE_FUNCTION();
+
+	release_vertex_buffer(s_data.quad_vertex_buffer_base);
+	release_vertex_buffer(s_data.circle_vertex_buffer_base);
+	release_vertex_buffer(s_data.line_vertex_buffer_base);
+	release_vertex_buffer(s_data.text_vertex_buffer_base);
+
+	s_data.quad_vertex_buffer_ptr = nullptr;
+	s_data.circle_vertex_buffer_ptr = nullptr;
+	s_data.line_vertex_buffer_ptr = nullptr;
+	s_data.text_vertex_buffer_ptr = nullptr;
+
+	for (ref<texture2D>& texture_slot : s_data.texture_slots)
+		texture_slot.reset();
+
+	s_data.font_atlas_texture.reset();
+	s_data.white_texture.reset();
+
+	s_data.quad_shader.reset();
+	s_data.circle_shader.reset();
+	s_data.line_shader.reset();
+	s_data.text_shader.reset();
+
+	s_data.quad_vertex_buffer.reset();
+	s_data.circle_vertex_buffer.reset();
+	s_data.line_vertex_buffer.reset();
+	s_data.text_vertex_buffer.reset();
+
+	s_data.quad_vertex_arr.reset();
+	s_data.circle_vertex_arr.reset();
+	s_data.line_vertex_arr.reset();
+	s_data.text_vertex_arr.reset();
+
+	s_data.camera_uniform_buffer.reset();
+
+	s_data.quad_index_count = 0;
+	s_data.circle_index_count = 0;
+	s_data.line_vertex_count = 0;
+	s_data.text_index_count = 0;
+	s_data.texture_slot_index = 1;
 }
 
 void renderer2D::begin_scene(const orthographic_camera& camera)

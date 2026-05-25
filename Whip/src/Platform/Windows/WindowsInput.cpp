@@ -22,14 +22,14 @@ WHP_NODISCARD bool input::is_key_pressed(int keycode)
 	int state = glfwGetKey(window, keycode);
 	bool is_pressed = (state == GLFW_PRESS);
 
-	// Eðer tuþa yeni basýldýysa durumu güncelle ve true döndür
+	// Return true only on the first frame the key is pressed
 	if (is_pressed && !s_input_data.previous_key_states[keycode])
 	{
 		s_input_data.previous_key_states[keycode] = true;
 		return true;
 	}
 
-	// Eðer tuþa hala basýlýysa önceki durumu koruyun, ancak false döndürün
+	// Keep the current key state while suppressing repeated pressed checks
 	s_input_data.previous_key_states[keycode] = is_pressed;
 	return false;
 }
@@ -40,14 +40,14 @@ WHP_NODISCARD bool input::is_key_released(int keycode)
 	int state = glfwGetKey(window, keycode);
 	bool is_released = (state == GLFW_RELEASE);
 
-	// Eðer tuþ yeni býrakýldýysa durumu güncelle ve true döndür
+	// Return true only on the first frame the key is released
 	if (is_released && s_input_data.previous_key_states[keycode])
 	{
 		s_input_data.previous_key_states[keycode] = false;
 		return true;
 	}
 
-	// Eðer tuþ hala serbestse önceki durumu koruyun, ancak false döndürün
+	// Keep the current key state while suppressing repeated released checks
 	s_input_data.previous_key_states[keycode] = !is_released;
 	return false;
 }

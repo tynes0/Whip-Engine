@@ -40,6 +40,7 @@ public:
 	};
 public:
 	static void init();
+	static void shutdown();
 	static ref<audio_source> load_audio_source(const std::filesystem::path& filepath, asset_handle handle = asset_handle{});
 	static ref<audio_source> load_audio_stream(const std::filesystem::path& filepath);
 	static void unload_audio_source(audio_source* source);

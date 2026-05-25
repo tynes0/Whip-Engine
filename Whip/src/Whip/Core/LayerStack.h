@@ -20,6 +20,7 @@ public:
 	void push_overlay(layerptr overlay);  // kaplama ekle
 	void pop_layer(layerptr layer);
 	void pop_overlay(layerptr overlay);
+	void clear();
 
 	WHP_NODISCARD std::vector<layer*>::iterator begin() noexcept { return m_layers.begin(); }
 	WHP_NODISCARD std::vector<layer*>::iterator end() noexcept { return m_layers.end(); }

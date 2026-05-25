@@ -55,10 +55,10 @@ void windows_window::init(const window_props& props)
 			});
 	}
 
-	// Birincil monitörü al
+	// Get primary monitor
 	GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
 
-	// Monitörün video modunu al
+	// Get monitor video mode
 	const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
 
 	glfwWindowHint(GLFW_MAXIMIZED, props.fullscreen);
@@ -184,7 +184,17 @@ void windows_window::shutdown()
 {
 	WHP_PROFILE_FUNCTION();
 
+	if (!m_window)
+		return;
+
 	glfwDestroyWindow(m_window);
+	m_window = nullptr;
+
+	if (s_GLFWwindow_count > 0)
+		--s_GLFWwindow_count;
+
+	if (s_GLFWwindow_count == 0)
+		glfwTerminate();
 }
 
 void windows_window::on_update()

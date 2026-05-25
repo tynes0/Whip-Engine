@@ -6,6 +6,7 @@
 #include <Whip/Scripting/script_engine.h>
 #include <Whip/Audio/audio_engine.h>
 #include <Whip/Core/timer_manager.h>
+#include <Whip/Project/project.h>
 
 _WHIP_START
 
@@ -36,11 +37,18 @@ application::application(const application_specification& spec)
 application::~application()
 {
 	WHP_PROFILE_FUNCTION();
+	WHP_CORE_INFO("[Application] Shutdown started.");
 
 	for (layerptr item : m_layer_stack)
 		item->on_detach();
+	m_layer_stack.clear();
 
 	script_engine::shutdown();
+	project::set_active(nullptr);
+	renderer::shutdown();
+	audio_engine::shutdown();
+
+	WHP_CORE_INFO("[Application] Shutdown complete.");
 }
 
 void application::run()

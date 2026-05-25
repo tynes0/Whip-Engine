@@ -63,6 +63,7 @@ struct global_audio_data
 	std::unordered_map<ALuint, filter_data> filter_datas;
 
 	bool debug_log = true;
+	bool initialized = false;
 };
 
 static global_audio_data s_data;
@@ -146,8 +147,16 @@ namespace detail
 
 void audio_engine::init()
 {
+	if (s_data.initialized)
+		return;
+
 	if (InitAL(s_data.audio_device, nullptr, 0) != 0)
+	{
 		WHP_CORE_ERROR("[Audio Engine] Audio device error!");
+		return;
+	}
+
+	s_data.initialized = true;
 
 	detail::print_audio_device_info();
 
@@ -161,6 +170,36 @@ void audio_engine::init()
 	alListenerfv(AL_POSITION, listener_pos);
 	alListenerfv(AL_VELOCITY, listener_vel);
 	alListenerfv(AL_ORIENTATION, listener_ori);
+}
+
+void audio_engine::shutdown()
+{
+	if (!s_data.initialized)
+		return;
+
+	for (auto& [slot, effect] : s_data.effect_datas)
+	{
+		ALuint effect_slot = effect.slot;
+		ALuint effect_handle = effect.effct;
+		if (effect_slot != 0)
+			alDeleteAuxiliaryEffectSlots(1, &effect_slot);
+		if (effect_handle != 0)
+			alDeleteEffects(1, &effect_handle);
+	}
+	s_data.effect_datas.clear();
+
+	for (auto& [filter, filter_entry] : s_data.filter_datas)
+	{
+		ALuint filter_handle = filter_entry.filtr;
+		if (filter_handle != 0)
+			alDeleteFilters(1, &filter_handle);
+	}
+	s_data.filter_datas.clear();
+
+	s_data.audio_scratch_buffer.release();
+	CloseAL();
+	s_data.audio_device = nullptr;
+	s_data.initialized = false;
 }
 
 ref<audio_source> audio_engine::load_audio_source(const std::filesystem::path& filepath, asset_handle handle)
@@ -188,6 +227,16 @@ void audio_engine::unload_audio_source(audio_source* source)
 		WHP_CORE_ERROR("[Audio Engine] null audio source passed to audio engine!");
 		return;
 	}
+
+	if (!s_data.initialized)
+	{
+		source->m_source_handle = 0;
+		source->m_buffer_handle = 0;
+		source->m_loaded = false;
+		source->m_total_duration = 0.0f;
+		return;
+	}
+
 	if (source->m_source_handle != 0)
 	{
 		alSourceStop(source->m_source_handle);

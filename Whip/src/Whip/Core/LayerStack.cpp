@@ -7,10 +7,7 @@ layer_stack::layer_stack() {}
 
 layer_stack::~layer_stack()
 {
-	for (layerptr item : m_layers)
-	{
-		delete item;
-	}
+	clear();
 }
 
 void layer_stack::push_layer(layerptr layer)
@@ -41,6 +38,15 @@ void layer_stack::pop_overlay(layerptr overlay)
 	{
 		m_layers.erase(iterator);
 	}
+}
+
+void layer_stack::clear()
+{
+	for (layerptr item : m_layers)
+		delete item;
+
+	m_layers.clear();
+	m_layer_insert_index = 0;
 }
 
 _WHIP_END
