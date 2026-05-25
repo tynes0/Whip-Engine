@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Whip.h>
+#include <Whip/UI/UI_project_loader.h>
 #include <Whip/UI/UI_project.h>
 #include <Whip/UI/UI_settings.h>
 #include <Whip/UI/UI_statistics.h>
@@ -11,6 +12,8 @@
 #include "panels/content_browser_panel.h"
 #include "panels/animation_editor_panel.h"
 #include "panels/console_panel.h"
+
+#include <vector>
 
 // TODOLIST
 // - entity asset
@@ -56,6 +59,12 @@ private:
 
 	bool open_project();
 	bool open_project(const std::filesystem::path& path);
+	bool has_project_loaded() const;
+	void setup_project_loader();
+	void load_recent_projects();
+	void save_recent_projects() const;
+	void add_recent_project(const std::filesystem::path& path);
+	std::filesystem::path get_recent_projects_path() const;
 
 	void new_scene();
 	void open_scene(asset_handle handle);
@@ -100,10 +109,12 @@ private:
 	entity m_last_selected_entity;
 
 	// UI's
+	UI::UI_project_loader m_project_loader;
 	UI::UI_project m_UI_project;
 	UI::UI_settings m_UI_settings;
 	UI::UI_statistics m_UI_statistics;
 	UI::popup_handler m_popup_handler;
+	std::vector<std::filesystem::path> m_recent_projects;
 
 	// scene
 	ref<scene> m_active_scene;

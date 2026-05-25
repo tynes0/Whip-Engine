@@ -13,7 +13,9 @@
 
 #include "Helpers/icon_manager.h"
 
+#include <algorithm>
 #include <array>
+#include <fstream>
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -35,6 +37,9 @@ void editor_layer::on_attach()
 		[this](asset_handle handle) { open_scene(handle); },
 		[this]() { close_scene(); },
 		[this]() { return m_editor_scene_path; });
+	setup_project_loader();
+	load_recent_projects();
+	m_project_loader.set_recent_projects(m_recent_projects);
 
 	// framebuffer
     framebuffer_specification fb_spec{};
@@ -52,12 +57,8 @@ void editor_layer::on_attach()
 	if (command_line_args.count > 1)
 	{
 		auto project_filepath = command_line_args[1];
-		open_project(project_filepath);
-	}
-	else
-	{
-		if (!open_project())
-			application::get().close();
+		if (open_project(project_filepath))
+			m_project_loader.set_loaded(true);
 	}
 	// camera
     m_editor_camera = editor_camera(30.0f, 1.778f, 0.1f, 1000.0f);
@@ -196,6 +197,7 @@ void editor_layer::on_imgui_render()
 		}
 		style.WindowMinSize.x = minWinSizeX;
 	}
+	const bool project_loaded = has_project_loaded();
 	// menu bar
     if (ImGui::BeginMenuBar())
     {
@@ -203,6 +205,7 @@ void editor_layer::on_imgui_render()
         {
             if (ImGui::MenuItem("Open Project", "Ctrl+O"))
                 open_project();
+			ImGui::BeginDisabled(!project_loaded);
 			if (ImGui::MenuItem("Save Project", "Ctrl+Shift+S"))
 				save_project();
 			ImGui::Separator();
@@ -210,8 +213,9 @@ void editor_layer::on_imgui_render()
                 new_scene();
 			if (ImGui::MenuItem("Save Scene", "Ctrl+S"))
 				save_scene();
-            if (ImGui::MenuItem("Save Scane As...", "Ctrl+Alt+S"))
+            if (ImGui::MenuItem("Save Scene As...", "Ctrl+Alt+S"))
                 save_scene_as();
+			ImGui::EndDisabled();
 			ImGui::Separator();
             if (ImGui::MenuItem("Restart"))
                 application::get().restart();
@@ -223,8 +227,10 @@ void editor_layer::on_imgui_render()
 		{
 			if (ImGui::MenuItem("Show Settings Window"))
 				m_UI_settings.open_window();
+			ImGui::BeginDisabled(!project_loaded);
 			if (ImGui::MenuItem("Show Animation Editor"))
 				m_animation_editor_panel.open();
+			ImGui::EndDisabled();
 			if (ImGui::MenuItem("Show Test Popup"))
 				m_popup_handler.set_show_state(true);
 
@@ -233,25 +239,39 @@ void editor_layer::on_imgui_render()
 		}
 		if (ImGui::BeginMenu("Script"))
 		{
+			ImGui::BeginDisabled(!project_loaded);
 			if (ImGui::MenuItem("Reload assembly", "Ctrl+R"))
 				reload_assembly(true);
+			ImGui::EndDisabled();
 			ImGui::EndMenu();
 		}
 
 		if (ImGui::BeginMenu("Project"))
 		{
+			ImGui::BeginDisabled(!project_loaded);
 			if (ImGui::MenuItem("Settings"))
 				m_UI_project.show(UI::UI_project::UI_settings, [this]() -> decltype(auto) { return this->finish_project_settings(); });
+			ImGui::EndDisabled();
 			ImGui::Separator();
 			if (ImGui::MenuItem("Open Project", "Ctrl+O"))
 				open_project();
+			ImGui::BeginDisabled(!project_loaded);
 			if (ImGui::MenuItem("Save Project", "Ctrl+Shift+S"))
 				save_project();
+			ImGui::EndDisabled();
 			ImGui::EndMenu();
 		}
 
         ImGui::EndMenuBar();
     }
+	if (!project_loaded)
+	{
+		m_project_loader.run();
+		ImGui::End(); // dockspace
+		console_panel::on_imgui_render();
+		m_popup_handler.on_imgui_render();
+		return;
+	}
 	// viewport
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.0f, 0.0f });
@@ -322,7 +342,8 @@ void editor_layer::on_imgui_render()
     m_scene_hierarchy_panel.on_imgui_render();
     m_animation_editor_panel.on_imgui_render();
 	console_panel::on_imgui_render();
-	m_content_browser_panel->on_imgui_render();
+	if (m_content_browser_panel)
+		m_content_browser_panel->on_imgui_render();
 	m_popup_handler.on_imgui_render();
 
 }
@@ -342,6 +363,7 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
     // Shortcuts
     if (evnt.get_repeat_count() > 0)
         return false;
+	const bool project_loaded = has_project_loaded();
     bool control = input::is_key_down(key::left_control) || input::is_key_down(key::right_control);
     bool shift = input::is_key_down(key::left_shift) || input::is_key_down(key::right_shift);
     bool alt = input::is_key_down(key::left_alt) || input::is_key_down(key::right_alt);
@@ -349,7 +371,7 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
     {
     case key::N:
     {
-		if (control)
+		if (control && project_loaded)
 			new_scene();
 		WHP_EDITOR_TRACE("Trace Test");
 		WHP_EDITOR_DEBUG("Debug Test");
@@ -367,7 +389,7 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
     }
     case key::S:
     {
-		if (control)
+		if (control && project_loaded)
 		{
 			if (shift)
 				save_project();
@@ -379,7 +401,7 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
         break;
     }
 	case key::P:
-		if (control && m_scene_state != scene_state::simulate)
+		if (control && project_loaded && m_scene_state != scene_state::simulate)
 			m_scene_state = scene_state::play;
         break;
 	case key::escape:
@@ -400,7 +422,7 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
 	}
     case key::W:
 	{
-		if (control)
+		if (control && project_loaded)
 		{
 			close_scene();
 			break;
@@ -417,7 +439,7 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
 	}
     case key::R:
 	{
-		if (control)
+		if (control && project_loaded)
 			reload_assembly(true);
 		else
 			if (!ImGuizmo::IsUsing())
@@ -518,6 +540,105 @@ void editor_layer::on_overlay_render()
 	renderer2D::end_scene();
 }
 
+bool editor_layer::has_project_loaded() const
+{
+	return project::get_active() != nullptr;
+}
+
+void editor_layer::setup_project_loader()
+{
+	m_project_loader.set_load_project_callback([this]() { return open_project(); });
+	m_project_loader.set_open_recent_project_callback([this](const std::filesystem::path& path) {
+		std::error_code error;
+		if (!std::filesystem::exists(path, error))
+		{
+			WHP_EDITOR_WARN("[Whip Hub] Recent project no longer exists.");
+			load_recent_projects();
+			return false;
+		}
+
+		return open_project(path);
+	});
+}
+
+void editor_layer::load_recent_projects()
+{
+	m_recent_projects.clear();
+
+	std::ifstream stream(get_recent_projects_path());
+	if (!stream)
+	{
+		m_project_loader.set_recent_projects(m_recent_projects);
+		return;
+	}
+
+	std::string line;
+	while (std::getline(stream, line))
+	{
+		if (line.empty())
+			continue;
+
+		std::filesystem::path path(line);
+		std::error_code error;
+		if (!std::filesystem::exists(path, error) || path.extension() != ".wproj")
+			continue;
+
+		path = std::filesystem::weakly_canonical(path, error);
+		if (error)
+			path = std::filesystem::absolute(line, error);
+
+		if (std::find(m_recent_projects.begin(), m_recent_projects.end(), path) == m_recent_projects.end())
+			m_recent_projects.push_back(path);
+
+		if (m_recent_projects.size() >= 10)
+			break;
+	}
+
+	m_project_loader.set_recent_projects(m_recent_projects);
+}
+
+void editor_layer::save_recent_projects() const
+{
+	std::ofstream stream(get_recent_projects_path(), std::ios::trunc);
+	if (!stream)
+		return;
+
+	for (const auto& project_path : m_recent_projects)
+		stream << project_path.string() << '\n';
+}
+
+void editor_layer::add_recent_project(const std::filesystem::path& path)
+{
+	if (path.empty())
+		return;
+
+	std::error_code error;
+	std::filesystem::path normalized_path = std::filesystem::weakly_canonical(path, error);
+	if (error)
+	{
+		error.clear();
+		normalized_path = std::filesystem::absolute(path, error);
+	}
+	if (error)
+		normalized_path = path;
+
+	m_recent_projects.erase(
+		std::remove(m_recent_projects.begin(), m_recent_projects.end(), normalized_path),
+		m_recent_projects.end());
+
+	m_recent_projects.insert(m_recent_projects.begin(), normalized_path);
+	if (m_recent_projects.size() > 10)
+		m_recent_projects.resize(10);
+
+	save_recent_projects();
+	m_project_loader.set_recent_projects(m_recent_projects);
+}
+
+std::filesystem::path editor_layer::get_recent_projects_path() const
+{
+	return std::filesystem::current_path() / "WhipHubRecentProjects.txt";
+}
+
 void editor_layer::new_project()
 {
 	close_scene();
@@ -526,11 +647,17 @@ void editor_layer::new_project()
 
 void editor_layer::save_project()
 {
+	if (!has_project_loaded())
+		return;
+
 	project::save_active();
 }
 
 void editor_layer::finish_project_settings()
 {
+	if (!has_project_loaded())
+		return;
+
 	project::save_active();
 	reload_assembly(true);
 	m_content_browser_panel = make_scope<content_browser_panel>(project::get_active());
@@ -547,6 +674,16 @@ bool editor_layer::open_project()
 
 bool editor_layer::open_project(const std::filesystem::path& path)
 {
+	if (has_project_loaded())
+	{
+		if (m_scene_state != scene_state::edit)
+			on_scene_stop();
+		close_scene();
+		script_engine::shutdown();
+		m_content_browser_panel.reset();
+		project::set_active(nullptr);
+	}
+
 	if (project::load(path))
 	{
 		script_engine::init();
@@ -554,6 +691,8 @@ bool editor_layer::open_project(const std::filesystem::path& path)
 		if(start_scene)
 			open_scene(start_scene);
 		m_content_browser_panel = make_scope<content_browser_panel>(project::get_active());
+		add_recent_project(path);
+		m_project_loader.set_loaded(true);
 		return true;
 	}
 	return false;
@@ -561,6 +700,9 @@ bool editor_layer::open_project(const std::filesystem::path& path)
 
 void editor_layer::new_scene()
 {
+	if (!has_project_loaded())
+		return;
+
     m_active_scene = make_ref<scene>();
 	m_scene_hierarchy_panel.set_context(m_active_scene);
 	m_editor_scene_path = std::filesystem::path();
@@ -568,6 +710,9 @@ void editor_layer::new_scene()
 
 void editor_layer::open_scene(asset_handle handle)
 {
+	if (!has_project_loaded())
+		return;
+
 	if (m_scene_state != scene_state::edit)
 		on_scene_stop();
 
@@ -594,6 +739,9 @@ void editor_layer::close_scene()
 
 void editor_layer::save_scene()
 {
+	if (!has_project_loaded())
+		return;
+
 	if (!m_editor_scene_path.empty())
 		serialize_scene(m_active_scene, m_editor_scene_path);
 	else
@@ -602,6 +750,9 @@ void editor_layer::save_scene()
 
 void editor_layer::save_scene_as()
 {
+	if (!has_project_loaded())
+		return;
+
     std::string filepath = file_dialogs::save_file("Whip Scene (*.whip)\0*.whip\0");
     if (!filepath.empty())
     {
@@ -612,6 +763,12 @@ void editor_layer::save_scene_as()
 
 void editor_layer::reload_assembly(bool reset_app_assembly_filepath) const
 {
+	if (!has_project_loaded())
+	{
+		WHP_CORE_WARN("[Script Engine] Failed to reload assembly. No project is loaded.");
+		return;
+	}
+
 	if (m_scene_state == scene_state::edit)
 		assembly_manager::reload_assembly(reset_app_assembly_filepath);
 	else
@@ -625,6 +782,9 @@ void editor_layer::serialize_scene(ref<scene> scene_in, const std::filesystem::p
 
 void editor_layer::on_scene_play()
 {
+	if (!has_project_loaded())
+		return;
+
 	if (m_scene_state == scene_state::simulate)
 		on_scene_stop();
 	project::run_state(true);
@@ -638,6 +798,9 @@ void editor_layer::on_scene_play()
 
 void editor_layer::on_scene_simulate()
 {
+	if (!has_project_loaded())
+		return;
+
 	if (m_scene_state == scene_state::play)
 		on_scene_stop();
 
