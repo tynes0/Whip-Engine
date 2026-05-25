@@ -31,6 +31,10 @@ void editor_layer::on_attach()
     WHP_PROFILE_FUNCTION();
 
 	m_animation_editor_panel.set_refresh_asset_tree_callback([this]() {if (m_content_browser_panel) { m_content_browser_panel->refresh_asset_tree(); } });
+	m_UI_project.set_scene_callbacks(
+		[this](asset_handle handle) { open_scene(handle); },
+		[this]() { close_scene(); },
+		[this]() { return m_editor_scene_path; });
 
 	// framebuffer
     framebuffer_specification fb_spec{};

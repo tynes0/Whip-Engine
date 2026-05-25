@@ -401,7 +401,7 @@ namespace utils
 
 			auto& text_comp = entity_in.get_component<text_component>();
 			out << YAML::Key << "text_string" << YAML::Value << text_comp.text_string;
-			// TODO: text_component.font_asset
+			out << YAML::Key << "font" << YAML::Value << (uint64_t)text_comp.font;
 			out << YAML::Key << "color" << YAML::Value << text_comp.color;
 			out << YAML::Key << "kerning" << YAML::Value << text_comp.kerning;
 			out << YAML::Key << "line_spacing" << YAML::Value << text_comp.line_spacing;
@@ -676,7 +676,8 @@ bool scene_serializer::deserialize(const std::filesystem::path& filepath)
 			{
 				auto& tc = deserialized_entity.add_component<text_component>();
 				tc.text_string = text_comp["text_string"].as<std::string>();
-				// tc.font_asset // TODO
+				if (text_comp["font"])
+					tc.font = text_comp["font"].as<uint64_t>();
 				tc.color = text_comp["color"].as<glm::vec4>();
 				tc.kerning = text_comp["kerning"].as<float>();
 				tc.line_spacing = text_comp["line_spacing"].as<float>();

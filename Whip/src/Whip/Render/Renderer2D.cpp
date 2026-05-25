@@ -617,14 +617,22 @@ void renderer2D::draw_string(const std::string& string, ref<font> fnt, const glm
 	const auto& font_geometry = fnt->get_msdf_data()->font_geometry;
 	const auto& metrics = font_geometry.getMetrics();
 	ref<texture2D> font_atlas = fnt->get_atlas_texture();
+	if (!font_atlas)
+	{
+		WHP_CORE_ERROR("[Renderer2D] Font has no atlas texture!");
+		return;
+	}
 
+	if (s_data.text_index_count && s_data.font_atlas_texture && s_data.font_atlas_texture != font_atlas)
+		next_batch();
 	s_data.font_atlas_texture = font_atlas;
 
 	double x = 0.0;
 	double fs_scale = 1.0 / (metrics.ascenderY - metrics.descenderY);
 	double y = 0.0;
 
-	const float space_glyph_advance = (float)font_geometry.getGlyph(' ')->getAdvance();
+	const auto space_glyph = font_geometry.getGlyph(' ');
+	const float space_glyph_advance = space_glyph ? static_cast<float>(space_glyph->getAdvance()) : 1.0f;
 
 	for (size_t i = 0; i < string.size(); i++)
 	{
@@ -664,10 +672,10 @@ void renderer2D::draw_string(const std::string& string, ref<font> fnt, const glm
 		if (!glyph)
 			glyph = font_geometry.getGlyph('?');
 		if (!glyph)
-			return;
+			continue;
 
-		if (character == '\t')
-			glyph = font_geometry.getGlyph(' ');
+		if (s_data.text_index_count >= renderer2D_data::max_indices)
+			next_batch();
 
 		double al, ab, ar, at;
 		glyph->getQuadAtlasBounds(al, ab, ar, at);
