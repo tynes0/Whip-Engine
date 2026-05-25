@@ -5,8 +5,10 @@
 #include <Whip/UI/UI_helpers.h>
 
 #include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -17,6 +19,8 @@ _WHIP_START
 
 namespace
 {
+	constexpr const char* scene_entity_payload_type = "WHIP_SCENE_ENTITY";
+
 	class table_row_scope
 	{
 	public:
@@ -221,6 +225,65 @@ namespace
 		return draw_code_combo(id, value, static_cast<mouse_code>(mouse::button0), static_cast<mouse_code>(mouse::button_last), mouse::to_string);
 	}
 
+	std::string entity_reference_label(entity context, UUID entity_id)
+	{
+		if (entity_id == 0)
+			return "None";
+
+		scene* scene_context = context.get_scene();
+		if (!scene_context)
+			return "Missing Entity";
+
+		entity referenced_entity = scene_context->find_entity_by_UUID(entity_id);
+		if (!referenced_entity)
+			return "Missing Entity";
+
+		return referenced_entity.get_name();
+	}
+
+	bool draw_string_control(const char* id, std::string& value)
+	{
+		return ImGui::InputText(id, &value);
+	}
+
+	bool draw_entity_control(const char* id, UUID& value, entity context)
+	{
+		bool changed = false;
+		const std::string label = entity_reference_label(context, value);
+
+		ImGui::PushID(id);
+
+		const float clear_button_width = ImGui::GetFrameHeight();
+		const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
+		const float width = ImGui::GetContentRegionAvail().x;
+		const float picker_width = value == 0 ? width : std::max(0.0f, width - clear_button_width - spacing);
+
+		ImGui::Button(label.c_str(), ImVec2(picker_width, 0.0f));
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(scene_entity_payload_type))
+			{
+				WHP_CORE_ASSERT(payload->DataSize == sizeof(UUID), "Invalid entity drag payload size!");
+				value = *static_cast<const UUID*>(payload->Data);
+				changed = true;
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (value != 0)
+		{
+			ImGui::SameLine();
+			if (ImGui::Button("X", ImVec2(clear_button_width, 0.0f)))
+			{
+				value = UUID(0);
+				changed = true;
+			}
+		}
+
+		ImGui::PopID();
+		return changed;
+	}
+
 	template <UI::script_field_draw DrawMode, typename T, typename DrawFn>
 	void draw_value_contents(const script_field& field, entity ent, const std::string& class_name, const std::string& id, DrawFn draw)
 	{
@@ -257,6 +320,92 @@ namespace
 	{
 		table_row_scope row(in_table, field.name.c_str());
 		draw_value_contents<DrawMode, T>(field, ent, class_name, control_label(field, in_table), draw);
+	}
+
+	void draw_unsupported_array(const script_field& field, bool in_table)
+	{
+		table_row_scope row(in_table, field.name.c_str());
+		ImGui::TextDisabled("Unsupported array");
+	}
+
+	template <UI::script_field_draw DrawMode>
+	void draw_string_field(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		if (field.is_array)
+		{
+			draw_unsupported_array(field, in_table);
+			return;
+		}
+
+		table_row_scope row(in_table, field.name.c_str());
+		const std::string id = control_label(field, in_table);
+
+		if constexpr (DrawMode == UI::script_field_draw::while_scene_running)
+		{
+			(void)class_name;
+			ref<script_instance> sc_instance = script_engine::get_entity_script_instance(ent.get_UUID());
+			if (!sc_instance)
+				return;
+
+			std::string data = sc_instance->get_field_string(field.name);
+			if (draw_string_control(id.c_str(), data))
+				sc_instance->set_field_string(field.name, data);
+		}
+		else if constexpr (DrawMode == UI::script_field_draw::set_in_the_editor)
+		{
+			(void)class_name;
+			script_field_instance& sc_field = editor_field(ent, field);
+			std::string data = sc_field.get_string_value();
+			if (draw_string_control(id.c_str(), data))
+				sc_field.set_string_value(data);
+		}
+		else
+		{
+			script_field_instance& sc_field = base_field(class_name, field);
+			std::string data = sc_field.get_string_value();
+			if (draw_string_control(id.c_str(), data))
+				override_field(ent, field).set_string_value(data);
+		}
+	}
+
+	template <UI::script_field_draw DrawMode>
+	void draw_entity_field(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		if (field.is_array)
+		{
+			draw_unsupported_array(field, in_table);
+			return;
+		}
+
+		table_row_scope row(in_table, field.name.c_str());
+		const std::string id = control_label(field, in_table);
+
+		if constexpr (DrawMode == UI::script_field_draw::while_scene_running)
+		{
+			(void)class_name;
+			ref<script_instance> sc_instance = script_engine::get_entity_script_instance(ent.get_UUID());
+			if (!sc_instance)
+				return;
+
+			UUID data = sc_instance->get_field_entity(field.name);
+			if (draw_entity_control(id.c_str(), data, ent))
+				sc_instance->set_field_entity(field.name, data);
+		}
+		else if constexpr (DrawMode == UI::script_field_draw::set_in_the_editor)
+		{
+			(void)class_name;
+			script_field_instance& sc_field = editor_field(ent, field);
+			UUID data = sc_field.get_entity_value();
+			if (draw_entity_control(id.c_str(), data, ent))
+				sc_field.set_entity_value(data);
+		}
+		else
+		{
+			script_field_instance& sc_field = base_field(class_name, field);
+			UUID data = sc_field.get_entity_value();
+			if (draw_entity_control(id.c_str(), data, ent))
+				override_field(ent, field).set_entity_value(data);
+		}
 	}
 
 	template <typename OnResize>
@@ -550,6 +699,42 @@ namespace UI
 
 #undef WHIP_DEFINE_SCRIPT_FIELD
 
+	template <>
+	void draw_field<script_field_type::String, script_field_draw::while_scene_running>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		draw_string_field<script_field_draw::while_scene_running>(field, ent, class_name, in_table);
+	}
+
+	template <>
+	void draw_field<script_field_type::String, script_field_draw::set_in_the_editor>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		draw_string_field<script_field_draw::set_in_the_editor>(field, ent, class_name, in_table);
+	}
+
+	template <>
+	void draw_field<script_field_type::String, script_field_draw::with_base_value>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		draw_string_field<script_field_draw::with_base_value>(field, ent, class_name, in_table);
+	}
+
+	template <>
+	void draw_field<script_field_type::Entity, script_field_draw::while_scene_running>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		draw_entity_field<script_field_draw::while_scene_running>(field, ent, class_name, in_table);
+	}
+
+	template <>
+	void draw_field<script_field_type::Entity, script_field_draw::set_in_the_editor>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		draw_entity_field<script_field_draw::set_in_the_editor>(field, ent, class_name, in_table);
+	}
+
+	template <>
+	void draw_field<script_field_type::Entity, script_field_draw::with_base_value>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		draw_entity_field<script_field_draw::with_base_value>(field, ent, class_name, in_table);
+	}
+
 	template <script_field_draw DrawMode>
 	void draw_field_by_type(const script_field& field, entity ent, const std::string& class_name, bool in_table)
 	{
@@ -572,9 +757,9 @@ namespace UI
 		case script_field_type::UShort: draw_field<script_field_type::UShort, DrawMode>(field, ent, class_name, in_table); break;
 		case script_field_type::KeyCode: draw_field<script_field_type::KeyCode, DrawMode>(field, ent, class_name, in_table); break;
 		case script_field_type::MouseCode: draw_field<script_field_type::MouseCode, DrawMode>(field, ent, class_name, in_table); break;
+		case script_field_type::String: draw_field<script_field_type::String, DrawMode>(field, ent, class_name, in_table); break;
+		case script_field_type::Entity: draw_field<script_field_type::Entity, DrawMode>(field, ent, class_name, in_table); break;
 		case script_field_type::None:
-		case script_field_type::String:
-		case script_field_type::Entity:
 		case script_field_type::Logger:
 		default:
 			break;

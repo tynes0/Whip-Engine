@@ -191,6 +191,19 @@ namespace utils
 		out << YAML::EndSeq;
 	}
 
+	template <>
+	void write_script_field_data<std::string>(YAML::Emitter& out, script_field_instance& field_instance)
+	{
+		if (field_instance.field.is_array)
+		{
+			WHP_CORE_WARN("[SceneSerializer] String arrays are not supported for script fields yet: {0}", field_instance.field.name);
+			out << YAML::BeginSeq << YAML::EndSeq;
+			return;
+		}
+
+		out << field_instance.get_string_value();
+	}
+
 	template <typename T>
 	void read_script_field_data(const YAML::Node& data_node, script_field_instance& field_instance)
 	{
@@ -206,6 +219,19 @@ namespace utils
 			values[i] = data_node[i].as<T>();
 
 		field_instance.set_value_array<T>(values.get(), size);
+	}
+
+	template <>
+	void read_script_field_data<std::string>(const YAML::Node& data_node, script_field_instance& field_instance)
+	{
+		if (field_instance.field.is_array)
+		{
+			WHP_CORE_WARN("[SceneSerializer] String arrays are not supported for script fields yet: {0}", field_instance.field.name);
+			field_instance.set_value_array<char>(nullptr, 0);
+			return;
+		}
+
+		field_instance.set_string_value(data_node ? data_node.as<std::string>() : std::string());
 	}
 
 	static std::string rigidbody2D_body_type_to_string(rigidbody2D_component::body_type type)
@@ -315,6 +341,7 @@ namespace utils
 					switch (field.type)
 					{
 						WRITE_SCRIPT_FIELD(Float, float);
+						WRITE_SCRIPT_FIELD(String, std::string);
 						WRITE_SCRIPT_FIELD(Double, double);
 						WRITE_SCRIPT_FIELD(Bool, bool);
 						WRITE_SCRIPT_FIELD(Char, char);
@@ -598,6 +625,7 @@ bool scene_serializer::deserialize(const std::filesystem::path& filepath)
 							switch (type)
 							{
 								READ_SCRIPT_FIELD(Float, float);
+								READ_SCRIPT_FIELD(String, std::string);
 								READ_SCRIPT_FIELD(Double, double);
 								READ_SCRIPT_FIELD(Bool, bool);
 								READ_SCRIPT_FIELD(Char, char);

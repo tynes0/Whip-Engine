@@ -25,6 +25,11 @@
 
 _WHIP_START
 
+namespace
+{
+	constexpr const char* scene_entity_payload_type = "WHIP_SCENE_ENTITY";
+}
+
 static audio_component::audio_data* find_ac_AD(std::vector<audio_component::audio_data>&handle_list, const std::string & tag)
 {
 	for (audio_component::audio_data& handle : handle_list)
@@ -137,6 +142,14 @@ void scene_hierarchy_panel::draw_entity_node(entity entity_in)
 
 		if (ImGui::IsItemClicked())
 			m_selection_context = entity_in;
+
+		if (ImGui::BeginDragDropSource())
+		{
+			UUID entity_id = entity_in.get_UUID();
+			ImGui::SetDragDropPayload(scene_entity_payload_type, &entity_id, sizeof(UUID));
+			ImGui::TextUnformatted(tag.c_str());
+			ImGui::EndDragDropSource();
+		}
 
 		bool entityDeleted = false;
 		if (ImGui::BeginPopupContextItem())

@@ -244,6 +244,44 @@ static script_engine_data* s_script_engine_data = nullptr;
 
 namespace utils
 {
+	static std::string mono_string_to_string(MonoString* string)
+	{
+		if (!string)
+			return {};
+
+		char* cstr = mono_string_to_utf8(string);
+		std::string result = cstr ? cstr : "";
+		mono_free(cstr);
+		return result;
+	}
+
+	static UUID entity_id_from_managed_object(MonoObject* entity)
+	{
+		if (!entity)
+			return UUID(0);
+
+		MonoClass* entity_class = mono_class_from_name(s_script_engine_data->core_assembly_image, "Whip", "Entity");
+		MonoClassField* id_field = mono_class_get_field_from_name(entity_class, "ID");
+		if (!id_field)
+			return UUID(0);
+
+		uint64_t id = 0;
+		mono_field_get_value(entity, id_field, &id);
+		return UUID(id);
+	}
+
+	static MonoObject* create_managed_entity_reference(UUID entity_id)
+	{
+		if (entity_id == 0)
+			return nullptr;
+
+		MonoObject* entity = s_script_engine_data->entity_class.instantiate();
+		MonoMethod* constructor = s_script_engine_data->entity_class.get_method(".ctor", 1);
+		void* param = &entity_id;
+		s_script_engine_data->entity_class.invoke_method(entity, constructor, &param);
+		return entity;
+	}
+
 	static void on_app_assembly_file_system_event_1(const std::string& path, const filewatch::Event change_type)
 	{
 		if ((!s_script_engine_data->assembly_reloading_pending && change_type == filewatch::Event::modified) || s_script_engine_data->should_reload_assembly)
@@ -356,6 +394,26 @@ bool script_instance::get_field_value_internal(const std::string& name)
 
 	const script_field& field = it->second;
 
+	if (field.type == script_field_type::String)
+	{
+		MonoString* string = nullptr;
+		mono_field_get_value(m_instance, field.class_field, &string);
+		std::string value = utils::mono_string_to_string(string);
+		s_field_value_buffer.allocate(value.size() + 1);
+		std::memcpy(s_field_value_buffer.data, value.data(), value.size());
+		s_field_value_buffer.data[value.size()] = '\0';
+		return true;
+	}
+
+	if (field.type == script_field_type::Entity)
+	{
+		MonoObject* entity = nullptr;
+		mono_field_get_value(m_instance, field.class_field, &entity);
+		UUID entity_id = utils::entity_id_from_managed_object(entity);
+		s_field_value_buffer.store(entity_id);
+		return true;
+	}
+
 	if (static_cast<size_t>(field.type_size) > s_field_value_buffer.size)
 		s_field_value_buffer.allocate(field.type_size);
 
@@ -375,8 +433,53 @@ bool script_instance::set_field_value_internal(const std::string& name, const vo
 		return false;
 
 	const script_field& field = it->second;
+
+	if (field.type == script_field_type::String)
+	{
+		const char* string_value = static_cast<const char*>(value);
+		MonoString* string = mono_string_new(s_script_engine_data->app_domain, string_value ? string_value : "");
+		mono_field_set_value(m_instance, field.class_field, string);
+		return true;
+	}
+
+	if (field.type == script_field_type::Entity)
+	{
+		const UUID entity_id = value ? *static_cast<const UUID*>(value) : UUID(0);
+		MonoObject* entity = utils::create_managed_entity_reference(entity_id);
+		mono_field_set_value(m_instance, field.class_field, entity);
+		return true;
+	}
+
 	mono_field_set_value(m_instance, field.class_field, const_cast<void*>(value));
 	return true;
+}
+
+std::string script_instance::get_field_string(const std::string& name)
+{
+	if (!get_field_value_internal(name))
+		return {};
+
+	const char* value = s_field_value_buffer.as<const char>();
+	return value ? std::string(value) : std::string();
+}
+
+void script_instance::set_field_string(const std::string& name, std::string_view value)
+{
+	std::string value_copy(value);
+	set_field_value_internal(name, value_copy.c_str());
+}
+
+UUID script_instance::get_field_entity(const std::string& name)
+{
+	if (!get_field_value_internal(name))
+		return UUID(0);
+
+	return s_field_value_buffer.load<UUID>();
+}
+
+void script_instance::set_field_entity(const std::string& name, UUID value)
+{
+	set_field_value_internal(name, &value);
 }
 
 bool script_instance::get_field_array_value_internal(const std::string& name, size_t* size)
@@ -405,6 +508,43 @@ bool script_instance::get_field_array_value_internal(const std::string& name, si
 
 	char* array_data = mono_array_addr_with_size(array, field.type_size, 0);
 	std::memcpy(s_field_value_buffer.data, array_data, req_bufsiz);
+	return true;
+}
+
+bool script_instance::set_field_array_value_internal(const std::string& name, const void* values, size_t size)
+{
+	const auto& fields = m_script_class->get_fields();
+	auto it = fields.find(name);
+	if (it == fields.end())
+		return false;
+
+	const script_field& field = it->second;
+	if (!field.is_array)
+		return false;
+
+	if (field.type == script_field_type::String || field.type == script_field_type::Entity || field.type == script_field_type::Logger)
+	{
+		WHP_CORE_WARN("[Script Engine] Script field array type is not assignable at runtime yet: {0}", name);
+		return false;
+	}
+
+	MonoType* array_type = mono_field_get_type(field.class_field);
+	MonoType* element_type = utils::get_mono_type_element_type(array_type);
+	MonoClass* element_class = mono_class_from_mono_type(element_type);
+	if (!element_class)
+		return false;
+
+	MonoArray* array = mono_array_new(s_script_engine_data->app_domain, element_class, static_cast<uintptr_t>(size));
+	if (!array)
+		return false;
+
+	if (values && size > 0)
+	{
+		char* array_data = mono_array_addr_with_size(array, field.type_size, 0);
+		std::memcpy(array_data, values, size * field.type_size);
+	}
+
+	mono_field_set_value(m_instance, field.class_field, array);
 	return true;
 }
 
@@ -448,12 +588,11 @@ bool assembly_manager::load_app_assembly(const std::filesystem::path& filepath)
 	{
 		s_script_engine_data->app_assembly_filepath = filepath;
 		s_script_engine_data->app_assembly = utils::load_mono_assembly(filepath, s_script_engine_data->enable_debugging);
+		s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(filepath.string(), utils::on_app_assembly_file_system_event_1);
+		s_script_engine_data->assembly_reloading_pending = false;
 		if (s_script_engine_data->app_assembly == nullptr)
 			return false;
 		s_script_engine_data->app_assembly_image = mono_assembly_get_image(s_script_engine_data->app_assembly);
-
-		s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(filepath.string(), utils::on_app_assembly_file_system_event_1);
-		s_script_engine_data->assembly_reloading_pending = false;
 		return true;
 	}
 	return false;
@@ -516,9 +655,24 @@ void assembly_manager::load_base_script_fields()
 			}
 			else
 			{
-				raw_buffer& buf = field_instance.m_buffer;
-				buf.allocate(max_type_size);
-				mono_field_get_value(instance, field.class_field, buf.as<void>());
+				if (field.type == script_field_type::String)
+				{
+					MonoString* string = nullptr;
+					mono_field_get_value(instance, field.class_field, &string);
+					field_instance.set_string_value(utils::mono_string_to_string(string));
+				}
+				else if (field.type == script_field_type::Entity)
+				{
+					MonoObject* entity = nullptr;
+					mono_field_get_value(instance, field.class_field, &entity);
+					field_instance.set_entity_value(utils::entity_id_from_managed_object(entity));
+				}
+				else
+				{
+					raw_buffer& buf = field_instance.m_buffer;
+					buf.allocate(max_type_size);
+					mono_field_get_value(instance, field.class_field, buf.as<void>());
+				}
 			}
 		}
 	}
@@ -632,7 +786,6 @@ void script_engine::shutdown()
 
 void script_engine::set_filewatcher_state(bool run)
 {
-	s_script_engine_data->app_assembly_watcher;
 	if (run)
 	{
 		s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(s_script_engine_data->app_assembly_filepath.string(), utils::on_app_assembly_file_system_event_1);
@@ -679,7 +832,12 @@ void script_engine::on_create_entity(entity entity_in)
 		{
 			const script_field_map& field_map = s_script_engine_data->entity_script_fields.at(entityID);
 			for (const auto& [name, field_instance] : field_map)
-				instance->set_field_value_internal(name, field_instance.m_buffer.as<void>());
+			{
+				if (field_instance.field.is_array && field_instance.field.type_size > 0)
+					instance->set_field_array_value_internal(name, field_instance.m_buffer.as<void>(), field_instance.m_buffer.size / field_instance.field.type_size);
+				else
+					instance->set_field_value_internal(name, field_instance.m_buffer.as<void>());
+			}
 		}
 	}
 }

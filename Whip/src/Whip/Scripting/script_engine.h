@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <map>
 #include <unordered_map>
 
@@ -75,6 +76,39 @@ struct script_field_instance
 	void set_value(T value)
 	{
 		m_buffer.store<T>(value);
+	}
+
+	std::string get_string_value() const
+	{
+		if (!m_buffer.data || m_buffer.size == 0)
+			return {};
+
+		const char* data = m_buffer.as<const char>();
+		size_t length = static_cast<size_t>(m_buffer.size);
+		if (data[length - 1] == '\0')
+			--length;
+
+		return std::string(data, length);
+	}
+
+	void set_string_value(std::string_view value)
+	{
+		m_buffer.allocate(value.size() + 1);
+		std::memcpy(m_buffer.data, value.data(), value.size());
+		m_buffer.data[value.size()] = '\0';
+	}
+
+	UUID get_entity_value()
+	{
+		if (!m_buffer.can_cast_to<UUID>())
+			return UUID(0);
+
+		return m_buffer.load<UUID>();
+	}
+
+	void set_entity_value(UUID value)
+	{
+		set_value(value);
 	}
 
 	template <typename T>
@@ -177,6 +211,12 @@ public:
 		set_field_value_internal(name, &value);
 	}
 
+	std::string get_field_string(const std::string& name);
+	void set_field_string(const std::string& name, std::string_view value);
+
+	UUID get_field_entity(const std::string& name);
+	void set_field_entity(const std::string& name, UUID value);
+
 	template <class T>
 	void set_field_array_index(const std::string& name, size_t index, T value)
 	{
@@ -189,6 +229,7 @@ private:
 	bool get_field_value_internal(const std::string& name); // loads value to s_field_value_buffer
 	bool set_field_value_internal(const std::string& name, const void* value);
 	bool get_field_array_value_internal(const std::string& name, size_t* size); // loads value to s_field_value_buffer
+	bool set_field_array_value_internal(const std::string& name, const void* values, size_t size);
 	bool set_field_array_index_value_internal(const std::string& name, size_t index, const void* value);
 private:
 	ref<script_class> m_script_class;

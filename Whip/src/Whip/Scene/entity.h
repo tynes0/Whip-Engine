@@ -62,6 +62,7 @@ public:
 	operator entt::entity() const { return m_entity_handle; }
 
 	UUID get_UUID() { return get_component<ID_component>().ID; }
+	scene* get_scene() const { return m_scene; }
 	std::string get_name() 
 	{
 		if (m_entity_handle == entt::null)

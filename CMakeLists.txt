@@ -76,16 +76,16 @@ if(WHP_BUILD_SCRIPT_CORE)
     endif()
 endif()
 
+if(WHP_BUILD_FBOX_SCRIPTS AND CMAKE_GENERATOR MATCHES "Visual Studio" AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/F-Box/FboxProject/Assets/Scripts/CMakeLists.txt")
+    add_subdirectory(F-Box/FboxProject/Assets/Scripts)
+endif()
+
 if(WHP_BUILD_EDITOR)
     add_subdirectory(Whip-Editor)
 endif()
 
 if(WHP_BUILD_FBOX)
     add_subdirectory(F-Box)
-endif()
-
-if(WHP_BUILD_FBOX_SCRIPTS AND CMAKE_GENERATOR MATCHES "Visual Studio" AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/F-Box/FboxProject/Assets/Scripts/CMakeLists.txt")
-    add_subdirectory(F-Box/FboxProject/Assets/Scripts)
 endif()
 
 whip_apply_solution_folders()
