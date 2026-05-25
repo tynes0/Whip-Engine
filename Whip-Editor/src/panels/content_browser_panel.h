@@ -3,12 +3,12 @@
 #include "thumbnail_cache.h"
 
 #include <Whip/Core/Core.h>
+#include <Whip/Asset/asset.h>
 #include <Whip/Render/Texture.h>
-#include <Whip/UI/UI_popup_handler.h>
 
 #include <filesystem>
-#include <map>
-#include <set>
+#include <string>
+#include <vector>
 
 
 _WHIP_START
@@ -25,7 +25,47 @@ public:
 	void on_settings_popup();
 	void refresh_asset_tree();
 private:
-	void init_popups();
+	enum class mode
+	{
+		filesystem = 0,
+		asset = 1
+	};
+
+	struct browser_item
+	{
+		std::filesystem::path absolute_path;
+		std::filesystem::path relative_path;
+		asset_handle handle = 0;
+		asset_type type = asset_type::none;
+		bool directory = false;
+		bool imported = false;
+		bool supported = false;
+	};
+
+	void draw_toolbar();
+	void draw_sidebar();
+	void draw_directory_tree(const std::filesystem::path& directory);
+	void draw_breadcrumbs();
+	void draw_content_grid(const std::vector<browser_item>& items);
+	void draw_item(const browser_item& item);
+	void draw_remove_asset_modal();
+
+	std::vector<browser_item> collect_items() const;
+	std::vector<browser_item> collect_filesystem_items() const;
+	std::vector<browser_item> collect_asset_items() const;
+
+	void set_current_directory(const std::filesystem::path& directory);
+	void import_file(const std::filesystem::path& relative_path);
+	void import_current_directory(bool recursive);
+	void request_remove_asset(asset_handle handle, const std::filesystem::path& relative_path);
+	void remove_requested_asset();
+
+	bool is_inside_base_directory(const std::filesystem::path& path) const;
+	bool matches_search(const browser_item& item) const;
+	browser_item make_filesystem_item(const std::filesystem::directory_entry& entry) const;
+	asset_handle find_asset_handle(const std::filesystem::path& relative_path) const;
+	std::string display_path(const std::filesystem::path& path) const;
+	std::string item_type_label(const browser_item& item) const;
 
 	ref<project> m_project;
 	ref<thumbnail_cache> m_thumbnail_cache;
@@ -40,30 +80,12 @@ private:
 
 	// popup
 	bool m_show_settings_popup = false;
+	asset_handle m_pending_remove_handle = 0;
+	std::filesystem::path m_pending_remove_path;
 
-	bool m_initialized;
-
-	struct tree_node
-	{
-		std::filesystem::path path;
-		asset_handle handle;
-
-		uint32_t parent = (uint32_t)-1;
-		std::map<std::filesystem::path, uint32_t> children;
-
-		tree_node(const std::filesystem::path& path, asset_handle handle) : path(path), handle(handle) {}
-	};
-
-	std::vector<tree_node> m_tree_nodes;
-	std::map<std::filesystem::path, std::vector<std::filesystem::path>> m_asset_tree;
-	UI::popup_handler m_subtexture_popup;
-
-	enum class mode
-	{
-		asset = 0, filesystem = 1
-	};
-
+	std::string m_search_query;
 	mode m_mode = mode::asset;
+	bool m_initialized = false;
 };
 
 _WHIP_END

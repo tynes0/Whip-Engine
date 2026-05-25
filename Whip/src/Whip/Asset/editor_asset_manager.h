@@ -23,9 +23,10 @@ public:
 	virtual const asset_metadata& get_metadata(asset_handle handle) const override;
 	virtual void add_registry(asset_handle handle, const asset_metadata& metadata) override;
 
-	void import_asset(const std::filesystem::path& filepath);
+	asset_handle import_asset(const std::filesystem::path& filepath);
 	void delete_asset(asset_handle handle);
 
+	asset_handle get_handle_from_filepath(const std::filesystem::path& filepath) const;
 	const std::filesystem::path& get_filepath(asset_handle handle) const;
 	const asset_registry& get_asset_registry() const { return m_asset_registry; }
 

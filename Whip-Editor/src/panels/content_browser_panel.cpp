@@ -1,30 +1,56 @@
 #include <whippch.h>
 
-#include <Whip/Core/Application.h>
-#include <Whip/Utils/platform_utils.h>
-#include <Whip/Project/project.h>
-#include <Whip/Asset/asset_manager.h>
-#include <Whip/Asset/texture_importer.h>
-#include <Whip/UI/UI_helpers.h>
-
 #include "content_browser_panel.h"
+
 #include "../Helpers/icon_manager.h"
 
+#include <Whip/Asset/asset_manager.h>
+#include <Whip/Asset/utils.h>
+#include <Whip/Core/Application.h>
+#include <Whip/Project/project.h>
+#include <Whip/UI/UI_helpers.h>
+
 #include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
+
+#include <algorithm>
+#include <cctype>
+#include <iterator>
+#include <set>
+#include <system_error>
 
 _WHIP_START
 
-content_browser_panel::content_browser_panel()
+namespace
 {
-	m_initialized = false;
+	std::string to_lower(std::string text)
+	{
+		std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		return text;
+	}
+
+	bool path_component_is_parent_reference(const std::filesystem::path& path)
+	{
+		for (const auto& component : path)
+			if (component == "..")
+				return true;
+
+		return false;
+	}
+
+	bool path_component_is_current_reference(const std::filesystem::path& path)
+	{
+		return path.empty() || path == ".";
+	}
 }
 
-content_browser_panel::content_browser_panel(ref<project> proj) : m_project(proj), m_thumbnail_cache(make_ref<thumbnail_cache>(proj)), m_base_directory(m_project->get_asset_directory()), m_current_directory(m_base_directory)
+content_browser_panel::content_browser_panel()
 {
-	m_tree_nodes.push_back(tree_node(".", 0));
-	refresh_asset_tree();
-	m_mode = mode::filesystem;
-	m_initialized = true;
+}
+
+content_browser_panel::content_browser_panel(ref<project> proj)
+{
+	init(proj);
 }
 
 void content_browser_panel::init(ref<project> proj)
@@ -32,7 +58,12 @@ void content_browser_panel::init(ref<project> proj)
 	m_project = proj;
 	m_thumbnail_cache = make_ref<thumbnail_cache>(proj);
 	m_current_directory = m_base_directory = m_project->get_asset_directory();
-	m_tree_nodes.push_back(tree_node(".", 0));
+
+	std::error_code error;
+	std::filesystem::create_directories(m_base_directory, error);
+	if (error)
+		WHP_CORE_WARN("[Content Browser] Could not create asset directory '{0}': {1}", m_base_directory.string(), error.message());
+
 	refresh_asset_tree();
 	m_mode = mode::filesystem;
 	m_initialized = true;
@@ -42,190 +73,504 @@ void content_browser_panel::on_imgui_render()
 {
 	ImGui::Begin("Content Browser");
 
-	if(m_initialized)
+	if (!m_initialized || !m_project)
 	{
-		const char* label = m_mode == mode::asset ? "Asset" : "File";
-		if (ImGui::Button(label))
-			m_mode = m_mode == mode::asset ? mode::filesystem : mode::asset;
-
-		if (m_current_directory != m_base_directory)
-		{
-			ImGui::SameLine();
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-			ref<texture2D> icon = icon_manager::get().get_icon(icon::back);
-			if (UI::image_button("##ContentBrowserBack", UI::to_imgui_texture_id(icon->get_renderer_id()), { 16.0f, 16.0f }, { 0, 1 }, { 1, 0 }))
-				m_current_directory = m_current_directory.parent_path();
-			ImGui::PopStyleColor();
-		}
-
-		float cell_size = m_thumbnail_size + m_padding;
-
-		float panel_width = ImGui::GetContentRegionAvail().x;
-		int column_count = (int)(panel_width / cell_size);
-		if (column_count < 1)
-			column_count = 1;
-
-	ImGui::Columns(column_count, 0, false);
-
-		if (m_mode == mode::asset)
-		{
-			tree_node* node = &m_tree_nodes[0];
-
-			auto currentDir = std::filesystem::relative(m_current_directory, project::get_active_asset_directory());
-			for (const auto& p : currentDir)
-			{
-				// if only one level
-				if (node->path == currentDir)
-					break;
-
-				if (node->children.find(p) != node->children.end())
-				{
-					node = &m_tree_nodes[node->children[p]];
-					continue;
-				}
-				else
-				{
-					// can't find path
-					WHP_CORE_WARN("There is no asset in this filepath!");
-					m_mode = mode::filesystem;
-				}
-
-			}
-
-			for (const auto& [item, treeNodeIndex] : node->children)
-			{
-				bool isDirectory = std::filesystem::is_directory(project::get_active_asset_directory() / item);
-
-				std::string itemStr = item.generic_string();
-
-				ImGui::PushID(itemStr.c_str());
-				ref<texture2D> icon = isDirectory ? icon_manager::get().get_icon(icon::directory) : icon_manager::get().get_icon(icon::file);
-
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-				UI::image_button("##AssetIcon", UI::to_imgui_texture_id(icon->get_renderer_id()), { m_thumbnail_size, m_thumbnail_size }, { 0, 1 }, { 1, 0 });
-
-				if (ImGui::BeginPopupContextItem())
-				{
-					if (ImGui::MenuItem("Delete"))
-					{
-						auto& node = m_tree_nodes[treeNodeIndex];
-						auto parent_index = m_tree_nodes[treeNodeIndex].parent;
-						auto& parent_node = m_tree_nodes[parent_index];
-						auto& child_map = parent_node.children;
-						auto it = child_map.find(node.path);
-						size_t index = treeNodeIndex;
-						if (it != child_map.end())
-							child_map.erase(it);
-
-						asset_handle handle = node.handle;
-						project::get_active()->get_editor_asset_manager()->delete_asset(handle);
-						m_tree_nodes.erase(m_tree_nodes.begin() + index);
-						ImGui::EndPopup();
-						ImGui::PopStyleColor();
-						ImGui::PopID();
-						break;
-					}
-
-					static constexpr ImVec2 popup_size(50.0f, 50.0f);
-					if (ImGui::MenuItem("Import Subtextures"))
-					{
-						if (ImGui::BeginPopupModal("Import Subtextures", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-						{
-							static float size[]{ 0,0 };
-							ImGui::Text("Sprite Size");
-							ImGui::InputFloat2("##SpriteSize", size);
-							if (ImGui::Button("Close"))
-							{
-								ImGui::CloseCurrentPopup();
-							}
-							ImGui::EndPopup();
-						}
-						ref<texture2D> base_tex = asset_manager::get_asset<texture2D>(node->handle);
-
-						//texture2D::create_from_coords(base_tex, );
-					}
-
-					ImGui::EndPopup();
-				}
-
-				if (ImGui::BeginDragDropSource())
-				{
-					asset_handle handle = m_tree_nodes[treeNodeIndex].handle;
-					ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &handle, sizeof(asset_handle));
-					ImGui::EndDragDropSource();
-				}
-
-				ImGui::PopStyleColor();
-				if (ImGui::IsItemHovered())
-				{
-					if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && isDirectory)
-						m_current_directory /= item.filename();
-
-				}
-
-				ImGui::TextWrapped(itemStr.c_str());
-
-				ImGui::NextColumn();
-
-				ImGui::PopID();
-			}
-		}
-		else
-		{
-			for (auto& directoryEntry : std::filesystem::directory_iterator(m_current_directory))
-			{
-				const auto& path = directoryEntry.path();
-				std::string filenameString = path.filename().string();
-
-				ImGui::PushID(filenameString.c_str());
-				ref<texture2D> icon = directoryEntry.is_directory() ? icon_manager::get().get_icon(icon::directory) : icon_manager::get().get_icon(icon::file);
-
-				auto relativePath = std::filesystem::relative(path, project::get_active_asset_directory());
-				ref<texture2D> thumbnail = icon_manager::get().get_icon(icon::directory);
-				if (!directoryEntry.is_directory())
-				{
-					thumbnail = m_thumbnail_cache->get_or_create_thumbnail(relativePath);
-					if (!thumbnail)
-						thumbnail = icon_manager::get().get_icon(icon::file);
-				}
-
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-				UI::image_button("##FilesystemIcon", UI::to_imgui_texture_id(thumbnail->get_renderer_id()), { m_thumbnail_size, m_thumbnail_size }, { 0, 1 }, { 1, 0 });
-
-				if (ImGui::BeginPopupContextItem())
-				{
-					if (ImGui::MenuItem("Import"))
-					{
-						project::get_active()->get_editor_asset_manager()->import_asset(relativePath);
-						refresh_asset_tree();
-					}
-					ImGui::EndPopup();
-				}
-
-				ImGui::PopStyleColor();
-				if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-				{
-					if (directoryEntry.is_directory())
-						m_current_directory /= path.filename();
-				}
-
-				ImGui::TextWrapped(filenameString.c_str());
-
-				ImGui::NextColumn();
-
-				ImGui::PopID();
-			}
-		}
+		ImGui::TextDisabled("No project loaded.");
+		ImGui::End();
+		return;
 	}
 
-	if (ImGui::BeginPopupContextWindow(0, 1 | ImGuiPopupFlags_NoOpenOverItems))
+	draw_toolbar();
+	ImGui::Separator();
+
+	if (ImGui::BeginTable("##ContentBrowserLayout", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV))
 	{
+		ImGui::TableSetupColumn("Folders", ImGuiTableColumnFlags_WidthFixed, 220.0f);
+		ImGui::TableSetupColumn("Items", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableNextRow();
+
+		ImGui::TableNextColumn();
+		draw_sidebar();
+
+		ImGui::TableNextColumn();
+		draw_breadcrumbs();
+		ImGui::Separator();
+
+		std::vector<browser_item> items = collect_items();
+		draw_content_grid(items);
+
+		ImGui::EndTable();
+	}
+
+	if (ImGui::BeginPopupContextWindow("##ContentBrowserWindowMenu", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+	{
+		if (ImGui::MenuItem("Refresh"))
+			refresh_asset_tree();
 		if (ImGui::MenuItem("Settings"))
 			m_show_settings_popup = true;
 		ImGui::EndPopup();
 	}
+
+	draw_remove_asset_modal();
 	on_settings_popup();
 	ImGui::End();
+}
+
+void content_browser_panel::draw_toolbar()
+{
+	if (ImGui::Button(m_mode == mode::filesystem ? "Files" : "Imported"))
+		m_mode = m_mode == mode::filesystem ? mode::asset : mode::filesystem;
+
+	ImGui::SameLine();
+	if (ImGui::Button("Refresh"))
+		refresh_asset_tree();
+
+	ImGui::SameLine();
+	if (m_mode == mode::filesystem)
+	{
+		if (ImGui::Button("Import Folder"))
+			import_current_directory(false);
+
+		ImGui::SameLine();
+		if (ImGui::Button("Import Recursive"))
+			import_current_directory(true);
+
+		ImGui::SameLine();
+	}
+
+	ImGui::SetNextItemWidth(std::max(160.0f, ImGui::GetContentRegionAvail().x - 96.0f));
+	ImGui::InputTextWithHint("##ContentBrowserSearch", "Search assets and files", &m_search_query);
+
+	ImGui::SameLine();
+	if (ImGui::Button("Settings"))
+		m_show_settings_popup = true;
+}
+
+void content_browser_panel::draw_sidebar()
+{
+	ImGui::BeginChild("##ContentBrowserSidebar", ImVec2(0.0f, 0.0f), false);
+
+	ImGuiTreeNodeFlags root_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth;
+	if (m_current_directory == m_base_directory)
+		root_flags |= ImGuiTreeNodeFlags_Selected;
+
+	const bool open = ImGui::TreeNodeEx("Assets", root_flags);
+	if (ImGui::IsItemClicked())
+		set_current_directory(m_base_directory);
+
+	if (open)
+	{
+		draw_directory_tree(m_base_directory);
+		ImGui::TreePop();
+	}
+
+	ImGui::EndChild();
+}
+
+void content_browser_panel::draw_directory_tree(const std::filesystem::path& directory)
+{
+	std::vector<std::filesystem::path> directories;
+	std::error_code error;
+	for (const auto& entry : std::filesystem::directory_iterator(directory, error))
+	{
+		if (entry.is_directory(error))
+			directories.push_back(entry.path());
+	}
+
+	std::sort(directories.begin(), directories.end(), [](const auto& left, const auto& right)
+		{
+			return to_lower(left.filename().string()) < to_lower(right.filename().string());
+		});
+
+	for (const auto& child_directory : directories)
+	{
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+		if (child_directory == m_current_directory)
+			flags |= ImGuiTreeNodeFlags_Selected;
+
+		const bool open = ImGui::TreeNodeEx(child_directory.filename().string().c_str(), flags);
+		if (ImGui::IsItemClicked())
+			set_current_directory(child_directory);
+
+		if (open)
+		{
+			draw_directory_tree(child_directory);
+			ImGui::TreePop();
+		}
+	}
+}
+
+void content_browser_panel::draw_breadcrumbs()
+{
+	if (ImGui::Button("Assets"))
+		set_current_directory(m_base_directory);
+
+	std::error_code error;
+	std::filesystem::path relative_path = std::filesystem::relative(m_current_directory, m_base_directory, error);
+	if (error || path_component_is_current_reference(relative_path))
+		return;
+
+	std::filesystem::path cursor = m_base_directory;
+	for (const auto& part : relative_path)
+	{
+		cursor /= part;
+		ImGui::SameLine();
+		ImGui::TextUnformatted("/");
+		ImGui::SameLine();
+		if (ImGui::Button(part.string().c_str()))
+			set_current_directory(cursor);
+	}
+}
+
+void content_browser_panel::draw_content_grid(const std::vector<browser_item>& items)
+{
+	const char* mode_label = m_mode == mode::filesystem ? "filesystem" : "imported";
+	ImGui::TextDisabled("%zu item(s) in %s view", items.size(), mode_label);
+
+	if (items.empty())
+	{
+		ImGui::Spacing();
+		ImGui::TextDisabled(m_search_query.empty() ? "This folder is empty." : "No matches.");
+		return;
+	}
+
+	float cell_size = m_thumbnail_size + m_padding;
+	float panel_width = ImGui::GetContentRegionAvail().x;
+	int column_count = static_cast<int>(panel_width / cell_size);
+	if (column_count < 1)
+		column_count = 1;
+
+	ImGui::Columns(column_count, nullptr, false);
+	for (const browser_item& item : items)
+	{
+		draw_item(item);
+		ImGui::NextColumn();
+	}
+	ImGui::Columns(1);
+}
+
+void content_browser_panel::draw_item(const browser_item& item)
+{
+	const std::string item_id = item.relative_path.generic_string();
+	ImGui::PushID(item_id.c_str());
+
+	ref<texture2D> thumbnail = item.directory ? icon_manager::get().get_icon(icon::directory) : nullptr;
+	if (!thumbnail && item.type == asset_type::texture2D && std::filesystem::exists(item.absolute_path))
+		thumbnail = m_thumbnail_cache->get_or_create_thumbnail(item.relative_path);
+	if (!thumbnail)
+		thumbnail = icon_manager::get().get_icon(icon::file);
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+	const bool icon_clicked = UI::image_button("##ContentBrowserItemIcon", UI::to_imgui_texture_id(thumbnail->get_renderer_id()), { m_thumbnail_size, m_thumbnail_size }, { 0, 1 }, { 1, 0 });
+	ImGui::PopStyleColor();
+
+	if (icon_clicked && item.directory)
+		set_current_directory(item.absolute_path);
+
+	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && item.directory)
+		set_current_directory(item.absolute_path);
+
+	if (item.imported && !item.directory && ImGui::BeginDragDropSource())
+	{
+		asset_handle handle = item.handle;
+		ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &handle, sizeof(asset_handle));
+		ImGui::TextUnformatted(item.relative_path.filename().string().c_str());
+		ImGui::EndDragDropSource();
+	}
+
+	if (ImGui::BeginPopupContextItem())
+	{
+		if (item.directory)
+		{
+			if (ImGui::MenuItem("Open"))
+				set_current_directory(item.absolute_path);
+			if (m_mode == mode::filesystem && ImGui::MenuItem("Import Folder"))
+			{
+				set_current_directory(item.absolute_path);
+				import_current_directory(false);
+			}
+			if (m_mode == mode::filesystem && ImGui::MenuItem("Import Recursive"))
+			{
+				set_current_directory(item.absolute_path);
+				import_current_directory(true);
+			}
+		}
+		else
+		{
+			if (item.supported && !item.imported && ImGui::MenuItem("Import"))
+				import_file(item.relative_path);
+			if (item.imported && ImGui::MenuItem("Remove from Registry"))
+				request_remove_asset(item.handle, item.relative_path);
+			if (!item.supported)
+				ImGui::TextDisabled("Unsupported asset type");
+		}
+
+		ImGui::EndPopup();
+	}
+
+	ImGui::TextWrapped(item.relative_path.filename().string().c_str());
+	ImGui::TextDisabled("%s", item_type_label(item).c_str());
+	ImGui::PopID();
+}
+
+void content_browser_panel::draw_remove_asset_modal()
+{
+	if (m_pending_remove_handle == 0)
+		return;
+
+	ImGui::OpenPopup("Remove Asset Registration");
+	if (ImGui::BeginPopupModal("Remove Asset Registration", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::TextWrapped("Remove this asset from the registry?");
+		ImGui::TextDisabled("%s", m_pending_remove_path.generic_string().c_str());
+		ImGui::Spacing();
+
+		if (ImGui::Button("Remove", ImVec2(96.0f, 0.0f)))
+		{
+			remove_requested_asset();
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(96.0f, 0.0f)))
+		{
+			m_pending_remove_handle = 0;
+			m_pending_remove_path.clear();
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+}
+
+std::vector<content_browser_panel::browser_item> content_browser_panel::collect_items() const
+{
+	std::vector<browser_item> items = m_mode == mode::filesystem ? collect_filesystem_items() : collect_asset_items();
+	items.erase(std::remove_if(items.begin(), items.end(), [this](const browser_item& item) { return !matches_search(item); }), items.end());
+
+	std::sort(items.begin(), items.end(), [](const browser_item& left, const browser_item& right)
+		{
+			if (left.directory != right.directory)
+				return left.directory > right.directory;
+
+			return to_lower(left.relative_path.filename().string()) < to_lower(right.relative_path.filename().string());
+		});
+
+	return items;
+}
+
+std::vector<content_browser_panel::browser_item> content_browser_panel::collect_filesystem_items() const
+{
+	std::vector<browser_item> items;
+	std::error_code error;
+
+	if (m_search_query.empty())
+	{
+		for (const auto& entry : std::filesystem::directory_iterator(m_current_directory, error))
+			items.push_back(make_filesystem_item(entry));
+	}
+	else
+	{
+		for (const auto& entry : std::filesystem::recursive_directory_iterator(m_base_directory, error))
+			items.push_back(make_filesystem_item(entry));
+	}
+
+	return items;
+}
+
+std::vector<content_browser_panel::browser_item> content_browser_panel::collect_asset_items() const
+{
+	std::vector<browser_item> items;
+	std::set<std::filesystem::path> directory_paths;
+	const auto& registry = m_project->get_editor_asset_manager()->get_asset_registry();
+
+	registry.foreach([&](const asset_registry::value_type& value)
+		{
+			browser_item item;
+			item.relative_path = value.second.filepath;
+			item.absolute_path = m_base_directory / item.relative_path;
+			item.handle = value.first;
+			item.type = value.second.type;
+			item.imported = true;
+			item.supported = true;
+
+			if (!m_search_query.empty())
+			{
+				items.push_back(item);
+				return;
+			}
+
+			if (item.absolute_path.parent_path() == m_current_directory)
+			{
+				items.push_back(item);
+				return;
+			}
+
+			if (!is_inside_base_directory(item.absolute_path))
+				return;
+
+			std::error_code error;
+			std::filesystem::path relative_to_current = std::filesystem::relative(item.absolute_path, m_current_directory, error);
+			if (error || path_component_is_parent_reference(relative_to_current) || path_component_is_current_reference(relative_to_current))
+				return;
+
+			auto part = relative_to_current.begin();
+			if (part == relative_to_current.end() || std::next(part) == relative_to_current.end())
+				return;
+
+			directory_paths.insert(m_current_directory / *part);
+		});
+
+	for (const auto& directory : directory_paths)
+	{
+		browser_item item;
+		item.absolute_path = directory;
+		item.relative_path = std::filesystem::relative(directory, m_base_directory);
+		item.directory = true;
+		items.push_back(item);
+	}
+
+	return items;
+}
+
+void content_browser_panel::set_current_directory(const std::filesystem::path& directory)
+{
+	std::error_code error;
+	if (!std::filesystem::exists(directory, error) || !std::filesystem::is_directory(directory, error))
+		return;
+
+	if (!is_inside_base_directory(directory))
+		return;
+
+	m_current_directory = directory.lexically_normal();
+}
+
+void content_browser_panel::import_file(const std::filesystem::path& relative_path)
+{
+	asset_handle handle = m_project->get_editor_asset_manager()->import_asset(relative_path);
+	if (handle != 0)
+		refresh_asset_tree();
+}
+
+void content_browser_panel::import_current_directory(bool recursive)
+{
+	std::error_code error;
+	if (!std::filesystem::exists(m_current_directory, error))
+		return;
+
+	if (recursive)
+	{
+		for (const auto& entry : std::filesystem::recursive_directory_iterator(m_current_directory, error))
+		{
+			if (!entry.is_regular_file(error))
+				continue;
+
+			browser_item item = make_filesystem_item(entry);
+			if (item.supported && !item.imported)
+				import_file(item.relative_path);
+		}
+	}
+	else
+	{
+		for (const auto& entry : std::filesystem::directory_iterator(m_current_directory, error))
+		{
+			if (!entry.is_regular_file(error))
+				continue;
+
+			browser_item item = make_filesystem_item(entry);
+			if (item.supported && !item.imported)
+				import_file(item.relative_path);
+		}
+	}
+
+	refresh_asset_tree();
+}
+
+void content_browser_panel::request_remove_asset(asset_handle handle, const std::filesystem::path& relative_path)
+{
+	m_pending_remove_handle = handle;
+	m_pending_remove_path = relative_path;
+}
+
+void content_browser_panel::remove_requested_asset()
+{
+	if (m_pending_remove_handle != 0)
+	{
+		m_project->get_editor_asset_manager()->delete_asset(m_pending_remove_handle);
+		refresh_asset_tree();
+	}
+
+	m_pending_remove_handle = 0;
+	m_pending_remove_path.clear();
+}
+
+bool content_browser_panel::is_inside_base_directory(const std::filesystem::path& path) const
+{
+	std::error_code error;
+	std::filesystem::path relative_path = std::filesystem::relative(path, m_base_directory, error);
+	if (error)
+		return false;
+
+	return !path_component_is_parent_reference(relative_path);
+}
+
+bool content_browser_panel::matches_search(const browser_item& item) const
+{
+	if (m_search_query.empty())
+		return true;
+
+	const std::string query = to_lower(m_search_query);
+	const std::string filename = to_lower(item.relative_path.filename().string());
+	const std::string path = to_lower(item.relative_path.generic_string());
+	const std::string type = to_lower(item_type_label(item));
+
+	return filename.find(query) != std::string::npos || path.find(query) != std::string::npos || type.find(query) != std::string::npos;
+}
+
+content_browser_panel::browser_item content_browser_panel::make_filesystem_item(const std::filesystem::directory_entry& entry) const
+{
+	std::error_code error;
+	browser_item item;
+	item.absolute_path = entry.path().lexically_normal();
+	item.relative_path = std::filesystem::relative(item.absolute_path, m_base_directory, error);
+	item.directory = entry.is_directory(error);
+
+	if (!item.directory)
+	{
+		item.handle = find_asset_handle(item.relative_path);
+		item.imported = item.handle != 0;
+		item.type = item.imported ? m_project->get_editor_asset_manager()->get_asset_type(item.handle) : utils::get_asset_type_from_file_extension(item.relative_path.extension());
+		item.supported = item.type != asset_type::none;
+	}
+
+	return item;
+}
+
+asset_handle content_browser_panel::find_asset_handle(const std::filesystem::path& relative_path) const
+{
+	return m_project->get_editor_asset_manager()->get_handle_from_filepath(relative_path);
+}
+
+std::string content_browser_panel::display_path(const std::filesystem::path& path) const
+{
+	if (path.empty())
+		return "Assets";
+
+	return path.generic_string();
+}
+
+std::string content_browser_panel::item_type_label(const browser_item& item) const
+{
+	if (item.directory)
+		return "Folder";
+
+	if (item.imported)
+		return std::string(frenum::to_string(item.type)) + " asset";
+
+	if (item.supported)
+		return std::string(frenum::to_string(item.type)) + " file";
+
+	return "Unsupported";
 }
 
 void content_browser_panel::on_settings_popup()
@@ -262,58 +607,12 @@ void content_browser_panel::on_settings_popup()
 
 void content_browser_panel::refresh_asset_tree()
 {
-	const auto& asset_reg = project::get_active()->get_editor_asset_manager()->get_asset_registry();
-	asset_reg.foreach([this](const asset_registry::value_type& value)
-		{
-			uint32_t current_node_index = 0;
-			for (const auto& p : value.second.filepath)
-			{
-				auto it = m_tree_nodes[current_node_index].children.find(p.generic_string());
-				if (it != m_tree_nodes[current_node_index].children.end())
-				{
-					current_node_index = it->second;
-				}
-				else
-				{
-					// add node
-					tree_node newNode(p, value.first);
-					newNode.parent = current_node_index;
-					m_tree_nodes.push_back(newNode);
+	std::error_code error;
+	if (!std::filesystem::exists(m_base_directory, error))
+		std::filesystem::create_directories(m_base_directory, error);
 
-					m_tree_nodes[current_node_index].children[p] = static_cast<uint32_t>(m_tree_nodes.size() - 1);
-					current_node_index = static_cast<uint32_t>(m_tree_nodes.size() - 1);
-				}
-			}
-		});
-
-}
-
-void content_browser_panel::init_popups()
-{
-	static float sprite_width = 0.0f, sprite_height = 0.0f;
-
-	m_subtexture_popup
-		.set_popup_name("Import Subtextures")
-		.set_width(200).set_height(200)
-		.add([]() { ImGui::Text("Sprite Width:"); })
-		.same_line()
-		.add([]() { ImGui::InputFloat("##SpriteWidth", &sprite_width); })
-		.add([]() { ImGui::Text("Sprite Height:"); })
-		.same_line()
-		.add([]() { ImGui::InputFloat("##SpriteHeight", &sprite_height); })
-		//.add_button([](raw_buffer user_data)
-		//	{
-		//		asset_handle handle = user_data.load<asset_handle>();
-		//		auto atlas = asset_manager::get_asset<texture2D>(handle);
-		//		/*for (uint32_t i = 0; i < atlas->get_width();)
-		//		{
-		//			for (uint32_t j = 0; j < atlas->get_height();)
-		//			{
-		//				atlas->create_from_coords();
-		//			}
-		//		*/
-		//	}, "Import", 50, 25);
-		;
+	if (!std::filesystem::exists(m_current_directory, error) || !is_inside_base_directory(m_current_directory))
+		m_current_directory = m_base_directory;
 }
 
 _WHIP_END

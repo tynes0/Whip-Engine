@@ -58,12 +58,19 @@ void editor_asset_manager::add_registry(asset_handle handle, const asset_metadat
 	m_asset_registry.add(handle, metadata);
 }
 
-void editor_asset_manager::import_asset(const std::filesystem::path& filepath)
+asset_handle editor_asset_manager::import_asset(const std::filesystem::path& filepath)
 {
+	if (asset_handle existing_handle = get_handle_from_filepath(filepath); existing_handle != 0)
+		return existing_handle;
+
+	asset_type type = utils::get_asset_type_from_file_extension(filepath.extension());
+	if (type == asset_type::none)
+		return 0;
+
 	asset_handle handle; // generate new handle
 	asset_metadata metadata;
 	metadata.filepath = filepath;
-	metadata.type = utils::get_asset_type_from_file_extension(filepath.extension());
+	metadata.type = type;
 	ref<asset> l_asset = asset_importer::import_asset(handle, metadata);
 	if (l_asset)
 	{
@@ -71,9 +78,12 @@ void editor_asset_manager::import_asset(const std::filesystem::path& filepath)
 		m_loaded_assets[handle] = l_asset;
 		m_asset_registry.add_or_reset(handle, metadata);
 		m_asset_registry.serialize();
+		return handle;
 	}
 	else
 		WHP_CORE_ERROR("[Asset Manager] Asset import failed!");
+
+	return 0;
 }
 
 void editor_asset_manager::delete_asset(asset_handle handle)
@@ -84,6 +94,22 @@ void editor_asset_manager::delete_asset(asset_handle handle)
 
 	m_asset_registry.remove(handle);
 	m_asset_registry.serialize();
+}
+
+asset_handle editor_asset_manager::get_handle_from_filepath(const std::filesystem::path& filepath) const
+{
+	asset_handle handle = 0;
+	m_asset_registry.foreach_checked([&](const asset_registry::value_type& value)
+		{
+			if (value.second.filepath == filepath)
+			{
+				handle = value.first;
+				return asset_registry::loop_stop;
+			}
+
+			return asset_registry::loop_continue;
+		});
+	return handle;
 }
 
 const std::filesystem::path& editor_asset_manager::get_filepath(asset_handle handle) const
