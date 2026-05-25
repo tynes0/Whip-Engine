@@ -31,14 +31,22 @@ namespace utils
 		{ ".went", asset_type::entity }
 	};
 
+	static asset_type try_get_asset_type_from_file_extension(const std::filesystem::path& extension)
+	{
+		auto it = s_asset_extensions_map.find(extension);
+		if (it == s_asset_extensions_map.end())
+			return asset_type::none;
+
+		return it->second;
+	}
+
 	static asset_type get_asset_type_from_file_extension(const std::filesystem::path& extension)
 	{
-		if (s_asset_extensions_map.find(extension) == s_asset_extensions_map.end())
-		{
+		asset_type type = try_get_asset_type_from_file_extension(extension);
+		if (type == asset_type::none)
 			WHP_CORE_WARN("[Asset Manager] Could not find asset_type for {0}", extension.string());
-			return asset_type::none;
-		}
-		return s_asset_extensions_map.at(extension);
+
+		return type;
 	}
 }
 

@@ -49,6 +49,7 @@ private:
 	void draw_content_grid(const std::vector<browser_item>& items);
 	void draw_item(const browser_item& item);
 	void draw_remove_asset_modal();
+	void draw_type_filter();
 
 	std::vector<browser_item> collect_items() const;
 	std::vector<browser_item> collect_filesystem_items() const;
@@ -62,10 +63,12 @@ private:
 
 	bool is_inside_base_directory(const std::filesystem::path& path) const;
 	bool matches_search(const browser_item& item) const;
+	bool passes_type_filter(const browser_item& item) const;
 	browser_item make_filesystem_item(const std::filesystem::directory_entry& entry) const;
 	asset_handle find_asset_handle(const std::filesystem::path& relative_path) const;
 	std::string display_path(const std::filesystem::path& path) const;
 	std::string item_type_label(const browser_item& item) const;
+	std::string asset_type_filter_label() const;
 
 	ref<project> m_project;
 	ref<thumbnail_cache> m_thumbnail_cache;
@@ -84,7 +87,9 @@ private:
 	std::filesystem::path m_pending_remove_path;
 
 	std::string m_search_query;
+	asset_type m_type_filter = asset_type::none;
 	mode m_mode = mode::asset;
+	bool m_show_unsupported = false;
 	bool m_initialized = false;
 };
 

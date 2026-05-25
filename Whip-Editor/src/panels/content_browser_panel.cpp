@@ -23,6 +23,17 @@ _WHIP_START
 
 namespace
 {
+	constexpr asset_type asset_type_filters[] =
+	{
+		asset_type::none,
+		asset_type::scene,
+		asset_type::texture2D,
+		asset_type::audio,
+		asset_type::font,
+		asset_type::animation,
+		asset_type::entity
+	};
+
 	std::string to_lower(std::string text)
 	{
 		std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -41,6 +52,11 @@ namespace
 	bool path_component_is_current_reference(const std::filesystem::path& path)
 	{
 		return path.empty() || path == ".";
+	}
+
+	bool is_internal_project_file(const std::filesystem::path& relative_path)
+	{
+		return relative_path.filename() == "asset_registry.whipr";
 	}
 }
 
@@ -118,12 +134,20 @@ void content_browser_panel::on_imgui_render()
 
 void content_browser_panel::draw_toolbar()
 {
-	if (ImGui::Button(m_mode == mode::filesystem ? "Files" : "Imported"))
-		m_mode = m_mode == mode::filesystem ? mode::asset : mode::filesystem;
+	if (ImGui::RadioButton("Files", m_mode == mode::filesystem))
+		m_mode = mode::filesystem;
+
+	ImGui::SameLine();
+	if (ImGui::RadioButton("Imported", m_mode == mode::asset))
+		m_mode = mode::asset;
 
 	ImGui::SameLine();
 	if (ImGui::Button("Refresh"))
 		refresh_asset_tree();
+
+	ImGui::SameLine();
+	if (m_current_directory != m_base_directory && ImGui::Button("Up"))
+		set_current_directory(m_current_directory.parent_path());
 
 	ImGui::SameLine();
 	if (m_mode == mode::filesystem)
@@ -138,12 +162,42 @@ void content_browser_panel::draw_toolbar()
 		ImGui::SameLine();
 	}
 
-	ImGui::SetNextItemWidth(std::max(160.0f, ImGui::GetContentRegionAvail().x - 96.0f));
+	draw_type_filter();
+
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(std::max(160.0f, ImGui::GetContentRegionAvail().x - 154.0f));
 	ImGui::InputTextWithHint("##ContentBrowserSearch", "Search assets and files", &m_search_query);
+
+	if (!m_search_query.empty())
+	{
+		ImGui::SameLine();
+		if (ImGui::Button("Clear"))
+			m_search_query.clear();
+	}
 
 	ImGui::SameLine();
 	if (ImGui::Button("Settings"))
 		m_show_settings_popup = true;
+}
+
+void content_browser_panel::draw_type_filter()
+{
+	const std::string label = asset_type_filter_label();
+	ImGui::SetNextItemWidth(128.0f);
+	if (ImGui::BeginCombo("##ContentBrowserTypeFilter", label.c_str()))
+	{
+		for (asset_type type : asset_type_filters)
+		{
+			const bool selected = m_type_filter == type;
+			std::string item_label = type == asset_type::none ? "All Types" : std::string(frenum::to_string(type));
+			if (ImGui::Selectable(item_label.c_str(), selected))
+				m_type_filter = type;
+
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+		}
+		ImGui::EndCombo();
+	}
 }
 
 void content_browser_panel::draw_sidebar()
@@ -225,7 +279,8 @@ void content_browser_panel::draw_breadcrumbs()
 void content_browser_panel::draw_content_grid(const std::vector<browser_item>& items)
 {
 	const char* mode_label = m_mode == mode::filesystem ? "filesystem" : "imported";
-	ImGui::TextDisabled("%zu item(s) in %s view", items.size(), mode_label);
+	const size_t imported_count = static_cast<size_t>(std::count_if(items.begin(), items.end(), [](const browser_item& item) { return item.imported && !item.directory; }));
+	ImGui::TextDisabled("%zu item(s) in %s view | %zu imported | unsupported %s", items.size(), mode_label, imported_count, m_show_unsupported ? "visible" : "hidden");
 
 	if (items.empty())
 	{
@@ -309,7 +364,12 @@ void content_browser_panel::draw_item(const browser_item& item)
 	}
 
 	ImGui::TextWrapped(item.relative_path.filename().string().c_str());
-	ImGui::TextDisabled("%s", item_type_label(item).c_str());
+	if (item.imported && !item.directory)
+		ImGui::TextColored(ImVec4(0.35f, 0.78f, 0.48f, 1.0f), "%s", item_type_label(item).c_str());
+	else if (item.supported || item.directory)
+		ImGui::TextDisabled("%s", item_type_label(item).c_str());
+	else
+		ImGui::TextColored(ImVec4(0.85f, 0.58f, 0.28f, 1.0f), "%s", item_type_label(item).c_str());
 	ImGui::PopID();
 }
 
@@ -346,7 +406,16 @@ void content_browser_panel::draw_remove_asset_modal()
 std::vector<content_browser_panel::browser_item> content_browser_panel::collect_items() const
 {
 	std::vector<browser_item> items = m_mode == mode::filesystem ? collect_filesystem_items() : collect_asset_items();
-	items.erase(std::remove_if(items.begin(), items.end(), [this](const browser_item& item) { return !matches_search(item); }), items.end());
+	items.erase(std::remove_if(items.begin(), items.end(), [this](const browser_item& item)
+		{
+			if (!matches_search(item) || !passes_type_filter(item))
+				return true;
+
+			if (!m_show_unsupported && !item.directory && !item.supported)
+				return true;
+
+			return false;
+		}), items.end());
 
 	std::sort(items.begin(), items.end(), [](const browser_item& left, const browser_item& right)
 		{
@@ -367,12 +436,20 @@ std::vector<content_browser_panel::browser_item> content_browser_panel::collect_
 	if (m_search_query.empty())
 	{
 		for (const auto& entry : std::filesystem::directory_iterator(m_current_directory, error))
-			items.push_back(make_filesystem_item(entry));
+		{
+			browser_item item = make_filesystem_item(entry);
+			if (!is_internal_project_file(item.relative_path))
+				items.push_back(item);
+		}
 	}
 	else
 	{
 		for (const auto& entry : std::filesystem::recursive_directory_iterator(m_base_directory, error))
-			items.push_back(make_filesystem_item(entry));
+		{
+			browser_item item = make_filesystem_item(entry);
+			if (!is_internal_project_file(item.relative_path))
+				items.push_back(item);
+		}
 	}
 
 	return items;
@@ -527,6 +604,14 @@ bool content_browser_panel::matches_search(const browser_item& item) const
 	return filename.find(query) != std::string::npos || path.find(query) != std::string::npos || type.find(query) != std::string::npos;
 }
 
+bool content_browser_panel::passes_type_filter(const browser_item& item) const
+{
+	if (m_type_filter == asset_type::none || item.directory)
+		return true;
+
+	return item.type == m_type_filter;
+}
+
 content_browser_panel::browser_item content_browser_panel::make_filesystem_item(const std::filesystem::directory_entry& entry) const
 {
 	std::error_code error;
@@ -539,7 +624,7 @@ content_browser_panel::browser_item content_browser_panel::make_filesystem_item(
 	{
 		item.handle = find_asset_handle(item.relative_path);
 		item.imported = item.handle != 0;
-		item.type = item.imported ? m_project->get_editor_asset_manager()->get_asset_type(item.handle) : utils::get_asset_type_from_file_extension(item.relative_path.extension());
+		item.type = item.imported ? m_project->get_editor_asset_manager()->get_asset_type(item.handle) : utils::try_get_asset_type_from_file_extension(item.relative_path.extension());
 		item.supported = item.type != asset_type::none;
 	}
 
@@ -573,6 +658,14 @@ std::string content_browser_panel::item_type_label(const browser_item& item) con
 	return "Unsupported";
 }
 
+std::string content_browser_panel::asset_type_filter_label() const
+{
+	if (m_type_filter == asset_type::none)
+		return "All Types";
+
+	return std::string(frenum::to_string(m_type_filter));
+}
+
 void content_browser_panel::on_settings_popup()
 {
 	if (m_show_settings_popup)
@@ -593,6 +686,7 @@ void content_browser_panel::on_settings_popup()
 			ImGui::DragFloat("##Thumbnail Size", &m_thumbnail_size, 0.5f, 16, 512);
 			ImGui::Text("Padding");
 			ImGui::DragFloat("##Padding", &m_padding, 0.05f, 0, 32);
+			ImGui::Checkbox("Show unsupported files", &m_show_unsupported);
 			ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::GetFrameHeightWithSpacing()) * 0.5f);
 			ImGui::SetCursorPosY(ImGui::GetWindowSize().y - (ImGui::GetFrameHeightWithSpacing() + 10.0f));
 			if (ImGui::Button("Ok"))
