@@ -175,12 +175,12 @@ void console_panel::on_imgui_render()
 	if (!editor_log::should_log())
 		return;
 
-	static constexpr ImU32 TRACE_COLOR = IM_COL32(255, 255, 255, 255);
-	static constexpr ImU32 DEBUG_COLOR = IM_COL32(50, 50, 255, 255);
-	static constexpr ImU32 INFO_COLOR = IM_COL32(50, 255, 50, 255);
-	static constexpr ImU32 WARN_COLOR = IM_COL32(200, 200, 50, 255);
-	static constexpr ImU32 ERROR_COLOR = IM_COL32(255, 50, 50, 255);
-	static constexpr ImU32 CRITICAL_COLOR = IM_COL32(180, 20, 150, 255);
+	static constexpr ImU32 TRACE_COLOR = IM_COL32(210, 216, 220, 255);
+	static constexpr ImU32 DEBUG_COLOR = IM_COL32(130, 172, 220, 255);
+	static constexpr ImU32 INFO_COLOR = IM_COL32(112, 196, 176, 255);
+	static constexpr ImU32 WARN_COLOR = IM_COL32(226, 180, 92, 255);
+	static constexpr ImU32 ERROR_COLOR = IM_COL32(222, 104, 104, 255);
+	static constexpr ImU32 CRITICAL_COLOR = IM_COL32(218, 116, 178, 255);
 
 	static constexpr auto get_color = [](log::level level) -> ImVec4
 		{

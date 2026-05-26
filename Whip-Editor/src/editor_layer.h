@@ -64,6 +64,7 @@ private:
 	void load_recent_projects();
 	void save_recent_projects() const;
 	void add_recent_project(const std::filesystem::path& path);
+	bool should_include_recent_project(const std::filesystem::path& path) const;
 	std::filesystem::path get_recent_projects_path() const;
 
 	void new_scene();

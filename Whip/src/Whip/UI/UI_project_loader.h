@@ -64,8 +64,8 @@ namespace UI
 
 			const ImGuiViewport* viewport = ImGui::GetMainViewport();
 			const ImVec2 hub_size{
-				viewport->WorkSize.x < 800.0f ? viewport->WorkSize.x - 32.0f : 760.0f,
-				viewport->WorkSize.y < 520.0f ? viewport->WorkSize.y - 32.0f : 470.0f
+				viewport->WorkSize.x < 760.0f ? viewport->WorkSize.x - 32.0f : 700.0f,
+				viewport->WorkSize.y < 480.0f ? viewport->WorkSize.y - 32.0f : 420.0f
 			};
 			ImGui::SetNextWindowSize(hub_size, ImGuiCond_Always);
 			ImGui::SetNextWindowPos(
@@ -73,17 +73,19 @@ namespace UI
 				ImGuiCond_Always);
 
 			const ImGuiWindowFlags window_flags =
-				ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking;
+				ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+				ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings;
 
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 14.0f));
 			ImGui::Begin("Whip Hub", nullptr, window_flags);
 
-			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 10.0f));
-			ImGui::TextUnformatted("Whip Engine");
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(12.0f, 10.0f));
+			ImGui::TextUnformatted("Whip Hub");
 			ImGui::SameLine();
-			ImGui::TextDisabled("Hub");
+			ImGui::TextDisabled("Project Workspace");
 			ImGui::Separator();
 
-			const float actions_width = 245.0f;
+			const float actions_width = 220.0f;
 			ImGui::BeginChild("WhipHubActions", ImVec2(actions_width, 0.0f), true);
 			ImGui::TextUnformatted("Project");
 			ImGui::Spacing();
@@ -97,9 +99,6 @@ namespace UI
 			if (ImGui::Button("New Project", ImVec2(-1.0f, 40.0f)))
 				on_project_action(m_create_project_callback);
 			ImGui::EndDisabled();
-
-			if (!m_create_project_callback)
-				ImGui::TextWrapped("New project setup will live here next.");
 
 			if (!m_status.empty())
 			{
@@ -132,7 +131,9 @@ namespace UI
 					ImGui::TableNextRow();
 					ImGui::TableSetColumnIndex(0);
 					ImGui::TextUnformatted(project_name.c_str());
+					ImGui::PushTextWrapPos(ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x);
 					ImGui::TextDisabled("%s", project_path.string().c_str());
+					ImGui::PopTextWrapPos();
 
 					ImGui::TableSetColumnIndex(1);
 					ImGui::BeginDisabled(!m_open_recent_project_callback);
@@ -147,6 +148,7 @@ namespace UI
 			ImGui::EndChild();
 			ImGui::PopStyleVar();
 			ImGui::End();
+			ImGui::PopStyleVar();
 		}
 
 	private:

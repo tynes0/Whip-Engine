@@ -163,6 +163,32 @@ _WHP_PRAGMA_WARNING_DISABLE(4312)
 void editor_layer::on_imgui_render()
 {
 	WHP_PROFILE_FUNCTION();
+	const bool project_loaded = has_project_loaded();
+	if (!project_loaded)
+	{
+		application::get().get_imgui_layer()->block_events(true);
+
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->WorkPos);
+		ImGui::SetNextWindowSize(viewport->WorkSize);
+		ImGui::SetNextWindowViewport(viewport->ID);
+
+		ImGuiWindowFlags hub_host_flags =
+			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.035f, 0.038f, 0.042f, 1.0f));
+		ImGui::Begin("Whip Hub Host", nullptr, hub_host_flags);
+		m_project_loader.run();
+		ImGui::End();
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar(3);
+		return;
+	}
+
 	// dockspace
 	{
 		static bool p_open = true;
@@ -197,7 +223,6 @@ void editor_layer::on_imgui_render()
 		}
 		style.WindowMinSize.x = minWinSizeX;
 	}
-	const bool project_loaded = has_project_loaded();
 	// menu bar
     if (ImGui::BeginMenuBar())
     {
@@ -564,6 +589,7 @@ void editor_layer::setup_project_loader()
 void editor_layer::load_recent_projects()
 {
 	m_recent_projects.clear();
+	bool should_rewrite = false;
 
 	std::ifstream stream(get_recent_projects_path());
 	if (!stream)
@@ -581,19 +607,35 @@ void editor_layer::load_recent_projects()
 		std::filesystem::path path(line);
 		std::error_code error;
 		if (!std::filesystem::exists(path, error) || path.extension() != ".wproj")
+		{
+			should_rewrite = true;
 			continue;
+		}
 
 		path = std::filesystem::weakly_canonical(path, error);
 		if (error)
 			path = std::filesystem::absolute(line, error);
+		if (!should_include_recent_project(path))
+		{
+			should_rewrite = true;
+			continue;
+		}
 
 		if (std::find(m_recent_projects.begin(), m_recent_projects.end(), path) == m_recent_projects.end())
 			m_recent_projects.push_back(path);
+		else
+			should_rewrite = true;
 
 		if (m_recent_projects.size() >= 10)
+		{
+			should_rewrite = true;
 			break;
+		}
 	}
 
+	stream.close();
+	if (should_rewrite)
+		save_recent_projects();
 	m_project_loader.set_recent_projects(m_recent_projects);
 }
 
@@ -621,6 +663,8 @@ void editor_layer::add_recent_project(const std::filesystem::path& path)
 	}
 	if (error)
 		normalized_path = path;
+	if (!should_include_recent_project(normalized_path))
+		return;
 
 	m_recent_projects.erase(
 		std::remove(m_recent_projects.begin(), m_recent_projects.end(), normalized_path),
@@ -632,6 +676,30 @@ void editor_layer::add_recent_project(const std::filesystem::path& path)
 
 	save_recent_projects();
 	m_project_loader.set_recent_projects(m_recent_projects);
+}
+
+bool editor_layer::should_include_recent_project(const std::filesystem::path& path) const
+{
+	std::error_code error;
+	std::filesystem::path normalized_path = std::filesystem::weakly_canonical(path, error);
+	if (error)
+		normalized_path = path;
+
+	error.clear();
+	std::filesystem::path working_directory = std::filesystem::weakly_canonical(std::filesystem::current_path(), error);
+	if (error)
+		working_directory = std::filesystem::current_path();
+
+	error.clear();
+	std::filesystem::path relative_path = std::filesystem::relative(normalized_path, working_directory, error);
+	if (!error && !relative_path.empty())
+	{
+		const std::filesystem::path first_component = *relative_path.begin();
+		if (first_component != ".." && first_component != ".")
+			return false;
+	}
+
+	return true;
 }
 
 std::filesystem::path editor_layer::get_recent_projects_path() const
