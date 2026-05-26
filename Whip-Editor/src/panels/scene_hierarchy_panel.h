@@ -24,6 +24,10 @@ public:
 private:
 	void draw_entity_node(entity entity_in);
 	void draw_components(entity entity_in);
+	void set_entity_parent(entity child, entity parent);
+	bool can_parent_entity(entity child, entity parent) const;
+	bool is_descendant_of(entity entity_in, UUID ancestor_id) const;
+	void destroy_entity_with_selection(entity entity_in);
 
 	template <class T>
 	void display_add_component_entry(const std::string& entry_name);

@@ -17,6 +17,7 @@
 
 #include <filesystem>
 #include <cstring>
+#include <algorithm>
 
 #include "../Helpers/script_field_helper.h"
 
@@ -45,19 +46,14 @@ static void draw_component(const std::string& name, entity entity_in, UIFunction
 	if (entity_in.has_component<T>())
 	{
 		auto& component = entity_in.get_component<T>();
-		ImVec2 content_region_available = ImGui::GetContentRegionAvail();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{ 3, 3 });
-		float line_height = ImGui::GetFontSize() + GImGui->Style.FramePadding.y * 2.0f;
 		ImGui::Separator();
 		bool open = ImGui::TreeNodeEx((void*)typeid(T).hash_code(), tree_node_flags, name.c_str());
 		ImGui::PopStyleVar();
-		ImGui::SameLine(content_region_available.x - line_height * 0.5f);
-		if (ImGui::Button("+", ImVec2{ line_height, line_height }))
-			ImGui::OpenPopup("Component Settings");
 
 		bool remove_component = false;
-		if (ImGui::BeginPopup("Component Settings"))
+		if (ImGui::BeginPopupContextItem("Component Settings"))
 		{
 			if constexpr (!std::is_same_v<T, transform_component>)
 				if (ImGui::MenuItem("Remove component"))
@@ -99,7 +95,17 @@ void scene_hierarchy_panel::on_imgui_render()
 		for (auto entityID : group)
 		{
 			entity ent{ entityID , m_context.get() };
-			draw_entity_node(ent);
+			if (!ent.has_component<hierarchy_component>())
+			{
+				draw_entity_node(ent);
+				continue;
+			}
+
+			auto& hierarchy = ent.get_component<hierarchy_component>();
+			if (hierarchy.parent != 0 && !m_context->find_entity_by_UUID(hierarchy.parent))
+				hierarchy.parent = 0;
+			if (hierarchy.parent == 0)
+				draw_entity_node(ent);
 		}
 
 		if (ImGui::IsMouseDown(0) && ImGui::IsWindowHovered())
@@ -109,6 +115,11 @@ void scene_hierarchy_panel::on_imgui_render()
 		{
 			if (ImGui::MenuItem("Create Entity"))
 				m_context->create_entity("New Entity");
+			if (ImGui::MenuItem("Create Group"))
+			{
+				entity group_entity = m_context->create_entity("Group");
+				group_entity.get_component<hierarchy_component>().is_group = true;
+			}
 
 			ImGui::EndPopup();
 		}
@@ -133,12 +144,15 @@ void scene_hierarchy_panel::draw_entity_node(entity entity_in)
 	if (entity_in.has_component<tag_component>())
 	{
 		auto& tag = entity_in.get_component<tag_component>().tag;
+		auto& hierarchy = entity_in.get_component<hierarchy_component>();
 
 		ImGuiTreeNodeFlags flags = ((m_selection_context == entity_in) ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow;
 		flags |= ImGuiTreeNodeFlags_SpanAvailWidth;
-		bool opened = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entity_in, flags, tag.c_str());
-		if (opened)
-			ImGui::TreePop();
+		if (hierarchy.children.empty())
+			flags |= ImGuiTreeNodeFlags_Leaf;
+
+		const std::string label = hierarchy.is_group ? ("[Group] " + tag) : tag;
+		bool opened = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entity_in, flags, label.c_str());
 
 		if (ImGui::IsItemClicked())
 			m_selection_context = entity_in;
@@ -151,23 +165,115 @@ void scene_hierarchy_panel::draw_entity_node(entity entity_in)
 			ImGui::EndDragDropSource();
 		}
 
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(scene_entity_payload_type))
+			{
+				UUID child_id = *(UUID*)payload->Data;
+				entity child = m_context->find_entity_by_UUID(child_id);
+				if (child && can_parent_entity(child, entity_in))
+					set_entity_parent(child, entity_in);
+			}
+			ImGui::EndDragDropTarget();
+		}
+
 		bool entityDeleted = false;
 		if (ImGui::BeginPopupContextItem())
 		{
+			if (ImGui::MenuItem("Create Child"))
+			{
+				entity child = m_context->create_entity("New Entity");
+				set_entity_parent(child, entity_in);
+			}
+			if (ImGui::MenuItem("Create Child Group"))
+			{
+				entity child_group = m_context->create_entity("Group");
+				child_group.get_component<hierarchy_component>().is_group = true;
+				set_entity_parent(child_group, entity_in);
+			}
+			if (hierarchy.parent != 0 && ImGui::MenuItem("Move To Root"))
+				set_entity_parent(entity_in, {});
+			ImGui::Separator();
 			if (ImGui::MenuItem("Delete Entity"))
 				entityDeleted = true;
 
 			ImGui::EndPopup();
 		}
 
+		if (opened)
+		{
+			for (UUID child_id : hierarchy.children)
+			{
+				entity child = m_context->find_entity_by_UUID(child_id);
+				if (child)
+					draw_entity_node(child);
+			}
+			ImGui::TreePop();
+		}
 
 		if (entityDeleted)
+			destroy_entity_with_selection(entity_in);
+	}
+}
+
+void scene_hierarchy_panel::set_entity_parent(entity child, entity parent)
+{
+	if (!child || child == parent || !child.has_component<hierarchy_component>())
+		return;
+
+	auto& child_hierarchy = child.get_component<hierarchy_component>();
+	if (child_hierarchy.parent != 0)
+	{
+		entity old_parent = m_context->find_entity_by_UUID(child_hierarchy.parent);
+		if (old_parent && old_parent.has_component<hierarchy_component>())
 		{
-			m_context->destroy_entity(entity_in);
-			if (m_selection_context == entity_in)
-				m_selection_context = {};
+			auto& old_parent_hierarchy = old_parent.get_component<hierarchy_component>();
+			old_parent_hierarchy.children.erase(
+				std::remove(old_parent_hierarchy.children.begin(), old_parent_hierarchy.children.end(), child.get_UUID()),
+				old_parent_hierarchy.children.end());
 		}
 	}
+
+	child_hierarchy.parent = parent ? parent.get_UUID() : UUID(0);
+	if (parent && parent.has_component<hierarchy_component>())
+	{
+		auto& parent_hierarchy = parent.get_component<hierarchy_component>();
+		if (std::find(parent_hierarchy.children.begin(), parent_hierarchy.children.end(), child.get_UUID()) == parent_hierarchy.children.end())
+			parent_hierarchy.children.push_back(child.get_UUID());
+	}
+}
+
+bool scene_hierarchy_panel::can_parent_entity(entity child, entity parent) const
+{
+	if (!child || !parent || child == parent)
+		return false;
+
+	return !is_descendant_of(parent, child.get_UUID());
+}
+
+bool scene_hierarchy_panel::is_descendant_of(entity entity_in, UUID ancestor_id) const
+{
+	if (!entity_in || !entity_in.has_component<hierarchy_component>())
+		return false;
+
+	const auto& hierarchy = entity_in.get_component<hierarchy_component>();
+	if (hierarchy.parent == 0)
+		return false;
+	if (hierarchy.parent == ancestor_id)
+		return true;
+
+	return is_descendant_of(m_context->find_entity_by_UUID(hierarchy.parent), ancestor_id);
+}
+
+void scene_hierarchy_panel::destroy_entity_with_selection(entity entity_in)
+{
+	if (!entity_in)
+		return;
+
+	if (m_selection_context == entity_in || is_descendant_of(m_selection_context, entity_in.get_UUID()))
+		m_selection_context = {};
+
+	m_context->destroy_entity(entity_in);
 }
 
 void scene_hierarchy_panel::draw_components(entity entity_in)

@@ -274,6 +274,24 @@ namespace utils
 			out << YAML::EndMap; // tag_component
 		}
 
+		if (entity_in.has_component<hierarchy_component>())
+		{
+			auto& hierarchy = entity_in.get_component<hierarchy_component>();
+			if (hierarchy.parent != 0 || !hierarchy.children.empty() || hierarchy.is_group)
+			{
+				out << YAML::Key << "hierarchy_component";
+				out << YAML::BeginMap; // hierarchy_component
+				out << YAML::Key << "parent" << YAML::Value << (uint64_t)hierarchy.parent;
+				out << YAML::Key << "is_group" << YAML::Value << hierarchy.is_group;
+				out << YAML::Key << "children" << YAML::Value;
+				out << YAML::BeginSeq;
+				for (UUID child : hierarchy.children)
+					out << (uint64_t)child;
+				out << YAML::EndSeq;
+				out << YAML::EndMap; // hierarchy_component
+			}
+		}
+
 		if (entity_in.has_component<transform_component>())
 		{
 			out << YAML::Key << "transform_component";
@@ -559,6 +577,21 @@ bool scene_serializer::deserialize(const std::filesystem::path& filepath)
 				name = tag_comp["tag"].as<std::string>();
 
 			entity deserialized_entity = m_scene->create_entity_with_UUID(uuid, name);
+
+			auto hierarchy_comp = ent["hierarchy_component"];
+			if (hierarchy_comp)
+			{
+				auto& hierarchy = deserialized_entity.get_component<hierarchy_component>();
+				if (hierarchy_comp["parent"])
+					hierarchy.parent = hierarchy_comp["parent"].as<uint64_t>();
+				if (hierarchy_comp["is_group"])
+					hierarchy.is_group = hierarchy_comp["is_group"].as<bool>();
+				if (hierarchy_comp["children"])
+				{
+					for (auto child : hierarchy_comp["children"])
+						hierarchy.children.push_back(child.as<uint64_t>());
+				}
+			}
 
 			auto transform_comp = ent["transform_component"];
 			if (transform_comp)

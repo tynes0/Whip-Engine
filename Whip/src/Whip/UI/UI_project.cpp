@@ -143,7 +143,7 @@ namespace UI
 
 		bool open = true;
 		ImGui::SetNextWindowSize(ImVec2(820.0f, 560.0f), ImGuiCond_FirstUseEver);
-		if (ImGui::Begin("Project Settings", &open, ImGuiWindowFlags_NoCollapse))
+		if (ImGui::Begin("Project Settings", &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking))
 		{
 			ImGui::TextUnformatted(m_name_buffer);
 			ImGui::TextDisabled("%s", project::get_active_project_path().string().c_str());

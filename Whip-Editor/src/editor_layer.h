@@ -53,7 +53,7 @@ private:
 
 	void on_overlay_render();
 
-	void new_project();
+	bool new_project();
 	void save_project();
 	void finish_project_settings();
 

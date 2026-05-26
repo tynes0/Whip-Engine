@@ -21,6 +21,8 @@
 
 #include "entity.h"
 
+#include <algorithm>
+
 #include "box2d/b2_world.h"
 #include "box2d/b2_body.h"
 #include "box2d/b2_fixture.h"
@@ -113,6 +115,7 @@ entity scene::create_entity_with_UUID(UUID uuid, const std::string& name)
 	entity result = { m_registry.create(), this };
 	result.add_component<ID_component>(ID_component(uuid));
 	result.add_component<transform_component>();
+	result.add_component<hierarchy_component>();
 	auto& tag = result.add_component<tag_component>();
 	tag.tag = m_unique_name_manager.add_name(name);
 	m_entity_map[uuid] = result;
@@ -121,6 +124,29 @@ entity scene::create_entity_with_UUID(UUID uuid, const std::string& name)
 
 void scene::destroy_entity(entity entity_in)
 {
+	if (entity_in.has_component<hierarchy_component>())
+	{
+		auto hierarchy = entity_in.get_component<hierarchy_component>();
+		for (UUID child_id : hierarchy.children)
+		{
+			entity child = find_entity_by_UUID(child_id);
+			if (child)
+				destroy_entity(child);
+		}
+
+		if (hierarchy.parent != 0)
+		{
+			entity parent = find_entity_by_UUID(hierarchy.parent);
+			if (parent && parent.has_component<hierarchy_component>())
+			{
+				auto& parent_hierarchy = parent.get_component<hierarchy_component>();
+				parent_hierarchy.children.erase(
+					std::remove(parent_hierarchy.children.begin(), parent_hierarchy.children.end(), entity_in.get_UUID()),
+					parent_hierarchy.children.end());
+			}
+		}
+	}
+
 	m_unique_name_manager.remove_name(entity_in.get_name());
 	m_entity_map.erase(entity_in.get_UUID());
     m_registry.destroy(entity_in);
@@ -329,6 +355,8 @@ entity scene::duplicate_entity(entity entity_in)
 	entity new_entity = create_entity(name);
 
 	utils::copy_component_if_exist(all_components_no_id_no_tag{}, new_entity, entity_in);
+	if (new_entity.has_component<hierarchy_component>())
+		new_entity.get_component<hierarchy_component>() = {};
 	return new_entity;
 }
 
@@ -435,6 +463,11 @@ void scene::on_component_added<text_component>(entity entity_in, text_component&
 
 template<>
 void scene::on_component_added<tag_component>(entity entity_in, tag_component& component)
+{
+}
+
+template<>
+void scene::on_component_added<hierarchy_component>(entity entity_in, hierarchy_component& component)
 {
 }
 

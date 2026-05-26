@@ -27,43 +27,101 @@ void animation_editor_panel::on_imgui_render()
 		return;
 	ImGui::Begin("Animation Editor", &m_open);
 
-	static constexpr ImVec2 playback_controls_size(24.0f, 24.0f);
-	ImGuiStyle& style = ImGui::GetStyle();
-	ImVec2 size = ImGui::GetWindowSize();
+	ImVec2 avail = ImGui::GetContentRegionAvail();
+	draw_animation_drag_drop_area(avail.x, avail.y);
 
-	draw_animation_drag_drop_area(size.x, size.y);
+	ImGui::BeginChild("##AnimationEditorToolbar", ImVec2(0.0f, 54.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	ImGui::AlignTextToFramePadding();
+	draw_playback_controls(30.0f, 30.0f);
+	ImGui::SameLine(0.0f, 14.0f);
 
-	const float anim_selector_size = m_current_animation ? size.x * 0.2f : size.x * 0.4f;
-	const float name_input_size = size.x * 0.15f;
-	const float button_size = size.x * 0.1f;
+	if (ImGui::Button("New", ImVec2(92.0f, 30.0f)))
+	{
+		m_current_animation.reset();
+		ref<animation2D> new_anim = make_ref<animation2D>();
+		new_anim->set_name("New Animation");
+		m_current_animation = new_anim;
+		m_selected_frame_index = -1;
+		std::string filepath = file_dialogs::save_file("Whip Animation (*.wanim)\0*.wanim\0", project::get_active_asset_directory().string().c_str());
+		if (!filepath.empty())
+		{
+			m_current_animation->serialize(filepath);
+			asset_metadata metadata;
+			metadata.type = asset_type::animation;
+			metadata.filepath = std::filesystem::relative(filepath, project::get_active_asset_directory());
+			project::get_active()->get_editor_asset_manager()->add_registry(m_current_animation->handle, metadata);
+			project::get_active()->get_editor_asset_manager()->serialize_asset_registry();
+			if (m_refresh_asset_tree_callback)
+				m_refresh_asset_tree_callback();
+		}
+	}
 
-	const float padding = style.WindowPadding.x;
-	const float anim_selector_padding = style.WindowPadding.x + style.ScrollbarSize;
-	const float new_button_left_padding = m_current_animation ? anim_selector_size + name_input_size + button_size * 2.0f + padding * 4.0f + anim_selector_padding : anim_selector_size + padding + anim_selector_padding;
-	const float new_button_size = m_current_animation ? button_size : 0.3f;
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!m_current_animation);
+	if (ImGui::Button("Close", ImVec2(92.0f, 30.0f)))
+	{
+		m_current_animation = nullptr;
+		m_selected_frame_index = -1;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Save", ImVec2(92.0f, 30.0f)))
+	{
+		const auto& metadata = asset_manager::get_asset_metadata(m_current_animation->handle);
+		if (metadata)
+			m_current_animation->serialize(project::get_active_asset_directory() / metadata.filepath);
+	}
 
-	const float half_of_x = (size.x - (style.WindowPadding.x * 2.0f + style.ScrollbarSize + style.ItemSpacing.x)) / 2.0f;
-	const float one_third_of_x = (size.x - (style.WindowPadding.x * 2.0f + style.ScrollbarSize + style.ItemSpacing.x * 2.0f)) / 3.0f;
-	const float selected_x = m_selected_frame_index < 0 ? half_of_x : one_third_of_x;
+	ImGui::SameLine(0.0f, 14.0f);
+	if (m_current_animation)
+	{
+		char buffer[256];
+		memset(buffer, 0, sizeof(buffer));
+		strncpy_s(buffer, sizeof(buffer), m_current_animation->get_name().c_str(), sizeof(buffer));
+		ImGui::SetNextItemWidth(170.0f);
+		if (ImGui::InputText("##AnimationName", buffer, sizeof(buffer)))
+			m_current_animation->set_name(buffer);
+		ImGui::SameLine();
+	}
+	ImGui::EndDisabled();
 
-	draw_playback_controls(playback_controls_size.x, playback_controls_size.y);
+	ImGui::SetNextItemWidth(220.0f);
+	if (ImGui::BeginCombo("##AnimationSelector", m_current_animation ? m_current_animation->get_name().data() : "Select Animation"))
+	{
+		const auto& reg = project::get_active()->get_editor_asset_manager()->get_asset_registry();
+		reg.foreach(asset_type::animation, [&](const asset_registry::value_type& value)
+			{
+				auto anim = asset_manager::get_asset<animation2D>(value.first);
+				if (ImGui::Selectable(anim->get_name().c_str(), m_current_animation ? m_current_animation->handle == value.first : false))
+				{
+					m_current_animation = anim;
+					m_selected_frame_index = -1;
+				}
+		});
+		ImGui::EndCombo();
+	}
+	ImGui::EndChild();
+
+	ImGui::Spacing();
+	if (!m_current_animation)
+	{
+		ImGui::BeginChild("##AnimationEditorEmpty", ImVec2(0.0f, 0.0f), true);
+		ImGui::TextDisabled("Drop an animation here or create a new one.");
+		ImGui::EndChild();
+		ImGui::End();
+		return;
+	}
+
+	draw_timeline(ImGui::GetContentRegionAvail().x, 112.0f, 150.0f);
+
+	ImGui::BeginChild("##AnimationEditorFrameTools", ImVec2(0.0f, 46.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	draw_frame_list(220.0f);
 	ImGui::SameLine();
-	draw_new_button(button_size, new_button_left_padding);
+	draw_add_frame_button(120.0f);
 	ImGui::SameLine();
-	draw_close_button(button_size, anim_selector_size + name_input_size + button_size + padding * 3.0f + anim_selector_padding);
-	ImGui::SameLine();
-	draw_save_button(button_size, anim_selector_size + name_input_size + padding * 2.0f + anim_selector_padding);
-	ImGui::SameLine();
-	draw_name_input(name_input_size, anim_selector_size + padding + anim_selector_padding);
-	ImGui::SameLine();
-	draw_animation_selector(anim_selector_size, anim_selector_padding);
-	draw_timeline(size.x, 100.0f, 150.0f);
-	draw_frame_list(selected_x);
-	ImGui::SameLine();
-	draw_add_frame_button(selected_x);
-	ImGui::SameLine();
-	draw_remove_frame_button(selected_x);
-	draw_frame_editor(size.x);
+	draw_remove_frame_button(140.0f);
+	ImGui::EndChild();
+
+	draw_frame_editor(ImGui::GetContentRegionAvail().x);
 
 	ImGui::End();
 }
@@ -82,12 +140,10 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 {
 	ImVec2 size(width, height);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0, 0));
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-	auto& colors = ImGui::GetStyle().Colors;
-	const auto& buttonHovered = colors[ImGuiCol_ButtonHovered];
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(buttonHovered.x, buttonHovered.y, buttonHovered.z, 0.5f));
-	const auto& buttonActive = colors[ImGuiCol_ButtonActive];
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(buttonActive.x, buttonActive.y, buttonActive.z, 0.5f));
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 0.0f));
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.10f, 0.12f, 0.13f, 0.92f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.15f, 0.22f, 0.22f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.10f, 0.34f, 0.32f, 1.0f));
 
 	auto draw_button = [=](icon icon_type) -> bool
 		{
@@ -98,14 +154,6 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 			}
 			return ImGui::Button(frenum::to_string<icon>(icon_type).c_str());
 		};
-
-	static constexpr float icon_size = static_cast<float>(frenum::size<icon>());
-
-	float total_width = size.x * icon_size + ImGui::GetStyle().ItemSpacing.x * (icon_size - 1.0f);
-	float avail_width = ImGui::GetContentRegionAvail().x;
-
-	float start_x = avail_width * 0.02f;
-	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + start_x);
 
 	if (draw_button(icon::step_back))
 	{
@@ -127,7 +175,7 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 	{
 	}
 
-	ImGui::PopStyleVar();
+	ImGui::PopStyleVar(2);
 	ImGui::PopStyleColor(3);
 }
 

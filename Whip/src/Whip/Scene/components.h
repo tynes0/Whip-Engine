@@ -41,6 +41,19 @@ struct tag_component
 	static constexpr const char* script_struct_name = "TagComponent";
 };
 
+struct hierarchy_component
+{
+	UUID parent = 0;
+	std::vector<UUID> children;
+	bool is_group = false;
+
+	hierarchy_component() = default;
+	hierarchy_component(const hierarchy_component&) = default;
+	hierarchy_component& operator=(const hierarchy_component&) = default;
+
+	static constexpr const char* script_struct_name = "HierarchyComponent";
+};
+
 struct transform_component
 {
     glm::vec3 translation = { 0.0f, 0.0f, 0.0f };
@@ -253,10 +266,10 @@ using all_components_no_id_no_tag_no_script = component_group<transform_componen
 
 using all_components_no_id_no_tag = component_group<transform_component, sprite_renderer_component,
 	circle_renderer_component, text_component, camera_component, script_component, native_script_component,
-	rigidbody2D_component, box_collider2D_component, circle_collider2D_component, audio_component>;
+	rigidbody2D_component, box_collider2D_component, circle_collider2D_component, audio_component, hierarchy_component>;
 
 using all_components = component_group<transform_component, sprite_renderer_component,
 	circle_renderer_component, text_component, camera_component, script_component, native_script_component,
-	rigidbody2D_component, box_collider2D_component, circle_collider2D_component, audio_component, ID_component, tag_component>;
+	rigidbody2D_component, box_collider2D_component, circle_collider2D_component, audio_component, ID_component, tag_component, hierarchy_component>;
 
 _WHIP_END
