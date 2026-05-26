@@ -102,6 +102,7 @@ private:
 	static void init();
 
 	static logger s_editor_logger;
+	static spdlog::sink_ptr s_file_sink;
 	static std::filesystem::path s_log_filepath;
 	static bool s_should_log;
 	static std::atomic<bool> s_file_should_reset;

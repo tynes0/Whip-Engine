@@ -418,11 +418,16 @@ namespace UI
 		if (active_project->get_config().start_scene == m_pending_delete_scene)
 			active_project->get_config().start_scene = 0;
 
+		const std::filesystem::path absolute_scene_path = project::get_active_asset_directory() / m_pending_delete_scene_path;
 		std::error_code remove_error;
-		std::filesystem::remove(project::get_active_asset_directory() / m_pending_delete_scene_path, remove_error);
+		const bool removed = std::filesystem::remove(absolute_scene_path, remove_error);
 		if (remove_error)
-			WHP_CORE_WARN("[Project Settings] Failed to delete scene file '{0}': {1}", m_pending_delete_scene_path.string(), remove_error.message());
+			WHP_CORE_WARN("[Project Settings] Failed to delete scene file '{0}': {1}", absolute_scene_path.string(), remove_error.message());
+		else if (!removed && std::filesystem::exists(absolute_scene_path))
+			WHP_CORE_WARN("[Project Settings] Scene file was not deleted: {0}", absolute_scene_path.string());
+
 		active_project->get_editor_asset_manager()->delete_asset(m_pending_delete_scene);
+		active_project->get_editor_asset_manager()->serialize_asset_registry();
 		project::save_active();
 
 		m_pending_delete_scene = 0;

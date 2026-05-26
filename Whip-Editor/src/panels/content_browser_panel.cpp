@@ -680,16 +680,19 @@ void content_browser_panel::on_settings_popup()
 
 		ImGui::OpenPopup("Content Browser Settings");
 
-		if (ImGui::BeginPopupModal("Content Browser Settings", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		if (ImGui::BeginPopupModal("Content Browser Settings", NULL, ImGuiWindowFlags_NoResize))
 		{
 			ImGui::Text("Thumbnail Size");
+			ImGui::SetNextItemWidth(-1.0f);
 			ImGui::DragFloat("##Thumbnail Size", &m_thumbnail_size, 0.5f, 16, 512);
 			ImGui::Text("Padding");
+			ImGui::SetNextItemWidth(-1.0f);
 			ImGui::DragFloat("##Padding", &m_padding, 0.05f, 0, 32);
 			ImGui::Checkbox("Show unsupported files", &m_show_unsupported);
-			ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::GetFrameHeightWithSpacing()) * 0.5f);
-			ImGui::SetCursorPosY(ImGui::GetWindowSize().y - (ImGui::GetFrameHeightWithSpacing() + 10.0f));
-			if (ImGui::Button("Ok"))
+			ImGui::Dummy(ImVec2(0.0f, 24.0f));
+			ImGui::Separator();
+			ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 112.0f);
+			if (ImGui::Button("OK", ImVec2(96.0f, 0.0f)))
 			{
 				ImGui::CloseCurrentPopup();
 				m_show_settings_popup = false;

@@ -7,33 +7,50 @@
 #include <spdlog/async.h>
 #pragma warning(pop)
 
+#include <vector>
+
 _WHIP_START
 
 std::shared_ptr<spdlog::logger> log::s_core_logger;
 std::shared_ptr<spdlog::logger> log::s_client_logger;
 
 std::shared_ptr<spdlog::logger> editor_log::s_editor_logger;
+spdlog::sink_ptr					editor_log::s_file_sink;
 std::filesystem::path			editor_log::s_log_filepath;
 bool							editor_log::s_should_log = true;
 std::atomic<bool>				editor_log::s_file_should_reset{ false };
 
 void log::init()
 {
-	spdlog::set_pattern("%^[%T] %n: %v%$");
 	const spdlog::level::level_enum initial_level = log::whip_log_level_to_spdlog_level(level::trace);
 
-	s_core_logger = spdlog::stdout_color_mt("WHIP ENGINE");
-	s_core_logger->set_level(initial_level);
-
-	s_client_logger = spdlog::stdout_color_mt("CLIENT");
-	s_client_logger->set_level(initial_level);
-
 	editor_log::init();
+
+	auto make_console_sink = []()
+		{
+			auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+			sink->set_pattern("%^[%T] %n: %v%$");
+			return sink;
+		};
+
+	std::vector<spdlog::sink_ptr> core_sinks{ make_console_sink(), editor_log::s_file_sink };
+	s_core_logger = std::make_shared<spdlog::logger>("WHIP ENGINE", core_sinks.begin(), core_sinks.end());
+	s_core_logger->set_level(initial_level);
+	s_core_logger->flush_on(spdlog::level::trace);
+	spdlog::register_logger(s_core_logger);
+
+	std::vector<spdlog::sink_ptr> client_sinks{ make_console_sink(), editor_log::s_file_sink };
+	s_client_logger = std::make_shared<spdlog::logger>("CLIENT", client_sinks.begin(), client_sinks.end());
+	s_client_logger->set_level(initial_level);
+	s_client_logger->flush_on(spdlog::level::trace);
+	spdlog::register_logger(s_client_logger);
 }
 
 void log::reset_logger(logger& logger_in, const std::string& new_name, output_target target)
 {
-	if (new_name == s_core_logger->name() || new_name == s_client_logger->name() || new_name == editor_log::s_editor_logger->name())
+	if ((s_core_logger && new_name == s_core_logger->name()) ||
+		(s_client_logger && new_name == s_client_logger->name()) ||
+		(editor_log::s_editor_logger && new_name == editor_log::s_editor_logger->name()))
 		return;
 	spdlog::level::level_enum level = spdlog::level::level_enum::trace;
 	if (logger_in)
@@ -43,10 +60,9 @@ void log::reset_logger(logger& logger_in, const std::string& new_name, output_ta
 	}
 	if (target == output_target::editor)
 	{
-		std::string path = editor_log::s_log_filepath.string();
-		logger_in = spdlog::rotating_logger_mt(new_name, path, editor_log::MAX_FILE_SIZE, editor_log::MAX_FILES);
+		logger_in = std::make_shared<spdlog::logger>(new_name, editor_log::s_file_sink);
+		spdlog::register_logger(logger_in);
 		logger_in->flush_on(spdlog::level::trace);
-		logger_in->set_pattern("level::%l,%^[%T] %n: %v%$");
 	}
 	else
 	{
@@ -76,16 +92,20 @@ void editor_log::init()
 	std::filesystem::create_directory("log");
 	s_log_filepath = std::filesystem::current_path() / "log/client.log";
 	std::string path = s_log_filepath.string();
-	s_editor_logger = spdlog::rotating_logger_mt("WHIP", path, MAX_FILE_SIZE, MAX_FILES - 1);
+	s_file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(path, MAX_FILE_SIZE, MAX_FILES);
+	s_file_sink->set_pattern("level::%l,[%T] %n: %v");
+	s_editor_logger = std::make_shared<spdlog::logger>("WHIP", s_file_sink);
+	spdlog::register_logger(s_editor_logger);
 	s_editor_logger->set_level(spdlog::level::trace);
 	s_editor_logger->flush_on(spdlog::level::trace);
-	s_editor_logger->set_pattern("level::%l,%^[%T] %n: %v%$");
 }
 
 void editor_log::erase()
 {
-	spdlog::drop(s_editor_logger->name());
+	if (s_editor_logger)
+		spdlog::drop(s_editor_logger->name());
 	s_editor_logger.reset();
+	s_file_sink.reset();
 }
 
 _WHIP_END

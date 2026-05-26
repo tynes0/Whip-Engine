@@ -594,18 +594,22 @@ bool assembly_manager::load_assembly(const std::filesystem::path& filepath)
 
 bool assembly_manager::load_app_assembly(const std::filesystem::path& filepath)
 {
-	if (filepath.extension().string() == ".dll")
-	{
-		s_script_engine_data->app_assembly_filepath = filepath;
-		s_script_engine_data->app_assembly = utils::load_mono_assembly(filepath, s_script_engine_data->enable_debugging);
-		s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(filepath.string(), utils::on_app_assembly_file_system_event_1);
-		s_script_engine_data->assembly_reloading_pending = false;
-		if (s_script_engine_data->app_assembly == nullptr)
-			return false;
-		s_script_engine_data->app_assembly_image = mono_assembly_get_image(s_script_engine_data->app_assembly);
-		return true;
-	}
-	return false;
+	if (filepath.extension().string() != ".dll")
+		return false;
+
+	s_script_engine_data->app_assembly_filepath = filepath;
+	s_script_engine_data->assembly_reloading_pending = false;
+
+	if (!std::filesystem::exists(filepath))
+		return false;
+
+	s_script_engine_data->app_assembly = utils::load_mono_assembly(filepath, s_script_engine_data->enable_debugging);
+	if (s_script_engine_data->app_assembly == nullptr)
+		return false;
+
+	s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(filepath.string(), utils::on_app_assembly_file_system_event_1);
+	s_script_engine_data->app_assembly_image = mono_assembly_get_image(s_script_engine_data->app_assembly);
+	return true;
 }
 
 void assembly_manager::reload_assembly(bool reset_app_assembly_filepath)
@@ -781,7 +785,9 @@ void script_engine::init()
 	status = assembly_manager::load_app_assembly(script_module_path);
 	if (!status)
 	{
-		WHP_CORE_ERROR("[ScriptEngine] Could not load app assembly.");
+		WHP_CORE_WARN("[ScriptEngine] App assembly is not available yet: {0}", script_module_path.string());
+		script_glue::register_components();
+		s_script_engine_data->entity_class = script_class("Whip", "Entity", true);
 		return;
 	}
 	assembly_manager::load_assembly_classes();

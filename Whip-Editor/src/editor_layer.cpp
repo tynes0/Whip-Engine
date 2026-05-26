@@ -120,7 +120,8 @@ void editor_layer::on_update(timestep ts)
 		{
 		case scene_state::edit:
 		{
-			m_editor_camera.on_update(ts);
+			if (!ImGuizmo::IsUsing())
+				m_editor_camera.on_update(ts);
 			m_active_scene->on_update_editor(ts, m_editor_camera);
 			break;
 		}
@@ -131,7 +132,8 @@ void editor_layer::on_update(timestep ts)
 		}
 		case scene_state::simulate:
 		{
-			m_editor_camera.on_update(ts);
+			if (!ImGuizmo::IsUsing())
+				m_editor_camera.on_update(ts);
 			m_active_scene->on_update_simulation(ts, m_editor_camera);
 			break;
 		}
@@ -308,8 +310,8 @@ void editor_layer::on_imgui_render()
 		m_viewport_bounds[0] = { viewport_min_region.x + viewport_offset.x, viewport_min_region.y + viewport_offset.y };
 		m_viewport_bounds[1] = { viewport_max_region.x + viewport_offset.x, viewport_max_region.y + viewport_offset.y };
 		m_viewport_focused = ImGui::IsWindowFocused();
-		m_viewport_hovered = ImGui::IsWindowHovered();
-		application::get().get_imgui_layer()->block_events(!m_viewport_hovered);
+		m_viewport_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+		application::get().get_imgui_layer()->block_events(!m_viewport_hovered || ImGuizmo::IsOver() || ImGuizmo::IsUsing());
 		ImVec2 viewport_panel_size = ImGui::GetContentRegionAvail();
 		m_viewport_size = { viewport_panel_size.x, viewport_panel_size.y };
 
@@ -377,7 +379,7 @@ _WHP_PRAGMA_WARNING(pop)
 
 void editor_layer::on_event(event& evnt)
 {
-	if(m_scene_state == scene_state::edit)
+	if(m_scene_state == scene_state::edit && !ImGuizmo::IsOver() && !ImGuizmo::IsUsing())
 		m_editor_camera.on_event(evnt);
     event_dispatcher dispatcher(evnt);
     dispatcher.dispatch<key_pressed_event>([this](auto&&... args) -> decltype(auto) { return this->on_key_pressed(std::forward<decltype(args)>(args)...); });
@@ -487,8 +489,11 @@ bool editor_layer::on_mouse_button_pressed(mouse_button_pressed_event& evnt)
 {
     if (evnt.get_mouse_button() == mouse::button_left)
     {
-        if (m_viewport_hovered && !ImGuizmo::IsOver() && !input::is_key_down(key::left_alt))
-            m_scene_hierarchy_panel.set_selected_entity(m_hovered_entity);
+        if (m_viewport_hovered && !ImGuizmo::IsOver() && !ImGuizmo::IsUsing() && !input::is_key_down(key::left_alt) && application::get().get_imgui_layer()->get_active_widgetID() == 0)
+		{
+			bool append = input::is_key_down(key::left_control) || input::is_key_down(key::right_control);
+            m_scene_hierarchy_panel.set_selected_entity(m_hovered_entity, append);
+		}
     }
     return false;
 }
@@ -552,7 +557,7 @@ void editor_layer::on_overlay_render()
 		}
 	}
 
-	if (entity selected_entity = m_scene_hierarchy_panel.get_selected_entity())
+	for (entity selected_entity : m_scene_hierarchy_panel.get_selected_entities())
 	{
 		transform_component transform = selected_entity.get_component<transform_component>();
 		if (selected_entity.has_component<text_component>() && !selected_entity.has_component<sprite_renderer_component>() && !selected_entity.has_component<circle_renderer_component>())
@@ -729,7 +734,7 @@ bool editor_layer::new_project()
 	config.name = project_path.stem().string();
 	config.asset_directory = "Assets";
 	config.asset_registry_path = "asset_registry.whipr";
-	config.script_module_path = std::filesystem::path("Scripts") / "Binaries" / (config.name + ".dll");
+	config.script_module_path = "";
 	config.start_scene = 0;
 
 	if (!project::save_active(project_path))
@@ -941,20 +946,46 @@ void editor_layer::on_duplicated_entity()
 	if (m_scene_state != scene_state::edit)
 		return;
 
-	entity selected_entity = m_scene_hierarchy_panel.get_selected_entity();
-	if (selected_entity)
-		m_scene_hierarchy_panel.set_selected_entity(m_editor_scene->duplicate_entity(selected_entity));
+	std::vector<entity> selected_entities = m_scene_hierarchy_panel.get_selected_entities();
+	bool append = false;
+	for (entity selected_entity : selected_entities)
+	{
+		entity duplicated = m_editor_scene->duplicate_entity(selected_entity);
+		m_scene_hierarchy_panel.set_selected_entity(duplicated, append);
+		append = true;
+	}
 }
 
 void editor_layer::on_deleted_entity()
 {
 	if(application::get().get_imgui_layer()->get_active_widgetID() == 0)
 	{
-		entity selected_entity = m_scene_hierarchy_panel.get_selected_entity();
-		if (selected_entity)
+		std::vector<entity> selected_entities = m_scene_hierarchy_panel.get_selected_entities();
+		if (!selected_entities.empty())
 		{
-			m_scene_hierarchy_panel.set_selected_entity({});
-			m_active_scene->destroy_entity(selected_entity);
+			std::vector<UUID> selected_ids;
+			selected_ids.reserve(selected_entities.size());
+			for (entity selected_entity : selected_entities)
+				selected_ids.push_back(selected_entity.get_UUID());
+
+			auto has_selected_ancestor = [&](entity selected_entity)
+				{
+					while (selected_entity && selected_entity.has_component<hierarchy_component>())
+					{
+						UUID parent_id = selected_entity.get_component<hierarchy_component>().parent;
+						if (parent_id == 0)
+							return false;
+						if (std::find(selected_ids.begin(), selected_ids.end(), parent_id) != selected_ids.end())
+							return true;
+						selected_entity = m_active_scene->find_entity_by_UUID(parent_id);
+					}
+					return false;
+				};
+
+			m_scene_hierarchy_panel.clear_selection();
+			for (entity selected_entity : selected_entities)
+				if (selected_entity && !has_selected_ancestor(selected_entity))
+					m_active_scene->destroy_entity(selected_entity);
 		}
 	}
 }
@@ -973,9 +1004,9 @@ void editor_layer::UI_toolbar()
 	bool is_paused = has_pause_button && m_active_scene->is_paused();
 	bool has_step_button = has_pause_button && is_paused;
 
-	const float size = 30.0f;
-	const float padding = 6.0f;
-	const float spacing = 8.0f;
+	const float size = 28.0f;
+	const float padding = 7.0f;
+	const float spacing = 6.0f;
 	const int button_count = (has_play_button ? 1 : 0) + (has_simulate_button ? 1 : 0) + (has_pause_button ? 1 : 0) + (has_step_button ? 1 : 0);
 	const float panel_width = padding * 2.0f + size * button_count + spacing * glm::max(button_count - 1, 0);
 	const float panel_height = size + padding * 2.0f;
@@ -986,26 +1017,27 @@ void editor_layer::UI_toolbar()
 	ImVec2 panel_end = ImVec2(panel_pos.x + panel_width, panel_pos.y + panel_height);
 
 	ImDrawList* draw_list = ImGui::GetWindowDrawList();
-	draw_list->AddRectFilled(panel_pos, panel_end, IM_COL32(15, 18, 20, 222), 7.0f);
-	draw_list->AddRect(panel_pos, panel_end, IM_COL32(48, 62, 65, 220), 7.0f);
+	draw_list->AddRectFilled(ImVec2(panel_pos.x + 2.0f, panel_pos.y + 3.0f), ImVec2(panel_end.x + 2.0f, panel_end.y + 3.0f), IM_COL32(0, 0, 0, 72), 8.0f);
+	draw_list->AddRectFilled(panel_pos, panel_end, IM_COL32(10, 13, 15, 214), 8.0f);
+	draw_list->AddRect(panel_pos, panel_end, IM_COL32(53, 68, 70, 190), 8.0f);
 
 	ImGui::SetCursorScreenPos(ImVec2(panel_pos.x + padding, panel_pos.y + padding));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, 0.0f));
-	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.10f, 0.12f, 0.13f, 0.92f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.15f, 0.22f, 0.22f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.10f, 0.34f, 0.32f, 1.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.14f, 0.23f, 0.23f, 0.62f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.10f, 0.38f, 0.35f, 0.78f));
 
-	auto draw_icon_button = [&](const char* id, icon icon_type) -> bool
+	auto draw_icon_button = [&](const char* id, icon icon_type, ImVec4 tint) -> bool
 		{
 			ref<texture2D> icon_texture = icon_manager::get().get_icon(icon_type);
-			return UI::image_button(id, UI::to_imgui_texture_id(icon_texture->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0, 0, 0, 0), tint_color);
+			return UI::image_button(id, UI::to_imgui_texture_id(icon_texture->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0, 0, 0, 0), tint);
 		};
 
 	if(has_play_button)
 	{
 		icon play_icon = m_scene_state == scene_state::play ? icon::stop : icon::play;
-		if (draw_icon_button("##ViewportToolbarPlay", play_icon) && toolbar_enabled)
+		if (draw_icon_button("##ViewportToolbarPlay", play_icon, ImVec4(0.88f, 1.0f, 0.96f, tint_color.w)) && toolbar_enabled)
 		{
 			if (m_scene_state == scene_state::edit || m_scene_state == scene_state::simulate)
 				on_scene_play();
@@ -1018,7 +1050,7 @@ void editor_layer::UI_toolbar()
 		if(has_play_button)
 			ImGui::SameLine();
 		icon simulate_icon = m_scene_state == scene_state::simulate ? icon::stop : icon::simulate;
-		if (draw_icon_button("##ViewportToolbarSimulate", simulate_icon) && toolbar_enabled)
+		if (draw_icon_button("##ViewportToolbarSimulate", simulate_icon, tint_color) && toolbar_enabled)
 		{
 			if (m_scene_state == scene_state::edit || m_scene_state == scene_state::play)
 				on_scene_simulate();
@@ -1029,13 +1061,13 @@ void editor_layer::UI_toolbar()
 	if (has_pause_button)
 	{
 		ImGui::SameLine();
-		if (draw_icon_button("##ViewportToolbarPause", icon::pause) && toolbar_enabled)
+		if (draw_icon_button("##ViewportToolbarPause", icon::pause, tint_color) && toolbar_enabled)
 			m_active_scene->set_paused(!is_paused);
 
 		if (is_paused)
 		{
 			ImGui::SameLine();
-			if (draw_icon_button("##ViewportToolbarStepForward", icon::step_forward) && toolbar_enabled)
+			if (draw_icon_button("##ViewportToolbarStepForward", icon::step_forward, tint_color) && toolbar_enabled)
 				m_active_scene->step(m_UI_settings.get_step_frame());
 		}
 	}

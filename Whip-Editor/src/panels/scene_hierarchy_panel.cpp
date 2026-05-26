@@ -9,6 +9,8 @@
 #include <Whip/Asset/asset_metadata.h>
 #include <Whip/Asset/texture_importer.h>
 #include <Whip/Audio/audio_source.h>
+#include <Whip/Core/Input.h>
+#include <Whip/Core/KeyCodes.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -81,7 +83,7 @@ scene_hierarchy_panel::scene_hierarchy_panel(const ref<scene> context)
 void scene_hierarchy_panel::set_context(const ref<scene>& context)
 {
 	m_context = context;
-	m_selection_context = {};
+	clear_selection();
 }
 
 void scene_hierarchy_panel::on_imgui_render()
@@ -109,7 +111,7 @@ void scene_hierarchy_panel::on_imgui_render()
 		}
 
 		if (ImGui::IsMouseDown(0) && ImGui::IsWindowHovered())
-			m_selection_context = {};
+			clear_selection();
 
 		if (ImGui::BeginPopupContextWindow(0, 1 | ImGuiPopupFlags_NoOpenOverItems))
 		{
@@ -128,15 +130,59 @@ void scene_hierarchy_panel::on_imgui_render()
 	ImGui::End();
 
 	ImGui::Begin("Properties");
+	if (m_selection_contexts.size() > 1)
+		ImGui::TextDisabled("%zu entities selected. Showing primary selection.", m_selection_contexts.size());
 	if (m_selection_context)
 		draw_components(m_selection_context);
 
 	ImGui::End();
 }
 
-void scene_hierarchy_panel::set_selected_entity(entity entity_in)
+std::vector<entity> scene_hierarchy_panel::get_selected_entities() const
 {
+	std::vector<entity> result;
+	if (!m_context)
+		return result;
+
+	result.reserve(m_selection_contexts.size());
+	for (UUID id : m_selection_contexts)
+	{
+		entity selected = m_context->find_entity_by_UUID(id);
+		if (selected)
+			result.push_back(selected);
+	}
+	return result;
+}
+
+void scene_hierarchy_panel::set_selected_entity(entity entity_in, bool append)
+{
+	if (!append)
+		m_selection_contexts.clear();
+
+	if (!entity_in)
+	{
+		m_selection_context = {};
+		return;
+	}
+
+	UUID id = entity_in.get_UUID();
+	auto it = std::find(m_selection_contexts.begin(), m_selection_contexts.end(), id);
+	if (append && it != m_selection_contexts.end())
+	{
+		m_selection_contexts.erase(it);
+		m_selection_context = m_selection_contexts.empty() ? entity{} : m_context->find_entity_by_UUID(m_selection_contexts.back());
+		return;
+	}
+
+	if (it == m_selection_contexts.end())
+		m_selection_contexts.push_back(id);
 	m_selection_context = entity_in;
+}
+
+void scene_hierarchy_panel::clear_selection()
+{
+	m_selection_context = {};
+	m_selection_contexts.clear();
 }
 
 void scene_hierarchy_panel::draw_entity_node(entity entity_in)
@@ -146,7 +192,7 @@ void scene_hierarchy_panel::draw_entity_node(entity entity_in)
 		auto& tag = entity_in.get_component<tag_component>().tag;
 		auto& hierarchy = entity_in.get_component<hierarchy_component>();
 
-		ImGuiTreeNodeFlags flags = ((m_selection_context == entity_in) ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow;
+		ImGuiTreeNodeFlags flags = (is_selected(entity_in) ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow;
 		flags |= ImGuiTreeNodeFlags_SpanAvailWidth;
 		if (hierarchy.children.empty())
 			flags |= ImGuiTreeNodeFlags_Leaf;
@@ -155,7 +201,7 @@ void scene_hierarchy_panel::draw_entity_node(entity entity_in)
 		bool opened = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entity_in, flags, label.c_str());
 
 		if (ImGui::IsItemClicked())
-			m_selection_context = entity_in;
+			set_selected_entity(entity_in, input::is_key_down(key::left_control) || input::is_key_down(key::right_control));
 
 		if (ImGui::BeginDragDropSource())
 		{
@@ -271,9 +317,18 @@ void scene_hierarchy_panel::destroy_entity_with_selection(entity entity_in)
 		return;
 
 	if (m_selection_context == entity_in || is_descendant_of(m_selection_context, entity_in.get_UUID()))
-		m_selection_context = {};
+		clear_selection();
 
 	m_context->destroy_entity(entity_in);
+}
+
+bool scene_hierarchy_panel::is_selected(entity entity_in) const
+{
+	if (!entity_in)
+		return false;
+
+	UUID id = entity_in.get_UUID();
+	return std::find(m_selection_contexts.begin(), m_selection_contexts.end(), id) != m_selection_contexts.end();
 }
 
 void scene_hierarchy_panel::draw_components(entity entity_in)

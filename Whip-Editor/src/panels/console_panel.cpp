@@ -4,10 +4,13 @@
 #include <vector>
 
 #include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
 #include <FileWatch.h>
 
 #include <Whip/Core/memory.h>
 #include <Whip/UI/UI_scoped_style.h>
+
+#include <algorithm>
 
 _WHIP_START
 
@@ -20,6 +23,9 @@ struct console_data
 	std::streamoff last_stream_index = 0;
 	std::atomic<bool> running;
 	std::atomic<bool> filestream_was_open;
+	std::filesystem::file_time_type last_write_time{};
+	std::string filter;
+	bool auto_scroll = true;
 
 	static constexpr size_t max_console_lines = 500;
 	static constexpr size_t erase_count = 100;
@@ -29,12 +35,24 @@ console_data g_data;
 
 namespace utils
 {
+	static bool reopen();
+
 	static void clear_filestream_context()
 	{
 		if (!g_data.stream.is_open())
 			return; // not opened
 		g_data.stream.clear();
 		g_data.last_stream_index = 0;
+	}
+
+	static void skip_to_end()
+	{
+		if (!g_data.stream.is_open() && !reopen())
+			return;
+
+		g_data.stream.clear();
+		g_data.stream.seekg(0, std::ios::end);
+		g_data.last_stream_index = g_data.stream.tellg();
 	}
 
 	static bool reopen()
@@ -126,12 +144,23 @@ namespace utils
 	{
 		while (g_data.running.load()) 
 		{
-			if (editor_log::file_should_reset().load())
+			bool should_update = editor_log::file_should_reset().exchange(false);
+			std::error_code error;
+			const auto& log_path = editor_log::get_log_filepath();
+			if (std::filesystem::exists(log_path, error))
 			{
-				application::get().submit_to_main_thread(utils::reset_buffer);
-				editor_log::file_should_reset().store(false);
+				auto write_time = std::filesystem::last_write_time(log_path, error);
+				if (!error && write_time != g_data.last_write_time)
+				{
+					g_data.last_write_time = write_time;
+					should_update = true;
+				}
 			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+			if (should_update)
+				application::get().submit_to_main_thread(utils::reset_buffer);
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(80));
 		}
 	}
 }
@@ -142,7 +171,11 @@ void console_panel::initialize()
 	{
 		g_data.stream.open(editor_log::get_log_filepath());
 		if (g_data.stream.is_open())
+		{
 			g_data.filestream_was_open.store(true);
+			std::error_code error;
+			g_data.last_write_time = std::filesystem::last_write_time(editor_log::get_log_filepath(), error);
+		}
 		else
 			g_data.filestream_was_open.store(false);
 
@@ -165,7 +198,10 @@ void console_panel::shutdown()
 	editor_log::log_state(false);
 	editor_log::erase();
 	if (std::filesystem::exists(editor_log::get_log_filepath()))
-		std::filesystem::resize_file(editor_log::get_log_filepath(), 0);
+	{
+		std::error_code error;
+		std::filesystem::resize_file(editor_log::get_log_filepath(), 0, error);
+	}
 }
 
 void console_panel::on_imgui_render() 
@@ -202,20 +238,36 @@ void console_panel::on_imgui_render()
 			draw_list->AddText(ImGui::GetFont(), size, pos, color, text);
 		};
 
+	ImGui::Begin("Console");
+
+	if (ImGui::Button("Clear", ImVec2(72.0f, 0.0f)))
 	{
-		UI::scoped_style_bold_font boldf(true);
-
-		ImGui::Begin("Console");
-
-		size_t idx = 1;
-		for (auto it = g_data.buffer.rbegin(); it != g_data.buffer.rend(); it++)
-		{
-			const auto& text = *it;
-			ImGui::TextColored(get_color(text.first), text.second.c_str());
-		}
-
-		ImGui::End();
+		g_data.buffer.clear();
+		utils::skip_to_end();
 	}
+	ImGui::SameLine();
+	ImGui::Checkbox("Auto-scroll", &g_data.auto_scroll);
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(std::max(160.0f, ImGui::GetContentRegionAvail().x));
+	ImGui::InputTextWithHint("##ConsoleFilter", "Filter log output", &g_data.filter);
+
+	ImGui::Separator();
+	ImGui::BeginChild("##ConsoleScroll", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
+
+	const std::string filter = g_data.filter;
+	for (const auto& text : g_data.buffer)
+	{
+		if (!filter.empty() && text.second.find(filter) == std::string::npos)
+			continue;
+
+		ImGui::TextColored(get_color(text.first), "%s", text.second.c_str());
+	}
+
+	if (g_data.auto_scroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f)
+		ImGui::SetScrollHereY(1.0f);
+
+	ImGui::EndChild();
+	ImGui::End();
 }
 
 _WHIP_END
