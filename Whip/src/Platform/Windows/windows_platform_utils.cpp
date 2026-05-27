@@ -2,6 +2,7 @@
 #include <Whip/Utils/platform_utils.h>
 
 
+#include <shellapi.h>
 #include <shlobj.h>
 #include <commdlg.h>
 #include <GLFW/glfw3.h>
@@ -13,6 +14,24 @@
 #include <vector>
 
 _WHIP_START
+
+namespace
+{
+	bool shell_execute_open(const std::filesystem::path& target, const wchar_t* parameters, const std::filesystem::path& working_directory)
+	{
+		const std::wstring target_string = target.wstring();
+		const std::wstring directory_string = working_directory.empty() ? std::wstring() : working_directory.wstring();
+		HINSTANCE result = ShellExecuteW(
+			nullptr,
+			L"open",
+			target_string.c_str(),
+			parameters,
+			directory_string.empty() ? nullptr : directory_string.c_str(),
+			SW_SHOWNORMAL);
+
+		return reinterpret_cast<INT_PTR>(result) > 32;
+	}
+}
 
 std::string file_dialogs::open_file(const char* filter, const char* root)
 {
@@ -156,6 +175,26 @@ bool utils::restart_program()
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 	return true;
+}
+
+bool utils::open_external_path(const std::filesystem::path& path)
+{
+	if (path.empty())
+		return false;
+
+	std::error_code error;
+	const bool is_directory = std::filesystem::is_directory(path, error);
+	const std::filesystem::path working_directory = is_directory ? path : path.parent_path();
+	return shell_execute_open(path, nullptr, working_directory);
+}
+
+bool utils::open_external_path_with(const std::filesystem::path& executable, const std::filesystem::path& path)
+{
+	if (executable.empty() || path.empty())
+		return false;
+
+	const std::wstring parameters = L"\"" + path.wstring() + L"\"";
+	return shell_execute_open(executable, parameters.c_str(), path.parent_path());
 }
 
 std::string utils::wstring_to_utf8(const std::wstring& wstr)

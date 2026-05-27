@@ -159,7 +159,8 @@ public:
 
 	MonoObject* instantiate();
 	MonoMethod* get_method(const std::string& name, int parameter_count);
-	static MonoObject* invoke_method(MonoObject* instance, MonoMethod* method, void** params = nullptr);
+	static MonoObject* invoke_method(MonoObject* instance, MonoMethod* method, void** params = nullptr, std::string_view context = {});
+	std::string get_full_name() const { return m_class_namespace.empty() ? m_class_name : m_class_namespace + "." + m_class_name; }
 	const std::map<std::string, script_field>& get_fields() const { return m_fields; }
 private:
 	std::string m_class_namespace;
@@ -231,6 +232,7 @@ private:
 	bool get_field_array_value_internal(const std::string& name, size_t* size); // loads value to s_field_value_buffer
 	bool set_field_array_value_internal(const std::string& name, const void* values, size_t size);
 	bool set_field_array_index_value_internal(const std::string& name, size_t index, const void* value);
+	std::string make_method_context(std::string_view method_name) const;
 private:
 	ref<script_class> m_script_class;
 	MonoObject* m_instance = nullptr;
@@ -239,6 +241,8 @@ private:
 	MonoMethod* m_on_update_method = nullptr;
 	MonoMethod* m_on_collider_enter_method = nullptr;
 	MonoMethod* m_on_collider_exit_method = nullptr;
+	UUID m_entity_id = 0;
+	std::string m_entity_name;
 
 	inline static raw_buffer s_field_value_buffer;
 
@@ -250,7 +254,7 @@ class assembly_manager
 public:
 	static bool load_assembly(const std::filesystem::path& filepath);
 	static bool load_app_assembly(const std::filesystem::path& filepath);
-	static void reload_assembly(bool reset_app_assembly_filepath = false);
+	static bool reload_assembly(bool reset_app_assembly_filepath = false);
 
 	static MonoImage* get_core_assembly_image();
 

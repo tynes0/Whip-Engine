@@ -12,6 +12,8 @@
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <WhipScriptCoreHint Condition="Exists('..\..\..\Resources\Scripts\Whip-ScriptCore.dll')">..\..\..\Resources\Scripts\Whip-ScriptCore.dll</WhipScriptCoreHint>
+    <WhipScriptCoreHint Condition=" '$(WhipScriptCoreHint)' == '' And Exists('$(MSBuildProjectDirectory)\..\..\..\Resources\Scripts\Whip-ScriptCore.dll')">$(MSBuildProjectDirectory)\..\..\..\Resources\Scripts\Whip-ScriptCore.dll</WhipScriptCoreHint>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
     <PlatformTarget>x64</PlatformTarget>
@@ -56,20 +58,13 @@
   <ItemGroup Condition=" '$(Configuration)|$(Platform)' == 'Dist|x64' ">
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Source\Camera.cs" />
-    <Compile Include="Source\Camera2.cs" />
-    <Compile Include="Source\GameLogic.cs" />
-    <Compile Include="Source\MoveCollider.cs" />
-    <Compile Include="Source\Player.cs" />
-    <Compile Include="Source\TestObject.cs" />
-    <Compile Include="Source\Testobj.cs" />
-    <Compile Include="Source\Text.cs" />
+    <Compile Include="Source\*.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Whip-ScriptCore\Whip-ScriptCore.csproj">
-      <Project>{28835EC3-940E-CC87-9D1F-4F7C092A2888}</Project>
-      <Name>Whip-ScriptCore</Name>
-    </ProjectReference>
+  <ItemGroup Condition=" '$(WhipScriptCoreHint)' != '' ">
+    <Reference Include="Whip-ScriptCore">
+      <HintPath>$(WhipScriptCoreHint)</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.

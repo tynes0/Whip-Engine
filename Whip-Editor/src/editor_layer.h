@@ -55,9 +55,10 @@ private:
 	bool on_mouse_button_pressed(mouse_button_pressed_event& evnt);
 	bool on_window_drop(window_drop_event& evnt);
 
+	void draw_editor_grid();
 	void on_overlay_render();
 
-	bool new_project();
+	bool new_project(const UI::project_create_settings& settings);
 	void save_project();
 	void finish_project_settings();
 
@@ -68,6 +69,8 @@ private:
 	void load_recent_projects();
 	void save_recent_projects() const;
 	void add_recent_project(const std::filesystem::path& path);
+	bool forget_recent_project(const std::filesystem::path& path);
+	bool delete_recent_project(const std::filesystem::path& path);
 	bool should_include_recent_project(const std::filesystem::path& path) const;
 	std::filesystem::path get_recent_projects_path() const;
 	std::filesystem::path get_preferences_path() const;
@@ -81,6 +84,7 @@ private:
 	void save_scene();
 	void save_scene_as();
 
+	bool build_project_scripts() const;
 	void reload_assembly(bool reset_app_assembly_filepath = true) const;
 
 	void serialize_scene(ref<scene> scene_in, const std::filesystem::path& path);

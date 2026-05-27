@@ -25,6 +25,9 @@ public:
 
 	asset_handle import_asset(const std::filesystem::path& filepath);
 	void delete_asset(asset_handle handle);
+	bool update_asset_filepath(asset_handle handle, const std::filesystem::path& filepath);
+	size_t update_asset_directory_paths(const std::filesystem::path& old_directory, const std::filesystem::path& new_directory);
+	size_t delete_assets_under_directory(const std::filesystem::path& directory);
 
 	asset_handle get_handle_from_filepath(const std::filesystem::path& filepath) const;
 	const std::filesystem::path& get_filepath(asset_handle handle) const;

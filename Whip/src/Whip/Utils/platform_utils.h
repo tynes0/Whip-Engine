@@ -25,6 +25,8 @@ public:
 namespace utils
 {
 	bool restart_program();
+	bool open_external_path(const std::filesystem::path& path);
+	bool open_external_path_with(const std::filesystem::path& executable, const std::filesystem::path& path);
 	std::string wstring_to_utf8(const std::wstring& wstr);
 }
 

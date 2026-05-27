@@ -30,6 +30,7 @@ set_target_properties(Whip-Editor PROPERTIES
 
 whip_copy_directory_after_build(Whip-Editor "${CMAKE_CURRENT_SOURCE_DIR}/assets" "assets")
 whip_copy_directory_after_build(Whip-Editor "${CMAKE_CURRENT_SOURCE_DIR}/Resources" "Resources")
+whip_copy_directory_after_build(Whip-Editor "${CMAKE_SOURCE_DIR}/Whip-ScriptCore/Source" "Resources/Scripts/Whip-ScriptCore/Source")
 whip_copy_directory_after_build(Whip-Editor "${CMAKE_SOURCE_DIR}/F-Box/FboxProject" "FboxProject")
 whip_copy_mono_runtime_after_build(Whip-Editor)
 whip_copy_openal_runtime_after_build(Whip-Editor)

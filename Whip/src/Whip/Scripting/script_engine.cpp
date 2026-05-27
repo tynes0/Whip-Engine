@@ -321,78 +321,104 @@ script_class::script_class(const std::string& class_namespace, const std::string
 
 MonoObject* script_class::instantiate()
 {
+	if (!m_mono_class)
+	{
+		WHP_CORE_WARN("[Script Engine] Cannot instantiate missing script class: {0}", get_full_name());
+		return nullptr;
+	}
 	return script_engine::instantiate_class(m_mono_class);
 }
 
 MonoMethod* script_class::get_method(const std::string& name, int parameter_count)
 {
+	if (!m_mono_class)
+		return nullptr;
 	return mono_class_get_method_from_name(m_mono_class, name.c_str(), parameter_count);
 }
 
-MonoObject* script_class::invoke_method(MonoObject* instance, MonoMethod* method, void** params)
+MonoObject* script_class::invoke_method(MonoObject* instance, MonoMethod* method, void** params, std::string_view context)
 {
+	if (!method)
+	{
+		if (!context.empty())
+			WHP_CORE_WARN("[Script Engine] Cannot invoke missing managed method while {0}", std::string(context));
+		return nullptr;
+	}
+
 	MonoObject* exception = nullptr;
 	auto* ptr = mono_runtime_invoke(method, instance, params, &exception);
 	if (exception)
 	{
 		MonoString* exception_message = mono_object_to_string(exception, nullptr);
-		const char* message = mono_string_to_utf8(exception_message);
-		WHP_CORE_ERROR("[Script Engine] Mono Exception: {0}", message);
-		mono_free((void*)message);
+		const std::string message = utils::mono_string_to_string(exception_message);
+		if (!context.empty())
+			WHP_CORE_ERROR("[Script Engine] Mono Exception while {0}: {1}", std::string(context), message);
+		else
+			WHP_CORE_ERROR("[Script Engine] Mono Exception: {0}", message);
 	}
 	return ptr;
 }
 
 script_instance::script_instance(ref<script_class> script_class_in, entity entity_in) : m_script_class(script_class_in)
 {
+	m_entity_id = entity_in.get_UUID();
+	m_entity_name = entity_in.get_name();
 	m_instance = script_class_in->instantiate();
 	m_constructor = s_script_engine_data->entity_class.get_method(".ctor", 1);
 	m_on_create_method = script_class_in->get_method("OnCreate", 0);
 	m_on_update_method = script_class_in->get_method("OnUpdate", 1);
 	m_on_collider_enter_method = script_class_in->get_method("OnColliderEnter", 1);
 	m_on_collider_exit_method = script_class_in->get_method("OnColliderExit", 1);
+	if (!m_instance)
+		return;
 
 	// Call Entity constructor
 	{
-		UUID entityID = entity_in.get_UUID();
-		void* param = &entityID;
-		m_script_class->invoke_method(m_instance, m_constructor, &param);
+		void* param = &m_entity_id;
+		m_script_class->invoke_method(m_instance, m_constructor, &param, make_method_context("Entity.ctor"));
 	}
 }
 
 void script_instance::invoke_on_create()
 {
-	if (m_on_create_method)
-		m_script_class->invoke_method(m_instance, m_on_create_method);
+	if (m_instance && m_on_create_method)
+		m_script_class->invoke_method(m_instance, m_on_create_method, nullptr, make_method_context("OnCreate"));
 }
 
 void script_instance::invoke_on_update(float ts)
 {
-	if (m_on_update_method)
+	if (m_instance && m_on_update_method)
 	{
 		void* param = &ts;
-		m_script_class->invoke_method(m_instance, m_on_update_method, &param);
+		m_script_class->invoke_method(m_instance, m_on_update_method, &param, make_method_context("OnUpdate"));
 	}
 }
 
 void script_instance::invoke_on_collider_enter(std::string_view tag)
 {
-	if (m_on_collider_enter_method)
+	if (m_instance && m_on_collider_enter_method)
 	{
-		MonoString* mono_string = mono_string_new(s_script_engine_data->app_domain, tag.data());
+		const std::string tag_string(tag);
+		MonoString* mono_string = mono_string_new(s_script_engine_data->app_domain, tag_string.c_str());
 		void* param = mono_string;
-		m_script_class->invoke_method(m_instance, m_on_collider_enter_method, &param);
+		m_script_class->invoke_method(m_instance, m_on_collider_enter_method, &param, make_method_context("OnColliderEnter"));
 	}
 }
 
 void script_instance::invoke_on_collider_exit(std::string_view tag)
 {
-	if (m_on_collider_exit_method)
+	if (m_instance && m_on_collider_exit_method)
 	{
-		MonoString* mono_string = mono_string_new(s_script_engine_data->app_domain, tag.data());
+		const std::string tag_string(tag);
+		MonoString* mono_string = mono_string_new(s_script_engine_data->app_domain, tag_string.c_str());
 		void* param = mono_string;
-		m_script_class->invoke_method(m_instance, m_on_collider_exit_method, &param);
+		m_script_class->invoke_method(m_instance, m_on_collider_exit_method, &param, make_method_context("OnColliderExit"));
 	}
+}
+
+std::string script_instance::make_method_context(std::string_view method_name) const
+{
+	return nps::formatter::format("{0}.{1} on entity '{2}' ({3})", m_script_class->get_full_name(), std::string(method_name), m_entity_name, (uint64_t)m_entity_id);
 }
 
 bool script_instance::get_field_value_internal(const std::string& name)
@@ -595,27 +621,37 @@ bool assembly_manager::load_assembly(const std::filesystem::path& filepath)
 bool assembly_manager::load_app_assembly(const std::filesystem::path& filepath)
 {
 	if (filepath.extension().string() != ".dll")
+	{
+		WHP_CORE_WARN("[Script Engine] App assembly path is not a dll: {0}", filepath.string());
 		return false;
+	}
 
 	s_script_engine_data->app_assembly_filepath = filepath;
 	s_script_engine_data->assembly_reloading_pending = false;
 
 	if (!std::filesystem::exists(filepath))
+	{
+		WHP_CORE_WARN("[Script Engine] App assembly file does not exist yet: {0}", filepath.string());
 		return false;
+	}
 
 	s_script_engine_data->app_assembly = utils::load_mono_assembly(filepath, s_script_engine_data->enable_debugging);
 	if (s_script_engine_data->app_assembly == nullptr)
+	{
+		WHP_CORE_ERROR("[Script Engine] Failed to load app assembly bytes: {0}", filepath.string());
 		return false;
+	}
 
 	s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(filepath.string(), utils::on_app_assembly_file_system_event_1);
 	s_script_engine_data->app_assembly_image = mono_assembly_get_image(s_script_engine_data->app_assembly);
+	WHP_CORE_INFO("[Script Engine] Loaded app assembly: {0}", filepath.string());
 	return true;
 }
 
-void assembly_manager::reload_assembly(bool reset_app_assembly_filepath)
+bool assembly_manager::reload_assembly(bool reset_app_assembly_filepath)
 {
 	if (!s_script_engine_data || s_script_engine_data->is_shutting_down)
-		return;
+		return false;
 
 	s_script_engine_data->app_assembly_watcher.reset();
 	mono_domain_set(mono_get_root_domain(), false);
@@ -630,18 +666,37 @@ void assembly_manager::reload_assembly(bool reset_app_assembly_filepath)
 	if (reset_app_assembly_filepath)
 		s_script_engine_data->app_assembly_filepath = project::get_active_asset_directory() / project::get_active()->get_config().script_module_path;
 
+	s_script_engine_data->app_assembly = nullptr;
+	s_script_engine_data->app_assembly_image = nullptr;
+
+	if (s_script_engine_data->app_assembly_filepath.empty() || s_script_engine_data->app_assembly_filepath == project::get_active_asset_directory())
+	{
+		WHP_CORE_INFO("[Script Engine] Project has no app assembly configured.");
+		s_script_engine_data->entity_classes.clear();
+		script_glue::register_components();
+		s_script_engine_data->entity_class = script_class("Whip", "Entity", true);
+		s_script_engine_data->assembly_reloading_pending = false;
+		return true;
+	}
+
+	WHP_CORE_INFO("[Script Engine] Reloading app assembly: {0}", s_script_engine_data->app_assembly_filepath.string());
 	bool status = load_app_assembly(s_script_engine_data->app_assembly_filepath);
 	if (!status)
 	{
-		WHP_CORE_ERROR("[ScriptEngine] Could not load app assembly.");
+		WHP_CORE_WARN("[Script Engine] Reload finished without an app assembly.");
 		s_script_engine_data->entity_classes.clear();
 	}
 	else
+	{
 		assembly_manager::load_assembly_classes();
+		WHP_CORE_INFO("[Script Engine] Reloaded {0} script class(es).", s_script_engine_data->entity_classes.size());
+	}
 
 	script_glue::register_components();
 
 	s_script_engine_data->entity_class = script_class("Whip", "Entity", true);
+	s_script_engine_data->assembly_reloading_pending = false;
+	return status;
 }
 
 MonoImage* assembly_manager::get_core_assembly_image()
@@ -781,7 +836,16 @@ void script_engine::init()
 		WHP_CORE_ERROR("[ScriptEngine] Could not load Whip-ScriptCore assembly.");
 		return;
 	}
-	auto script_module_path = project::get_active_asset_directory() / project::get_active()->get_config().script_module_path;
+	const std::filesystem::path& configured_script_module_path = project::get_active()->get_config().script_module_path;
+	if (configured_script_module_path.empty())
+	{
+		WHP_CORE_INFO("[Script Engine] Project has no app assembly configured.");
+		script_glue::register_components();
+		s_script_engine_data->entity_class = script_class("Whip", "Entity", true);
+		return;
+	}
+
+	auto script_module_path = project::get_active_asset_directory() / configured_script_module_path;
 	status = assembly_manager::load_app_assembly(script_module_path);
 	if (!status)
 	{
@@ -849,6 +913,8 @@ void script_engine::invoke_all_on_create_methods()
 
 bool script_engine::entity_class_exists(const std::string& full_class_name)
 {
+	if (!s_script_engine_data)
+		return false;
 	return s_script_engine_data->entity_classes.find(full_class_name) != s_script_engine_data->entity_classes.end();
 }
 
@@ -920,6 +986,8 @@ ref<script_instance> script_engine::get_entity_script_instance(UUID entityID)
 
 ref<script_class> script_engine::get_entity_class(const std::string& class_name)
 {
+	if (!s_script_engine_data)
+		return nullptr;
 	if (s_script_engine_data->entity_classes.find(class_name) == s_script_engine_data->entity_classes.end())
 		return nullptr;
 	return s_script_engine_data->entity_classes.at(class_name);
@@ -927,6 +995,8 @@ ref<script_class> script_engine::get_entity_class(const std::string& class_name)
 
 std::unordered_map<std::string, ref<script_class>> script_engine::get_entity_classes()
 {
+	if (!s_script_engine_data)
+		return {};
 	return s_script_engine_data->entity_classes;
 }
 

@@ -11,6 +11,7 @@
 #include <Whip/Audio/audio_source.h>
 #include <Whip/Core/Input.h>
 #include <Whip/Core/KeyCodes.h>
+#include <Whip/Utils/platform_utils.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -18,9 +19,13 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <filesystem>
+#include <cctype>
 #include <cstring>
 #include <algorithm>
+#include <array>
+#include <cstdlib>
 #include <type_traits>
+#include <vector>
 
 #include "../Helpers/script_field_helper.h"
 
@@ -72,6 +77,199 @@ namespace
 
 		const asset_metadata& metadata = project::get_active()->get_editor_asset_manager()->get_metadata(handle);
 		return metadata ? metadata.filepath.filename().string() : "Invalid";
+	}
+
+	std::filesystem::path find_file_with_extension(const std::filesystem::path& directory, const char* extension)
+	{
+		std::error_code error;
+		if (!std::filesystem::exists(directory, error) || !std::filesystem::is_directory(directory, error))
+			return {};
+
+		for (const auto& entry : std::filesystem::directory_iterator(directory, error))
+		{
+			if (error)
+				break;
+
+			if (!entry.is_regular_file(error))
+				continue;
+
+			std::string entry_extension = entry.path().extension().string();
+			std::transform(entry_extension.begin(), entry_extension.end(), entry_extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			if (entry_extension == extension)
+				return entry.path();
+		}
+
+		return {};
+	}
+
+	std::filesystem::path active_scripts_directory()
+	{
+		if (!project::get_active())
+			return {};
+
+		const std::filesystem::path scripts_directory = project::get_active_asset_directory() / "Scripts";
+		std::error_code error;
+		return std::filesystem::exists(scripts_directory, error) && std::filesystem::is_directory(scripts_directory, error) ? scripts_directory : std::filesystem::path{};
+	}
+
+	std::filesystem::path active_script_workspace_file()
+	{
+		ref<project> active_project = project::get_active();
+		if (!active_project)
+			return {};
+
+		const std::filesystem::path scripts_directory = active_scripts_directory();
+		if (scripts_directory.empty())
+			return {};
+
+		const std::array<std::string, 2> preferred_stems =
+		{
+			active_project->get_config().script_module_path.stem().string(),
+			active_project->get_project_path().stem().string()
+		};
+
+		std::error_code error;
+		for (const std::string& stem : preferred_stems)
+		{
+			if (stem.empty())
+				continue;
+
+			std::filesystem::path preferred = scripts_directory / (stem + ".sln");
+			if (std::filesystem::exists(preferred, error))
+				return preferred;
+
+			preferred = scripts_directory / (stem + ".csproj");
+			if (std::filesystem::exists(preferred, error))
+				return preferred;
+		}
+
+		std::filesystem::path workspace_file = find_file_with_extension(scripts_directory, ".sln");
+		if (!workspace_file.empty())
+			return workspace_file;
+
+		return find_file_with_extension(scripts_directory, ".csproj");
+	}
+
+	std::filesystem::path first_existing_path(const std::vector<std::filesystem::path>& paths)
+	{
+		std::error_code error;
+		for (const auto& path : paths)
+			if (!path.empty() && std::filesystem::exists(path, error))
+				return path;
+
+		return {};
+	}
+
+	std::filesystem::path environment_path(const char* name)
+	{
+		const char* value = std::getenv(name);
+		return value ? std::filesystem::path(value) : std::filesystem::path{};
+	}
+
+	void append_rider_candidates(const std::filesystem::path& root, std::vector<std::filesystem::path>& candidates)
+	{
+		std::error_code error;
+		if (root.empty() || !std::filesystem::exists(root, error))
+			return;
+
+		for (const auto& entry : std::filesystem::directory_iterator(root, error))
+		{
+			if (error)
+				break;
+
+			if (!entry.is_directory(error))
+				continue;
+
+			candidates.push_back(entry.path() / "bin" / "rider64.exe");
+			candidates.push_back(entry.path() / "bin" / "rider.exe");
+		}
+	}
+
+	std::filesystem::path visual_studio_executable()
+	{
+		static const std::filesystem::path executable = first_existing_path({
+			"C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/devenv.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Professional/Common7/IDE/devenv.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Enterprise/Common7/IDE/devenv.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Preview/Common7/IDE/devenv.exe"
+			});
+		return executable.empty() ? std::filesystem::path("devenv.exe") : executable;
+	}
+
+	std::filesystem::path rider_executable()
+	{
+		static const std::filesystem::path executable = []()
+			{
+				std::vector<std::filesystem::path> candidates;
+				const std::filesystem::path program_files = environment_path("ProgramFiles");
+				const std::filesystem::path local_app_data = environment_path("LOCALAPPDATA");
+				append_rider_candidates(program_files / "JetBrains", candidates);
+				append_rider_candidates(local_app_data / "Programs", candidates);
+				append_rider_candidates(local_app_data / "JetBrains" / "Toolbox" / "apps" / "Rider", candidates);
+				return first_existing_path(candidates);
+			}();
+
+		return executable.empty() ? std::filesystem::path("rider64.exe") : executable;
+	}
+
+	bool open_workspace_with_default_app(const std::filesystem::path& workspace_file)
+	{
+		if (utils::open_external_path(workspace_file))
+			return true;
+
+		WHP_CORE_WARN("[Script Workspace] Could not open '{0}'.", workspace_file.string());
+		return false;
+	}
+
+	bool open_workspace_with_app(const char* app_name, const std::filesystem::path& executable, const std::filesystem::path& workspace_file)
+	{
+		if (utils::open_external_path_with(executable, workspace_file))
+			return true;
+
+		WHP_CORE_WARN("[Script Workspace] Could not open '{0}' with {1}.", workspace_file.string(), app_name);
+		return false;
+	}
+
+	void draw_script_workspace_actions()
+	{
+		ImGui::PushID("ScriptWorkspaceActions");
+
+		const std::filesystem::path workspace_file = active_script_workspace_file();
+		const std::filesystem::path scripts_directory = active_scripts_directory();
+		const bool has_workspace = !workspace_file.empty();
+		const bool has_scripts_directory = !scripts_directory.empty();
+
+		ImGui::BeginDisabled(!has_workspace);
+		if (ImGui::SmallButton("Open"))
+			open_workspace_with_default_app(workspace_file);
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+			ImGui::SetTooltip("Open the C# solution with the default IDE");
+		ImGui::SameLine();
+		if (ImGui::SmallButton("VS"))
+			open_workspace_with_app("Visual Studio", visual_studio_executable(), workspace_file);
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+			ImGui::SetTooltip("Open in Visual Studio");
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Rider"))
+			open_workspace_with_app("Rider", rider_executable(), workspace_file);
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+			ImGui::SetTooltip("Open in JetBrains Rider");
+		ImGui::EndDisabled();
+
+		ImGui::SameLine();
+		ImGui::BeginDisabled(!has_scripts_directory);
+		if (ImGui::SmallButton("Folder"))
+			utils::open_external_path(scripts_directory);
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+			ImGui::SetTooltip("Open Assets/Scripts");
+		ImGui::EndDisabled();
+
+		if (has_workspace)
+			ImGui::TextDisabled("%s", workspace_file.filename().string().c_str());
+		else
+			ImGui::TextDisabled("No C# solution found in Assets/Scripts.");
+
+		ImGui::PopID();
 	}
 }
 
@@ -805,6 +1003,9 @@ void scene_hierarchy_panel::draw_multi_script_component(const std::vector<entity
 		for (entity selected : selected_entities)
 			class_mixed |= selected.get_component<script_component>().class_name != class_name;
 
+		draw_script_workspace_actions();
+		ImGui::Separator();
+
 		draw_mixed_hint("Class", class_mixed);
 		const char* label = class_mixed ? "Mixed" : (class_name.empty() ? "None" : class_name.c_str());
 		if (ImGui::BeginCombo("Class", label))
@@ -1401,28 +1602,38 @@ void scene_hierarchy_panel::draw_components(entity entity_in)
 		{
 			bool script_class_exists = script_engine::entity_class_exists(component.class_name);
 			auto entity_classes = script_engine::get_entity_classes();
-			UI::scoped_style_color scope_color(ImGuiCol_Text, ImVec4(0.8f, 0.3f, 0.3f, 1.0f), !script_class_exists);
 			if (ImGui::BeginTable("ScriptTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable))
 			{
-				BEGIN_COMPONENT_TABLE_ROW("Class");
-				if (ImGui::BeginCombo("Class", component.class_name.c_str()))
 				{
-					for (const auto& [first, second] : entity_classes)
-					{
-						bool is_selected = component.class_name == first;
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted("Workspace");
+					ImGui::TableNextColumn();
+					draw_script_workspace_actions();
+				}
 
-						if (ImGui::Selectable(first.c_str(), is_selected))
+				{
+					UI::scoped_style_color scope_color(ImGuiCol_Text, ImVec4(0.8f, 0.3f, 0.3f, 1.0f), !script_class_exists);
+					BEGIN_COMPONENT_TABLE_ROW("Class");
+					if (ImGui::BeginCombo("Class", component.class_name.c_str()))
+					{
+						for (const auto& [first, second] : entity_classes)
 						{
-							component.class_name = first.c_str();
+							bool is_selected = component.class_name == first;
+
+							if (ImGui::Selectable(first.c_str(), is_selected))
+							{
+								component.class_name = first.c_str();
+							}
+
+							if (is_selected)
+								ImGui::SetItemDefaultFocus();
 						}
 
-						if (is_selected)
-							ImGui::SetItemDefaultFocus();
+						ImGui::EndCombo();
 					}
-
-					ImGui::EndCombo();
+					END_COMPONENT_TABLE_ROW();
 				}
-				END_COMPONENT_TABLE_ROW();
 				ImGui::Separator();
 				bool scene_running = scene_in->is_running();
 				if (scene_running)

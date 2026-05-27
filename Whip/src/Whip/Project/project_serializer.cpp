@@ -32,6 +32,11 @@ bool project_serializer::serialize(const std::filesystem::path& filepath)
 	}
 
 	std::ofstream fout(filepath);
+	if (!fout)
+	{
+		WHP_CORE_ERROR("Failed to save project file '{0}'", filepath.string());
+		return false;
+	}
 	fout << out.c_str();
 
 	return true;
@@ -61,7 +66,7 @@ bool project_serializer::deserialize(const std::filesystem::path& filepath)
 	config.asset_directory = project_node["asset_directory"].as<std::string>();
 	if(project_node["asset_registry_path"])
 		config.asset_registry_path = project_node["asset_registry_path"].as<std::string>();
-	config.script_module_path = project_node["script_module_path"].as<std::string>();
+	config.script_module_path = project_node["script_module_path"] ? project_node["script_module_path"].as<std::string>() : std::string{};
 	return true;
 }
 

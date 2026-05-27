@@ -14,10 +14,17 @@
 #include "Helpers/icon_manager.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <cmath>
+#include <cstdio>
+#include <cstdint>
 #include <fstream>
+#include <iomanip>
 #include <iterator>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 
 #include <imgui.h>
@@ -96,6 +103,32 @@ namespace
 		return haystack.find(needle) != std::string::npos;
 	}
 
+	std::string sanitize_project_token(std::string value, const std::string& fallback)
+	{
+		value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char c)
+			{
+				return !std::isalnum(c) && c != '_' && c != '-' && c != ' ';
+			}), value.end());
+
+		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())))
+			value.erase(value.begin());
+		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back())))
+			value.pop_back();
+
+		if (value.empty())
+			value = fallback;
+		return value;
+	}
+
+	std::string sanitize_path_token(std::string value, const std::string& fallback)
+	{
+		value = sanitize_project_token(std::move(value), fallback);
+		for (char& c : value)
+			if (c == ' ')
+				c = '_';
+		return value;
+	}
+
 	void write_vec3(YAML::Emitter& out, const glm::vec3& value)
 	{
 		out << YAML::Flow << YAML::BeginSeq << value.x << value.y << value.z << YAML::EndSeq;
@@ -140,6 +173,479 @@ namespace
 
 		stream << contents;
 		return true;
+	}
+
+	std::filesystem::path normalize_project_list_path(const std::filesystem::path& path)
+	{
+		if (path.empty())
+			return {};
+
+		std::error_code error;
+		std::filesystem::path normalized_path = std::filesystem::weakly_canonical(path, error);
+		if (error)
+		{
+			error.clear();
+			normalized_path = std::filesystem::absolute(path, error);
+		}
+
+		return error ? path : normalized_path.lexically_normal();
+	}
+
+	bool paths_match_for_recent_project(const std::filesystem::path& left, const std::filesystem::path& right)
+	{
+		const std::filesystem::path normalized_left = normalize_project_list_path(left);
+		const std::filesystem::path normalized_right = normalize_project_list_path(right);
+		return !normalized_left.empty() && normalized_left == normalized_right;
+	}
+
+	bool path_is_or_is_under(const std::filesystem::path& path, const std::filesystem::path& directory)
+	{
+		const std::filesystem::path normalized_path = path.lexically_normal();
+		const std::filesystem::path normalized_directory = directory.lexically_normal();
+		if (normalized_path == normalized_directory)
+			return true;
+
+		auto path_it = normalized_path.begin();
+		auto directory_it = normalized_directory.begin();
+		for (; directory_it != normalized_directory.end(); ++directory_it, ++path_it)
+		{
+			if (path_it == normalized_path.end() || *path_it != *directory_it)
+				return false;
+		}
+
+		return true;
+	}
+
+	bool create_directory_checked(const std::filesystem::path& path, std::string_view label)
+	{
+		std::error_code error;
+		std::filesystem::create_directories(path, error);
+		if (!error)
+			return true;
+
+		WHP_EDITOR_ERROR(std::string("[Whip Hub] Could not create ") + std::string(label) + ": " + path.string() + " (" + error.message() + ")");
+		return false;
+	}
+
+	uint64_t fnv1a64(std::string_view value)
+	{
+		uint64_t hash = 14695981039346656037ull;
+		for (char c : value)
+		{
+			hash ^= static_cast<unsigned char>(c);
+			hash *= 1099511628211ull;
+		}
+		return hash;
+	}
+
+	std::string make_guid(std::string_view seed)
+	{
+		uint64_t first = fnv1a64(seed);
+		std::string second_seed(seed);
+		second_seed += ":whip";
+		uint64_t second = fnv1a64(second_seed);
+
+		std::array<uint8_t, 16> bytes{};
+		for (int i = 0; i < 8; ++i)
+			bytes[i] = static_cast<uint8_t>((first >> ((7 - i) * 8)) & 0xff);
+		for (int i = 0; i < 8; ++i)
+			bytes[i + 8] = static_cast<uint8_t>((second >> ((7 - i) * 8)) & 0xff);
+		bytes[6] = static_cast<uint8_t>((bytes[6] & 0x0f) | 0x40);
+		bytes[8] = static_cast<uint8_t>((bytes[8] & 0x3f) | 0x80);
+
+		std::ostringstream out;
+		out << std::uppercase << std::hex << std::setfill('0') << "{";
+		for (int i = 0; i < 16; ++i)
+		{
+			if (i == 4 || i == 6 || i == 8 || i == 10)
+				out << "-";
+			out << std::setw(2) << static_cast<int>(bytes[i]);
+		}
+		out << "}";
+		return out.str();
+	}
+
+	std::filesystem::path locate_script_core_source_directory()
+	{
+		std::error_code error;
+		for (std::filesystem::path probe = std::filesystem::current_path(); !probe.empty(); probe = probe.parent_path())
+		{
+			const std::array<std::filesystem::path, 2> candidates =
+			{
+				probe / "Resources" / "Scripts" / "Whip-ScriptCore" / "Source",
+				probe / "Whip-ScriptCore" / "Source"
+			};
+
+			for (const auto& candidate : candidates)
+			{
+				if (std::filesystem::exists(candidate, error) && std::filesystem::is_directory(candidate, error))
+					return candidate;
+			}
+
+			if (probe == probe.parent_path())
+				break;
+		}
+
+		return {};
+	}
+
+	bool copy_directory_recursive(const std::filesystem::path& source, const std::filesystem::path& destination)
+	{
+		std::error_code error;
+		if (!std::filesystem::exists(source, error))
+			return false;
+
+		std::filesystem::create_directories(destination, error);
+		if (error)
+			return false;
+
+		for (const auto& entry : std::filesystem::recursive_directory_iterator(source, error))
+		{
+			if (error)
+				return false;
+
+			const std::filesystem::path relative = std::filesystem::relative(entry.path(), source, error);
+			if (error)
+				return false;
+
+			const std::filesystem::path target = destination / relative;
+			if (entry.is_directory(error))
+			{
+				std::filesystem::create_directories(target, error);
+			}
+			else if (entry.is_regular_file(error))
+			{
+				std::filesystem::create_directories(target.parent_path(), error);
+				if (!error)
+					std::filesystem::copy_file(entry.path(), target, std::filesystem::copy_options::overwrite_existing, error);
+			}
+
+			if (error)
+				return false;
+		}
+
+		return true;
+	}
+
+	std::string script_core_csproj_contents(const std::string& core_guid)
+	{
+		std::ostringstream stream;
+		stream
+			<< "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+			<< "<Project ToolsVersion=\"15.0\" DefaultTargets=\"Build\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n"
+			<< "  <Import Project=\"$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props\" Condition=\"Exists('$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props')\" />\n"
+			<< "  <PropertyGroup>\n"
+			<< "    <Configuration Condition=\" '$(Configuration)' == '' \">Debug</Configuration>\n"
+			<< "    <Platform Condition=\" '$(Platform)' == '' \">x64</Platform>\n"
+			<< "    <ProjectGuid>" << core_guid << "</ProjectGuid>\n"
+			<< "    <OutputType>Library</OutputType>\n"
+			<< "    <RootNamespace>Whip</RootNamespace>\n"
+			<< "    <AssemblyName>Whip-ScriptCore</AssemblyName>\n"
+			<< "    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>\n"
+			<< "    <FileAlignment>512</FileAlignment>\n"
+			<< "    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>\n"
+			<< "    <LangVersion>latest</LangVersion>\n"
+			<< "  </PropertyGroup>\n"
+			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Debug|x64' \">\n"
+			<< "    <PlatformTarget>x64</PlatformTarget>\n"
+			<< "    <DebugType>portable</DebugType>\n"
+			<< "    <DebugSymbols>true</DebugSymbols>\n"
+			<< "    <Optimize>false</Optimize>\n"
+			<< "    <OutputPath>..\\Binaries\\</OutputPath>\n"
+			<< "    <BaseIntermediateOutputPath>Intermediates\\Debug\\</BaseIntermediateOutputPath>\n"
+			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
+			<< "    <WarningLevel>4</WarningLevel>\n"
+			<< "  </PropertyGroup>\n"
+			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Release|x64' \">\n"
+			<< "    <PlatformTarget>x64</PlatformTarget>\n"
+			<< "    <DebugType>portable</DebugType>\n"
+			<< "    <DebugSymbols>true</DebugSymbols>\n"
+			<< "    <Optimize>true</Optimize>\n"
+			<< "    <OutputPath>..\\Binaries\\</OutputPath>\n"
+			<< "    <BaseIntermediateOutputPath>Intermediates\\Release\\</BaseIntermediateOutputPath>\n"
+			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
+			<< "    <WarningLevel>4</WarningLevel>\n"
+			<< "  </PropertyGroup>\n"
+			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Dist|x64' \">\n"
+			<< "    <PlatformTarget>x64</PlatformTarget>\n"
+			<< "    <DebugType>none</DebugType>\n"
+			<< "    <DebugSymbols>false</DebugSymbols>\n"
+			<< "    <Optimize>true</Optimize>\n"
+			<< "    <OutputPath>..\\Binaries\\</OutputPath>\n"
+			<< "    <BaseIntermediateOutputPath>Intermediates\\Dist\\</BaseIntermediateOutputPath>\n"
+			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
+			<< "    <WarningLevel>4</WarningLevel>\n"
+			<< "  </PropertyGroup>\n"
+			<< "  <ItemGroup>\n"
+			<< "    <Reference Include=\"System\" />\n"
+			<< "  </ItemGroup>\n"
+			<< "  <ItemGroup>\n"
+			<< "    <Compile Include=\"Source\\Whip\\**\\*.cs\" />\n"
+			<< "  </ItemGroup>\n"
+			<< "  <Import Project=\"$(MSBuildToolsPath)\\Microsoft.CSharp.targets\" />\n"
+			<< "</Project>\n";
+		return stream.str();
+	}
+
+	std::string project_csproj_contents(const std::string& project_folder_name, const std::string& project_guid, const std::string& core_guid)
+	{
+		const std::filesystem::path runtime_script_core = std::filesystem::current_path() / "Resources" / "Scripts" / "Whip-ScriptCore.dll";
+		std::ostringstream stream;
+		stream
+			<< "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+			<< "<Project ToolsVersion=\"15.0\" DefaultTargets=\"Build\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n"
+			<< "  <Import Project=\"$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props\" Condition=\"Exists('$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props')\" />\n"
+			<< "  <PropertyGroup>\n"
+			<< "    <Configuration Condition=\" '$(Configuration)' == '' \">Debug</Configuration>\n"
+			<< "    <Platform Condition=\" '$(Platform)' == '' \">x64</Platform>\n"
+			<< "    <ProjectGuid>" << project_guid << "</ProjectGuid>\n"
+			<< "    <OutputType>Library</OutputType>\n"
+			<< "    <RootNamespace>" << project_folder_name << "</RootNamespace>\n"
+			<< "    <AssemblyName>" << project_folder_name << "</AssemblyName>\n"
+			<< "    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>\n"
+			<< "    <FileAlignment>512</FileAlignment>\n"
+			<< "    <WhipScriptCoreProject>Whip-ScriptCore\\Whip-ScriptCore.csproj</WhipScriptCoreProject>\n"
+			<< "    <WhipScriptCoreHint Condition=\"Exists('..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll')\">..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n"
+			<< "    <WhipScriptCoreHint Condition=\" '$(WhipScriptCoreHint)' == '' And Exists('$(MSBuildProjectDirectory)\\..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll')\">$(MSBuildProjectDirectory)\\..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n"
+			<< "    <WhipScriptCoreHint Condition=\" '$(WhipScriptCoreHint)' == '' And Exists('" << runtime_script_core.string() << "')\">" << runtime_script_core.string() << "</WhipScriptCoreHint>\n"
+			<< "  </PropertyGroup>\n"
+			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Debug|x64' \">\n"
+			<< "    <PlatformTarget>x64</PlatformTarget>\n"
+			<< "    <DebugType>portable</DebugType>\n"
+			<< "    <DebugSymbols>true</DebugSymbols>\n"
+			<< "    <Optimize>false</Optimize>\n"
+			<< "    <OutputPath>Binaries\\</OutputPath>\n"
+			<< "    <BaseIntermediateOutputPath>Intermediates\\Debug\\</BaseIntermediateOutputPath>\n"
+			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
+			<< "    <WarningLevel>4</WarningLevel>\n"
+			<< "  </PropertyGroup>\n"
+			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Release|x64' \">\n"
+			<< "    <PlatformTarget>x64</PlatformTarget>\n"
+			<< "    <DebugType>portable</DebugType>\n"
+			<< "    <DebugSymbols>true</DebugSymbols>\n"
+			<< "    <Optimize>true</Optimize>\n"
+			<< "    <OutputPath>Binaries\\</OutputPath>\n"
+			<< "    <BaseIntermediateOutputPath>Intermediates\\Release\\</BaseIntermediateOutputPath>\n"
+			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
+			<< "    <WarningLevel>4</WarningLevel>\n"
+			<< "  </PropertyGroup>\n"
+			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Dist|x64' \">\n"
+			<< "    <PlatformTarget>x64</PlatformTarget>\n"
+			<< "    <DebugType>none</DebugType>\n"
+			<< "    <DebugSymbols>false</DebugSymbols>\n"
+			<< "    <Optimize>true</Optimize>\n"
+			<< "    <OutputPath>Binaries\\</OutputPath>\n"
+			<< "    <BaseIntermediateOutputPath>Intermediates\\Dist\\</BaseIntermediateOutputPath>\n"
+			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
+			<< "    <WarningLevel>4</WarningLevel>\n"
+			<< "  </PropertyGroup>\n"
+			<< "  <ItemGroup>\n"
+			<< "    <Compile Include=\"Source\\*.cs\" />\n"
+			<< "  </ItemGroup>\n"
+			<< "  <ItemGroup Condition=\"Exists('$(WhipScriptCoreProject)')\">\n"
+			<< "    <ProjectReference Include=\"$(WhipScriptCoreProject)\">\n"
+			<< "      <Project>" << core_guid << "</Project>\n"
+			<< "      <Name>Whip-ScriptCore</Name>\n"
+			<< "      <Private>False</Private>\n"
+			<< "    </ProjectReference>\n"
+			<< "  </ItemGroup>\n"
+			<< "  <ItemGroup Condition=\"!Exists('$(WhipScriptCoreProject)') And '$(WhipScriptCoreHint)' != '' \">\n"
+			<< "    <Reference Include=\"Whip-ScriptCore\">\n"
+			<< "      <HintPath>$(WhipScriptCoreHint)</HintPath>\n"
+			<< "      <Private>False</Private>\n"
+			<< "    </Reference>\n"
+			<< "  </ItemGroup>\n"
+			<< "  <Import Project=\"$(MSBuildToolsPath)\\Microsoft.CSharp.targets\" />\n"
+			<< "</Project>\n";
+		return stream.str();
+	}
+
+	std::string script_solution_contents(const std::string& project_folder_name, const std::string& project_guid, const std::string& core_guid)
+	{
+		constexpr const char* csharp_project_type_guid = "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}";
+		std::ostringstream stream;
+		stream
+			<< "Microsoft Visual Studio Solution File, Format Version 12.00\n"
+			<< "# Visual Studio Version 17\n"
+			<< "VisualStudioVersion = 17.0.31903.59\n"
+			<< "MinimumVisualStudioVersion = 10.0.40219.1\n"
+			<< "Project(\"" << csharp_project_type_guid << "\") = \"" << project_folder_name << "\", \"" << project_folder_name << ".csproj\", \"" << project_guid << "\"\n"
+			<< "EndProject\n"
+			<< "Project(\"" << csharp_project_type_guid << "\") = \"Whip-ScriptCore\", \"Whip-ScriptCore\\Whip-ScriptCore.csproj\", \"" << core_guid << "\"\n"
+			<< "EndProject\n"
+			<< "Global\n"
+			<< "\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n"
+			<< "\t\tDebug|x64 = Debug|x64\n"
+			<< "\t\tRelease|x64 = Release|x64\n"
+			<< "\t\tDist|x64 = Dist|x64\n"
+			<< "\tEndGlobalSection\n"
+			<< "\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n";
+
+		const std::array<std::string, 3> configs = { "Debug|x64", "Release|x64", "Dist|x64" };
+		for (const std::string& guid : { project_guid, core_guid })
+		{
+			for (const std::string& config : configs)
+			{
+				stream << "\t\t" << guid << "." << config << ".ActiveCfg = " << config << "\n";
+				stream << "\t\t" << guid << "." << config << ".Build.0 = " << config << "\n";
+			}
+		}
+
+		stream
+			<< "\tEndGlobalSection\n"
+			<< "\tGlobalSection(SolutionProperties) = preSolution\n"
+			<< "\t\tHideSolutionNode = FALSE\n"
+			<< "\tEndGlobalSection\n"
+			<< "EndGlobal\n";
+		return stream.str();
+	}
+
+	std::string starter_script_contents(const std::string& project_folder_name)
+	{
+		std::ostringstream stream;
+		stream
+			<< "using Whip;\n\n"
+			<< "namespace " << project_folder_name << "\n"
+			<< "{\n"
+			<< "\tpublic class StarterEntity : Entity\n"
+			<< "\t{\n"
+			<< "\t\tpublic void OnCreate()\n"
+			<< "\t\t{\n"
+			<< "\t\t\tLogger.Log(\"StarterEntity created.\", Logger.LogLevel.Info);\n"
+			<< "\t\t}\n"
+			<< "\t}\n"
+			<< "}\n";
+		return stream.str();
+	}
+
+	bool write_script_project_files(const std::filesystem::path& project_directory, const std::string& project_folder_name)
+	{
+		const std::filesystem::path scripts_directory = project_directory / "Assets" / "Scripts";
+		const std::string project_guid = make_guid(project_folder_name + ":scripts");
+		const std::string core_guid = make_guid(project_folder_name + ":scriptcore");
+
+		const std::filesystem::path script_core_source = locate_script_core_source_directory();
+		if (script_core_source.empty() || !copy_directory_recursive(script_core_source, scripts_directory / "Whip-ScriptCore" / "Source"))
+		{
+			WHP_EDITOR_ERROR("[Whip Hub] Could not copy Whip-ScriptCore SDK sources.");
+			return false;
+		}
+
+		if (!write_text_file(scripts_directory / "Whip-ScriptCore" / "Whip-ScriptCore.csproj", script_core_csproj_contents(core_guid)))
+		{
+			WHP_EDITOR_ERROR("[Whip Hub] Could not write Whip-ScriptCore project file.");
+			return false;
+		}
+
+		if (!write_text_file(scripts_directory / (project_folder_name + ".csproj"), project_csproj_contents(project_folder_name, project_guid, core_guid)))
+		{
+			WHP_EDITOR_ERROR("[Whip Hub] Could not write script project file.");
+			return false;
+		}
+
+		if (!write_text_file(scripts_directory / (project_folder_name + ".sln"), script_solution_contents(project_folder_name, project_guid, core_guid)))
+		{
+			WHP_EDITOR_ERROR("[Whip Hub] Could not write script solution file.");
+			return false;
+		}
+
+		if (!write_text_file(scripts_directory / "Source" / "StarterEntity.cs", starter_script_contents(project_folder_name)))
+		{
+			WHP_EDITOR_ERROR("[Whip Hub] Could not write starter script file.");
+			return false;
+		}
+
+		return true;
+	}
+
+	std::filesystem::path find_script_project_file(const std::filesystem::path& scripts_directory, const std::string& project_name)
+	{
+		std::filesystem::path preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".sln");
+		std::error_code error;
+		if (std::filesystem::exists(preferred, error))
+			return preferred;
+
+		preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".csproj");
+		if (std::filesystem::exists(preferred, error))
+			return preferred;
+
+		if (!std::filesystem::exists(scripts_directory, error))
+			return {};
+
+		for (const auto& entry : std::filesystem::directory_iterator(scripts_directory, error))
+		{
+			if (error)
+				break;
+			if (entry.is_regular_file(error) && entry.path().extension() == ".sln")
+				return entry.path();
+		}
+
+		for (const auto& entry : std::filesystem::directory_iterator(scripts_directory, error))
+		{
+			if (error)
+				break;
+			if (entry.is_regular_file(error) && entry.path().extension() == ".csproj")
+				return entry.path();
+		}
+
+		return {};
+	}
+
+	std::filesystem::path find_msbuild_executable()
+	{
+		const std::array<std::filesystem::path, 6> candidates =
+		{
+			"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/MSBuild.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Preview/MSBuild/Current/Bin/MSBuild.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Preview/MSBuild/Current/Bin/amd64/MSBuild.exe"
+		};
+
+		std::error_code error;
+		for (const auto& candidate : candidates)
+		{
+			if (std::filesystem::exists(candidate, error))
+				return candidate;
+		}
+
+		return {};
+	}
+
+	std::string quote_command_path(const std::filesystem::path& path)
+	{
+		return "\"" + path.string() + "\"";
+	}
+
+	int run_command_and_log_output(const std::string& command)
+	{
+#ifdef _WIN32
+		FILE* pipe = _popen(command.c_str(), "r");
+#else
+		FILE* pipe = popen(command.c_str(), "r");
+#endif
+		if (!pipe)
+		{
+			WHP_EDITOR_ERROR("[Script Build] Could not start script build process.");
+			return -1;
+		}
+
+		std::array<char, 512> buffer{};
+		while (std::fgets(buffer.data(), static_cast<int>(buffer.size()), pipe))
+		{
+			std::string line(buffer.data());
+			while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
+				line.pop_back();
+			if (!line.empty())
+				WHP_EDITOR_INFO(std::string("[Script Build] ") + line);
+		}
+
+#ifdef _WIN32
+		return _pclose(pipe);
+#else
+		return pclose(pipe);
+#endif
 	}
 }
 
@@ -247,6 +753,7 @@ void editor_layer::on_update(timestep ts)
 		{
 			if (!m_gizmo_using)
 				m_editor_camera.on_update(ts);
+			draw_editor_grid();
 			m_active_scene->on_update_editor(ts, m_editor_camera);
 			break;
 		}
@@ -259,6 +766,7 @@ void editor_layer::on_update(timestep ts)
 		{
 			if (!m_gizmo_using)
 				m_editor_camera.on_update(ts);
+			draw_editor_grid();
 			m_active_scene->on_update_simulation(ts, m_editor_camera);
 			break;
 		}
@@ -872,6 +1380,67 @@ bool editor_layer::on_window_drop(window_drop_event& evnt)
 	return true;
 }
 
+void editor_layer::draw_editor_grid()
+{
+	if (m_viewport_size.x <= 0.0f || m_viewport_size.y <= 0.0f)
+		return;
+
+	const float aspect_ratio = m_viewport_size.x / m_viewport_size.y;
+	const float distance = glm::max(m_editor_camera.get_distance(), 1.0f);
+	const float visible_height = distance * 1.15f;
+	const float visible_width = visible_height * aspect_ratio;
+	const glm::vec3 center = m_editor_camera.get_position() + m_editor_camera.get_forward_direction() * distance;
+
+	float grid_step = 1.0f;
+	const float visible_span = glm::max(visible_width, visible_height);
+	while ((visible_span / grid_step) > 240.0f)
+		grid_step *= 2.0f;
+
+	const int min_x = static_cast<int>(std::floor((center.x - visible_width * 0.5f) / grid_step)) - 2;
+	const int max_x = static_cast<int>(std::ceil((center.x + visible_width * 0.5f) / grid_step)) + 2;
+	const int min_y = static_cast<int>(std::floor((center.y - visible_height * 0.5f) / grid_step)) - 2;
+	const int max_y = static_cast<int>(std::ceil((center.y + visible_height * 0.5f) / grid_step)) + 2;
+
+	const glm::vec4 grid_color{ 0.26f, 0.29f, 0.30f, 0.34f };
+	const glm::vec4 major_grid_color{ 0.37f, 0.41f, 0.41f, 0.45f };
+	const glm::vec4 x_axis_color{ 0.86f, 0.34f, 0.30f, 0.74f };
+	const glm::vec4 y_axis_color{ 0.30f, 0.66f, 0.46f, 0.74f };
+	const float min_z = -0.02f;
+	auto is_major_grid_line = [](float value)
+	{
+		return std::fmod(std::abs(value), 10.0f) < 0.0001f;
+	};
+
+	renderer2D::begin_scene(m_editor_camera);
+	renderer2D::set_line_width(1.0f);
+
+	for (int x = min_x; x <= max_x; ++x)
+	{
+		const float world_x = static_cast<float>(x) * grid_step;
+		const bool is_axis = std::abs(world_x) < 0.0001f;
+		const bool is_major = is_major_grid_line(world_x);
+		const glm::vec4& color = is_axis ? y_axis_color : (is_major ? major_grid_color : grid_color);
+		renderer2D::draw_line(
+			{ world_x, static_cast<float>(min_y) * grid_step, min_z },
+			{ world_x, static_cast<float>(max_y) * grid_step, min_z },
+			color);
+	}
+
+	for (int y = min_y; y <= max_y; ++y)
+	{
+		const float world_y = static_cast<float>(y) * grid_step;
+		const bool is_axis = std::abs(world_y) < 0.0001f;
+		const bool is_major = is_major_grid_line(world_y);
+		const glm::vec4& color = is_axis ? x_axis_color : (is_major ? major_grid_color : grid_color);
+		renderer2D::draw_line(
+			{ static_cast<float>(min_x) * grid_step, world_y, min_z },
+			{ static_cast<float>(max_x) * grid_step, world_y, min_z },
+			color);
+	}
+
+	renderer2D::end_scene();
+}
+
 void editor_layer::on_overlay_render()
 {
 	WHP_PROFILE_FUNCTION();
@@ -947,7 +1516,7 @@ bool editor_layer::has_project_loaded() const
 
 void editor_layer::setup_project_loader()
 {
-	m_project_loader.set_create_project_callback([this]() { return new_project(); });
+	m_project_loader.set_create_project_callback([this](const UI::project_create_settings& settings) { return new_project(settings); });
 	m_project_loader.set_load_project_callback([this]() { return open_project(); });
 	m_project_loader.set_open_recent_project_callback([this](const std::filesystem::path& path) {
 		std::error_code error;
@@ -959,6 +1528,12 @@ void editor_layer::setup_project_loader()
 		}
 
 		return open_project(path);
+	});
+	m_project_loader.set_forget_recent_project_callback([this](const std::filesystem::path& path) {
+		return forget_recent_project(path);
+	});
+	m_project_loader.set_delete_recent_project_callback([this](const std::filesystem::path& path) {
+		return delete_recent_project(path);
 	});
 }
 
@@ -1054,6 +1629,83 @@ void editor_layer::add_recent_project(const std::filesystem::path& path)
 	save_recent_projects();
 	save_editor_preferences();
 	m_project_loader.set_recent_projects(m_recent_projects);
+}
+
+bool editor_layer::forget_recent_project(const std::filesystem::path& path)
+{
+	if (path.empty())
+		return false;
+
+	const size_t previous_size = m_recent_projects.size();
+	m_recent_projects.erase(
+		std::remove_if(m_recent_projects.begin(), m_recent_projects.end(),
+			[&path](const std::filesystem::path& recent_path)
+			{
+				return paths_match_for_recent_project(recent_path, path);
+			}),
+		m_recent_projects.end());
+
+	if (m_recent_projects.size() == previous_size)
+		return false;
+
+	if (paths_match_for_recent_project(m_last_project_path, path))
+		m_last_project_path.clear();
+
+	save_recent_projects();
+	save_editor_preferences();
+	m_project_loader.set_recent_projects(m_recent_projects);
+	return true;
+}
+
+bool editor_layer::delete_recent_project(const std::filesystem::path& path)
+{
+	if (path.empty() || path.extension() != ".wproj")
+		return false;
+
+	std::error_code error;
+	std::filesystem::path project_path = normalize_project_list_path(path);
+	const bool project_file_exists = std::filesystem::exists(project_path, error);
+	if (error)
+		return false;
+	if (!project_file_exists)
+		return forget_recent_project(path);
+
+	if (!std::filesystem::is_regular_file(project_path, error) || error)
+		return false;
+
+	const std::filesystem::path project_directory = normalize_project_list_path(project_path.parent_path());
+	if (project_directory.empty() || project_directory == project_directory.root_path())
+		return false;
+
+	if (project_directory.filename() != project_path.stem())
+	{
+		WHP_EDITOR_WARN(std::string("[Whip Hub] Refusing to delete project folder because it does not match the project file name: ") + project_directory.string());
+		return false;
+	}
+
+	error.clear();
+	const std::filesystem::path working_directory = normalize_project_list_path(std::filesystem::current_path());
+	if (!working_directory.empty() && path_is_or_is_under(working_directory, project_directory))
+	{
+		WHP_EDITOR_WARN(std::string("[Whip Hub] Refusing to delete a project folder that contains the editor working directory: ") + project_directory.string());
+		return false;
+	}
+
+	ref<project> active_project = project::get_active();
+	if (active_project && paths_match_for_recent_project(active_project->get_project_path(), project_path))
+	{
+		WHP_EDITOR_WARN("[Whip Hub] Refusing to delete the currently loaded project.");
+		return false;
+	}
+
+	std::filesystem::remove_all(project_directory, error);
+	if (error)
+	{
+		WHP_EDITOR_ERROR(std::string("[Whip Hub] Could not delete project folder ") + project_directory.string() + ": " + error.message());
+		return false;
+	}
+
+	return forget_recent_project(project_path);
 }
 
 bool editor_layer::should_include_recent_project(const std::filesystem::path& path) const
@@ -1249,37 +1901,107 @@ void editor_layer::apply_preferences_to_content_browser()
 		m_content_browser_panel->apply_preferences(m_content_browser_preferences);
 }
 
-bool editor_layer::new_project()
+bool editor_layer::new_project(const UI::project_create_settings& settings)
 {
-	std::string filepath = file_dialogs::save_file("Whip Project (*.wproj)\0*.wproj\0");
-	if (filepath.empty())
+	const std::string project_name = sanitize_project_token(settings.name, "Untitled");
+	const std::string project_folder_name = sanitize_path_token(project_name, "Untitled");
+	const std::string initial_scene_name = sanitize_path_token(settings.initial_scene_name, "Main");
+	if (settings.location.empty())
 		return false;
 
-	std::filesystem::path project_path(filepath);
-	if (project_path.extension() != ".wproj")
-		project_path.replace_extension(".wproj");
+	std::filesystem::path project_directory = settings.location / project_folder_name;
+	std::filesystem::path project_path = project_directory / (project_folder_name + ".wproj");
+	std::error_code error;
+	if (std::filesystem::exists(project_path, error))
+	{
+		WHP_EDITOR_WARN(std::string("[Whip Hub] Project file already exists: ") + project_path.string());
+		return false;
+	}
 
-	std::filesystem::create_directories(project_path.parent_path() / "Assets" / "Scenes");
-	std::filesystem::create_directories(project_path.parent_path() / "Assets" / "Scripts" / "Binaries");
+	if (!create_directory_checked(project_directory / "Assets" / "Scenes", "project scenes directory") ||
+		!create_directory_checked(project_directory / "Assets" / "Scripts" / "Source", "script source directory") ||
+		!create_directory_checked(project_directory / "Assets" / "Scripts" / "Binaries", "script binaries directory") ||
+		!create_directory_checked(project_directory / "Assets" / "Animations", "animations directory") ||
+		!create_directory_checked(project_directory / "Assets" / "Audios", "audio directory") ||
+		!create_directory_checked(project_directory / "Assets" / "fonts", "font directory") ||
+		!create_directory_checked(project_directory / "Assets" / "textures", "texture directory"))
+	{
+		return false;
+	}
 
 	ref<project> new_project = project::new_project();
 	project::set_active_project_path(project_path);
 
 	project_config& config = new_project->get_config();
-	config.name = project_path.stem().string();
+	config.name = project_name;
 	config.asset_directory = "Assets";
 	config.asset_registry_path = "asset_registry.whipr";
-	config.script_module_path = "";
+	config.script_module_path = std::filesystem::path("Scripts") / "Binaries" / (project_folder_name + ".dll");
 	config.start_scene = 0;
 
-	if (!project::save_active(project_path))
+	if (!write_script_project_files(project_directory, project_folder_name))
+	{
+		project::set_active(nullptr);
 		return false;
+	}
+
+	std::filesystem::path start_scene_relative_path;
+	asset_handle start_scene_handle = 0;
+	if (settings.create_start_scene)
+	{
+		start_scene_handle = asset_handle{};
+		config.start_scene = start_scene_handle;
+		start_scene_relative_path = std::filesystem::path("Scenes") / (initial_scene_name + ".whip");
+
+		ref<scene> start_scene = make_ref<scene>(start_scene_handle);
+		if (settings.template_index == 1 || settings.template_index == 2)
+		{
+			entity camera = start_scene->create_entity("Main Camera");
+			camera.add_component<camera_component>();
+			camera.get_component<transform_component>().translation = { 0.0f, 0.0f, 8.0f };
+
+			entity sprite = start_scene->create_entity("Sprite");
+			sprite.add_component<sprite_renderer_component>(glm::vec4{ 0.86f, 0.58f, 0.28f, 1.0f });
+			if (settings.template_index == 2)
+				sprite.add_component<script_component>().class_name = project_folder_name + ".StarterEntity";
+		}
+
+		scene_importer::save_scene(start_scene, start_scene_relative_path);
+	}
+
+	if (!project::save_active(project_path))
+	{
+		project::set_active(nullptr);
+		return false;
+	}
 
 	std::ofstream registry(project_path.parent_path() / config.asset_directory / config.asset_registry_path, std::ios::trunc);
-	registry << "asset_registry: []\n";
+	if (!registry)
+	{
+		WHP_EDITOR_ERROR("[Whip Hub] Could not write asset registry.");
+		project::set_active(nullptr);
+		return false;
+	}
+
+	if (settings.create_start_scene)
+	{
+		registry << "asset_registry:\n";
+		registry << "  - handle: " << (uint64_t)start_scene_handle << '\n';
+		registry << "    filepath: " << start_scene_relative_path.generic_string() << '\n';
+		registry << "    type: scene\n";
+	}
+	else
+	{
+		registry << "asset_registry: []\n";
+	}
 	registry.close();
 
 	project::set_active(nullptr);
+	if (!settings.open_after_create)
+	{
+		add_recent_project(project_path);
+		return true;
+	}
 	return open_project(project_path);
 }
 
@@ -1327,8 +2049,28 @@ bool editor_layer::open_project(const std::filesystem::path& path)
 	{
 		script_engine::init();
 		asset_handle start_scene = (project::get_active()->get_config().start_scene);
-		if(start_scene)
-			open_scene(start_scene);
+		if (start_scene && project::get_active()->get_editor_asset_manager()->is_asset_handle_valid(start_scene))
+		{
+			const std::filesystem::path start_scene_path = project::get_active()->get_editor_asset_manager()->get_filepath(start_scene);
+			if (std::filesystem::exists(project::get_active_asset_directory() / start_scene_path))
+				open_scene(start_scene);
+			else
+			{
+				WHP_EDITOR_WARN("[Project] Start scene file is missing. Resetting project start scene.");
+				project::get_active()->get_config().start_scene = 0;
+				project::save_active();
+			}
+		}
+		else if (start_scene)
+		{
+			WHP_EDITOR_WARN("[Project] Start scene is missing. Resetting project start scene.");
+			project::get_active()->get_config().start_scene = 0;
+			project::save_active();
+		}
+		else
+		{
+			new_scene();
+		}
 		m_content_browser_panel = make_scope<content_browser_panel>(project::get_active());
 		apply_preferences_to_content_browser();
 		add_recent_project(path);
@@ -1357,14 +2099,31 @@ void editor_layer::open_scene(asset_handle handle)
 	if (m_scene_state != scene_state::edit)
 		on_scene_stop();
 
+	if (!project::get_active()->get_editor_asset_manager()->is_asset_handle_valid(handle))
+	{
+		WHP_EDITOR_WARN("[Scene] Failed to open scene. Asset handle is not registered.");
+		return;
+	}
+	const std::filesystem::path scene_path = project::get_active()->get_editor_asset_manager()->get_filepath(handle);
+	if (!std::filesystem::exists(project::get_active_asset_directory() / scene_path))
+	{
+		WHP_EDITOR_WARN(std::string("[Scene] Failed to open scene. File is missing: ") + scene_path.string());
+		return;
+	}
+
 	ref<scene> read_only_scene = asset_manager::get_asset<scene>(handle);
+	if (!read_only_scene)
+	{
+		WHP_EDITOR_WARN("[Scene] Failed to open scene. Asset is missing or failed to import.");
+		return;
+	}
 	ref<scene> new_scene = scene::copy(read_only_scene);
 
 	m_editor_scene = new_scene;
 	m_scene_hierarchy_panel.set_context(m_editor_scene);
 
 	m_active_scene = m_editor_scene;
-	m_editor_scene_path = project::get_active()->get_editor_asset_manager()->get_filepath(handle);
+	m_editor_scene_path = scene_path;
 	clear_scene_history();
 }
 
@@ -1405,6 +2164,46 @@ void editor_layer::save_scene_as()
     }
 }
 
+bool editor_layer::build_project_scripts() const
+{
+	if (!has_project_loaded())
+		return false;
+
+	const project_config& config = project::get_active()->get_config();
+	if (config.script_module_path.empty())
+	{
+		WHP_EDITOR_INFO("[Script Build] Project has no script module configured.");
+		return true;
+	}
+
+	const std::filesystem::path scripts_directory = project::get_active_asset_directory() / "Scripts";
+	const std::filesystem::path script_project_file = find_script_project_file(scripts_directory, config.name);
+	if (script_project_file.empty())
+	{
+		WHP_EDITOR_WARN(std::string("[Script Build] No C# project file found under ") + scripts_directory.string() + ". Reloading the existing assembly if it exists.");
+		return true;
+	}
+
+	const std::filesystem::path msbuild = find_msbuild_executable();
+	if (msbuild.empty())
+	{
+		WHP_EDITOR_WARN("[Script Build] MSBuild.exe was not found. Reloading the existing assembly if it exists.");
+		return true;
+	}
+
+	WHP_EDITOR_INFO(std::string("[Script Build] Building ") + script_project_file.string());
+	const std::string command = quote_command_path(msbuild) + " " + quote_command_path(script_project_file) + " /nologo /v:minimal /p:Configuration=Debug /p:Platform=x64 /nr:false 2>&1";
+	const int result = run_command_and_log_output(command);
+	if (result != 0)
+	{
+		WHP_EDITOR_ERROR(std::string("[Script Build] Build failed with exit code ") + std::to_string(result) + ".");
+		return false;
+	}
+
+	WHP_EDITOR_INFO("[Script Build] Build succeeded.");
+	return true;
+}
+
 void editor_layer::reload_assembly(bool reset_app_assembly_filepath) const
 {
 	if (!has_project_loaded())
@@ -1414,7 +2213,14 @@ void editor_layer::reload_assembly(bool reset_app_assembly_filepath) const
 	}
 
 	if (m_scene_state == scene_state::edit)
+	{
+		if (!build_project_scripts())
+		{
+			WHP_CORE_WARN("[Script Engine] Assembly reload skipped because script build failed.");
+			return;
+		}
 		assembly_manager::reload_assembly(reset_app_assembly_filepath);
+	}
 	else
 		WHP_CORE_WARN("[Script Engine] Failed to reload assembly. Scene is running or simulating!");
 }

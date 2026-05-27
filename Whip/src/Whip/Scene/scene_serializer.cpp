@@ -344,50 +344,55 @@ namespace utils
 			out << YAML::BeginMap; // script_component
 			out << YAML::Key << "class_name" << YAML::Value << script_comp.class_name;
 			ref<script_class> entity_class = script_engine::get_entity_class(script_comp.class_name);
-			const auto& fields = entity_class->get_fields();
-			if (fields.size() > 0)
+			if (entity_class)
 			{
-				out << YAML::Key << "script_fields" << YAML::Value;
-				auto& entity_fields = script_engine::get_script_field_map(entity_in);
-				out << YAML::BeginSeq;
-				for (const auto& [name, field] : fields)
+				const auto& fields = entity_class->get_fields();
+				if (fields.size() > 0)
 				{
-					if (entity_fields.find(name) == entity_fields.end())
-						continue;
-
-					out << YAML::BeginMap; // script_fields
-					out << YAML::Key << "name" << YAML::Value << name;
-					out << YAML::Key << "type" << YAML::Value << frenum::to_string(field.type);
-
-					out << YAML::Key << "data" << YAML::Value;
-					script_field_instance& sc_field = entity_fields.at(name);
-
-					switch (field.type)
+					out << YAML::Key << "script_fields" << YAML::Value;
+					auto& entity_fields = script_engine::get_script_field_map(entity_in);
+					out << YAML::BeginSeq;
+					for (const auto& [name, field] : fields)
 					{
-						WRITE_SCRIPT_FIELD(Float, float);
-						WRITE_SCRIPT_FIELD(String, std::string);
-						WRITE_SCRIPT_FIELD(Double, double);
-						WRITE_SCRIPT_FIELD(Bool, bool);
-						WRITE_SCRIPT_FIELD(Char, char);
-						WRITE_SCRIPT_FIELD(SByte, int8_t);
-						WRITE_SCRIPT_FIELD(Short, int16_t);
-						WRITE_SCRIPT_FIELD(Int, int32_t);
-						WRITE_SCRIPT_FIELD(Long, int64_t);
-						WRITE_SCRIPT_FIELD(Byte, uint8_t);
-						WRITE_SCRIPT_FIELD(UShort, uint16_t);
-						WRITE_SCRIPT_FIELD(UInt, uint32_t);
-						WRITE_SCRIPT_FIELD(ULong, uint64_t);
-						WRITE_SCRIPT_FIELD(KeyCode, key_code);
-						WRITE_SCRIPT_FIELD(MouseCode, mouse_code);
-						WRITE_SCRIPT_FIELD(Vector2, glm::vec2);
-						WRITE_SCRIPT_FIELD(Vector3, glm::vec3);
-						WRITE_SCRIPT_FIELD(Vector4, glm::vec4);
-						WRITE_SCRIPT_FIELD(Entity, UUID);
+						if (entity_fields.find(name) == entity_fields.end())
+							continue;
+
+						out << YAML::BeginMap; // script_fields
+						out << YAML::Key << "name" << YAML::Value << name;
+						out << YAML::Key << "type" << YAML::Value << frenum::to_string(field.type);
+
+						out << YAML::Key << "data" << YAML::Value;
+						script_field_instance& sc_field = entity_fields.at(name);
+
+						switch (field.type)
+						{
+							WRITE_SCRIPT_FIELD(Float, float);
+							WRITE_SCRIPT_FIELD(String, std::string);
+							WRITE_SCRIPT_FIELD(Double, double);
+							WRITE_SCRIPT_FIELD(Bool, bool);
+							WRITE_SCRIPT_FIELD(Char, char);
+							WRITE_SCRIPT_FIELD(SByte, int8_t);
+							WRITE_SCRIPT_FIELD(Short, int16_t);
+							WRITE_SCRIPT_FIELD(Int, int32_t);
+							WRITE_SCRIPT_FIELD(Long, int64_t);
+							WRITE_SCRIPT_FIELD(Byte, uint8_t);
+							WRITE_SCRIPT_FIELD(UShort, uint16_t);
+							WRITE_SCRIPT_FIELD(UInt, uint32_t);
+							WRITE_SCRIPT_FIELD(ULong, uint64_t);
+							WRITE_SCRIPT_FIELD(KeyCode, key_code);
+							WRITE_SCRIPT_FIELD(MouseCode, mouse_code);
+							WRITE_SCRIPT_FIELD(Vector2, glm::vec2);
+							WRITE_SCRIPT_FIELD(Vector3, glm::vec3);
+							WRITE_SCRIPT_FIELD(Vector4, glm::vec4);
+							WRITE_SCRIPT_FIELD(Entity, UUID);
+						}
+						out << YAML::EndMap; // script_fields
 					}
-					out << YAML::EndMap; // script_fields
+					out << YAML::EndSeq;
 				}
-				out << YAML::EndSeq;
 			}
+			else if (!script_comp.class_name.empty())
+				WHP_CORE_WARN("[Scene Serializer] Script class '{0}' is not loaded. Serializing class name without field overrides.", script_comp.class_name);
 			out << YAML::EndMap; // script_component
 		}
 

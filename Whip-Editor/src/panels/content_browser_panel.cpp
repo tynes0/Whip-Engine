@@ -17,6 +17,7 @@
 #include <cctype>
 #include <iterator>
 #include <set>
+#include <sstream>
 #include <system_error>
 
 _WHIP_START
@@ -57,6 +58,38 @@ namespace
 	bool is_internal_project_file(const std::filesystem::path& relative_path)
 	{
 		return relative_path.filename() == "asset_registry.whipr";
+	}
+
+	bool path_is_under_directory(const std::filesystem::path& path, const std::filesystem::path& directory)
+	{
+		std::filesystem::path normalized_path = path.lexically_normal();
+		std::filesystem::path normalized_directory = directory.lexically_normal();
+		if (normalized_path == normalized_directory)
+			return true;
+
+		auto path_it = normalized_path.begin();
+		auto directory_it = normalized_directory.begin();
+		for (; directory_it != normalized_directory.end(); ++directory_it, ++path_it)
+		{
+			if (path_it == normalized_path.end() || *path_it != *directory_it)
+				return false;
+		}
+		return true;
+	}
+
+	std::string import_summary_text(const content_browser_panel::import_summary& summary)
+	{
+		std::ostringstream stream;
+		stream << "Import: " << summary.imported << " imported";
+		if (summary.already_imported > 0)
+			stream << ", " << summary.already_imported << " already registered";
+		if (summary.unsupported > 0)
+			stream << ", " << summary.unsupported << " unsupported";
+		if (summary.missing > 0)
+			stream << ", " << summary.missing << " missing";
+		if (summary.failed > 0)
+			stream << ", " << summary.failed << " failed";
+		return stream.str();
 	}
 }
 
@@ -103,6 +136,7 @@ void content_browser_panel::on_imgui_render()
 	}
 
 	draw_toolbar();
+	draw_status_bar();
 	ImGui::Separator();
 
 	if (ImGui::BeginTable("##ContentBrowserLayout", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV))
@@ -133,7 +167,7 @@ void content_browser_panel::on_imgui_render()
 		ImGui::EndPopup();
 	}
 
-	draw_remove_asset_modal();
+	draw_file_operation_modals();
 	on_settings_popup();
 	ImGui::End();
 }
@@ -192,6 +226,15 @@ void content_browser_panel::draw_toolbar()
 		m_show_settings_popup = true;
 }
 
+void content_browser_panel::draw_status_bar()
+{
+	if (m_status_message.empty())
+		return;
+
+	ImGui::Spacing();
+	ImGui::TextColored(m_status_error ? ImVec4(0.95f, 0.50f, 0.34f, 1.0f) : ImVec4(0.72f, 0.78f, 0.54f, 1.0f), "%s", m_status_message.c_str());
+}
+
 void content_browser_panel::draw_type_filter()
 {
 	const std::string label = asset_type_filter_label();
@@ -226,6 +269,15 @@ void content_browser_panel::draw_sidebar()
 	const bool open = ImGui::TreeNodeEx("Assets", root_flags);
 	if (ImGui::IsItemClicked())
 		set_current_directory(m_base_directory);
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_PATH"))
+		{
+			std::filesystem::path source_relative_path(std::string(static_cast<const char*>(payload->Data), payload->DataSize));
+			move_path_to_directory(source_relative_path, m_base_directory);
+		}
+		ImGui::EndDragDropTarget();
+	}
 
 	if (open)
 	{
@@ -260,6 +312,15 @@ void content_browser_panel::draw_directory_tree(const std::filesystem::path& dir
 		const bool open = ImGui::TreeNodeEx(child_directory.filename().string().c_str(), flags);
 		if (ImGui::IsItemClicked())
 			set_current_directory(child_directory);
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_PATH"))
+			{
+				std::filesystem::path source_relative_path(std::string(static_cast<const char*>(payload->Data), payload->DataSize));
+				move_path_to_directory(source_relative_path, child_directory);
+			}
+			ImGui::EndDragDropTarget();
+		}
 
 		if (open)
 		{
@@ -295,7 +356,10 @@ void content_browser_panel::draw_content_grid(const std::vector<browser_item>& i
 {
 	const char* mode_label = m_mode == mode::filesystem ? "filesystem" : "imported";
 	const size_t imported_count = static_cast<size_t>(std::count_if(items.begin(), items.end(), [](const browser_item& item) { return item.imported && !item.directory; }));
-	ImGui::TextDisabled("%zu item(s) in %s view | %zu imported | unsupported %s", items.size(), mode_label, imported_count, m_show_unsupported ? "visible" : "hidden");
+	const size_t missing_count = static_cast<size_t>(std::count_if(items.begin(), items.end(), [](const browser_item& item) { return item.missing; }));
+	const size_t unsupported_count = static_cast<size_t>(std::count_if(items.begin(), items.end(), [](const browser_item& item) { return !item.directory && !item.supported; }));
+	ImGui::TextDisabled("%zu item(s) in %s view | %zu imported | %zu missing | %zu unsupported %s",
+		items.size(), mode_label, imported_count, missing_count, unsupported_count, m_show_unsupported ? "visible" : "hidden");
 
 	if (items.empty())
 	{
@@ -354,12 +418,27 @@ void content_browser_panel::draw_item(const browser_item& item)
 	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && item.directory)
 		set_current_directory(item.absolute_path);
 
-	if (item.imported && !item.directory && ImGui::BeginDragDropSource())
+	if (ImGui::BeginDragDropSource())
 	{
-		asset_handle handle = item.handle;
-		ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &handle, sizeof(asset_handle));
+		std::string relative_path = item.relative_path.generic_string();
+		ImGui::SetDragDropPayload("CONTENT_BROWSER_PATH", relative_path.data(), relative_path.size());
+		if (item.imported && !item.directory)
+		{
+			asset_handle handle = item.handle;
+			ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &handle, sizeof(asset_handle));
+		}
 		ImGui::TextUnformatted(item.relative_path.filename().string().c_str());
 		ImGui::EndDragDropSource();
+	}
+
+	if (item.directory && ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_PATH"))
+		{
+			std::filesystem::path source_relative_path(std::string(static_cast<const char*>(payload->Data), payload->DataSize));
+			move_path_to_directory(source_relative_path, item.absolute_path);
+		}
+		ImGui::EndDragDropTarget();
 	}
 
 	if (ImGui::BeginPopupContextItem())
@@ -368,6 +447,15 @@ void content_browser_panel::draw_item(const browser_item& item)
 		{
 			if (ImGui::MenuItem("Open"))
 				set_current_directory(item.absolute_path);
+			if (ImGui::MenuItem("Rename"))
+				request_rename_item(item);
+			if (ImGui::MenuItem("Move To..."))
+				request_move_item(item);
+			if (ImGui::MenuItem("Duplicate"))
+				duplicate_item(item);
+			if (ImGui::MenuItem("Delete"))
+				request_delete_item(item);
+			ImGui::Separator();
 			if (m_mode == mode::filesystem && ImGui::MenuItem("Import Folder"))
 			{
 				set_current_directory(item.absolute_path);
@@ -381,11 +469,27 @@ void content_browser_panel::draw_item(const browser_item& item)
 		}
 		else
 		{
-			if (item.supported && !item.imported && ImGui::MenuItem("Import"))
-				import_file(item.relative_path);
-			if (item.imported && ImGui::MenuItem("Remove from Registry"))
+			if (item.missing)
+			{
+				if (ImGui::MenuItem("Remove Missing Registration"))
+					request_remove_asset(item.handle, item.relative_path);
+			}
+			else
+			{
+				if (item.supported && !item.imported && ImGui::MenuItem("Import"))
+					import_file(item.relative_path);
+				if (ImGui::MenuItem("Rename"))
+					request_rename_item(item);
+				if (ImGui::MenuItem("Move To..."))
+					request_move_item(item);
+				if (ImGui::MenuItem("Duplicate"))
+					duplicate_item(item);
+				if (ImGui::MenuItem("Delete"))
+					request_delete_item(item);
+			}
+			if (item.imported && !item.missing && ImGui::MenuItem("Remove from Registry"))
 				request_remove_asset(item.handle, item.relative_path);
-			if (!item.supported)
+			if (!item.supported && !item.missing)
 				ImGui::TextDisabled("Unsupported asset type");
 		}
 
@@ -395,7 +499,9 @@ void content_browser_panel::draw_item(const browser_item& item)
 	ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + m_thumbnail_size);
 	ImGui::TextWrapped(item.relative_path.filename().string().c_str());
 	ImGui::PopTextWrapPos();
-	if (item.imported && !item.directory)
+	if (item.missing)
+		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Missing %s", item_type_label(item).c_str());
+	else if (item.imported && !item.directory)
 		ImGui::TextColored(ImVec4(0.42f, 0.72f, 0.52f, 1.0f), "%s", item_type_label(item).c_str());
 	else if (item.supported || item.directory)
 		ImGui::TextDisabled("%s", item_type_label(item).c_str());
@@ -405,34 +511,77 @@ void content_browser_panel::draw_item(const browser_item& item)
 	ImGui::PopID();
 }
 
-void content_browser_panel::draw_remove_asset_modal()
+void content_browser_panel::draw_file_operation_modals()
 {
-	if (m_pending_remove_handle == 0)
+	if (m_pending_operation == file_operation::none)
 		return;
 
-	ImGui::OpenPopup("Remove Asset Registration");
-	if (ImGui::BeginPopupModal("Remove Asset Registration", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	const char* popup_name = "Content Browser Operation";
+	ImGui::OpenPopup(popup_name);
+	if (!ImGui::BeginPopupModal(popup_name, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		return;
+
+	if (m_pending_operation == file_operation::rename)
+	{
+		ImGui::TextUnformatted("Rename asset");
+		ImGui::TextDisabled("%s", m_pending_operation_path.generic_string().c_str());
+		ImGui::SetNextItemWidth(360.0f);
+		ImGui::InputText("Name", &m_operation_text);
+	}
+	else if (m_pending_operation == file_operation::move)
+	{
+		ImGui::TextUnformatted("Move asset");
+		ImGui::TextDisabled("%s", m_pending_operation_path.generic_string().c_str());
+		ImGui::SetNextItemWidth(360.0f);
+		ImGui::InputTextWithHint("Destination", "Relative folder under Assets, e.g. textures/ui", &m_operation_text);
+	}
+	else if (m_pending_operation == file_operation::delete_path)
+	{
+		ImGui::TextWrapped("Delete this %s from disk?", m_pending_operation_is_directory ? "folder" : "file");
+		ImGui::TextDisabled("%s", m_pending_operation_path.generic_string().c_str());
+	}
+	else if (m_pending_operation == file_operation::remove_registry)
 	{
 		ImGui::TextWrapped("Remove this asset from the registry?");
-		ImGui::TextDisabled("%s", m_pending_remove_path.generic_string().c_str());
-		ImGui::Spacing();
-
-		if (ImGui::Button("Remove", ImVec2(96.0f, 0.0f)))
-		{
-			remove_requested_asset();
-			ImGui::CloseCurrentPopup();
-		}
-
-		ImGui::SameLine();
-		if (ImGui::Button("Cancel", ImVec2(96.0f, 0.0f)))
-		{
-			m_pending_remove_handle = 0;
-			m_pending_remove_path.clear();
-			ImGui::CloseCurrentPopup();
-		}
-
-		ImGui::EndPopup();
+		ImGui::TextDisabled("%s", m_pending_operation_path.generic_string().c_str());
 	}
+
+	if (!m_operation_error.empty())
+	{
+		ImGui::Spacing();
+		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "%s", m_operation_error.c_str());
+	}
+
+	ImGui::Spacing();
+	const char* confirm_label = m_pending_operation == file_operation::delete_path ? "Delete" :
+		m_pending_operation == file_operation::remove_registry ? "Remove" :
+		m_pending_operation == file_operation::move ? "Move" : "Rename";
+	if (ImGui::Button(confirm_label, ImVec2(108.0f, 0.0f)))
+	{
+		bool success = false;
+		switch (m_pending_operation)
+		{
+		case file_operation::rename: success = rename_pending_item(); break;
+		case file_operation::move: success = move_pending_item(); break;
+		case file_operation::delete_path: success = delete_pending_item(); break;
+		case file_operation::remove_registry: success = remove_pending_registry_entry(); break;
+		default: break;
+		}
+
+		if (success)
+		{
+			clear_pending_operation();
+			ImGui::CloseCurrentPopup();
+		}
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel", ImVec2(108.0f, 0.0f)))
+	{
+		clear_pending_operation();
+		ImGui::CloseCurrentPopup();
+	}
+
+	ImGui::EndPopup();
 }
 
 std::vector<content_browser_panel::browser_item> content_browser_panel::collect_items() const
@@ -502,6 +651,7 @@ std::vector<content_browser_panel::browser_item> content_browser_panel::collect_
 			item.type = value.second.type;
 			item.imported = true;
 			item.supported = true;
+			item.missing = !std::filesystem::exists(item.absolute_path);
 
 			if (!m_search_query.empty())
 			{
@@ -555,11 +705,47 @@ void content_browser_panel::set_current_directory(const std::filesystem::path& d
 	m_preferences_dirty = true;
 }
 
-void content_browser_panel::import_file(const std::filesystem::path& relative_path)
+bool content_browser_panel::import_file(const std::filesystem::path& relative_path, import_summary* summary)
 {
+	const std::filesystem::path absolute_path = m_base_directory / relative_path;
+	if (!std::filesystem::exists(absolute_path))
+	{
+		if (summary)
+			++summary->missing;
+		set_status("Import failed: file is missing.", true);
+		return false;
+	}
+
+	if (utils::try_get_asset_type_from_file_extension(relative_path.extension()) == asset_type::none)
+	{
+		if (summary)
+			++summary->unsupported;
+		set_status("Import skipped: unsupported file format.", true);
+		return false;
+	}
+
+	if (find_asset_handle(relative_path) != 0)
+	{
+		if (summary)
+			++summary->already_imported;
+		set_status("Asset is already registered.");
+		return true;
+	}
+
 	asset_handle handle = m_project->get_editor_asset_manager()->import_asset(relative_path);
 	if (handle != 0)
+	{
+		if (summary)
+			++summary->imported;
+		set_status("Asset imported: " + relative_path.generic_string());
 		refresh_asset_tree();
+		return true;
+	}
+
+	if (summary)
+		++summary->failed;
+	set_status("Import failed: " + relative_path.generic_string(), true);
+	return false;
 }
 
 void content_browser_panel::import_current_directory(bool recursive)
@@ -568,6 +754,7 @@ void content_browser_panel::import_current_directory(bool recursive)
 	if (!std::filesystem::exists(m_current_directory, error))
 		return;
 
+	import_summary summary;
 	if (recursive)
 	{
 		for (const auto& entry : std::filesystem::recursive_directory_iterator(m_current_directory, error))
@@ -576,8 +763,7 @@ void content_browser_panel::import_current_directory(bool recursive)
 				continue;
 
 			browser_item item = make_filesystem_item(entry);
-			if (item.supported && !item.imported)
-				import_file(item.relative_path);
+			import_file(item.relative_path, &summary);
 		}
 	}
 	else
@@ -588,30 +774,318 @@ void content_browser_panel::import_current_directory(bool recursive)
 				continue;
 
 			browser_item item = make_filesystem_item(entry);
-			if (item.supported && !item.imported)
-				import_file(item.relative_path);
+			import_file(item.relative_path, &summary);
 		}
 	}
 
 	refresh_asset_tree();
+	set_status(import_summary_text(summary), summary.failed > 0 || summary.missing > 0);
 }
 
 void content_browser_panel::request_remove_asset(asset_handle handle, const std::filesystem::path& relative_path)
 {
-	m_pending_remove_handle = handle;
-	m_pending_remove_path = relative_path;
+	m_pending_operation = file_operation::remove_registry;
+	m_pending_operation_handle = handle;
+	m_pending_operation_path = relative_path;
+	m_pending_operation_is_directory = false;
+	m_operation_text.clear();
+	m_operation_error.clear();
 }
 
-void content_browser_panel::remove_requested_asset()
+void content_browser_panel::request_rename_item(const browser_item& item)
 {
-	if (m_pending_remove_handle != 0)
+	m_pending_operation = file_operation::rename;
+	m_pending_operation_handle = item.handle;
+	m_pending_operation_path = item.relative_path;
+	m_pending_operation_is_directory = item.directory;
+	m_operation_text = item.relative_path.filename().string();
+	m_operation_error.clear();
+}
+
+void content_browser_panel::request_move_item(const browser_item& item)
+{
+	m_pending_operation = file_operation::move;
+	m_pending_operation_handle = item.handle;
+	m_pending_operation_path = item.relative_path;
+	m_pending_operation_is_directory = item.directory;
+	std::filesystem::path parent = item.relative_path.parent_path();
+	m_operation_text = parent.empty() ? "" : parent.generic_string();
+	m_operation_error.clear();
+}
+
+void content_browser_panel::request_delete_item(const browser_item& item)
+{
+	m_pending_operation = file_operation::delete_path;
+	m_pending_operation_handle = item.handle;
+	m_pending_operation_path = item.relative_path;
+	m_pending_operation_is_directory = item.directory;
+	m_operation_text.clear();
+	m_operation_error.clear();
+}
+
+void content_browser_panel::clear_pending_operation()
+{
+	m_pending_operation = file_operation::none;
+	m_pending_operation_handle = 0;
+	m_pending_operation_path.clear();
+	m_pending_operation_is_directory = false;
+	m_operation_text.clear();
+	m_operation_error.clear();
+}
+
+bool content_browser_panel::rename_pending_item()
+{
+	if (m_operation_text.empty())
 	{
-		m_project->get_editor_asset_manager()->delete_asset(m_pending_remove_handle);
-		refresh_asset_tree();
+		m_operation_error = "Name is required.";
+		return false;
 	}
 
-	m_pending_remove_handle = 0;
-	m_pending_remove_path.clear();
+	std::filesystem::path source = m_base_directory / m_pending_operation_path;
+	std::filesystem::path new_name = m_operation_text;
+	if (!m_pending_operation_is_directory && new_name.extension().empty())
+		new_name.replace_extension(m_pending_operation_path.extension());
+	std::filesystem::path target = source.parent_path() / new_name.filename();
+
+	if (!is_inside_base_directory(target))
+	{
+		m_operation_error = "Target must stay inside Assets.";
+		return false;
+	}
+	if (std::filesystem::exists(target))
+	{
+		m_operation_error = "An item with that name already exists.";
+		return false;
+	}
+
+	std::error_code error;
+	std::filesystem::rename(source, target, error);
+	if (error)
+	{
+		m_operation_error = error.message();
+		return false;
+	}
+
+	const std::filesystem::path target_relative = make_relative_path(target);
+	if (m_pending_operation_is_directory)
+		m_project->get_editor_asset_manager()->update_asset_directory_paths(m_pending_operation_path, target_relative);
+	else if (m_pending_operation_handle != 0)
+		m_project->get_editor_asset_manager()->update_asset_filepath(m_pending_operation_handle, target_relative);
+
+	if (path_is_under_directory(m_current_directory, source))
+		m_current_directory = target;
+	refresh_asset_tree();
+	set_status("Renamed: " + target_relative.generic_string());
+	return true;
+}
+
+bool content_browser_panel::move_pending_item()
+{
+	std::filesystem::path destination_directory = m_operation_text.empty() ? m_base_directory : m_base_directory / m_operation_text;
+	return move_path_to_directory(m_pending_operation_path, destination_directory);
+}
+
+bool content_browser_panel::delete_pending_item()
+{
+	if (!m_project || !m_project->get_editor_asset_manager())
+	{
+		m_operation_error = "No project asset manager is available.";
+		return false;
+	}
+
+	const std::filesystem::path absolute_path = m_base_directory / m_pending_operation_path;
+	std::error_code error;
+	const bool path_exists = std::filesystem::exists(absolute_path, error);
+	if (error)
+	{
+		m_operation_error = error.message();
+		return false;
+	}
+
+	ref<project> active_project = project::get_active();
+	bool clears_start_scene = false;
+	if (m_pending_operation_is_directory)
+	{
+		if (active_project && active_project->get_editor_asset_manager() && active_project->get_config().start_scene != 0 && active_project->get_editor_asset_manager()->is_asset_handle_valid(active_project->get_config().start_scene))
+		{
+			const std::filesystem::path start_scene_path = active_project->get_editor_asset_manager()->get_filepath(active_project->get_config().start_scene);
+			if (path_is_under_directory(start_scene_path, m_pending_operation_path))
+				clears_start_scene = true;
+		}
+
+		if (path_exists)
+			std::filesystem::remove_all(absolute_path, error);
+	}
+	else
+	{
+		if (!path_exists && m_pending_operation_handle == 0)
+		{
+			m_operation_error = "Item is missing.";
+			return false;
+		}
+
+		clears_start_scene = active_project && m_pending_operation_handle != 0 && active_project->get_config().start_scene == m_pending_operation_handle;
+
+		if (path_exists)
+			std::filesystem::remove(absolute_path, error);
+	}
+
+	if (error)
+	{
+		m_operation_error = error.message();
+		return false;
+	}
+
+	if (clears_start_scene && active_project)
+	{
+		active_project->get_config().start_scene = 0;
+		project::save_active();
+	}
+
+	if (m_pending_operation_is_directory)
+		m_project->get_editor_asset_manager()->delete_assets_under_directory(m_pending_operation_path);
+	else if (m_pending_operation_handle != 0)
+		m_project->get_editor_asset_manager()->delete_asset(m_pending_operation_handle);
+
+	if (path_is_under_directory(m_current_directory, absolute_path))
+		m_current_directory = m_base_directory;
+	refresh_asset_tree();
+	set_status("Deleted: " + m_pending_operation_path.generic_string());
+	return true;
+}
+
+bool content_browser_panel::remove_pending_registry_entry()
+{
+	if (!m_project || !m_project->get_editor_asset_manager())
+	{
+		m_operation_error = "No project asset manager is available.";
+		return false;
+	}
+
+	if (m_pending_operation_handle == 0)
+	{
+		m_operation_error = "No asset registration selected.";
+		return false;
+	}
+
+	ref<project> active_project = project::get_active();
+	if (active_project && active_project->get_config().start_scene == m_pending_operation_handle)
+	{
+		active_project->get_config().start_scene = 0;
+		project::save_active();
+	}
+
+	m_project->get_editor_asset_manager()->delete_asset(m_pending_operation_handle);
+	refresh_asset_tree();
+	set_status("Removed registry entry: " + m_pending_operation_path.generic_string());
+	return true;
+}
+
+bool content_browser_panel::duplicate_item(const browser_item& item)
+{
+	if (item.missing)
+	{
+		set_status("Duplicate failed: source asset is missing.", true);
+		return false;
+	}
+
+	std::filesystem::path target = make_unique_copy_path(item.absolute_path);
+	std::error_code error;
+	if (item.directory)
+		std::filesystem::copy(item.absolute_path, target, std::filesystem::copy_options::recursive, error);
+	else
+		std::filesystem::copy_file(item.absolute_path, target, std::filesystem::copy_options::none, error);
+
+	if (error)
+	{
+		set_status("Duplicate failed: " + error.message(), true);
+		return false;
+	}
+
+	import_summary summary;
+	if (item.directory)
+		import_supported_files_under(target, summary);
+	else if (utils::try_get_asset_type_from_file_extension(target.extension()) != asset_type::none)
+		import_file(make_relative_path(target), &summary);
+
+	refresh_asset_tree();
+	if (summary.imported > 0 || summary.failed > 0 || summary.unsupported > 0)
+		set_status("Duplicated: " + make_relative_path(target).generic_string() + " | " + import_summary_text(summary), summary.failed > 0);
+	else
+		set_status("Duplicated: " + make_relative_path(target).generic_string());
+	return true;
+}
+
+bool content_browser_panel::move_path_to_directory(const std::filesystem::path& source_relative_path, const std::filesystem::path& destination_directory)
+{
+	const std::filesystem::path source = m_base_directory / source_relative_path;
+	if (!std::filesystem::exists(source))
+	{
+		m_operation_error = "Source item is missing.";
+		set_status("Move failed: source item is missing.", true);
+		return false;
+	}
+	if (!std::filesystem::exists(destination_directory) || !std::filesystem::is_directory(destination_directory))
+	{
+		m_operation_error = "Destination folder does not exist.";
+		set_status("Move failed: destination folder does not exist.", true);
+		return false;
+	}
+	if (!is_inside_base_directory(destination_directory))
+	{
+		m_operation_error = "Destination must stay inside Assets.";
+		set_status("Move failed: destination must stay inside Assets.", true);
+		return false;
+	}
+	if (path_is_under_directory(destination_directory, source))
+	{
+		m_operation_error = "Cannot move a folder into itself.";
+		set_status("Move failed: cannot move a folder into itself.", true);
+		return false;
+	}
+
+	std::filesystem::path target = destination_directory / source.filename();
+	if (source.lexically_normal() == target.lexically_normal())
+		return true;
+	if (std::filesystem::exists(target))
+	{
+		m_operation_error = "Destination already contains an item with this name.";
+		set_status("Move failed: destination item already exists.", true);
+		return false;
+	}
+
+	const bool source_is_directory = std::filesystem::is_directory(source);
+	std::error_code error;
+	std::filesystem::rename(source, target, error);
+	if (error)
+	{
+		m_operation_error = error.message();
+		set_status("Move failed: " + error.message(), true);
+		return false;
+	}
+
+	const std::filesystem::path target_relative = make_relative_path(target);
+	if (source_is_directory)
+		m_project->get_editor_asset_manager()->update_asset_directory_paths(source_relative_path, target_relative);
+	else if (asset_handle handle = find_asset_handle(source_relative_path); handle != 0)
+		m_project->get_editor_asset_manager()->update_asset_filepath(handle, target_relative);
+
+	if (path_is_under_directory(m_current_directory, source))
+		m_current_directory = target;
+	refresh_asset_tree();
+	set_status("Moved: " + source_relative_path.generic_string() + " -> " + target_relative.generic_string());
+	return true;
+}
+
+void content_browser_panel::import_supported_files_under(const std::filesystem::path& directory, import_summary& summary)
+{
+	std::error_code error;
+	for (const auto& entry : std::filesystem::recursive_directory_iterator(directory, error))
+	{
+		if (!entry.is_regular_file(error))
+			continue;
+		import_file(make_relative_path(entry.path()), &summary);
+	}
 }
 
 bool content_browser_panel::is_inside_base_directory(const std::filesystem::path& path) const
@@ -667,6 +1141,33 @@ content_browser_panel::browser_item content_browser_panel::make_filesystem_item(
 asset_handle content_browser_panel::find_asset_handle(const std::filesystem::path& relative_path) const
 {
 	return m_project->get_editor_asset_manager()->get_handle_from_filepath(relative_path);
+}
+
+std::filesystem::path content_browser_panel::make_relative_path(const std::filesystem::path& absolute_path) const
+{
+	std::error_code error;
+	std::filesystem::path relative_path = std::filesystem::relative(absolute_path, m_base_directory, error);
+	if (error)
+		return absolute_path.filename();
+	return relative_path.lexically_normal();
+}
+
+std::filesystem::path content_browser_panel::make_unique_copy_path(const std::filesystem::path& absolute_path) const
+{
+	const std::filesystem::path parent = absolute_path.parent_path();
+	const std::string stem = absolute_path.stem().string();
+	const std::string extension = absolute_path.extension().string();
+	std::filesystem::path candidate = parent / (stem + " Copy" + extension);
+	int suffix = 2;
+	while (std::filesystem::exists(candidate))
+		candidate = parent / (stem + " Copy " + std::to_string(suffix++) + extension);
+	return candidate;
+}
+
+void content_browser_panel::set_status(std::string message, bool error)
+{
+	m_status_message = std::move(message);
+	m_status_error = error;
 }
 
 std::string content_browser_panel::display_path(const std::filesystem::path& path) const
