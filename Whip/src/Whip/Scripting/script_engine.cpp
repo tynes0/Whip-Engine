@@ -823,6 +823,17 @@ void assembly_manager::load_assembly_classes()
 
 void script_engine::init()
 {
+	if (s_script_engine_data)
+	{
+		if (s_script_engine_data->is_shutting_down)
+			return;
+
+		s_script_engine_data->entity_instances.clear();
+		s_script_engine_data->entity_script_fields.clear();
+		assembly_manager::reload_assembly(true);
+		return;
+	}
+
 	s_script_engine_data = new script_engine_data();
 
 	script_instance::s_field_value_buffer.allocate(initial_buffer_size);

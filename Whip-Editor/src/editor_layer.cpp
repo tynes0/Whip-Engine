@@ -593,14 +593,20 @@ namespace
 
 	std::filesystem::path find_msbuild_executable()
 	{
-		const std::array<std::filesystem::path, 6> candidates =
+		const std::array<std::filesystem::path, 12> candidates =
 		{
 			"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
 			"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Professional/MSBuild/Current/Bin/MSBuild.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Professional/MSBuild/Current/Bin/amd64/MSBuild.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Enterprise/MSBuild/Current/Bin/MSBuild.exe",
+			"C:/Program Files/Microsoft Visual Studio/2022/Enterprise/MSBuild/Current/Bin/amd64/MSBuild.exe",
 			"C:/Program Files/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/MSBuild.exe",
 			"C:/Program Files/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe",
 			"C:/Program Files/Microsoft Visual Studio/2022/Preview/MSBuild/Current/Bin/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/Preview/MSBuild/Current/Bin/amd64/MSBuild.exe"
+			"C:/Program Files/Microsoft Visual Studio/2022/Preview/MSBuild/Current/Bin/amd64/MSBuild.exe",
+			"C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/MSBuild/Current/Bin/MSBuild.exe",
+			"C:/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/MSBuild/Current/Bin/MSBuild.exe"
 		};
 
 		std::error_code error;
@@ -610,7 +616,7 @@ namespace
 				return candidate;
 		}
 
-		return {};
+		return "MSBuild.exe";
 	}
 
 	std::string quote_command_path(const std::filesystem::path& path)
@@ -1960,7 +1966,7 @@ bool editor_layer::new_project(const UI::project_create_settings& settings)
 			camera.add_component<camera_component>();
 			camera.get_component<transform_component>().translation = { 0.0f, 0.0f, 8.0f };
 
-			entity sprite = start_scene->create_entity("Sprite");
+			entity sprite = start_scene->create_entity(settings.template_index == 2 ? "Starter Entity" : "Sprite");
 			sprite.add_component<sprite_renderer_component>(glm::vec4{ 0.86f, 0.58f, 0.28f, 1.0f });
 			if (settings.template_index == 2)
 				sprite.add_component<script_component>().class_name = project_folder_name + ".StarterEntity";
@@ -2039,14 +2045,18 @@ bool editor_layer::open_project(const std::filesystem::path& path)
 	{
 		if (m_scene_state != scene_state::edit)
 			on_scene_stop();
-		close_scene();
-		script_engine::shutdown();
 		m_content_browser_panel.reset();
-		project::set_active(nullptr);
+		m_scene_hierarchy_panel.set_context({});
+		m_editor_scene = make_ref<scene>();
+		m_active_scene = m_editor_scene;
+		m_editor_scene_path.clear();
+		clear_scene_history();
 	}
 
 	if (project::load(path))
 	{
+		if (!build_project_scripts())
+			WHP_EDITOR_WARN("[Script Build] Project opened, but script build failed.");
 		script_engine::init();
 		asset_handle start_scene = (project::get_active()->get_config().start_scene);
 		if (start_scene && project::get_active()->get_editor_asset_manager()->is_asset_handle_valid(start_scene))

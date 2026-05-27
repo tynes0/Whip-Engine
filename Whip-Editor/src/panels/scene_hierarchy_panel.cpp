@@ -25,6 +25,7 @@
 #include <array>
 #include <cstdlib>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "../Helpers/script_field_helper.h"
@@ -160,29 +161,54 @@ namespace
 		return {};
 	}
 
+	std::string lowercase(std::string value)
+	{
+		std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		return value;
+	}
+
+	bool filename_matches(const std::filesystem::path& path, const std::vector<std::string>& filenames)
+	{
+		const std::string filename = lowercase(path.filename().string());
+		return std::find(filenames.begin(), filenames.end(), filename) != filenames.end();
+	}
+
 	std::filesystem::path environment_path(const char* name)
 	{
 		const char* value = std::getenv(name);
 		return value ? std::filesystem::path(value) : std::filesystem::path{};
 	}
 
-	void append_rider_candidates(const std::filesystem::path& root, std::vector<std::filesystem::path>& candidates)
+	std::filesystem::path find_first_named_file_under(const std::filesystem::path& root, const std::vector<std::string>& filenames, int max_depth)
 	{
 		std::error_code error;
 		if (root.empty() || !std::filesystem::exists(root, error))
-			return;
+			return {};
 
-		for (const auto& entry : std::filesystem::directory_iterator(root, error))
+		std::vector<std::pair<std::filesystem::path, int>> pending;
+		pending.emplace_back(root, 0);
+
+		while (!pending.empty())
 		{
-			if (error)
-				break;
+			const auto [directory, depth] = pending.back();
+			pending.pop_back();
 
-			if (!entry.is_directory(error))
-				continue;
+			for (const auto& entry : std::filesystem::directory_iterator(directory, error))
+			{
+				if (error)
+					break;
 
-			candidates.push_back(entry.path() / "bin" / "rider64.exe");
-			candidates.push_back(entry.path() / "bin" / "rider.exe");
+				if (entry.is_regular_file(error) && filename_matches(entry.path(), filenames))
+					return entry.path();
+
+				if (depth < max_depth && entry.is_directory(error))
+					pending.emplace_back(entry.path(), depth + 1);
+			}
+
+			error.clear();
 		}
+
+		return {};
 	}
 
 	std::filesystem::path visual_studio_executable()
@@ -200,13 +226,34 @@ namespace
 	{
 		static const std::filesystem::path executable = []()
 			{
-				std::vector<std::filesystem::path> candidates;
 				const std::filesystem::path program_files = environment_path("ProgramFiles");
+				const std::filesystem::path program_files_x86 = environment_path("ProgramFiles(x86)");
 				const std::filesystem::path local_app_data = environment_path("LOCALAPPDATA");
-				append_rider_candidates(program_files / "JetBrains", candidates);
-				append_rider_candidates(local_app_data / "Programs", candidates);
-				append_rider_candidates(local_app_data / "JetBrains" / "Toolbox" / "apps" / "Rider", candidates);
-				return first_existing_path(candidates);
+
+				std::filesystem::path candidate = first_existing_path({
+					local_app_data / "JetBrains" / "Toolbox" / "scripts" / "rider.cmd",
+					local_app_data / "JetBrains" / "Toolbox" / "scripts" / "rider.bat",
+					local_app_data / "Programs" / "Rider" / "bin" / "rider64.exe",
+					local_app_data / "Programs" / "Rider" / "bin" / "rider.exe"
+					});
+				if (!candidate.empty())
+					return candidate;
+
+				const std::vector<std::string> rider_files = { "rider64.exe", "rider.exe", "rider.cmd", "rider.bat" };
+				candidate = find_first_named_file_under(local_app_data / "JetBrains" / "Toolbox" / "apps" / "Rider", rider_files, 6);
+				if (!candidate.empty())
+					return candidate;
+
+				candidate = find_first_named_file_under(program_files / "JetBrains", rider_files, 4);
+				if (!candidate.empty())
+					return candidate;
+
+				candidate = find_first_named_file_under(program_files_x86 / "JetBrains", rider_files, 4);
+				if (!candidate.empty())
+					return candidate;
+
+				candidate = find_first_named_file_under(local_app_data / "Programs", rider_files, 4);
+				return candidate;
 			}();
 
 		return executable.empty() ? std::filesystem::path("rider64.exe") : executable;
