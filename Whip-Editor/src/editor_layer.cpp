@@ -289,6 +289,190 @@ namespace
 		return {};
 	}
 
+	std::filesystem::path locate_script_core_binary()
+	{
+		std::error_code error;
+		for (std::filesystem::path probe = std::filesystem::current_path(); !probe.empty(); probe = probe.parent_path())
+		{
+			const std::array<std::filesystem::path, 5> candidates =
+			{
+				probe / "Resources" / "Scripts" / "Whip-ScriptCore.dll",
+				probe / "Whip-ScriptCore.dll",
+				probe / "bin" / "Debug-windows-x86_64" / "Whip-Editor" / "Resources" / "Scripts" / "Whip-ScriptCore.dll",
+				probe / "bin" / "Release-windows-x86_64" / "Whip-Editor" / "Resources" / "Scripts" / "Whip-ScriptCore.dll",
+				probe / "bin" / "Dist-windows-x86_64" / "Whip-Editor" / "Resources" / "Scripts" / "Whip-ScriptCore.dll"
+			};
+
+			for (const auto& candidate : candidates)
+			{
+				if (std::filesystem::exists(candidate, error) && std::filesystem::is_regular_file(candidate, error))
+					return candidate;
+			}
+
+			if (probe == probe.parent_path())
+				break;
+		}
+
+		return {};
+	}
+
+	bool sync_script_core_binary(const std::filesystem::path& scripts_directory)
+	{
+		const std::filesystem::path source = locate_script_core_binary();
+		if (source.empty())
+		{
+			WHP_EDITOR_WARN("[Script Build] Could not find Whip-ScriptCore.dll to sync into the script workspace.");
+			return false;
+		}
+
+		const std::filesystem::path destination = scripts_directory / "Binaries" / "Whip-ScriptCore.dll";
+		std::error_code error;
+		std::filesystem::create_directories(destination.parent_path(), error);
+		if (error)
+		{
+			WHP_EDITOR_WARN(std::string("[Script Build] Could not create script binaries directory: ") + error.message());
+			return false;
+		}
+
+		std::filesystem::copy_file(source, destination, std::filesystem::copy_options::overwrite_existing, error);
+		if (error)
+		{
+			WHP_EDITOR_WARN(std::string("[Script Build] Could not copy Whip-ScriptCore.dll: ") + error.message());
+			return false;
+		}
+
+		const std::filesystem::path source_pdb = source.parent_path() / "Whip-ScriptCore.pdb";
+		if (std::filesystem::exists(source_pdb, error))
+		{
+			error.clear();
+			std::filesystem::copy_file(source_pdb, destination.parent_path() / "Whip-ScriptCore.pdb", std::filesystem::copy_options::overwrite_existing, error);
+		}
+		return true;
+	}
+
+	void replace_all(std::string& text, std::string_view from, std::string_view to)
+	{
+		size_t position = 0;
+		while ((position = text.find(from, position)) != std::string::npos)
+		{
+			text.replace(position, from.size(), to.data(), to.size());
+			position += to.size();
+		}
+	}
+
+	void erase_block_containing(std::string& text, std::string_view block_start, std::string_view needle)
+	{
+		size_t search_position = 0;
+		while ((search_position = text.find(needle, search_position)) != std::string::npos)
+		{
+			const size_t start = text.rfind(block_start, search_position);
+			if (start == std::string::npos)
+			{
+				++search_position;
+				continue;
+			}
+
+			const size_t end = text.find("</ItemGroup>", search_position);
+			if (end == std::string::npos)
+			{
+				++search_position;
+				continue;
+			}
+
+			size_t erase_end = end + std::strlen("</ItemGroup>");
+			if (erase_end < text.size() && text[erase_end] == '\r')
+				++erase_end;
+			if (erase_end < text.size() && text[erase_end] == '\n')
+				++erase_end;
+			text.erase(start, erase_end - start);
+			search_position = start;
+		}
+	}
+
+	bool upgrade_script_project_file(const std::filesystem::path& project_file)
+	{
+		std::string contents = read_text_file(project_file);
+		if (contents.empty())
+			return false;
+
+		const std::string original = contents;
+		erase_block_containing(contents, "<ItemGroup", "<ProjectReference");
+		replace_all(contents, "    <WhipScriptCoreProject>Whip-ScriptCore\\Whip-ScriptCore.csproj</WhipScriptCoreProject>\n", "");
+		replace_all(contents, "    <WhipScriptCoreProject>Whip-ScriptCore/Whip-ScriptCore.csproj</WhipScriptCoreProject>\n", "");
+		replace_all(contents, "<ItemGroup Condition=\"!Exists('$(WhipScriptCoreProject)') And '$(WhipScriptCoreHint)' != '' \">", "<ItemGroup Condition=\" '$(WhipScriptCoreHint)' != '' \">");
+
+		if (contents.find("Binaries\\Whip-ScriptCore.dll") == std::string::npos)
+		{
+			const std::string binary_hint = "    <WhipScriptCoreHint Condition=\"Exists('Binaries\\Whip-ScriptCore.dll')\">Binaries\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n";
+			const size_t first_hint = contents.find("    <WhipScriptCoreHint");
+			if (first_hint != std::string::npos)
+			{
+				contents.insert(first_hint, binary_hint);
+			}
+			else
+			{
+				const size_t property_group_end = contents.find("  </PropertyGroup>");
+				if (property_group_end != std::string::npos)
+					contents.insert(property_group_end, binary_hint);
+			}
+		}
+
+		if (contents.find("<Reference Include=\"Whip-ScriptCore\">") == std::string::npos)
+		{
+			const std::string reference =
+				"  <ItemGroup Condition=\" '$(WhipScriptCoreHint)' != '' \">\n"
+				"    <Reference Include=\"Whip-ScriptCore\">\n"
+				"      <HintPath>$(WhipScriptCoreHint)</HintPath>\n"
+				"      <Private>False</Private>\n"
+				"    </Reference>\n"
+				"  </ItemGroup>\n";
+			const size_t import = contents.find("  <Import Project=\"$(MSBuildToolsPath)\\Microsoft.CSharp.targets\" />");
+			if (import != std::string::npos)
+				contents.insert(import, reference);
+		}
+
+		if (contents == original)
+			return true;
+
+		return write_text_file(project_file, contents);
+	}
+
+	bool upgrade_script_solution_file(const std::filesystem::path& solution_file)
+	{
+		std::string contents = read_text_file(solution_file);
+		if (contents.empty() || contents.find("Whip-ScriptCore") == std::string::npos)
+			return true;
+
+		size_t script_core_project_start = contents.find("Project(\"", contents.find("Whip-ScriptCore"));
+		if (script_core_project_start == std::string::npos)
+			script_core_project_start = contents.rfind("Project(\"", contents.find("Whip-ScriptCore"));
+		if (script_core_project_start != std::string::npos)
+		{
+			const size_t script_core_project_end = contents.find("EndProject", script_core_project_start);
+			if (script_core_project_end != std::string::npos)
+			{
+				size_t erase_end = script_core_project_end + std::strlen("EndProject");
+				if (erase_end < contents.size() && contents[erase_end] == '\r')
+					++erase_end;
+				if (erase_end < contents.size() && contents[erase_end] == '\n')
+					++erase_end;
+				contents.erase(script_core_project_start, erase_end - script_core_project_start);
+			}
+		}
+
+		std::istringstream input(contents);
+		std::ostringstream output;
+		std::string line;
+		while (std::getline(input, line))
+		{
+			if (line.find("Whip-ScriptCore") != std::string::npos || line.find("{28835EC3-940E-CC87-9D1F-4F7C092A2888}") != std::string::npos)
+				continue;
+			output << line << '\n';
+		}
+
+		return write_text_file(solution_file, output.str());
+	}
+
 	bool copy_directory_recursive(const std::filesystem::path& source, const std::filesystem::path& destination)
 	{
 		std::error_code error;
@@ -404,7 +588,7 @@ namespace
 			<< "    <AssemblyName>" << project_folder_name << "</AssemblyName>\n"
 			<< "    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>\n"
 			<< "    <FileAlignment>512</FileAlignment>\n"
-			<< "    <WhipScriptCoreProject>Whip-ScriptCore\\Whip-ScriptCore.csproj</WhipScriptCoreProject>\n"
+			<< "    <WhipScriptCoreHint Condition=\"Exists('Binaries\\Whip-ScriptCore.dll')\">Binaries\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n"
 			<< "    <WhipScriptCoreHint Condition=\"Exists('..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll')\">..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n"
 			<< "    <WhipScriptCoreHint Condition=\" '$(WhipScriptCoreHint)' == '' And Exists('$(MSBuildProjectDirectory)\\..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll')\">$(MSBuildProjectDirectory)\\..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n"
 			<< "    <WhipScriptCoreHint Condition=\" '$(WhipScriptCoreHint)' == '' And Exists('" << runtime_script_core.string() << "')\">" << runtime_script_core.string() << "</WhipScriptCoreHint>\n"
@@ -442,14 +626,7 @@ namespace
 			<< "  <ItemGroup>\n"
 			<< "    <Compile Include=\"Source\\*.cs\" />\n"
 			<< "  </ItemGroup>\n"
-			<< "  <ItemGroup Condition=\"Exists('$(WhipScriptCoreProject)')\">\n"
-			<< "    <ProjectReference Include=\"$(WhipScriptCoreProject)\">\n"
-			<< "      <Project>" << core_guid << "</Project>\n"
-			<< "      <Name>Whip-ScriptCore</Name>\n"
-			<< "      <Private>False</Private>\n"
-			<< "    </ProjectReference>\n"
-			<< "  </ItemGroup>\n"
-			<< "  <ItemGroup Condition=\"!Exists('$(WhipScriptCoreProject)') And '$(WhipScriptCoreHint)' != '' \">\n"
+			<< "  <ItemGroup Condition=\" '$(WhipScriptCoreHint)' != '' \">\n"
 			<< "    <Reference Include=\"Whip-ScriptCore\">\n"
 			<< "      <HintPath>$(WhipScriptCoreHint)</HintPath>\n"
 			<< "      <Private>False</Private>\n"
@@ -471,8 +648,6 @@ namespace
 			<< "MinimumVisualStudioVersion = 10.0.40219.1\n"
 			<< "Project(\"" << csharp_project_type_guid << "\") = \"" << project_folder_name << "\", \"" << project_folder_name << ".csproj\", \"" << project_guid << "\"\n"
 			<< "EndProject\n"
-			<< "Project(\"" << csharp_project_type_guid << "\") = \"Whip-ScriptCore\", \"Whip-ScriptCore\\Whip-ScriptCore.csproj\", \"" << core_guid << "\"\n"
-			<< "EndProject\n"
 			<< "Global\n"
 			<< "\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n"
 			<< "\t\tDebug|x64 = Debug|x64\n"
@@ -482,7 +657,7 @@ namespace
 			<< "\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n";
 
 		const std::array<std::string, 3> configs = { "Debug|x64", "Release|x64", "Dist|x64" };
-		for (const std::string& guid : { project_guid, core_guid })
+		for (const std::string& guid : { project_guid })
 		{
 			for (const std::string& config : configs)
 			{
@@ -555,17 +730,18 @@ namespace
 			return false;
 		}
 
+		sync_script_core_binary(scripts_directory);
 		return true;
 	}
 
 	std::filesystem::path find_script_project_file(const std::filesystem::path& scripts_directory, const std::string& project_name)
 	{
-		std::filesystem::path preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".sln");
+		std::filesystem::path preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".csproj");
 		std::error_code error;
 		if (std::filesystem::exists(preferred, error))
 			return preferred;
 
-		preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".csproj");
+		preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".sln");
 		if (std::filesystem::exists(preferred, error))
 			return preferred;
 
@@ -576,7 +752,7 @@ namespace
 		{
 			if (error)
 				break;
-			if (entry.is_regular_file(error) && entry.path().extension() == ".sln")
+			if (entry.is_regular_file(error) && entry.path().extension() == ".csproj")
 				return entry.path();
 		}
 
@@ -584,7 +760,7 @@ namespace
 		{
 			if (error)
 				break;
-			if (entry.is_regular_file(error) && entry.path().extension() == ".csproj")
+			if (entry.is_regular_file(error) && entry.path().extension() == ".sln")
 				return entry.path();
 		}
 
@@ -894,7 +1070,7 @@ void editor_layer::on_imgui_render()
 			draw_menu_action(UI::editor_shortcut_action::CloseScene);
 			ImGui::Separator();
             if (ImGui::MenuItem("Restart"))
-                application::get().restart();
+                application::get().submit_to_next_tick([]() { application::get().restart(); });
 			if (ImGui::MenuItem("Exit"))
 				application::get().close();
             ImGui::EndMenu();
@@ -2187,12 +2363,28 @@ bool editor_layer::build_project_scripts() const
 	}
 
 	const std::filesystem::path scripts_directory = project::get_active_asset_directory() / "Scripts";
+	sync_script_core_binary(scripts_directory);
+
+	const std::filesystem::path preferred_project_file = scripts_directory / (sanitize_path_token(config.name, "Untitled") + ".csproj");
+	std::error_code error;
+	if (std::filesystem::exists(preferred_project_file, error))
+		upgrade_script_project_file(preferred_project_file);
+
+	const std::filesystem::path preferred_solution_file = scripts_directory / (sanitize_path_token(config.name, "Untitled") + ".sln");
+	error.clear();
+	if (std::filesystem::exists(preferred_solution_file, error))
+		upgrade_script_solution_file(preferred_solution_file);
+
 	const std::filesystem::path script_project_file = find_script_project_file(scripts_directory, config.name);
 	if (script_project_file.empty())
 	{
 		WHP_EDITOR_WARN(std::string("[Script Build] No C# project file found under ") + scripts_directory.string() + ". Reloading the existing assembly if it exists.");
 		return true;
 	}
+	if (script_project_file.extension() == ".csproj")
+		upgrade_script_project_file(script_project_file);
+	else if (script_project_file.extension() == ".sln")
+		upgrade_script_solution_file(script_project_file);
 
 	const std::filesystem::path msbuild = find_msbuild_executable();
 	if (msbuild.empty())

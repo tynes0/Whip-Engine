@@ -12,6 +12,7 @@
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <WhipScriptCoreHint Condition="Exists('Binaries\Whip-ScriptCore.dll')">Binaries\Whip-ScriptCore.dll</WhipScriptCoreHint>
     <WhipScriptCoreHint Condition="Exists('..\..\..\Resources\Scripts\Whip-ScriptCore.dll')">..\..\..\Resources\Scripts\Whip-ScriptCore.dll</WhipScriptCoreHint>
     <WhipScriptCoreHint Condition=" '$(WhipScriptCoreHint)' == '' And Exists('$(MSBuildProjectDirectory)\..\..\..\Resources\Scripts\Whip-ScriptCore.dll')">$(MSBuildProjectDirectory)\..\..\..\Resources\Scripts\Whip-ScriptCore.dll</WhipScriptCoreHint>
   </PropertyGroup>

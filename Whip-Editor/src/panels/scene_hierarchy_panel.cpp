@@ -179,6 +179,36 @@ namespace
 		return value ? std::filesystem::path(value) : std::filesystem::path{};
 	}
 
+	std::filesystem::path find_on_path(const std::vector<std::string>& filenames)
+	{
+		const char* path_value = std::getenv("PATH");
+		if (!path_value)
+			return {};
+
+		std::string path_text(path_value);
+		size_t start = 0;
+		std::error_code error;
+		while (start <= path_text.size())
+		{
+			size_t end = path_text.find(';', start);
+			if (end == std::string::npos)
+				end = path_text.size();
+
+			std::filesystem::path directory = path_text.substr(start, end - start);
+			for (const std::string& filename : filenames)
+			{
+				std::filesystem::path candidate = directory / filename;
+				if (std::filesystem::exists(candidate, error))
+					return candidate;
+				error.clear();
+			}
+
+			start = end + 1;
+		}
+
+		return {};
+	}
+
 	std::filesystem::path find_first_named_file_under(const std::filesystem::path& root, const std::vector<std::string>& filenames, int max_depth)
 	{
 		std::error_code error;
@@ -229,8 +259,13 @@ namespace
 				const std::filesystem::path program_files = environment_path("ProgramFiles");
 				const std::filesystem::path program_files_x86 = environment_path("ProgramFiles(x86)");
 				const std::filesystem::path local_app_data = environment_path("LOCALAPPDATA");
+				const std::vector<std::string> rider_files = { "rider64.exe", "rider.exe", "rider.cmd", "rider.bat" };
 
-				std::filesystem::path candidate = first_existing_path({
+				std::filesystem::path candidate = find_on_path(rider_files);
+				if (!candidate.empty())
+					return candidate;
+
+				candidate = first_existing_path({
 					local_app_data / "JetBrains" / "Toolbox" / "scripts" / "rider.cmd",
 					local_app_data / "JetBrains" / "Toolbox" / "scripts" / "rider.bat",
 					local_app_data / "Programs" / "Rider" / "bin" / "rider64.exe",
@@ -239,7 +274,6 @@ namespace
 				if (!candidate.empty())
 					return candidate;
 
-				const std::vector<std::string> rider_files = { "rider64.exe", "rider.exe", "rider.cmd", "rider.bat" };
 				candidate = find_first_named_file_under(local_app_data / "JetBrains" / "Toolbox" / "apps" / "Rider", rider_files, 6);
 				if (!candidate.empty())
 					return candidate;
