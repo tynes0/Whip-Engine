@@ -221,6 +221,7 @@ bool asset_registry::deserialize()
 	if (!root_node)
 		return false;
 
+	clear();
 	for (const auto& node : root_node)
 	{
 		asset_handle handle = node["handle"].as<uint64_t>();

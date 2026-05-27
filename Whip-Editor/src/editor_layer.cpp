@@ -14,18 +14,139 @@
 #include "Helpers/icon_manager.h"
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
+#include <iterator>
+#include <string>
+#include <unordered_set>
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <entt.hpp>
 #include <ImGuizmo.h>
+#include <yaml-cpp/yaml.h>
 
 _WHIP_START
+
+namespace
+{
+	bool is_control_down()
+	{
+		return input::is_key_down(key::left_control) || input::is_key_down(key::right_control);
+	}
+
+	int gizmo_snap_index(int operation)
+	{
+		if (operation == ImGuizmo::OPERATION::TRANSLATE)
+			return 0;
+		if (operation == ImGuizmo::OPERATION::ROTATE)
+			return 1;
+		if (operation == ImGuizmo::OPERATION::SCALE || operation == ImGuizmo::OPERATION::SCALEU)
+			return 2;
+		return -1;
+	}
+
+	ImU32 color_u32(float r, float g, float b, float a = 1.0f)
+	{
+		return ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b, a));
+	}
+
+	constexpr UI::editor_shortcut_action command_palette_actions[] =
+	{
+		UI::editor_shortcut_action::OpenProject,
+		UI::editor_shortcut_action::NewScene,
+		UI::editor_shortcut_action::SaveScene,
+		UI::editor_shortcut_action::SaveSceneAs,
+		UI::editor_shortcut_action::SaveProject,
+		UI::editor_shortcut_action::CloseScene,
+		UI::editor_shortcut_action::Undo,
+		UI::editor_shortcut_action::Redo,
+		UI::editor_shortcut_action::SelectAll,
+		UI::editor_shortcut_action::Copy,
+		UI::editor_shortcut_action::Paste,
+		UI::editor_shortcut_action::Cut,
+		UI::editor_shortcut_action::DuplicateEntity,
+		UI::editor_shortcut_action::DeleteEntity,
+		UI::editor_shortcut_action::Play,
+		UI::editor_shortcut_action::Simulate,
+		UI::editor_shortcut_action::Stop,
+		UI::editor_shortcut_action::Pause,
+		UI::editor_shortcut_action::GizmoNone,
+		UI::editor_shortcut_action::GizmoTranslate,
+		UI::editor_shortcut_action::GizmoRotate,
+		UI::editor_shortcut_action::GizmoScale,
+		UI::editor_shortcut_action::ReloadScripts,
+		UI::editor_shortcut_action::OpenSettings,
+		UI::editor_shortcut_action::OpenCommandPalette
+	};
+
+	std::string lower_copy(std::string value)
+	{
+		std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		return value;
+	}
+
+	bool command_matches_filter(UI::editor_shortcut_action action, const char* filter)
+	{
+		if (!filter || filter[0] == '\0')
+			return true;
+
+		std::string needle = lower_copy(filter);
+		std::string haystack = lower_copy(std::string(UI::UI_settings::get_action_display_name(action)) + " " + UI::UI_settings::get_action_category(action));
+		return haystack.find(needle) != std::string::npos;
+	}
+
+	void write_vec3(YAML::Emitter& out, const glm::vec3& value)
+	{
+		out << YAML::Flow << YAML::BeginSeq << value.x << value.y << value.z << YAML::EndSeq;
+	}
+
+	glm::vec3 read_vec3(const YAML::Node& node, const glm::vec3& fallback)
+	{
+		if (!node || !node.IsSequence() || node.size() != 3)
+			return fallback;
+		return { node[0].as<float>(fallback.x), node[1].as<float>(fallback.y), node[2].as<float>(fallback.z) };
+	}
+
+	UI::editor_theme theme_from_string(const std::string& value)
+	{
+		if (value == "Graphite")
+			return UI::editor_theme::graphite;
+		if (value == "Ember")
+			return UI::editor_theme::ember;
+		if (value == "Moss")
+			return UI::editor_theme::moss;
+		if (value == "Porcelain" || value == "Light")
+			return UI::editor_theme::light;
+		return UI::editor_theme::whip_dark;
+	}
+
+	std::string read_text_file(const std::filesystem::path& path)
+	{
+		std::ifstream stream(path, std::ios::binary);
+		if (!stream)
+			return {};
+
+		return std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+	}
+
+	bool write_text_file(const std::filesystem::path& path, const std::string& contents)
+	{
+		std::error_code error;
+		std::filesystem::create_directories(path.parent_path(), error);
+		std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+		if (!stream)
+			return false;
+
+		stream << contents;
+		return true;
+	}
+}
 
 editor_layer::editor_layer()
 	: layer("Fbox2D"), m_editor_camera()
 {
+	m_gizmo_type = ImGuizmo::OPERATION::TRANSLATE;
 }
 
 void editor_layer::on_attach()
@@ -33,12 +154,15 @@ void editor_layer::on_attach()
     WHP_PROFILE_FUNCTION();
 
 	m_animation_editor_panel.set_refresh_asset_tree_callback([this]() {if (m_content_browser_panel) { m_content_browser_panel->refresh_asset_tree(); } });
+	m_scene_hierarchy_panel.set_scene_change_callback([this]() { capture_scene_history(); });
 	m_UI_project.set_scene_callbacks(
 		[this](asset_handle handle) { open_scene(handle); },
 		[this]() { close_scene(); },
 		[this]() { return m_editor_scene_path; });
+	m_UI_project.set_before_change_callback([this]() { capture_scene_history(true); });
+	m_UI_project.set_editor_settings_drawer([this]() { m_UI_settings.draw_content(); });
 	setup_project_loader();
-	load_recent_projects();
+	load_editor_preferences();
 	m_project_loader.set_recent_projects(m_recent_projects);
 
 	// framebuffer
@@ -80,6 +204,7 @@ void editor_layer::on_attach()
 void editor_layer::on_detach()
 {
 	WHP_PROFILE_FUNCTION();
+	save_editor_preferences();
 	console_panel::shutdown();
 
 	if (m_scene_state == scene_state::play)
@@ -120,7 +245,7 @@ void editor_layer::on_update(timestep ts)
 		{
 		case scene_state::edit:
 		{
-			if (!ImGuizmo::IsUsing())
+			if (!m_gizmo_using)
 				m_editor_camera.on_update(ts);
 			m_active_scene->on_update_editor(ts, m_editor_camera);
 			break;
@@ -132,7 +257,7 @@ void editor_layer::on_update(timestep ts)
 		}
 		case scene_state::simulate:
 		{
-			if (!ImGuizmo::IsUsing())
+			if (!m_gizmo_using)
 				m_editor_camera.on_update(ts);
 			m_active_scene->on_update_simulation(ts, m_editor_camera);
 			break;
@@ -167,6 +292,9 @@ _WHP_PRAGMA_WARNING_DISABLE(4312)
 void editor_layer::on_imgui_render()
 {
 	WHP_PROFILE_FUNCTION();
+	ImGuizmo::BeginFrame();
+	m_gizmo_hovered = false;
+	m_gizmo_using = false;
 	const bool project_loaded = has_project_loaded();
 	if (!project_loaded)
 	{
@@ -184,7 +312,7 @@ void editor_layer::on_imgui_render()
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.035f, 0.038f, 0.042f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
 		ImGui::Begin("Whip Hub Host", nullptr, hub_host_flags);
 		m_project_loader.run();
 		ImGui::End();
@@ -230,21 +358,26 @@ void editor_layer::on_imgui_render()
 	// menu bar
     if (ImGui::BeginMenuBar())
     {
+		auto draw_menu_action = [this](UI::editor_shortcut_action action, const char* label = nullptr)
+			{
+				std::string shortcut = m_UI_settings.get_shortcut_label(action);
+				const bool available = is_editor_action_available(action);
+				ImGui::BeginDisabled(!available);
+				bool clicked = ImGui::MenuItem(label ? label : UI::UI_settings::get_action_display_name(action), shortcut.c_str());
+				ImGui::EndDisabled();
+				if (clicked)
+					execute_editor_action(action);
+			};
+
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("Open Project", "Ctrl+O"))
-                open_project();
-			ImGui::BeginDisabled(!project_loaded);
-			if (ImGui::MenuItem("Save Project", "Ctrl+Shift+S"))
-				save_project();
+			draw_menu_action(UI::editor_shortcut_action::OpenProject);
+			draw_menu_action(UI::editor_shortcut_action::SaveProject);
 			ImGui::Separator();
-            if (ImGui::MenuItem("New Scene", "Ctrl+N"))
-                new_scene();
-			if (ImGui::MenuItem("Save Scene", "Ctrl+S"))
-				save_scene();
-            if (ImGui::MenuItem("Save Scene As...", "Ctrl+Alt+S"))
-                save_scene_as();
-			ImGui::EndDisabled();
+			draw_menu_action(UI::editor_shortcut_action::NewScene);
+			draw_menu_action(UI::editor_shortcut_action::SaveScene);
+			draw_menu_action(UI::editor_shortcut_action::SaveSceneAs, "Save Scene As...");
+			draw_menu_action(UI::editor_shortcut_action::CloseScene);
 			ImGui::Separator();
             if (ImGui::MenuItem("Restart"))
                 application::get().restart();
@@ -254,8 +387,19 @@ void editor_layer::on_imgui_render()
         }
 		if (ImGui::BeginMenu("Edit"))
 		{
-			if (ImGui::MenuItem("Show Settings Window"))
-				m_UI_settings.open_window();
+			draw_menu_action(UI::editor_shortcut_action::OpenCommandPalette);
+			draw_menu_action(UI::editor_shortcut_action::OpenSettings, "Settings");
+			ImGui::Separator();
+			draw_menu_action(UI::editor_shortcut_action::Undo);
+			draw_menu_action(UI::editor_shortcut_action::Redo);
+			ImGui::Separator();
+			draw_menu_action(UI::editor_shortcut_action::SelectAll);
+			draw_menu_action(UI::editor_shortcut_action::Copy);
+			draw_menu_action(UI::editor_shortcut_action::Paste);
+			draw_menu_action(UI::editor_shortcut_action::Cut);
+			draw_menu_action(UI::editor_shortcut_action::DuplicateEntity);
+			draw_menu_action(UI::editor_shortcut_action::DeleteEntity);
+			ImGui::Separator();
 			ImGui::BeginDisabled(!project_loaded);
 			if (ImGui::MenuItem("Show Animation Editor"))
 				m_animation_editor_panel.open();
@@ -267,26 +411,38 @@ void editor_layer::on_imgui_render()
 		}
 		if (ImGui::BeginMenu("Script"))
 		{
-			ImGui::BeginDisabled(!project_loaded);
-			if (ImGui::MenuItem("Reload assembly", "Ctrl+R"))
-				reload_assembly(true);
-			ImGui::EndDisabled();
+			draw_menu_action(UI::editor_shortcut_action::ReloadScripts, "Reload Assembly");
 			ImGui::EndMenu();
 		}
 
 		if (ImGui::BeginMenu("Project"))
 		{
-			ImGui::BeginDisabled(!project_loaded);
-			if (ImGui::MenuItem("Settings"))
-				m_UI_project.show(UI::UI_project::UI_settings, [this]() -> decltype(auto) { return this->finish_project_settings(); });
-			ImGui::EndDisabled();
+			draw_menu_action(UI::editor_shortcut_action::OpenSettings, "Settings");
 			ImGui::Separator();
-			if (ImGui::MenuItem("Open Project", "Ctrl+O"))
-				open_project();
+			draw_menu_action(UI::editor_shortcut_action::OpenProject);
+			draw_menu_action(UI::editor_shortcut_action::SaveProject);
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Window"))
+		{
+			auto draw_panel_toggle = [](const char* label, bool open, auto&& setter)
+				{
+					bool requested_open = open;
+					if (ImGui::MenuItem(label, nullptr, &requested_open))
+						setter(requested_open);
+				};
+
 			ImGui::BeginDisabled(!project_loaded);
-			if (ImGui::MenuItem("Save Project", "Ctrl+Shift+S"))
-				save_project();
+			draw_panel_toggle("Scene Hierarchy", m_scene_hierarchy_panel.is_open(), [this](bool open) { m_scene_hierarchy_panel.set_open(open); });
+			draw_panel_toggle("Statistics", m_UI_statistics.is_open(), [this](bool open) { m_UI_statistics.set_open(open); });
+			draw_panel_toggle("Animation Editor", m_animation_editor_panel.is_open(), [this](bool open) { m_animation_editor_panel.set_open(open); });
+			if (m_content_browser_panel)
+				draw_panel_toggle("Content Browser", m_content_browser_panel->is_open(), [this](bool open) { m_content_browser_panel->set_open(open); });
+			else
+				ImGui::MenuItem("Content Browser", nullptr, false, false);
 			ImGui::EndDisabled();
+			draw_panel_toggle("Console", console_panel::is_open(), [](bool open) { console_panel::set_open(open); });
 			ImGui::EndMenu();
 		}
 
@@ -298,6 +454,8 @@ void editor_layer::on_imgui_render()
 		ImGui::End(); // dockspace
 		console_panel::on_imgui_render();
 		m_popup_handler.on_imgui_render();
+		if (console_panel::consume_open_dirty())
+			save_editor_preferences();
 		return;
 	}
 	// viewport
@@ -311,19 +469,20 @@ void editor_layer::on_imgui_render()
 		m_viewport_bounds[1] = { viewport_max_region.x + viewport_offset.x, viewport_max_region.y + viewport_offset.y };
 		m_viewport_focused = ImGui::IsWindowFocused();
 		m_viewport_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
-		application::get().get_imgui_layer()->block_events(!m_viewport_hovered || ImGuizmo::IsOver() || ImGuizmo::IsUsing());
+		application::get().get_imgui_layer()->block_events(!m_viewport_hovered || m_gizmo_hovered || m_gizmo_using);
 		ImVec2 viewport_panel_size = ImGui::GetContentRegionAvail();
 		m_viewport_size = { viewport_panel_size.x, viewport_panel_size.y };
 
 		UI::image(UI::to_imgui_texture_id(m_framebuffer->get_color_attachment_renderer_id()), viewport_panel_size, ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
 		UI::drag_drop_target(asset_type::scene, [this](asset_handle handle) { open_scene(handle); }, "scene drag drop", false);
-		UI_toolbar();
 
 		// gizmos
 		entity selected_entity = m_scene_hierarchy_panel.get_selected_entity();
 		if (selected_entity && m_gizmo_type != -1 && m_scene_state != scene_state::play)
 		{
 		    ImGuizmo::SetDrawlist();
+			ImGuizmo::SetOrthographic(false);
+			ImGuizmo::AllowAxisFlip(false);
 		    ImGuizmo::SetRect(m_viewport_bounds[0].x, m_viewport_bounds[0].y, m_viewport_bounds[1].x - m_viewport_bounds[0].x, m_viewport_bounds[1].y - m_viewport_bounds[0].y);
 		    // Camera
 		    const glm::mat4& camera_projection = m_editor_camera.get_projection();
@@ -332,30 +491,71 @@ void editor_layer::on_imgui_render()
 		    // Entity transform
 		    auto& tc = selected_entity.get_component<transform_component>();
 		    glm::mat4 transform = tc.get_transform();
+			const glm::vec3 base_translation = tc.translation;
+			const glm::vec3 base_rotation = tc.rotation;
+			const glm::vec3 base_scale = tc.scale;
 
 		    // Snapping
-		    bool snap = input::is_key_down(key::left_control);
+			const int snap_index = gizmo_snap_index(m_gizmo_type);
+		    bool snap = is_control_down() && snap_index != -1;
 
+			ImGuizmo::OPERATION operation = static_cast<ImGuizmo::OPERATION>(m_gizmo_type);
 			ImGuizmo::Manipulate(
 				glm::value_ptr(camera_view),
 				glm::value_ptr(camera_projection),
-				static_cast<ImGuizmo::OPERATION>(m_gizmo_type),
+				operation,
 				ImGuizmo::LOCAL,
 				glm::value_ptr(transform),
 				nullptr,
-				snap ? const_cast<float*>(glm::value_ptr(m_UI_settings.get_snap_values(m_gizmo_type))) : nullptr);
+				snap ? const_cast<float*>(glm::value_ptr(m_UI_settings.get_snap_values(static_cast<uint32_t>(snap_index)))) : nullptr);
+			m_gizmo_hovered = ImGuizmo::IsOver(operation);
+			m_gizmo_using = ImGuizmo::IsUsing();
 
-		    if (ImGuizmo::IsUsing())
+		    if (m_gizmo_using)
 		    {
+				if (!m_gizmo_history_active)
+				{
+					capture_scene_history();
+					m_gizmo_history_active = true;
+				}
+
 		        glm::vec3 translation, rotation, scale;
 				if (!math::decompose_transform(transform, translation, rotation, scale))
 					WHP_CLIENT_WARN("Transform Decomposing error!");
-		        glm::vec3 deltaRotation = rotation - tc.rotation;
+
+		        glm::vec3 delta_translation = translation - base_translation;
+		        glm::vec3 delta_rotation = rotation - base_rotation;
+				glm::vec3 scale_ratio = glm::vec3(1.0f);
+				scale_ratio.x = base_scale.x != 0.0f ? scale.x / base_scale.x : 1.0f;
+				scale_ratio.y = base_scale.y != 0.0f ? scale.y / base_scale.y : 1.0f;
+				scale_ratio.z = base_scale.z != 0.0f ? scale.z / base_scale.z : 1.0f;
+
+				std::vector<entity> selected_entities = m_scene_hierarchy_panel.get_selected_entities();
+				if (std::find(selected_entities.begin(), selected_entities.end(), selected_entity) == selected_entities.end())
+					selected_entities.push_back(selected_entity);
+
+				for (entity selected : selected_entities)
+				{
+					if (!selected || !selected.has_component<transform_component>())
+						continue;
+					if (selected == selected_entity)
+						continue;
+
+					auto& selected_transform = selected.get_component<transform_component>();
+					selected_transform.translation += delta_translation;
+					selected_transform.rotation += delta_rotation;
+					selected_transform.scale *= scale_ratio;
+				}
+
 		        tc.translation = translation;
-		        tc.rotation += deltaRotation;
+		        tc.rotation = rotation;
 		        tc.scale = scale;
 		    }
 		}
+		if (!m_gizmo_using)
+			m_gizmo_history_active = false;
+		UI_toolbar();
+		application::get().get_imgui_layer()->block_events(!m_viewport_hovered || m_gizmo_hovered || m_gizmo_using);
 		ImGui::End();
 		ImGui::PopStyleVar();
 	} // viewport
@@ -366,12 +566,19 @@ void editor_layer::on_imgui_render()
 
 	// other renders
 	m_UI_statistics.on_imgui_render(m_ts);
-	m_UI_settings.on_imgui_render();
     m_scene_hierarchy_panel.on_imgui_render();
     m_animation_editor_panel.on_imgui_render();
 	console_panel::on_imgui_render();
 	if (m_content_browser_panel)
 		m_content_browser_panel->on_imgui_render();
+	draw_command_palette();
+	if (m_UI_settings.consume_dirty()
+		|| m_scene_hierarchy_panel.consume_open_dirty()
+		|| m_animation_editor_panel.consume_open_dirty()
+		|| m_UI_statistics.consume_open_dirty()
+		|| console_panel::consume_open_dirty()
+		|| (m_content_browser_panel && m_content_browser_panel->consume_preferences_dirty()))
+		save_editor_preferences();
 	m_popup_handler.on_imgui_render();
 
 }
@@ -379,7 +586,7 @@ _WHP_PRAGMA_WARNING(pop)
 
 void editor_layer::on_event(event& evnt)
 {
-	if(m_scene_state == scene_state::edit && !ImGuizmo::IsOver() && !ImGuizmo::IsUsing())
+	if (m_scene_state == scene_state::edit && !m_gizmo_hovered && !m_gizmo_using && application::get().get_imgui_layer()->get_active_widgetID() == 0)
 		m_editor_camera.on_event(evnt);
     event_dispatcher dispatcher(evnt);
     dispatcher.dispatch<key_pressed_event>([this](auto&&... args) -> decltype(auto) { return this->on_key_pressed(std::forward<decltype(args)>(args)...); });
@@ -391,107 +598,269 @@ bool editor_layer::on_key_pressed(key_pressed_event& evnt)
     // Shortcuts
     if (evnt.get_repeat_count() > 0)
         return false;
-	const bool project_loaded = has_project_loaded();
+
+	if (application::get().get_imgui_layer()->get_active_widgetID() != 0)
+		return false;
+
     bool control = input::is_key_down(key::left_control) || input::is_key_down(key::right_control);
     bool shift = input::is_key_down(key::left_shift) || input::is_key_down(key::right_shift);
     bool alt = input::is_key_down(key::left_alt) || input::is_key_down(key::right_alt);
-    switch (evnt.get_keycode())
-    {
-    case key::N:
-    {
-		if (control && project_loaded)
-			new_scene();
-		WHP_EDITOR_TRACE("Trace Test");
-		WHP_EDITOR_DEBUG("Debug Test");
-		WHP_EDITOR_INFO("Info Test");
-		WHP_EDITOR_WARN("Warn Test");
-		WHP_EDITOR_ERROR("Error Test");
-		WHP_EDITOR_CRITICAL("Critical Test");
-        break;
-    }
-    case key::O:
-    {
-        if (control)
-            open_project();
-        break;
-    }
-    case key::S:
-    {
-		if (control && project_loaded)
-		{
-			if (shift)
-				save_project();
-			if (alt)
-				save_scene_as();
-			else
-				save_scene();
-		}
-        break;
-    }
-	case key::P:
-		if (control && project_loaded && m_scene_state != scene_state::simulate)
-			m_scene_state = scene_state::play;
-        break;
-	case key::escape:
-		if(m_scene_state == scene_state::play || m_scene_state == scene_state::simulate)
-			on_scene_stop();
-		break;
-	case key::D:
+
+	for (size_t i = 0; i < UI::UI_settings::action_count; ++i)
 	{
-		if (control)
-			on_duplicated_entity();
-		break;
+		UI::editor_shortcut_action action = static_cast<UI::editor_shortcut_action>(i);
+		if (m_UI_settings.shortcut_matches(action, evnt.get_keycode(), control, shift, alt))
+			return execute_editor_action(action);
 	}
-    case key::Q:
+
+    return false;
+}
+
+bool editor_layer::execute_editor_action(UI::editor_shortcut_action action)
+{
+	if (!is_editor_action_available(action))
+		return false;
+
+	switch (action)
 	{
-		if (!ImGuizmo::IsUsing())
-			m_gizmo_type = -1;
-		break;
-	}
-    case key::W:
-	{
-		if (control && project_loaded)
-		{
-			close_scene();
-			break;
-		}
-		if (!ImGuizmo::IsUsing())
-			m_gizmo_type = ImGuizmo::OPERATION::TRANSLATE;
-		break;
-	}
-    case key::E:
-	{
-		if (!ImGuizmo::IsUsing())
-			m_gizmo_type = ImGuizmo::OPERATION::ROTATE;
-		break;
-	}
-    case key::R:
-	{
-		if (control && project_loaded)
-			reload_assembly(true);
-		else
-			if (!ImGuizmo::IsUsing())
-				m_gizmo_type = ImGuizmo::OPERATION::SCALE;
-		break;
-	}
-	case key::del:
-	{
+	case UI::editor_shortcut_action::OpenCommandPalette:
+		open_command_palette();
+		return true;
+	case UI::editor_shortcut_action::OpenSettings:
+		m_UI_project.show(UI::UI_project::UI_settings, [this]() -> decltype(auto) { return this->finish_project_settings(); });
+		return true;
+	case UI::editor_shortcut_action::OpenProject:
+		open_project();
+		return true;
+	case UI::editor_shortcut_action::NewScene:
+		new_scene();
+		return true;
+	case UI::editor_shortcut_action::SaveScene:
+		save_scene();
+		return true;
+	case UI::editor_shortcut_action::SaveSceneAs:
+		save_scene_as();
+		return true;
+	case UI::editor_shortcut_action::SaveProject:
+		save_project();
+		return true;
+	case UI::editor_shortcut_action::CloseScene:
+		close_scene();
+		return true;
+	case UI::editor_shortcut_action::ReloadScripts:
+		reload_assembly(true);
+		return true;
+	case UI::editor_shortcut_action::DuplicateEntity:
+		on_duplicated_entity();
+		return true;
+	case UI::editor_shortcut_action::DeleteEntity:
 		on_deleted_entity();
-		break;
+		return true;
+	case UI::editor_shortcut_action::Undo:
+		undo_scene();
+		return true;
+	case UI::editor_shortcut_action::Redo:
+		redo_scene();
+		return true;
+	case UI::editor_shortcut_action::SelectAll:
+		on_select_all_entities();
+		return true;
+	case UI::editor_shortcut_action::Copy:
+		on_copy_entities();
+		return true;
+	case UI::editor_shortcut_action::Paste:
+		on_paste_entities();
+		return true;
+	case UI::editor_shortcut_action::Cut:
+		on_cut_entities();
+		return true;
+	case UI::editor_shortcut_action::Play:
+		if (m_scene_state == scene_state::edit)
+			on_scene_play();
+		else if (m_scene_state == scene_state::play)
+			on_scene_stop();
+		return true;
+	case UI::editor_shortcut_action::Simulate:
+		if (m_scene_state == scene_state::edit)
+			on_scene_simulate();
+		else if (m_scene_state == scene_state::simulate)
+			on_scene_stop();
+		return true;
+	case UI::editor_shortcut_action::Stop:
+		on_scene_stop();
+		return true;
+	case UI::editor_shortcut_action::Pause:
+		m_active_scene->set_paused(!m_active_scene->is_paused());
+		return true;
+	case UI::editor_shortcut_action::GizmoNone:
+		m_gizmo_type = -1;
+		return true;
+	case UI::editor_shortcut_action::GizmoTranslate:
+		m_gizmo_type = ImGuizmo::OPERATION::TRANSLATE;
+		return true;
+	case UI::editor_shortcut_action::GizmoRotate:
+		m_gizmo_type = ImGuizmo::OPERATION::ROTATE;
+		return true;
+	case UI::editor_shortcut_action::GizmoScale:
+		m_gizmo_type = ImGuizmo::OPERATION::SCALE;
+		return true;
+	default:
+		return false;
 	}
-    default:
-		break;
-    }
-    return true;
+}
+
+bool editor_layer::is_editor_action_available(UI::editor_shortcut_action action) const
+{
+	const bool project_loaded = has_project_loaded();
+	const bool edit_mode = m_scene_state == scene_state::edit;
+	const bool has_selection = (bool)m_scene_hierarchy_panel.get_selected_entity();
+
+	switch (action)
+	{
+	case UI::editor_shortcut_action::OpenProject:
+	case UI::editor_shortcut_action::OpenCommandPalette:
+		return true;
+	case UI::editor_shortcut_action::OpenSettings:
+		return project_loaded;
+	case UI::editor_shortcut_action::NewScene:
+	case UI::editor_shortcut_action::SaveScene:
+	case UI::editor_shortcut_action::SaveSceneAs:
+	case UI::editor_shortcut_action::SaveProject:
+	case UI::editor_shortcut_action::CloseScene:
+	case UI::editor_shortcut_action::ReloadScripts:
+	case UI::editor_shortcut_action::SelectAll:
+		return project_loaded && edit_mode;
+	case UI::editor_shortcut_action::DuplicateEntity:
+	case UI::editor_shortcut_action::DeleteEntity:
+	case UI::editor_shortcut_action::Copy:
+	case UI::editor_shortcut_action::Cut:
+		return project_loaded && edit_mode && has_selection;
+	case UI::editor_shortcut_action::Paste:
+		return project_loaded && edit_mode && !m_entity_clipboard.empty();
+	case UI::editor_shortcut_action::Undo:
+		return project_loaded && edit_mode && !m_undo_stack.empty();
+	case UI::editor_shortcut_action::Redo:
+		return project_loaded && edit_mode && !m_redo_stack.empty();
+	case UI::editor_shortcut_action::Play:
+		return project_loaded && m_scene_state != scene_state::simulate;
+	case UI::editor_shortcut_action::Simulate:
+		return project_loaded && m_scene_state != scene_state::play;
+	case UI::editor_shortcut_action::Stop:
+		return m_scene_state == scene_state::play || m_scene_state == scene_state::simulate;
+	case UI::editor_shortcut_action::Pause:
+		return project_loaded && m_scene_state != scene_state::edit;
+	case UI::editor_shortcut_action::GizmoNone:
+	case UI::editor_shortcut_action::GizmoTranslate:
+	case UI::editor_shortcut_action::GizmoRotate:
+	case UI::editor_shortcut_action::GizmoScale:
+		return project_loaded && edit_mode && !m_gizmo_using;
+	default:
+		return false;
+	}
+}
+
+void editor_layer::open_command_palette()
+{
+	m_command_palette_open = true;
+	m_command_palette_focus_search = true;
+	m_command_palette_filter[0] = '\0';
+}
+
+void editor_layer::draw_command_palette()
+{
+	if (!m_command_palette_open)
+		return;
+
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f, viewport->WorkPos.y + viewport->WorkSize.y * 0.22f), ImGuiCond_Appearing, ImVec2(0.5f, 0.0f));
+	ImGui::SetNextWindowSize(ImVec2(680.0f, 460.0f), ImGuiCond_Appearing);
+
+	bool open = true;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings;
+	if (ImGui::Begin("Command Palette", &open, flags))
+	{
+		if (m_command_palette_focus_search)
+		{
+			ImGui::SetKeyboardFocusHere();
+			m_command_palette_focus_search = false;
+		}
+
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputTextWithHint("##CommandPaletteSearch", "Search commands...", m_command_palette_filter, sizeof(m_command_palette_filter));
+		ImGui::Spacing();
+		ImGui::Separator();
+
+		UI::editor_shortcut_action first_available_action = UI::editor_shortcut_action::Count;
+		bool has_visible_command = false;
+
+		if (ImGui::BeginChild("##CommandPaletteResults", ImVec2(0.0f, 0.0f), false))
+		{
+			if (ImGui::BeginTable("##CommandPaletteTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+			{
+				ImGui::TableSetupColumn("Command", ImGuiTableColumnFlags_WidthStretch);
+				ImGui::TableSetupColumn("Group", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+				ImGui::TableSetupColumn("Shortcut", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+
+				for (UI::editor_shortcut_action action : command_palette_actions)
+				{
+					if (!command_matches_filter(action, m_command_palette_filter))
+						continue;
+
+					has_visible_command = true;
+					const bool available = is_editor_action_available(action);
+					if (available && first_available_action == UI::editor_shortcut_action::Count)
+						first_available_action = action;
+
+					ImGui::PushID(static_cast<int>(action));
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::BeginDisabled(!available);
+					if (ImGui::Selectable(UI::UI_settings::get_action_display_name(action), false, ImGuiSelectableFlags_SpanAllColumns, ImVec2(0.0f, 30.0f)))
+					{
+						if (execute_editor_action(action) && action != UI::editor_shortcut_action::OpenCommandPalette)
+							m_command_palette_open = false;
+					}
+					ImGui::TableNextColumn();
+					ImGui::TextDisabled("%s", UI::UI_settings::get_action_category(action));
+					ImGui::TableNextColumn();
+					const std::string shortcut = m_UI_settings.get_shortcut_label(action);
+					if (m_UI_settings.has_shortcut_conflict(action))
+						ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Conflict");
+					else
+						ImGui::TextDisabled("%s", shortcut.c_str());
+					ImGui::EndDisabled();
+					ImGui::PopID();
+				}
+
+				ImGui::EndTable();
+			}
+
+			if (!has_visible_command)
+				ImGui::TextDisabled("No commands found.");
+		}
+		ImGui::EndChild();
+
+		if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+			m_command_palette_open = false;
+		if (first_available_action != UI::editor_shortcut_action::Count && ImGui::IsKeyPressed(ImGuiKey_Enter))
+		{
+			if (execute_editor_action(first_available_action) && first_available_action != UI::editor_shortcut_action::OpenCommandPalette)
+				m_command_palette_open = false;
+		}
+	}
+	ImGui::End();
+
+	if (!open)
+		m_command_palette_open = false;
 }
 
 bool editor_layer::on_mouse_button_pressed(mouse_button_pressed_event& evnt)
 {
     if (evnt.get_mouse_button() == mouse::button_left)
     {
-        if (m_viewport_hovered && !ImGuizmo::IsOver() && !ImGuizmo::IsUsing() && !input::is_key_down(key::left_alt) && application::get().get_imgui_layer()->get_active_widgetID() == 0)
+        if (m_viewport_hovered && !m_gizmo_hovered && !m_gizmo_using && !input::is_key_down(key::left_alt) && application::get().get_imgui_layer()->get_active_widgetID() == 0)
 		{
-			bool append = input::is_key_down(key::left_control) || input::is_key_down(key::right_control);
+			bool append = is_control_down();
             m_scene_hierarchy_panel.set_selected_entity(m_hovered_entity, append);
 		}
     }
@@ -681,7 +1050,9 @@ void editor_layer::add_recent_project(const std::filesystem::path& path)
 	if (m_recent_projects.size() > 10)
 		m_recent_projects.resize(10);
 
+	m_last_project_path = normalized_path;
 	save_recent_projects();
+	save_editor_preferences();
 	m_project_loader.set_recent_projects(m_recent_projects);
 }
 
@@ -712,6 +1083,170 @@ bool editor_layer::should_include_recent_project(const std::filesystem::path& pa
 std::filesystem::path editor_layer::get_recent_projects_path() const
 {
 	return std::filesystem::current_path() / "WhipHubRecentProjects.txt";
+}
+
+std::filesystem::path editor_layer::get_preferences_path() const
+{
+	return std::filesystem::current_path() / "WhipEditorPreferences.yaml";
+}
+
+void editor_layer::load_editor_preferences()
+{
+	load_recent_projects();
+
+	const std::filesystem::path preferences_path = get_preferences_path();
+	std::error_code error;
+	if (!std::filesystem::exists(preferences_path, error))
+		return;
+
+	YAML::Node data;
+	try
+	{
+		data = YAML::LoadFile(preferences_path.string());
+	}
+	catch (const YAML::Exception& exception)
+	{
+		WHP_EDITOR_WARN(std::string("[Editor Preferences] Could not read preferences: ") + exception.what());
+		return;
+	}
+
+	if (YAML::Node recent_projects = data["recent_projects"])
+	{
+		m_recent_projects.clear();
+		for (const YAML::Node& recent_project : recent_projects)
+		{
+			std::filesystem::path path = recent_project.as<std::string>("");
+			if (!path.empty() && should_include_recent_project(path))
+				m_recent_projects.push_back(path);
+		}
+	}
+
+	m_last_project_path = data["last_project"].as<std::string>("");
+
+	if (YAML::Node editor = data["editor"])
+	{
+		m_UI_settings.set_show_physics_colliders(editor["show_physics_colliders"].as<bool>(m_UI_settings.get_show_physics_colliders()));
+		m_UI_settings.set_step_frame(editor["step_frame"].as<int>(m_UI_settings.get_step_frame()));
+		m_UI_settings.set_theme(theme_from_string(editor["theme"].as<std::string>(UI::UI_settings::get_theme_name(m_UI_settings.get_theme()))));
+
+		if (YAML::Node snap = editor["snap"])
+		{
+			m_UI_settings.set_snap_values(0, read_vec3(snap["translation"], m_UI_settings.get_snap_values(0)));
+			m_UI_settings.set_snap_values(1, read_vec3(snap["rotation"], m_UI_settings.get_snap_values(1)));
+			m_UI_settings.set_snap_values(2, read_vec3(snap["scale"], m_UI_settings.get_snap_values(2)));
+		}
+
+		if (YAML::Node shortcuts = editor["shortcuts"])
+		{
+			for (size_t i = 0; i < UI::UI_settings::action_count; ++i)
+			{
+				UI::editor_shortcut_action action = static_cast<UI::editor_shortcut_action>(i);
+				YAML::Node shortcut = shortcuts[UI::UI_settings::get_action_storage_key(action)];
+				if (!shortcut)
+					continue;
+
+				UI::shortcut_binding binding;
+				binding.key = static_cast<key_code>(shortcut["key"].as<int>(0));
+				binding.ctrl = shortcut["ctrl"].as<bool>(false);
+				binding.shift = shortcut["shift"].as<bool>(false);
+				binding.alt = shortcut["alt"].as<bool>(false);
+				m_UI_settings.set_shortcut_binding(action, binding);
+			}
+		}
+	}
+
+	if (YAML::Node panels = data["panels"])
+	{
+		m_animation_editor_panel.set_open(panels["animation_editor"].as<bool>(m_animation_editor_panel.is_open()));
+		m_scene_hierarchy_panel.set_open(panels["scene_hierarchy"].as<bool>(m_scene_hierarchy_panel.is_open()));
+		m_UI_statistics.set_open(panels["statistics"].as<bool>(m_UI_statistics.is_open()));
+		console_panel::set_open(panels["console"].as<bool>(console_panel::is_open()));
+	}
+
+	if (YAML::Node browser = data["content_browser"])
+	{
+		m_content_browser_preferences.thumbnail_size = browser["thumbnail_size"].as<float>(m_content_browser_preferences.thumbnail_size);
+		m_content_browser_preferences.padding = browser["padding"].as<float>(m_content_browser_preferences.padding);
+		m_content_browser_preferences.show_unsupported = browser["show_unsupported"].as<bool>(m_content_browser_preferences.show_unsupported);
+		m_content_browser_preferences.open = browser["open"].as<bool>(m_content_browser_preferences.open);
+		m_content_browser_preferences.mode = browser["mode"].as<int>(m_content_browser_preferences.mode);
+		m_content_browser_preferences.type_filter = browser["type_filter"].as<int>(m_content_browser_preferences.type_filter);
+		m_content_browser_preferences.current_directory = browser["current_directory"].as<std::string>("");
+		m_has_content_browser_preferences = true;
+	}
+
+	m_UI_settings.consume_dirty();
+	m_scene_hierarchy_panel.consume_open_dirty();
+	m_animation_editor_panel.consume_open_dirty();
+	m_UI_statistics.consume_open_dirty();
+	console_panel::consume_open_dirty();
+	m_project_loader.set_recent_projects(m_recent_projects);
+}
+
+void editor_layer::save_editor_preferences() const
+{
+	YAML::Emitter out;
+	out << YAML::BeginMap;
+	out << YAML::Key << "last_project" << YAML::Value << m_last_project_path.string();
+	out << YAML::Key << "recent_projects" << YAML::Value << YAML::BeginSeq;
+	for (const auto& project_path : m_recent_projects)
+		out << project_path.string();
+	out << YAML::EndSeq;
+
+	out << YAML::Key << "editor" << YAML::Value << YAML::BeginMap;
+	out << YAML::Key << "show_physics_colliders" << YAML::Value << m_UI_settings.get_show_physics_colliders();
+	out << YAML::Key << "step_frame" << YAML::Value << m_UI_settings.get_step_frame();
+	out << YAML::Key << "theme" << YAML::Value << UI::UI_settings::get_theme_name(m_UI_settings.get_theme());
+	out << YAML::Key << "snap" << YAML::Value << YAML::BeginMap;
+	out << YAML::Key << "translation" << YAML::Value; write_vec3(out, m_UI_settings.get_snap_values(0));
+	out << YAML::Key << "rotation" << YAML::Value; write_vec3(out, m_UI_settings.get_snap_values(1));
+	out << YAML::Key << "scale" << YAML::Value; write_vec3(out, m_UI_settings.get_snap_values(2));
+	out << YAML::EndMap;
+	out << YAML::Key << "shortcuts" << YAML::Value << YAML::BeginMap;
+	for (size_t i = 0; i < UI::UI_settings::action_count; ++i)
+	{
+		UI::editor_shortcut_action action = static_cast<UI::editor_shortcut_action>(i);
+		UI::shortcut_binding binding = m_UI_settings.get_shortcut_binding(action);
+		out << YAML::Key << UI::UI_settings::get_action_storage_key(action) << YAML::Value << YAML::BeginMap;
+		out << YAML::Key << "key" << YAML::Value << binding.key;
+		out << YAML::Key << "ctrl" << YAML::Value << binding.ctrl;
+		out << YAML::Key << "shift" << YAML::Value << binding.shift;
+		out << YAML::Key << "alt" << YAML::Value << binding.alt;
+		out << YAML::EndMap;
+	}
+	out << YAML::EndMap;
+	out << YAML::EndMap;
+
+	out << YAML::Key << "panels" << YAML::Value << YAML::BeginMap;
+	out << YAML::Key << "animation_editor" << YAML::Value << m_animation_editor_panel.is_open();
+	out << YAML::Key << "scene_hierarchy" << YAML::Value << m_scene_hierarchy_panel.is_open();
+	out << YAML::Key << "statistics" << YAML::Value << m_UI_statistics.is_open();
+	out << YAML::Key << "console" << YAML::Value << console_panel::is_open();
+	out << YAML::EndMap;
+
+	content_browser_panel::preferences browser_preferences = m_content_browser_panel ? m_content_browser_panel->get_preferences() : m_content_browser_preferences;
+	out << YAML::Key << "content_browser" << YAML::Value << YAML::BeginMap;
+	out << YAML::Key << "thumbnail_size" << YAML::Value << browser_preferences.thumbnail_size;
+	out << YAML::Key << "padding" << YAML::Value << browser_preferences.padding;
+	out << YAML::Key << "show_unsupported" << YAML::Value << browser_preferences.show_unsupported;
+	out << YAML::Key << "open" << YAML::Value << browser_preferences.open;
+	out << YAML::Key << "mode" << YAML::Value << browser_preferences.mode;
+	out << YAML::Key << "type_filter" << YAML::Value << browser_preferences.type_filter;
+	out << YAML::Key << "current_directory" << YAML::Value << browser_preferences.current_directory.string();
+	out << YAML::EndMap;
+
+	out << YAML::EndMap;
+
+	std::ofstream stream(get_preferences_path(), std::ios::trunc);
+	if (!stream)
+		return;
+	stream << out.c_str();
+}
+
+void editor_layer::apply_preferences_to_content_browser()
+{
+	if (m_content_browser_panel && m_has_content_browser_preferences)
+		m_content_browser_panel->apply_preferences(m_content_browser_preferences);
 }
 
 bool editor_layer::new_project()
@@ -764,6 +1299,7 @@ void editor_layer::finish_project_settings()
 	project::save_active();
 	reload_assembly(true);
 	m_content_browser_panel = make_scope<content_browser_panel>(project::get_active());
+	apply_preferences_to_content_browser();
 }
 
 
@@ -794,6 +1330,7 @@ bool editor_layer::open_project(const std::filesystem::path& path)
 		if(start_scene)
 			open_scene(start_scene);
 		m_content_browser_panel = make_scope<content_browser_panel>(project::get_active());
+		apply_preferences_to_content_browser();
 		add_recent_project(path);
 		m_project_loader.set_loaded(true);
 		return true;
@@ -809,6 +1346,7 @@ void editor_layer::new_scene()
     m_active_scene = make_ref<scene>();
 	m_scene_hierarchy_panel.set_context(m_active_scene);
 	m_editor_scene_path = std::filesystem::path();
+	clear_scene_history();
 }
 
 void editor_layer::open_scene(asset_handle handle)
@@ -827,6 +1365,7 @@ void editor_layer::open_scene(asset_handle handle)
 
 	m_active_scene = m_editor_scene;
 	m_editor_scene_path = project::get_active()->get_editor_asset_manager()->get_filepath(handle);
+	clear_scene_history();
 }
 
 void editor_layer::close_scene()
@@ -837,7 +1376,9 @@ void editor_layer::close_scene()
 	m_editor_scene = new_scene;
 	m_editor_scene->on_viewport_resize((uint32_t)m_viewport_size.x, (uint32_t)m_viewport_size.y);
 	m_active_scene = m_editor_scene;
+	m_editor_scene_path.clear();
 	m_scene_hierarchy_panel.set_context({});
+	clear_scene_history();
 }
 
 void editor_layer::save_scene()
@@ -941,12 +1482,170 @@ void editor_layer::on_scene_pause()
 
 }
 
+editor_layer::project_history_entry editor_layer::capture_project_history() const
+{
+	project_history_entry entry;
+	ref<project> active_project = project::get_active();
+	if (!active_project || !active_project->get_editor_asset_manager())
+		return entry;
+
+	entry.valid = true;
+	entry.config = active_project->get_config();
+	entry.project_path = active_project->get_project_path();
+	entry.asset_registry_path = active_project->get_asset_registry_path();
+	entry.project_file_contents = read_text_file(entry.project_path);
+	entry.asset_registry_contents = read_text_file(entry.asset_registry_path);
+
+	const asset_registry& registry = active_project->get_editor_asset_manager()->get_asset_registry();
+	registry.foreach(asset_type::scene, [active_project, &entry](const asset_registry::value_type& value)
+		{
+			const std::string relative_path = value.second.filepath.generic_string();
+			entry.scene_file_contents[relative_path] = read_text_file(active_project->get_asset_directory() / value.second.filepath);
+		});
+
+	return entry;
+}
+
+void editor_layer::restore_project_history(const project_history_entry& entry)
+{
+	if (!entry.valid)
+		return;
+
+	ref<project> active_project = project::get_active();
+	if (!active_project || !active_project->get_editor_asset_manager())
+		return;
+	if (!entry.project_path.empty() && active_project->get_project_path() != entry.project_path)
+		return;
+
+	std::unordered_set<std::string> current_scene_paths;
+	const std::filesystem::path current_asset_directory = active_project->get_asset_directory();
+	active_project->get_editor_asset_manager()->get_asset_registry().foreach(asset_type::scene, [&current_scene_paths](const asset_registry::value_type& value)
+		{
+			current_scene_paths.insert(value.second.filepath.generic_string());
+		});
+
+	active_project->get_config() = entry.config;
+	if (!entry.project_file_contents.empty())
+		write_text_file(entry.project_path, entry.project_file_contents);
+	else
+		project::save_active();
+
+	const std::filesystem::path restored_asset_directory = entry.project_path.parent_path() / entry.config.asset_directory;
+	const std::filesystem::path restored_asset_registry_path = restored_asset_directory / entry.config.asset_registry_path;
+	if (!entry.asset_registry_contents.empty())
+		write_text_file(restored_asset_registry_path, entry.asset_registry_contents);
+
+	for (const auto& [relative_path, contents] : entry.scene_file_contents)
+		write_text_file(restored_asset_directory / relative_path, contents);
+
+	for (const std::string& relative_path : current_scene_paths)
+	{
+		if (entry.scene_file_contents.find(relative_path) != entry.scene_file_contents.end())
+			continue;
+
+		std::error_code error;
+		std::filesystem::remove(current_asset_directory / relative_path, error);
+		if (current_asset_directory != restored_asset_directory)
+			std::filesystem::remove(restored_asset_directory / relative_path, error);
+	}
+
+	active_project->get_editor_asset_manager()->deserialize_asset_registry();
+	if (m_content_browser_panel)
+	{
+		m_content_browser_panel = make_scope<content_browser_panel>(active_project);
+		apply_preferences_to_content_browser();
+	}
+}
+
+void editor_layer::capture_scene_history(bool include_project_snapshot)
+{
+	if (m_scene_state != scene_state::edit || !m_editor_scene)
+		return;
+
+	scene_history_entry entry;
+	entry.scene_snapshot = scene::copy(m_editor_scene);
+	entry.editor_scene_path = m_editor_scene_path;
+	entry.selected_entities = m_scene_hierarchy_panel.get_selected_entity_ids();
+	if (include_project_snapshot)
+		entry.project_snapshot = capture_project_history();
+	m_undo_stack.push_back(entry);
+	m_redo_stack.clear();
+
+	static constexpr size_t max_history_entries = 64;
+	if (m_undo_stack.size() > max_history_entries)
+		m_undo_stack.erase(m_undo_stack.begin());
+}
+
+void editor_layer::restore_scene_history(const scene_history_entry& entry)
+{
+	if (!entry.scene_snapshot)
+		return;
+
+	if (m_scene_state != scene_state::edit)
+		on_scene_stop();
+
+	restore_project_history(entry.project_snapshot);
+	m_editor_scene = scene::copy(entry.scene_snapshot);
+	m_editor_scene_path = entry.editor_scene_path;
+	m_editor_scene->on_viewport_resize((uint32_t)m_viewport_size.x, (uint32_t)m_viewport_size.y);
+	m_active_scene = m_editor_scene;
+	m_scene_hierarchy_panel.set_context(m_editor_scene);
+	m_scene_hierarchy_panel.set_selected_entity_ids(entry.selected_entities);
+}
+
+void editor_layer::undo_scene()
+{
+	if (m_undo_stack.empty() || m_scene_state != scene_state::edit)
+		return;
+
+	scene_history_entry current;
+	current.scene_snapshot = scene::copy(m_editor_scene);
+	current.editor_scene_path = m_editor_scene_path;
+	current.selected_entities = m_scene_hierarchy_panel.get_selected_entity_ids();
+	scene_history_entry entry = m_undo_stack.back();
+	if (entry.project_snapshot.valid)
+		current.project_snapshot = capture_project_history();
+	m_redo_stack.push_back(current);
+
+	m_undo_stack.pop_back();
+	restore_scene_history(entry);
+}
+
+void editor_layer::redo_scene()
+{
+	if (m_redo_stack.empty() || m_scene_state != scene_state::edit)
+		return;
+
+	scene_history_entry current;
+	current.scene_snapshot = scene::copy(m_editor_scene);
+	current.editor_scene_path = m_editor_scene_path;
+	current.selected_entities = m_scene_hierarchy_panel.get_selected_entity_ids();
+	scene_history_entry entry = m_redo_stack.back();
+	if (entry.project_snapshot.valid)
+		current.project_snapshot = capture_project_history();
+	m_undo_stack.push_back(current);
+
+	m_redo_stack.pop_back();
+	restore_scene_history(entry);
+}
+
+void editor_layer::clear_scene_history()
+{
+	m_undo_stack.clear();
+	m_redo_stack.clear();
+	m_gizmo_history_active = false;
+}
+
 void editor_layer::on_duplicated_entity()
 {
 	if (m_scene_state != scene_state::edit)
 		return;
 
 	std::vector<entity> selected_entities = m_scene_hierarchy_panel.get_selected_entities();
+	if (selected_entities.empty())
+		return;
+
+	capture_scene_history();
 	bool append = false;
 	for (entity selected_entity : selected_entities)
 	{
@@ -963,6 +1662,7 @@ void editor_layer::on_deleted_entity()
 		std::vector<entity> selected_entities = m_scene_hierarchy_panel.get_selected_entities();
 		if (!selected_entities.empty())
 		{
+			capture_scene_history();
 			std::vector<UUID> selected_ids;
 			selected_ids.reserve(selected_entities.size());
 			for (entity selected_entity : selected_entities)
@@ -990,6 +1690,49 @@ void editor_layer::on_deleted_entity()
 	}
 }
 
+void editor_layer::on_select_all_entities()
+{
+	if (m_scene_state == scene_state::edit)
+		m_scene_hierarchy_panel.select_all();
+}
+
+void editor_layer::on_copy_entities()
+{
+	m_entity_clipboard = m_scene_hierarchy_panel.get_selected_entity_ids();
+}
+
+void editor_layer::on_paste_entities()
+{
+	if (m_scene_state != scene_state::edit || m_entity_clipboard.empty())
+		return;
+
+	std::vector<entity> source_entities;
+	for (UUID id : m_entity_clipboard)
+	{
+		entity source = m_editor_scene->find_entity_by_UUID(id);
+		if (source)
+			source_entities.push_back(source);
+	}
+
+	if (source_entities.empty())
+		return;
+
+	capture_scene_history();
+	bool append = false;
+	for (entity source : source_entities)
+	{
+		entity pasted = m_editor_scene->duplicate_entity(source);
+		m_scene_hierarchy_panel.set_selected_entity(pasted, append);
+		append = true;
+	}
+}
+
+void editor_layer::on_cut_entities()
+{
+	on_copy_entities();
+	on_deleted_entity();
+}
+
 void editor_layer::UI_toolbar()
 {
 	bool toolbar_enabled = (bool)m_scene_hierarchy_panel.get_context();
@@ -1004,12 +1747,13 @@ void editor_layer::UI_toolbar()
 	bool is_paused = has_pause_button && m_active_scene->is_paused();
 	bool has_step_button = has_pause_button && is_paused;
 
-	const float size = 28.0f;
-	const float padding = 7.0f;
-	const float spacing = 6.0f;
+	const float button_size = 36.0f;
+	const float icon_size = 18.0f;
+	const float padding = 6.0f;
+	const float spacing = 5.0f;
 	const int button_count = (has_play_button ? 1 : 0) + (has_simulate_button ? 1 : 0) + (has_pause_button ? 1 : 0) + (has_step_button ? 1 : 0);
-	const float panel_width = padding * 2.0f + size * button_count + spacing * glm::max(button_count - 1, 0);
-	const float panel_height = size + padding * 2.0f;
+	const float panel_width = padding * 2.0f + button_size * button_count + spacing * glm::max(button_count - 1, 0);
+	const float panel_height = button_size + padding * 2.0f;
 
 	ImVec2 viewport_min = ImVec2(m_viewport_bounds[0].x, m_viewport_bounds[0].y);
 	ImVec2 viewport_max = ImVec2(m_viewport_bounds[1].x, m_viewport_bounds[1].y);
@@ -1017,27 +1761,41 @@ void editor_layer::UI_toolbar()
 	ImVec2 panel_end = ImVec2(panel_pos.x + panel_width, panel_pos.y + panel_height);
 
 	ImDrawList* draw_list = ImGui::GetWindowDrawList();
-	draw_list->AddRectFilled(ImVec2(panel_pos.x + 2.0f, panel_pos.y + 3.0f), ImVec2(panel_end.x + 2.0f, panel_end.y + 3.0f), IM_COL32(0, 0, 0, 72), 8.0f);
-	draw_list->AddRectFilled(panel_pos, panel_end, IM_COL32(10, 13, 15, 214), 8.0f);
-	draw_list->AddRect(panel_pos, panel_end, IM_COL32(53, 68, 70, 190), 8.0f);
+	draw_list->AddRectFilled(ImVec2(panel_pos.x + 2.0f, panel_pos.y + 3.0f), ImVec2(panel_end.x + 2.0f, panel_end.y + 3.0f), IM_COL32(0, 0, 0, 76), 7.0f);
+	draw_list->AddRectFilled(panel_pos, panel_end, IM_COL32(24, 22, 19, 238), 7.0f);
+	draw_list->AddRect(panel_pos, panel_end, IM_COL32(76, 64, 48, 210), 7.0f);
 
 	ImGui::SetCursorScreenPos(ImVec2(panel_pos.x + padding, panel_pos.y + padding));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, 0.0f));
-	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.14f, 0.23f, 0.23f, 0.62f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.10f, 0.38f, 0.35f, 0.78f));
 
-	auto draw_icon_button = [&](const char* id, icon icon_type, ImVec4 tint) -> bool
+	auto draw_icon_button = [&](const char* id, icon icon_type, ImU32 accent, const char* tooltip) -> bool
 		{
 			ref<texture2D> icon_texture = icon_manager::get().get_icon(icon_type);
-			return UI::image_button(id, UI::to_imgui_texture_id(icon_texture->get_renderer_id()), ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0), 0, ImVec4(0, 0, 0, 0), tint);
+			ImGui::InvisibleButton(id, ImVec2(button_size, button_size));
+			const bool clicked = ImGui::IsItemClicked() && toolbar_enabled;
+			const bool hovered = ImGui::IsItemHovered();
+			const bool active = ImGui::IsItemActive();
+			ImVec2 min = ImGui::GetItemRectMin();
+			ImVec2 max = ImGui::GetItemRectMax();
+			ImU32 button_color = active ? color_u32(0.33f, 0.22f, 0.12f, 0.95f) : hovered ? color_u32(0.18f, 0.15f, 0.12f, 0.92f) : color_u32(0.10f, 0.09f, 0.08f, 0.88f);
+			draw_list->AddRectFilled(min, max, button_color, 5.0f);
+			if (hovered)
+				draw_list->AddRect(min, max, accent, 5.0f);
+
+			ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+			ImVec2 icon_min(center.x - icon_size * 0.5f, center.y - icon_size * 0.5f);
+			ImVec2 icon_max(center.x + icon_size * 0.5f, center.y + icon_size * 0.5f);
+			ImU32 tint = toolbar_enabled ? IM_COL32(240, 232, 216, 255) : IM_COL32(148, 140, 128, 190);
+			draw_list->AddImage(UI::to_imgui_texture_id(icon_texture->get_renderer_id()), icon_min, icon_max, ImVec2(0, 1), ImVec2(1, 0), tint);
+			if (hovered && tooltip)
+				ImGui::SetTooltip("%s", tooltip);
+			return clicked;
 		};
 
 	if(has_play_button)
 	{
 		icon play_icon = m_scene_state == scene_state::play ? icon::stop : icon::play;
-		if (draw_icon_button("##ViewportToolbarPlay", play_icon, ImVec4(0.88f, 1.0f, 0.96f, tint_color.w)) && toolbar_enabled)
+		if (draw_icon_button("##ViewportToolbarPlay", play_icon, color_u32(0.58f, 0.70f, 0.42f, tint_color.w), m_scene_state == scene_state::play ? "Stop" : "Play"))
 		{
 			if (m_scene_state == scene_state::edit || m_scene_state == scene_state::simulate)
 				on_scene_play();
@@ -1050,7 +1808,7 @@ void editor_layer::UI_toolbar()
 		if(has_play_button)
 			ImGui::SameLine();
 		icon simulate_icon = m_scene_state == scene_state::simulate ? icon::stop : icon::simulate;
-		if (draw_icon_button("##ViewportToolbarSimulate", simulate_icon, tint_color) && toolbar_enabled)
+		if (draw_icon_button("##ViewportToolbarSimulate", simulate_icon, color_u32(0.66f, 0.55f, 0.42f, tint_color.w), m_scene_state == scene_state::simulate ? "Stop simulation" : "Simulate"))
 		{
 			if (m_scene_state == scene_state::edit || m_scene_state == scene_state::play)
 				on_scene_simulate();
@@ -1061,18 +1819,17 @@ void editor_layer::UI_toolbar()
 	if (has_pause_button)
 	{
 		ImGui::SameLine();
-		if (draw_icon_button("##ViewportToolbarPause", icon::pause, tint_color) && toolbar_enabled)
+		if (draw_icon_button("##ViewportToolbarPause", icon::pause, color_u32(0.86f, 0.64f, 0.32f, tint_color.w), is_paused ? "Resume" : "Pause"))
 			m_active_scene->set_paused(!is_paused);
 
 		if (is_paused)
 		{
 			ImGui::SameLine();
-			if (draw_icon_button("##ViewportToolbarStepForward", icon::step_forward, tint_color) && toolbar_enabled)
+			if (draw_icon_button("##ViewportToolbarStepForward", icon::step_forward, color_u32(0.86f, 0.64f, 0.32f, tint_color.w), "Step"))
 				m_active_scene->step(m_UI_settings.get_step_frame());
 		}
 	}
-	ImGui::PopStyleVar(2);
-	ImGui::PopStyleColor(3);
+	ImGui::PopStyleVar();
 }
 
 _WHIP_END

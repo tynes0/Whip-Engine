@@ -13,6 +13,8 @@
 #include "panels/animation_editor_panel.h"
 #include "panels/console_panel.h"
 
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 // TODOLIST
@@ -47,6 +49,8 @@ public:
 	virtual void on_imgui_render() override;
 	virtual void on_event(event& evnt) override;
 private:
+	struct scene_history_entry;
+
 	bool on_key_pressed(key_pressed_event& evnt);
 	bool on_mouse_button_pressed(mouse_button_pressed_event& evnt);
 	bool on_window_drop(window_drop_event& evnt);
@@ -66,6 +70,10 @@ private:
 	void add_recent_project(const std::filesystem::path& path);
 	bool should_include_recent_project(const std::filesystem::path& path) const;
 	std::filesystem::path get_recent_projects_path() const;
+	std::filesystem::path get_preferences_path() const;
+	void load_editor_preferences();
+	void save_editor_preferences() const;
+	void apply_preferences_to_content_browser();
 
 	void new_scene();
 	void open_scene(asset_handle handle);
@@ -84,6 +92,22 @@ private:
 
 	void on_duplicated_entity();
 	void on_deleted_entity();
+	void on_select_all_entities();
+	void on_copy_entities();
+	void on_paste_entities();
+	void on_cut_entities();
+	void undo_scene();
+	void redo_scene();
+	void capture_scene_history(bool include_project_snapshot = false);
+	void restore_scene_history(const scene_history_entry& entry);
+	void clear_scene_history();
+	struct project_history_entry;
+	project_history_entry capture_project_history() const;
+	void restore_project_history(const project_history_entry& entry);
+	bool execute_editor_action(UI::editor_shortcut_action action);
+	bool is_editor_action_available(UI::editor_shortcut_action action) const;
+	void open_command_palette();
+	void draw_command_palette();
 
 	void UI_toolbar();
 private:
@@ -116,17 +140,48 @@ private:
 	UI::UI_statistics m_UI_statistics;
 	UI::popup_handler m_popup_handler;
 	std::vector<std::filesystem::path> m_recent_projects;
+	std::filesystem::path m_last_project_path;
+	content_browser_panel::preferences m_content_browser_preferences;
+	bool m_has_content_browser_preferences = false;
+	bool m_command_palette_open = false;
+	bool m_command_palette_focus_search = false;
+	char m_command_palette_filter[128]{ 0 };
+
+	struct project_history_entry
+	{
+		bool valid = false;
+		project_config config;
+		std::filesystem::path project_path;
+		std::filesystem::path asset_registry_path;
+		std::string project_file_contents;
+		std::string asset_registry_contents;
+		std::unordered_map<std::string, std::string> scene_file_contents;
+	};
+
+	struct scene_history_entry
+	{
+		ref<scene> scene_snapshot;
+		std::filesystem::path editor_scene_path;
+		std::vector<UUID> selected_entities;
+		project_history_entry project_snapshot;
+	};
 
 	// scene
 	ref<scene> m_active_scene;
 	ref<scene> m_editor_scene;
 	std::filesystem::path m_editor_scene_path;
+	std::vector<scene_history_entry> m_undo_stack;
+	std::vector<scene_history_entry> m_redo_stack;
+	std::vector<UUID> m_entity_clipboard;
+	bool m_gizmo_history_active = false;
 
 	// framebuffer
 	ref<framebuffer> m_framebuffer;
 
 	// gizmo
-	int m_gizmo_type = 0;
+	int m_gizmo_type = -1;
+	bool m_gizmo_hovered = false;
+	bool m_gizmo_using = false;
 
 	// states
 	scene_state m_scene_state = scene_state::edit;

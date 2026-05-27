@@ -18,12 +18,28 @@ class content_browser_panel
 public:
 	content_browser_panel();
 	content_browser_panel(ref<project> proj);
+
+	struct preferences
+	{
+		float thumbnail_size = 64.0f;
+		float padding = 16.0f;
+		bool show_unsupported = false;
+		bool open = true;
+		int mode = 0;
+		int type_filter = 0;
+		std::filesystem::path current_directory;
+	};
 	
 	void init(ref<project> proj);
 
 	void on_imgui_render();
 	void on_settings_popup();
 	void refresh_asset_tree();
+	preferences get_preferences() const;
+	void apply_preferences(const preferences& prefs);
+	bool consume_preferences_dirty();
+	void set_open(bool open);
+	bool is_open() const { return m_open; }
 private:
 	enum class mode
 	{
@@ -91,6 +107,8 @@ private:
 	mode m_mode = mode::asset;
 	bool m_show_unsupported = false;
 	bool m_initialized = false;
+	bool m_preferences_dirty = false;
+	bool m_open = true;
 };
 
 _WHIP_END

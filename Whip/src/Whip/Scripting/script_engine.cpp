@@ -816,6 +816,9 @@ void script_engine::set_filewatcher_state(bool run)
 	if (!s_script_engine_data || s_script_engine_data->is_shutting_down)
 		return;
 
+	if (s_script_engine_data->app_assembly_filepath.empty() || !std::filesystem::exists(s_script_engine_data->app_assembly_filepath))
+		return;
+
 	if (run)
 	{
 		s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(s_script_engine_data->app_assembly_filepath.string(), utils::on_app_assembly_file_system_event_1);

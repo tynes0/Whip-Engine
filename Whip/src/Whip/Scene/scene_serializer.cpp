@@ -213,6 +213,12 @@ namespace utils
 			return;
 		}
 
+		if (!data_node || !data_node.IsSequence())
+		{
+			WHP_CORE_WARN("[SceneSerializer] Script field array '{0}' has invalid serialized data. Ignoring override.", field_instance.field.name);
+			return;
+		}
+
 		const size_t size = data_node ? data_node.size() : 0;
 		auto values = std::make_unique<T[]>(size);
 		for (size_t i = 0; i < size; ++i)
@@ -642,10 +648,7 @@ bool scene_serializer::deserialize(const std::filesystem::path& filepath)
 						{
 							std::string name = sc_field["name"].as<std::string>();
 							std::string type_string = sc_field["type"].as<std::string>();
-							script_field_type type = frenum::cast<script_field_type>(type_string).value();
-
-							script_field_instance& field_instance = entity_fields[name];
-
+							auto type = frenum::cast<script_field_type>(type_string);
 
 							if (fields.find(name) == fields.end())
 							{
@@ -653,9 +656,24 @@ bool scene_serializer::deserialize(const std::filesystem::path& filepath)
 								continue;
 							}
 
-							field_instance.field = fields.at(name);
+							if (!type.has_value())
+							{
+								WHP_CORE_WARN("Entity {0} script field {1} has invalid type {2}", uuid, name, type_string);
+								continue;
+							}
 
-							switch (type)
+							const script_field& field = fields.at(name);
+							const YAML::Node data_node = sc_field["data"];
+							if (field.is_array && (!data_node || !data_node.IsSequence()))
+							{
+								WHP_CORE_WARN("Entity {0} script field array {1} has invalid data. Using script default.", uuid, name);
+								continue;
+							}
+
+							script_field_instance& field_instance = entity_fields[name];
+							field_instance.field = field;
+
+							switch (*type)
 							{
 								READ_SCRIPT_FIELD(Float, float);
 								READ_SCRIPT_FIELD(String, std::string);

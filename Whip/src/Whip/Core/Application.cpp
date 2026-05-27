@@ -93,7 +93,8 @@ void application::close()
 
 void application::restart()
 {
-	utils::restart_program();
+	if (utils::restart_program())
+		close();
 }
 
 void application::on_event(event& e)

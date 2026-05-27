@@ -24,7 +24,7 @@ public:
 
 namespace utils
 {
-	void restart_program();
+	bool restart_program();
 	std::string wstring_to_utf8(const std::wstring& wstr);
 }
 

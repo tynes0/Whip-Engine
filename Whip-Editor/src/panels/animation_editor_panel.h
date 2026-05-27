@@ -19,8 +19,11 @@ public:
 	animation_editor_panel();
 	~animation_editor_panel();
 
-	void open() { m_open = true; }
-	void close() { m_open = false; }
+	void open() { set_open(true); }
+	void close() { set_open(false); }
+	void set_open(bool open);
+	bool is_open() const { return m_open; }
+	bool consume_open_dirty();
 
 	void on_imgui_render();
 
@@ -43,6 +46,7 @@ private:
 	ref<animation2D> m_current_animation = nullptr;
 	int m_selected_frame_index = -1;
 	bool m_open = true;
+	bool m_open_dirty = false;
 
 	std::function<void()> m_refresh_asset_tree_callback;
 };

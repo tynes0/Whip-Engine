@@ -20,22 +20,26 @@ animation_editor_panel::animation_editor_panel()
 
 animation_editor_panel::~animation_editor_panel() {}
 
-// maybe improve
 void animation_editor_panel::on_imgui_render()
 {
 	if (!m_open)
 		return;
-	ImGui::Begin("Animation Editor", &m_open);
+	bool open = m_open;
+	ImGui::Begin("Animation Editor", &open);
+	if (open != m_open)
+		set_open(open);
 
-	ImVec2 avail = ImGui::GetContentRegionAvail();
-	draw_animation_drag_drop_area(avail.x, avail.y);
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 7.0f));
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_ChildBg));
 
-	ImGui::BeginChild("##AnimationEditorToolbar", ImVec2(0.0f, 54.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	ImGui::BeginChild("##AnimationEditorToolbar", ImVec2(0.0f, 58.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 	ImGui::AlignTextToFramePadding();
-	draw_playback_controls(30.0f, 30.0f);
-	ImGui::SameLine(0.0f, 14.0f);
+	draw_playback_controls(32.0f, 32.0f);
+	ImGui::SameLine(0.0f, 16.0f);
 
-	if (ImGui::Button("New", ImVec2(92.0f, 30.0f)))
+	if (ImGui::Button("New", ImVec2(82.0f, 32.0f)))
 	{
 		m_current_animation.reset();
 		ref<animation2D> new_anim = make_ref<animation2D>();
@@ -58,13 +62,13 @@ void animation_editor_panel::on_imgui_render()
 
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!m_current_animation);
-	if (ImGui::Button("Close", ImVec2(92.0f, 30.0f)))
+	if (ImGui::Button("Close", ImVec2(82.0f, 32.0f)))
 	{
 		m_current_animation = nullptr;
 		m_selected_frame_index = -1;
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Save", ImVec2(92.0f, 30.0f)))
+	if (ImGui::Button("Save", ImVec2(82.0f, 32.0f)))
 	{
 		const auto& metadata = asset_manager::get_asset_metadata(m_current_animation->handle);
 		if (metadata)
@@ -77,14 +81,14 @@ void animation_editor_panel::on_imgui_render()
 		char buffer[256];
 		memset(buffer, 0, sizeof(buffer));
 		strncpy_s(buffer, sizeof(buffer), m_current_animation->get_name().c_str(), sizeof(buffer));
-		ImGui::SetNextItemWidth(170.0f);
+		ImGui::SetNextItemWidth(190.0f);
 		if (ImGui::InputText("##AnimationName", buffer, sizeof(buffer)))
 			m_current_animation->set_name(buffer);
 		ImGui::SameLine();
 	}
 	ImGui::EndDisabled();
 
-	ImGui::SetNextItemWidth(220.0f);
+	ImGui::SetNextItemWidth(std::min(260.0f, ImGui::GetContentRegionAvail().x));
 	if (ImGui::BeginCombo("##AnimationSelector", m_current_animation ? m_current_animation->get_name().data() : "Select Animation"))
 	{
 		const auto& reg = project::get_active()->get_editor_asset_manager()->get_asset_registry();
@@ -105,25 +109,53 @@ void animation_editor_panel::on_imgui_render()
 	if (!m_current_animation)
 	{
 		ImGui::BeginChild("##AnimationEditorEmpty", ImVec2(0.0f, 0.0f), true);
-		ImGui::TextDisabled("Drop an animation here or create a new one.");
+		ImVec2 available = ImGui::GetContentRegionAvail();
+		ImGui::SetCursorPos(ImVec2(16.0f, 16.0f));
+		ImGui::TextDisabled("No animation selected");
+		ImGui::SetCursorPos(ImVec2(16.0f, 48.0f));
+		draw_animation_drag_drop_area(std::max(120.0f, available.x - 32.0f), std::max(80.0f, available.y - 64.0f));
 		ImGui::EndChild();
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar(3);
 		ImGui::End();
 		return;
 	}
 
-	draw_timeline(ImGui::GetContentRegionAvail().x, 112.0f, 150.0f);
-
-	ImGui::BeginChild("##AnimationEditorFrameTools", ImVec2(0.0f, 46.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-	draw_frame_list(220.0f);
-	ImGui::SameLine();
-	draw_add_frame_button(120.0f);
-	ImGui::SameLine();
-	draw_remove_frame_button(140.0f);
+	ImGui::BeginChild("##AnimationEditorTimelineShell", ImVec2(0.0f, 168.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	ImGui::TextDisabled("%zu frame(s)", m_current_animation->get_frames().size());
+	draw_timeline(ImGui::GetContentRegionAvail().x, 104.0f, 132.0f);
 	ImGui::EndChild();
 
-	draw_frame_editor(ImGui::GetContentRegionAvail().x);
+	ImGui::BeginChild("##AnimationEditorFrameTools", ImVec2(0.0f, 50.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	draw_frame_list(220.0f);
+	ImGui::SameLine();
+	draw_add_frame_button(112.0f);
+	ImGui::SameLine();
+	draw_remove_frame_button(128.0f);
+	ImGui::EndChild();
 
+	ImGui::BeginChild("##AnimationEditorFrameInspector", ImVec2(0.0f, 112.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	draw_frame_editor(ImGui::GetContentRegionAvail().x);
+	ImGui::EndChild();
+
+	ImGui::PopStyleColor();
+	ImGui::PopStyleVar(3);
 	ImGui::End();
+}
+
+void animation_editor_panel::set_open(bool open)
+{
+	if (m_open == open)
+		return;
+	m_open = open;
+	m_open_dirty = true;
+}
+
+bool animation_editor_panel::consume_open_dirty()
+{
+	const bool dirty = m_open_dirty;
+	m_open_dirty = false;
+	return dirty;
 }
 
 void animation_editor_panel::draw_animation_drag_drop_area(float width, float height)
@@ -133,50 +165,70 @@ void animation_editor_panel::draw_animation_drag_drop_area(float width, float he
 			m_current_animation = asset_manager::get_asset<animation2D>(handle);
 		};
 
-	UI::drag_drop_target(asset_type::animation, drag_drop_callback, "Select Animation", true, width, height, false);
+	UI::drag_drop_target(asset_type::animation, drag_drop_callback, "Select Animation", true, width, height, true);
 }
 
 void animation_editor_panel::draw_playback_controls(float width, float height)
 {
 	ImVec2 size(width, height);
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0, 0));
+	ImDrawList* draw_list = ImGui::GetWindowDrawList();
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 0.0f));
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.10f, 0.12f, 0.13f, 0.92f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.15f, 0.22f, 0.22f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.10f, 0.34f, 0.32f, 1.0f));
 
-	auto draw_button = [=](icon icon_type) -> bool
+	auto draw_button = [&](icon icon_type, const char* tooltip) -> bool
 		{
+			const std::string button_id = "##AnimationControl" + std::to_string(static_cast<int>(icon_type));
+			ImGui::InvisibleButton(button_id.c_str(), size);
+			bool clicked = ImGui::IsItemClicked();
+			bool hovered = ImGui::IsItemHovered();
+			bool active = ImGui::IsItemActive();
+			ImVec2 min = ImGui::GetItemRectMin();
+			ImVec2 max = ImGui::GetItemRectMax();
+			ImU32 bg = active ? IM_COL32(94, 62, 34, 255) : hovered ? IM_COL32(48, 42, 34, 255) : IM_COL32(30, 28, 24, 255);
+			draw_list->AddRectFilled(min, max, bg, 5.0f);
+			draw_list->AddRect(min, max, hovered ? IM_COL32(118, 92, 58, 255) : IM_COL32(64, 56, 44, 255), 5.0f);
+
 			if (frenum::contains(icon_type))
 			{
-				const std::string button_id = "##AnimationControl" + std::to_string(static_cast<int>(icon_type));
-				return UI::image_button(button_id.c_str(), UI::to_imgui_texture_id(icon_manager::get().get_icon(icon_type)->get_renderer_id()), size, ImVec2(0, 0), ImVec2(1, 1), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), ImVec4(1, 1, 1, 1));
+				ref<texture2D> texture = icon_manager::get().get_icon(icon_type);
+				const float icon_size = 17.0f;
+				ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+				draw_list->AddImage(
+					UI::to_imgui_texture_id(texture->get_renderer_id()),
+					ImVec2(center.x - icon_size * 0.5f, center.y - icon_size * 0.5f),
+					ImVec2(center.x + icon_size * 0.5f, center.y + icon_size * 0.5f),
+					ImVec2(0, 1),
+					ImVec2(1, 0),
+					IM_COL32(240, 232, 216, 255));
 			}
-			return ImGui::Button(frenum::to_string<icon>(icon_type).c_str());
+			else
+				draw_list->AddText(ImVec2(min.x + 8.0f, min.y + 6.0f), IM_COL32(240, 232, 216, 255), frenum::to_string<icon>(icon_type).c_str());
+
+			if (hovered)
+				ImGui::SetTooltip("%s", tooltip);
+			return clicked;
 		};
 
-	if (draw_button(icon::step_back))
+	if (draw_button(icon::step_back, "Previous frame"))
 	{
 	}
 	ImGui::SameLine();
-	if (draw_button(icon::play))
+	if (draw_button(icon::play, "Play preview"))
 	{
 	}
 	ImGui::SameLine();
-	if (draw_button(icon::pause))
+	if (draw_button(icon::pause, "Pause preview"))
 	{
 	}
 	ImGui::SameLine();
-	if (draw_button(icon::stop))
+	if (draw_button(icon::stop, "Stop preview"))
 	{
 	}
 	ImGui::SameLine();
-	if (draw_button(icon::step_forward))
+	if (draw_button(icon::step_forward, "Next frame"))
 	{
 	}
 
-	ImGui::PopStyleVar(2);
-	ImGui::PopStyleColor(3);
+	ImGui::PopStyleVar();
 }
 
 void animation_editor_panel::draw_new_button(float width, float left_padding)
@@ -313,23 +365,43 @@ void animation_editor_panel::draw_remove_frame_button(float width)
 
 void animation_editor_panel::draw_frame_editor(float width)
 {
-	if (!m_current_animation || m_selected_frame_index < 0 || m_selected_frame_index >= (int)m_current_animation->get_frames().size())
+	if (!m_current_animation)
 		return;
+
+	if (m_selected_frame_index < 0 || m_selected_frame_index >= (int)m_current_animation->get_frames().size())
+	{
+		ImGui::TextDisabled("Select a frame to edit texture and duration.");
+		return;
+	}
 
 	auto& frame = m_current_animation->get_frames()[m_selected_frame_index];
 	static const auto drag_drop_callback = [&frame](asset_handle handle)
 		{
 			frame.texture = handle;
 		};
-	ImGuiStyle style = ImGui::GetStyle();
 
-	float item_width = width == 0.0f ? width : (width - (style.WindowPadding.x * 2.0f + style.ItemSpacing.x + style.ScrollbarSize)) * 0.5f;
+	if (ImGui::BeginTable("##AnimationFrameInspectorTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
+	{
+		ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
-	UI::drag_drop_target(asset_type::texture2D, drag_drop_callback, frame.texture ? asset_manager::get_asset_metadata(frame.texture).filepath.string().c_str() : "none", true, item_width, 0.0f);
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(item_width);
-	static constexpr float min_v = 0.0f;
-	ImGui::DragScalar("##Duration (s)", ImGuiDataType_Float, &frame.duration, 0.01f, &min_v);
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::TextUnformatted("Texture");
+		ImGui::TableNextColumn();
+		const std::string texture_label = frame.texture ? asset_manager::get_asset_metadata(frame.texture).filepath.generic_string() : "Drop texture";
+		UI::drag_drop_target(asset_type::texture2D, drag_drop_callback, texture_label.c_str(), true, std::max(160.0f, width - 140.0f), 0.0f);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::TextUnformatted("Duration");
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(-1.0f);
+		static constexpr float min_v = 0.0f;
+		ImGui::DragScalar("##DurationSeconds", ImGuiDataType_Float, &frame.duration, 0.01f, &min_v, nullptr, "%.3f s");
+
+		ImGui::EndTable();
+	}
 }
 
 _WHIP_END

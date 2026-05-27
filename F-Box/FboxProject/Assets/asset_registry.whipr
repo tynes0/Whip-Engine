@@ -1,7 +1,4 @@
 asset_registry:
-  - handle: 11381240283128345762
-    filepath: Scenes/physics.whip
-    type: scene
   - handle: 12408939897192404025
     filepath: Scenes/N.whip
     type: scene
@@ -104,6 +101,12 @@ asset_registry:
   - handle: 16310463001817711874
     filepath: Audios/guitar-em-28739.mp3
     type: audio
+  - handle: 4465709915506597934
+    filepath: Audios/blue-blood-ogg-67848.mp3
+    type: audio
+  - handle: 17111436680811942509
+    filepath: Audios/Þanýþer Live Sessions - Aþk Þarkýsý (wAyda).mp3
+    type: audio
   - handle: 443641890509175526
     filepath: fonts/opensans/OpenSans-Medium.ttf
     type: font
@@ -142,4 +145,10 @@ asset_registry:
     type: animation
   - handle: 4491070635154493601
     filepath: Animations/char.wanim
+    type: animation
+  - handle: 8956776636541529845
+    filepath: Animations/CharacterMove.wanim
+    type: animation
+  - handle: 10835287737085523260
+    filepath: Animations/New Animation.wanim
     type: animation

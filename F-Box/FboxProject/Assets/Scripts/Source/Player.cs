@@ -6,15 +6,16 @@ namespace Fbox
 {
 	public class Player : Entity
 	{
-		public float Speed = 3.0f; 
+		public float Speed = 3.0f;
 		public bool EnableInputs = false;
 		public float JumpPower = 1.0f;
 		public KeyCode jumpKey = KeyCode.W;
 		public KeyCode leftKey = KeyCode.A;
 		public KeyCode rightKey = KeyCode.D;
 		public KeyCode interactionKey = KeyCode.E;
+		// public float[] Test = new float[10] { 1,2,3,4,5,6,7,8,9,0 };
 		public bool EnableAnimation = false;
-		
+
 		private Animation Anim;
 
 		bool canJump = false;

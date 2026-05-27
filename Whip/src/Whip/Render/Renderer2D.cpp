@@ -55,10 +55,10 @@ struct text_vertex
 
 struct renderer2D_data
 {
-	static const uint32_t max_quads = 20000;
-	static const uint32_t max_vertices = max_quads * 4;
-	static const uint32_t max_indices = max_quads * 6;
-	static const uint32_t max_texture_slots = 32; // TODO: render_caps
+	static constexpr uint32_t max_quads = 20000;
+	static constexpr uint32_t max_vertices = max_quads * 4;
+	static constexpr uint32_t max_indices = max_quads * 6;
+	static constexpr uint32_t max_texture_slots = 32; // TODO: render_caps
 
 	ref<vertex_array> quad_vertex_arr;
 	ref<vertex_buffer> quad_vertex_buffer;
@@ -95,7 +95,7 @@ struct renderer2D_data
 
 	std::array <ref<texture2D>, max_texture_slots> texture_slots;
 	uint32_t texture_slot_index = 1; // 0 = white texture
-	
+
 	ref<texture2D> font_atlas_texture;
 
 	glm::vec4 quad_vertex_positions[4] = {};
@@ -110,24 +110,28 @@ struct renderer2D_data
 	ref<uniform_buffer> camera_uniform_buffer;
 };
 
-static renderer2D_data s_data;
 
-template <typename T>
-static void release_vertex_buffer(T*& buffer)
+namespace
 {
-	delete[] buffer;
-	buffer = nullptr;
-}
+	renderer2D_data s_data;
 
-static void set_and_increment_quad_vertex_buffer_ptr(const glm::vec3& position, const glm::vec4& color, glm::vec2 texture_coord, float texture_index, float tiling_factor, int entityID)
-{
-	s_data.quad_vertex_buffer_ptr->position = position;
-	s_data.quad_vertex_buffer_ptr->color = color;
-	s_data.quad_vertex_buffer_ptr->texture_coord = texture_coord;
-	s_data.quad_vertex_buffer_ptr->texture_index = texture_index;
-	s_data.quad_vertex_buffer_ptr->tiling_factor = tiling_factor;
-	s_data.quad_vertex_buffer_ptr->entityID = entityID;
-	s_data.quad_vertex_buffer_ptr++;
+	template <typename T>
+	void release_vertex_buffer(T*& buffer)
+	{
+		delete[] buffer;
+		buffer = nullptr;
+	}
+
+	void set_and_increment_quad_vertex_buffer_ptr(const glm::vec3& position, const glm::vec4& color, glm::vec2 texture_coord, float texture_index, float tiling_factor, int entityID)
+	{
+		s_data.quad_vertex_buffer_ptr->position = position;
+		s_data.quad_vertex_buffer_ptr->color = color;
+		s_data.quad_vertex_buffer_ptr->texture_coord = texture_coord;
+		s_data.quad_vertex_buffer_ptr->texture_index = texture_index;
+		s_data.quad_vertex_buffer_ptr->tiling_factor = tiling_factor;
+		s_data.quad_vertex_buffer_ptr->entityID = entityID;
+		s_data.quad_vertex_buffer_ptr++;
+	}
 }
 
 void renderer2D::init()
@@ -135,7 +139,6 @@ void renderer2D::init()
 	WHP_PROFILE_FUNCTION();
 
 	s_data.quad_vertex_arr = vertex_array::create();
-	s_data.quad_vertex_buffer;
 	s_data.quad_vertex_buffer = vertex_buffer::create(s_data.max_vertices * sizeof(quad_vertex));
 	s_data.quad_vertex_buffer->set_layout({
 			{whip::shader_data_type::Float3, "a_position"},
@@ -170,14 +173,13 @@ void renderer2D::init()
 
 	_WHP_PRAGMA_WARNING(pop)
 
-	ref<index_buffer> quad_index_buffer;
-	quad_index_buffer = index_buffer::create(quad_indices, s_data.max_indices);
+	ref<index_buffer> quad_index_buffer = index_buffer::create(quad_indices, s_data.max_indices);
 	s_data.quad_vertex_arr->set_index_buffer(quad_index_buffer);
 	delete[] quad_indices;
 
 	// Circles
 	s_data.circle_vertex_arr = vertex_array::create();
-	
+
 	s_data.circle_vertex_buffer = vertex_buffer::create(s_data.max_vertices * sizeof(circle_vertex));
 	s_data.circle_vertex_buffer->set_layout({
 		{ shader_data_type::Float3, "a_world_position" },
@@ -322,12 +324,12 @@ void renderer2D::flush()
 {
 	if (s_data.quad_index_count)
 	{
-		uint32_t data_size = (uint32_t)((uint8_t*)s_data.quad_vertex_buffer_ptr - (uint8_t*)s_data.quad_vertex_buffer_base);
+		uint32_t data_size = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_data.quad_vertex_buffer_ptr) - reinterpret_cast<uint8_t*>(s_data.quad_vertex_buffer_base));
 		s_data.quad_vertex_buffer->set_data(s_data.quad_vertex_buffer_base, data_size);
 		// Bind textures
 		for (uint32_t i = 0; i < s_data.texture_slot_index; i++)
 			s_data.texture_slots[i]->bind(i);
-	
+
 		s_data.quad_shader->bind();
 		render_command::draw_indexed(s_data.quad_vertex_arr, s_data.quad_index_count);
 		s_data.stats.draw_calls++;
@@ -335,7 +337,7 @@ void renderer2D::flush()
 
 	if (s_data.circle_index_count)
 	{
-		uint32_t data_size = (uint32_t)((uint8_t*)s_data.circle_vertex_buffer_ptr - (uint8_t*)s_data.circle_vertex_buffer_base);
+		uint32_t data_size = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_data.circle_vertex_buffer_ptr) - reinterpret_cast<uint8_t*>(s_data.circle_vertex_buffer_base));
 		s_data.circle_vertex_buffer->set_data(s_data.circle_vertex_buffer_base, data_size);
 
 		s_data.circle_shader->bind();
@@ -345,7 +347,7 @@ void renderer2D::flush()
 
 	if (s_data.line_vertex_count)
 	{
-		uint32_t data_size = (uint32_t)((uint8_t*)s_data.line_vertex_buffer_ptr - (uint8_t*)s_data.line_vertex_buffer_base);
+		uint32_t data_size = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_data.line_vertex_buffer_ptr) - reinterpret_cast<uint8_t*>(s_data.line_vertex_buffer_base));
 		s_data.line_vertex_buffer->set_data(s_data.line_vertex_buffer_base, data_size);
 
 		s_data.line_shader->bind();
@@ -355,10 +357,9 @@ void renderer2D::flush()
 
 	if (s_data.text_index_count)
 	{
-		uint32_t data_size = (uint32_t)((uint8_t*)s_data.text_vertex_buffer_ptr - (uint8_t*)s_data.text_vertex_buffer_base);
+		uint32_t data_size = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_data.text_vertex_buffer_ptr) - reinterpret_cast<uint8_t*>(s_data.text_vertex_buffer_base));
 		s_data.text_vertex_buffer->set_data(s_data.text_vertex_buffer_base, data_size);
 
-		auto buf = s_data.text_vertex_buffer_base;
 		s_data.font_atlas_texture->bind(0);
 
 		s_data.text_shader->bind();
@@ -389,7 +390,7 @@ void renderer2D::draw_quad(const glm::mat4& transform, const glm::vec4& color, i
 void renderer2D::draw_quad(const glm::mat4& transform, const ref<texture2D>& tex, float tiling_factor, const glm::vec4& tint_color, int entityID)
 {
 	WHP_PROFILE_FUNCTION();
-	WHP_CORE_VERIFY(tex);
+	WHP_CORE_VERIFY(tex)
 
 	if (s_data.quad_index_count >= renderer2D_data::max_indices)
 		next_batch();
@@ -402,7 +403,7 @@ void renderer2D::draw_quad(const glm::mat4& transform, const ref<texture2D>& tex
 	for (uint32_t i = 1; i < s_data.texture_slot_index; ++i)
 		if (DREF(s_data.texture_slots[i]) == DREF(tex))
 		{
-			texture_index = (float)i;
+			texture_index = static_cast<float>(i);
 			break;
 		}
 
@@ -412,7 +413,7 @@ _WHP_PRAGMA_WARNING_DISABLE(28020)
 	{
 		if (s_data.texture_slot_index >= renderer2D_data::max_texture_slots)
 			next_batch();
-		texture_index = (float)s_data.texture_slot_index;
+		texture_index = static_cast<float>(s_data.texture_slot_index);
 		s_data.texture_slots[s_data.texture_slot_index] = tex;
 		s_data.texture_slot_index++;
 	}
@@ -440,13 +441,13 @@ void renderer2D::draw_quad(const glm::mat4& transform, const ref<sub_texture2D>&
 
 	for (uint32_t i = 1; i < s_data.texture_slot_index; ++i)
 		if (DREF(s_data.texture_slots[i].get()) == DREF(tex.get()))
-			texture_index = (float)i;
+			texture_index = static_cast<float>(i);
 
 	if (texture_index == 0.0f)
 	{
 		if (s_data.texture_slot_index >= renderer2D_data::max_texture_slots)
 			next_batch();
-		texture_index = (float)s_data.texture_slot_index;
+		texture_index = static_cast<float>(s_data.texture_slot_index);
 		s_data.texture_slots[s_data.texture_slot_index++] = tex;
 	}
 
@@ -457,7 +458,7 @@ void renderer2D::draw_quad(const glm::mat4& transform, const ref<sub_texture2D>&
 	s_data.stats.quad_counts++;
 }
 
-	
+
 void renderer2D::draw_quad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color)
 {
 	draw_quad({ position.x, position.y, 0.0f }, size, color);
@@ -536,20 +537,20 @@ void renderer2D::draw_rotated_quad(const glm::vec3& position, const glm::vec2& s
 void renderer2D::draw_circle(const glm::mat4& transform, const glm::vec4& color, float thickness, float fade, int entityID)
 {
 	WHP_PROFILE_FUNCTION();
-	
-	for (size_t i = 0; i < 4; i++)
+
+	for (auto quad_vertex_position : s_data.quad_vertex_positions)
 	{
-		s_data.circle_vertex_buffer_ptr->world_position = transform * s_data.quad_vertex_positions[i];
-		s_data.circle_vertex_buffer_ptr->local_position = s_data.quad_vertex_positions[i] * 2.0f;
+		s_data.circle_vertex_buffer_ptr->world_position = transform * quad_vertex_position;
+		s_data.circle_vertex_buffer_ptr->local_position = quad_vertex_position * 2.0f;
 		s_data.circle_vertex_buffer_ptr->color = color;
 		s_data.circle_vertex_buffer_ptr->thickness = thickness;
 		s_data.circle_vertex_buffer_ptr->fade = fade;
 		s_data.circle_vertex_buffer_ptr->entityID = entityID;
 		s_data.circle_vertex_buffer_ptr++;
 	}
-	
+
 	s_data.circle_index_count += 6;
-	
+
 	s_data.stats.quad_counts++;
 }
 
@@ -559,12 +560,12 @@ void renderer2D::draw_line(const glm::vec3& p0, const glm::vec3& p1, const glm::
 	s_data.line_vertex_buffer_ptr->color = color;
 	s_data.line_vertex_buffer_ptr->entityID = entityID;
 	s_data.line_vertex_buffer_ptr++;
-	
+
 	s_data.line_vertex_buffer_ptr->position = p1;
 	s_data.line_vertex_buffer_ptr->color = color;
 	s_data.line_vertex_buffer_ptr->entityID = entityID;
 	s_data.line_vertex_buffer_ptr++;
-	
+
 	s_data.line_vertex_count += 2;
 }
 
@@ -655,7 +656,7 @@ void renderer2D::draw_string(const std::string& string, ref<font> fnt, const glm
 				char next_character = string[i + 1];
 				double d_advance;
 				font_geometry.getAdvance(d_advance, character, next_character);
-				advance = (float)d_advance;
+				advance = static_cast<float>(d_advance);
 			}
 
 			x += fs_scale * advance + params.kerning;
@@ -679,20 +680,21 @@ void renderer2D::draw_string(const std::string& string, ref<font> fnt, const glm
 
 		double al, ab, ar, at;
 		glyph->getQuadAtlasBounds(al, ab, ar, at);
-		glm::vec2 texture_coord_min((float)al, (float)ab);
-		glm::vec2 texture_coord_max((float)ar, (float)at);
+		glm::vec2 texture_coord_min(static_cast<float>(al), static_cast<float>(ab));
+		glm::vec2 texture_coord_max(static_cast<float>(ar), static_cast<float>(at));
 
 		double pl, pb, pr, pt;
 		glyph->getQuadPlaneBounds(pl, pb, pr, pt);
-		glm::vec2 quad_min((float)pl, (float)pb);
-		glm::vec2 quad_max((float)pr, (float)pt);
+		glm::vec2 quad_min(static_cast<float>(pl), static_cast<float>(pb));
+		glm::vec2 quad_max(static_cast<float>(pr), static_cast<float>(pt));
 
-		quad_min *= fs_scale, quad_max *= fs_scale;
+		quad_min *= fs_scale;
+		quad_max *= fs_scale;
 		quad_min += glm::vec2(x, y);
 		quad_max += glm::vec2(x, y);
 
-		float texel_width = 1.0f / font_atlas->get_width();
-		float texel_height = 1.0f / font_atlas->get_height();
+		float texel_width = 1.0f / static_cast<float>(font_atlas->get_width());
+		float texel_height = 1.0f / static_cast<float>(font_atlas->get_height());
 		texture_coord_min *= glm::vec2(texel_width, texel_height);
 		texture_coord_max *= glm::vec2(texel_width, texel_height);
 
@@ -736,10 +738,14 @@ void renderer2D::draw_string(const std::string& string, ref<font> fnt, const glm
 
 void renderer2D::draw_string(const std::string& string, const glm::mat4& transform, const text_component& component, int entityID)
 {
-	draw_string(string, 
-		component.font ? std::static_pointer_cast<font>(project::get_active()->get_asset_manager()->get_asset(component.font)) : font::get_default(), 
-		transform, 
-		{ component.color, component.kerning, component.line_spacing }, 
+	draw_string(string,
+		component.font ? std::static_pointer_cast<font>(project::get_active()->get_asset_manager()->get_asset(component.font)) : font::get_default(),
+		transform,
+		{
+			.color = component.color,
+			.kerning = component.kerning,
+			.line_spacing = component.line_spacing
+		},
 		entityID);
 }
 

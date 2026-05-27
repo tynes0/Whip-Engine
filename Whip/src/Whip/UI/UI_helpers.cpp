@@ -28,6 +28,19 @@ namespace utils
 
 namespace UI
 {
+	namespace
+	{
+		const ImVec4 axis_x = ImVec4{ 0.58f, 0.22f, 0.20f, 1.0f };
+		const ImVec4 axis_x_hover = ImVec4{ 0.70f, 0.30f, 0.26f, 1.0f };
+		const ImVec4 axis_x_active = ImVec4{ 0.84f, 0.40f, 0.32f, 1.0f };
+		const ImVec4 axis_y = ImVec4{ 0.32f, 0.50f, 0.27f, 1.0f };
+		const ImVec4 axis_y_hover = ImVec4{ 0.40f, 0.61f, 0.34f, 1.0f };
+		const ImVec4 axis_y_active = ImVec4{ 0.50f, 0.70f, 0.42f, 1.0f };
+		const ImVec4 axis_z = ImVec4{ 0.34f, 0.36f, 0.50f, 1.0f };
+		const ImVec4 axis_z_hover = ImVec4{ 0.42f, 0.44f, 0.62f, 1.0f };
+		const ImVec4 axis_z_active = ImVec4{ 0.52f, 0.54f, 0.74f, 1.0f };
+	}
+
 	void drag_drop_target(asset_type type, const std::function<void(asset_handle)>& callback, const char* label, bool draw_button, float x_size, float y_size, bool visible, const std::function<void()>& error_callback)
 	{
 		if (type == asset_type::none)
@@ -92,9 +105,9 @@ namespace UI
 		ImVec2 buttonSize = { line_height + 3.0f, line_height };
 		ImGui::PushMultiItemsWidths(3, ImGui::GetWindowWidth() - column_width - buttonSize.x * 3 - spacing);
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 1.0f, 0.0f, 0.0f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.9f, 0.3f, 0.3f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.9f, 0.2f, 0.2f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_Button, axis_x);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, axis_x_hover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, axis_x_active);
 		{
 			scoped_style_color scope_color(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 			scoped_style_bold_font bold_font;
@@ -108,9 +121,9 @@ namespace UI
 		ImGui::PopItemWidth();
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.0f, 0.8f, 0.0f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.2f, 0.6f, 0.2f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.1f, 0.8f, 0.1f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_Button, axis_y);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, axis_y_hover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, axis_y_active);
 		{
 			scoped_style_color scope_color(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 			scoped_style_bold_font bold_font;
@@ -124,9 +137,9 @@ namespace UI
 		ImGui::PopItemWidth();
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.0f, 0.0f, 1.0f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.3f, 0.3f, 0.9f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.2f, 0.2f, 0.9f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_Button, axis_z);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, axis_z_hover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, axis_z_active);
 		{
 			scoped_style_color scope_color(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 			scoped_style_bold_font bold_font;
@@ -158,9 +171,9 @@ namespace UI
 
 		column_width -= buttonSize.x * 2;
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 1.0f, 0.0f, 0.0f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.9f, 0.3f, 0.3f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.9f, 0.2f, 0.2f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_Button, axis_x);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, axis_x_hover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, axis_x_active);
 		{
 			scoped_style_color scope_color(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 			scoped_style_bold_font bold_font;
@@ -179,9 +192,9 @@ namespace UI
 		ImGui::PopItemWidth();
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.0f, 0.8f, 0.0f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.2f, 0.6f, 0.2f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.1f, 0.8f, 0.1f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_Button, axis_y);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, axis_y_hover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, axis_y_active);
 		{
 			scoped_style_color scope_color(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 			scoped_style_bold_font bold_font;
@@ -218,9 +231,9 @@ namespace UI
 
 		column_width -= button_size.x * 3;
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 1.0f, 0.0f, 0.0f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.9f, 0.3f, 0.3f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.9f, 0.2f, 0.2f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_Button, axis_x);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, axis_x_hover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, axis_x_active);
 		{
 			scoped_style_color scope_color(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 			scoped_style_bold_font bold_font;
@@ -239,9 +252,9 @@ namespace UI
 		ImGui::PopItemWidth();
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.0f, 0.8f, 0.0f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.2f, 0.6f, 0.2f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.1f, 0.8f, 0.1f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_Button, axis_y);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, axis_y_hover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, axis_y_active);
 		{
 			scoped_style_color scope_color(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 			scoped_style_bold_font bold_font;
@@ -260,9 +273,9 @@ namespace UI
 		ImGui::PopItemWidth();
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.0f, 0.0f, 1.0f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.3f, 0.3f, 0.9f, 1.0f });
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.2f, 0.2f, 0.9f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_Button, axis_z);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, axis_z_hover);
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, axis_z_active);
 		{
 			scoped_style_color scope_color(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 			scoped_style_bold_font bold_font;
@@ -298,9 +311,9 @@ namespace UI
 
 		ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-		ImU32 bg_color = IM_COL32(50, 50, 50, 255);
-		ImU32 fill_color = IM_COL32(102, 40, 40, 255);
-		ImU32 handle_color = IM_COL32(160, 160, 160, 196);
+		ImU32 bg_color = IM_COL32(30, 29, 26, 255);
+		ImU32 fill_color = IM_COL32(156, 104, 52, 255);
+		ImU32 handle_color = IM_COL32(222, 212, 194, 220);
 		float range_start_x = slider_pos.x + (*value1 - slider_min) / (slider_max - slider_min) * slider_width;
 		float range_end_x = slider_pos.x + (*value2 - slider_min) / (slider_max - slider_min) * slider_width;
 
@@ -339,13 +352,14 @@ namespace UI
 		static constexpr float minor_interval = 0.1f;
 		static constexpr float mini_interval = 0.01f;
 
-		static constexpr ImU32 major_line_color = IM_COL32(255, 255, 255, 255);
-		static constexpr ImU32 minor_line_color = IM_COL32(150, 150, 150, 255);
-		static constexpr ImU32 mini_line_color = IM_COL32(150, 150, 150, 255);
-		static constexpr ImU32 seconds_text_color = IM_COL32(255, 255, 255, 255);
-		static constexpr ImU32 window_bg_color = IM_COL32(50, 50, 50, 255);
-		static constexpr ImU32 timeline_bg_color = IM_COL32(100, 100, 100, 200);
-		static constexpr ImU32 node_color = IM_COL32(192, 40, 40, 255);
+		static constexpr ImU32 major_line_color = IM_COL32(192, 182, 160, 190);
+		static constexpr ImU32 minor_line_color = IM_COL32(112, 100, 82, 130);
+		static constexpr ImU32 mini_line_color = IM_COL32(82, 74, 62, 105);
+		static constexpr ImU32 seconds_text_color = IM_COL32(195, 186, 170, 220);
+		static constexpr ImU32 window_bg_color = IM_COL32(17, 16, 14, 255);
+		static constexpr ImU32 timeline_bg_color = IM_COL32(48, 43, 36, 255);
+		static constexpr ImU32 node_color = IM_COL32(216, 118, 82, 255);
+		static constexpr ImU32 selected_node_color = IM_COL32(224, 164, 84, 255);
 
 		static constexpr ImVec2 node_size(12, 12);
 		static constexpr float node_radius = node_size.x / 2.0f;
@@ -410,7 +424,8 @@ namespace UI
 		// background colors
 		ImVec2 child_min = ImGui::GetWindowPos();
 		draw_list->AddRectFilled(child_min, ImVec2(child_min.x + ImGui::GetWindowWidth(), child_min.y + ImGui::GetWindowHeight()), window_bg_color, ImGui::GetStyle().WindowRounding);
-		draw_list->AddRectFilled(cursor_start, ImVec2(cursor_start.x + timeline_width, cursor_start.y + timeline_height), timeline_bg_color);
+		draw_list->AddRectFilled(cursor_start, ImVec2(cursor_start.x + timeline_width, cursor_start.y + timeline_height), timeline_bg_color, 3.0f);
+		draw_list->AddRect(cursor_start, ImVec2(cursor_start.x + timeline_width, cursor_start.y + timeline_height), IM_COL32(92, 80, 62, 170), 3.0f);
 
 		// timeline moves
 		if (ImGui::IsWindowHovered() && input::is_key_down(key::left_control))
@@ -480,7 +495,9 @@ namespace UI
 				float x_pos = cursor_start.x + scaled_time * timeline_width;
 				ImVec2 node_pos = ImVec2(x_pos, cursor_start.y + timeline_height / 2);
 
-				draw_list->AddCircleFilled(node_pos, node_radius, node_color);
+				const bool selected = selected_index && *selected_index == static_cast<int>(i);
+				draw_list->AddCircleFilled(node_pos, node_radius, selected ? selected_node_color : node_color);
+				draw_list->AddCircle(node_pos, node_radius + 1.5f, selected ? IM_COL32(245, 216, 176, 210) : IM_COL32(38, 34, 28, 220), 16, 1.5f);
 				ImGui::SetCursorScreenPos(ImVec2(node_pos.x - node_radius, node_pos.y - node_radius));
 				ImGui::InvisibleButton(("node_drag" + std::to_string(i)).c_str(), node_size);
 

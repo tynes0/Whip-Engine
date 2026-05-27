@@ -87,7 +87,13 @@ void content_browser_panel::init(ref<project> proj)
 
 void content_browser_panel::on_imgui_render()
 {
-	ImGui::Begin("Content Browser");
+	if (!m_open)
+		return;
+
+	bool open = m_open;
+	ImGui::Begin("Content Browser", &open);
+	if (open != m_open)
+		set_open(open);
 
 	if (!m_initialized || !m_project)
 	{
@@ -135,11 +141,17 @@ void content_browser_panel::on_imgui_render()
 void content_browser_panel::draw_toolbar()
 {
 	if (ImGui::RadioButton("Files", m_mode == mode::filesystem))
+	{
 		m_mode = mode::filesystem;
+		m_preferences_dirty = true;
+	}
 
 	ImGui::SameLine();
 	if (ImGui::RadioButton("Imported", m_mode == mode::asset))
+	{
 		m_mode = mode::asset;
+		m_preferences_dirty = true;
+	}
 
 	ImGui::SameLine();
 	if (ImGui::Button("Refresh"))
@@ -191,7 +203,10 @@ void content_browser_panel::draw_type_filter()
 			const bool selected = m_type_filter == type;
 			std::string item_label = type == asset_type::none ? "All Types" : std::string(frenum::to_string(type));
 			if (ImGui::Selectable(item_label.c_str(), selected))
+			{
 				m_type_filter = type;
+				m_preferences_dirty = true;
+			}
 
 			if (selected)
 				ImGui::SetItemDefaultFocus();
@@ -295,19 +310,33 @@ void content_browser_panel::draw_content_grid(const std::vector<browser_item>& i
 	if (column_count < 1)
 		column_count = 1;
 
-	ImGui::Columns(column_count, nullptr, false);
-	for (const browser_item& item : items)
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0.0f, 8.0f));
+	if (ImGui::BeginTable("##ContentBrowserGrid", column_count, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoPadOuterX))
 	{
-		draw_item(item);
-		ImGui::NextColumn();
+		for (int column = 0; column < column_count; ++column)
+			ImGui::TableSetupColumn(nullptr, ImGuiTableColumnFlags_WidthFixed, cell_size);
+
+		int column_index = 0;
+		for (const browser_item& item : items)
+		{
+			if (column_index == 0)
+				ImGui::TableNextRow();
+
+			ImGui::TableSetColumnIndex(column_index);
+			draw_item(item);
+
+			column_index = (column_index + 1) % column_count;
+		}
+		ImGui::EndTable();
 	}
-	ImGui::Columns(1);
+	ImGui::PopStyleVar();
 }
 
 void content_browser_panel::draw_item(const browser_item& item)
 {
 	const std::string item_id = item.relative_path.generic_string();
 	ImGui::PushID(item_id.c_str());
+	ImGui::BeginGroup();
 
 	ref<texture2D> thumbnail = item.directory ? icon_manager::get().get_icon(icon::directory) : nullptr;
 	if (!thumbnail && item.type == asset_type::texture2D && std::filesystem::exists(item.absolute_path))
@@ -363,13 +392,16 @@ void content_browser_panel::draw_item(const browser_item& item)
 		ImGui::EndPopup();
 	}
 
+	ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + m_thumbnail_size);
 	ImGui::TextWrapped(item.relative_path.filename().string().c_str());
+	ImGui::PopTextWrapPos();
 	if (item.imported && !item.directory)
-		ImGui::TextColored(ImVec4(0.35f, 0.78f, 0.48f, 1.0f), "%s", item_type_label(item).c_str());
+		ImGui::TextColored(ImVec4(0.42f, 0.72f, 0.52f, 1.0f), "%s", item_type_label(item).c_str());
 	else if (item.supported || item.directory)
 		ImGui::TextDisabled("%s", item_type_label(item).c_str());
 	else
-		ImGui::TextColored(ImVec4(0.85f, 0.58f, 0.28f, 1.0f), "%s", item_type_label(item).c_str());
+		ImGui::TextColored(ImVec4(0.86f, 0.62f, 0.34f, 1.0f), "%s", item_type_label(item).c_str());
+	ImGui::EndGroup();
 	ImGui::PopID();
 }
 
@@ -520,6 +552,7 @@ void content_browser_panel::set_current_directory(const std::filesystem::path& d
 		return;
 
 	m_current_directory = directory.lexically_normal();
+	m_preferences_dirty = true;
 }
 
 void content_browser_panel::import_file(const std::filesystem::path& relative_path)
@@ -684,12 +717,17 @@ void content_browser_panel::on_settings_popup()
 		{
 			ImGui::Text("Thumbnail Size");
 			ImGui::SetNextItemWidth(-1.0f);
-			ImGui::DragFloat("##Thumbnail Size", &m_thumbnail_size, 0.5f, 16, 512);
+			if (ImGui::DragFloat("##Thumbnail Size", &m_thumbnail_size, 0.5f, 16, 512))
+				m_preferences_dirty = true;
 			ImGui::Text("Padding");
 			ImGui::SetNextItemWidth(-1.0f);
-			ImGui::DragFloat("##Padding", &m_padding, 0.05f, 0, 32);
-			ImGui::Checkbox("Show unsupported files", &m_show_unsupported);
-			ImGui::Dummy(ImVec2(0.0f, 24.0f));
+			if (ImGui::DragFloat("##Padding", &m_padding, 0.05f, 0, 32))
+				m_preferences_dirty = true;
+			if (ImGui::Checkbox("Show unsupported files", &m_show_unsupported))
+				m_preferences_dirty = true;
+			const float footer_y = ImGui::GetWindowHeight() - ImGui::GetFrameHeightWithSpacing() - ImGui::GetStyle().WindowPadding.y;
+			if (ImGui::GetCursorPosY() < footer_y)
+				ImGui::SetCursorPosY(footer_y);
 			ImGui::Separator();
 			ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 112.0f);
 			if (ImGui::Button("OK", ImVec2(96.0f, 0.0f)))
@@ -710,6 +748,47 @@ void content_browser_panel::refresh_asset_tree()
 
 	if (!std::filesystem::exists(m_current_directory, error) || !is_inside_base_directory(m_current_directory))
 		m_current_directory = m_base_directory;
+}
+
+content_browser_panel::preferences content_browser_panel::get_preferences() const
+{
+	preferences prefs;
+	prefs.thumbnail_size = m_thumbnail_size;
+	prefs.padding = m_padding;
+	prefs.show_unsupported = m_show_unsupported;
+	prefs.open = m_open;
+	prefs.mode = static_cast<int>(m_mode);
+	prefs.type_filter = static_cast<int>(m_type_filter);
+	prefs.current_directory = m_current_directory;
+	return prefs;
+}
+
+void content_browser_panel::apply_preferences(const preferences& prefs)
+{
+	m_thumbnail_size = std::clamp(prefs.thumbnail_size, 16.0f, 512.0f);
+	m_padding = std::clamp(prefs.padding, 0.0f, 32.0f);
+	m_show_unsupported = prefs.show_unsupported;
+	m_open = prefs.open;
+	m_mode = prefs.mode == static_cast<int>(mode::asset) ? mode::asset : mode::filesystem;
+	m_type_filter = static_cast<asset_type>(prefs.type_filter);
+	if (!prefs.current_directory.empty())
+		set_current_directory(prefs.current_directory);
+	m_preferences_dirty = false;
+}
+
+bool content_browser_panel::consume_preferences_dirty()
+{
+	bool dirty = m_preferences_dirty;
+	m_preferences_dirty = false;
+	return dirty;
+}
+
+void content_browser_panel::set_open(bool open)
+{
+	if (m_open == open)
+		return;
+	m_open = open;
+	m_preferences_dirty = true;
 }
 
 _WHIP_END

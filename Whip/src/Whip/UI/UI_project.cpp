@@ -90,6 +90,27 @@ namespace UI
 		{
 			return left.lexically_normal().generic_string() == right.lexically_normal().generic_string();
 		}
+
+		void draw_section_header(const char* title)
+		{
+			ImGui::Spacing();
+			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark), "%s", title);
+			ImGui::Separator();
+			ImGui::Spacing();
+		}
+
+		bool draw_settings_nav_item(const char* label, bool selected)
+		{
+			const ImGuiStyle& style = ImGui::GetStyle();
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 8.0f));
+			ImGui::PushStyleColor(ImGuiCol_Header, style.Colors[ImGuiCol_Header]);
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, style.Colors[ImGuiCol_HeaderHovered]);
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, style.Colors[ImGuiCol_HeaderActive]);
+			const bool clicked = ImGui::Selectable(label, selected, 0, ImVec2(0.0f, 34.0f));
+			ImGui::PopStyleColor(3);
+			ImGui::PopStyleVar();
+			return clicked;
+		}
 	}
 
 	UI_project::UI_project()
@@ -101,11 +122,21 @@ namespace UI
 		m_callback = callback;
 	}
 
+	void UI_project::set_before_change_callback(const callback_type& callback)
+	{
+		m_before_change_callback = callback;
+	}
+
 	void UI_project::set_scene_callbacks(const scene_callback_type& open_scene_callback, const callback_type& close_scene_callback, const scene_path_callback_type& active_scene_path_callback)
 	{
 		m_open_scene_callback = open_scene_callback;
 		m_close_scene_callback = close_scene_callback;
 		m_active_scene_path_callback = active_scene_path_callback;
+	}
+
+	void UI_project::set_editor_settings_drawer(const callback_type& drawer)
+	{
+		m_editor_settings_drawer = drawer;
 	}
 
 	void UI_project::show(UI_type type, const callback_type& callback)
@@ -142,34 +173,41 @@ namespace UI
 			sync_from_active_project();
 
 		bool open = true;
-		ImGui::SetNextWindowSize(ImVec2(820.0f, 560.0f), ImGuiCond_FirstUseEver);
-		if (ImGui::Begin("Project Settings", &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking))
+		ImGui::SetNextWindowSize(ImVec2(920.0f, 620.0f), ImGuiCond_FirstUseEver);
+		if (ImGui::Begin("Settings", &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking))
 		{
-			ImGui::TextUnformatted(m_name_buffer);
-			ImGui::TextDisabled("%s", project::get_active_project_path().string().c_str());
+			ImGui::BeginChild("##SettingsNavigation", ImVec2(180.0f, 0.0f), true);
+			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Text), "%s", m_name_buffer);
+			ImGui::TextDisabled("%s", "Whip Project");
 			ImGui::Separator();
+			if (draw_settings_nav_item("Project", m_active_settings_tab == settings_tab::project))
+				m_active_settings_tab = settings_tab::project;
+			if (draw_settings_nav_item("Scenes", m_active_settings_tab == settings_tab::scenes))
+				m_active_settings_tab = settings_tab::scenes;
+			if (draw_settings_nav_item("Editor", m_active_settings_tab == settings_tab::editor))
+				m_active_settings_tab = settings_tab::editor;
+			ImGui::EndChild();
 
-			if (ImGui::BeginTabBar("##ProjectSettingsTabs"))
+			ImGui::SameLine();
+			ImGui::BeginChild("##SettingsContent", ImVec2(0.0f, 0.0f), false);
+			ImGui::TextDisabled("%s", project::get_active_project_path().string().c_str());
+			ImGui::Spacing();
+
+			switch (m_active_settings_tab)
 			{
-				if (ImGui::BeginTabItem("Project"))
-				{
-					draw_project_settings();
-					ImGui::EndTabItem();
-				}
-
-				if (ImGui::BeginTabItem("Scenes"))
-				{
-					draw_scene_settings();
-					ImGui::EndTabItem();
-				}
-
-				ImGui::EndTabBar();
+			case settings_tab::project:
+				draw_project_settings();
+				break;
+			case settings_tab::scenes:
+				draw_scene_settings();
+				break;
+			case settings_tab::editor:
+				draw_editor_settings();
+				break;
 			}
+			ImGui::EndChild();
 		}
 		ImGui::End();
-
-		draw_create_scene_popup();
-		draw_delete_scene_popup();
 
 		if (!open)
 			m_type = UI_none;
@@ -192,7 +230,7 @@ namespace UI
 
 	void UI_project::draw_project_settings()
 	{
-		ImGui::Spacing();
+		draw_section_header("Project Identity");
 		if (ImGui::BeginTable("##ProjectSettingsTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
 		{
 			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 180.0f);
@@ -214,6 +252,15 @@ namespace UI
 			ImGui::InputText("##ProjectPath", m_project_path_buffer, max_buffer_size);
 			ImGui::EndDisabled();
 
+			ImGui::EndTable();
+		}
+
+		draw_section_header("Paths");
+		if (ImGui::BeginTable("##ProjectPathSettingsTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
+		{
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+			ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted("Assets");
@@ -227,6 +274,15 @@ namespace UI
 			ImGui::TableNextColumn();
 			ImGui::SetNextItemWidth(-1.0f);
 			ImGui::InputText("##ScriptModule", m_script_module_path_buffer, max_buffer_size);
+
+			ImGui::EndTable();
+		}
+
+		draw_section_header("Startup");
+		if (ImGui::BeginTable("##ProjectStartupSettingsTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
+		{
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+			ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
@@ -254,6 +310,7 @@ namespace UI
 		if (!active_project)
 			return;
 
+		draw_section_header("Scene Library");
 		if (ImGui::Button("New Scene", ImVec2(120.0f, 0.0f)))
 		{
 			copy_to_buffer(m_new_scene_name_buffer, max_buffer_size, "NewScene");
@@ -269,6 +326,8 @@ namespace UI
 		if (scenes.empty())
 		{
 			ImGui::TextDisabled("No scenes have been imported yet.");
+			draw_create_scene_popup();
+			draw_delete_scene_popup();
 			return;
 		}
 
@@ -306,8 +365,9 @@ namespace UI
 				ImGui::SameLine();
 				if (ImGui::SmallButton("Set Start"))
 				{
+					notify_before_change();
 					active_project->get_config().start_scene = entry.handle;
-					apply_project_settings();
+					apply_project_settings(false);
 				}
 				ImGui::SameLine();
 				if (ImGui::SmallButton("Delete"))
@@ -324,6 +384,15 @@ namespace UI
 
 		if (open_delete_popup)
 			ImGui::OpenPopup("Delete Scene");
+
+		draw_create_scene_popup();
+		draw_delete_scene_popup();
+	}
+
+	void UI_project::draw_editor_settings()
+	{
+		if (m_editor_settings_drawer)
+			m_editor_settings_drawer();
 	}
 
 	void UI_project::draw_create_scene_popup()
@@ -367,11 +436,20 @@ namespace UI
 		}
 	}
 
-	void UI_project::apply_project_settings()
+	void UI_project::notify_before_change()
+	{
+		if (m_before_change_callback)
+			m_before_change_callback();
+	}
+
+	void UI_project::apply_project_settings(bool notify_change)
 	{
 		ref<project> active_project = project::get_active();
 		if (!active_project)
 			return;
+
+		if (notify_change)
+			notify_before_change();
 
 		project_config& config = active_project->get_config();
 		config.name = m_name_buffer;
@@ -390,6 +468,8 @@ namespace UI
 		ref<project> active_project = project::get_active();
 		if (!active_project || !active_project->get_editor_asset_manager())
 			return;
+
+		notify_before_change();
 
 		std::filesystem::path relative_path = make_unique_scene_path(m_new_scene_name_buffer);
 		std::filesystem::create_directories((project::get_active_asset_directory() / relative_path).parent_path());
@@ -410,6 +490,8 @@ namespace UI
 		ref<project> active_project = project::get_active();
 		if (!active_project || !active_project->get_editor_asset_manager() || m_pending_delete_scene == 0)
 			return;
+
+		notify_before_change();
 
 		const std::filesystem::path active_scene_path = m_active_scene_path_callback ? m_active_scene_path_callback() : std::filesystem::path();
 		if (!active_scene_path.empty() && same_relative_path(active_scene_path, m_pending_delete_scene_path) && m_close_scene_callback)

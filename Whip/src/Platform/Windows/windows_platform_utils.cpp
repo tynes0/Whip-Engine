@@ -10,6 +10,8 @@
 
 #include <Whip/Core/Application.h>
 
+#include <vector>
+
 _WHIP_START
 
 std::string file_dialogs::open_file(const char* filter, const char* root)
@@ -125,10 +127,18 @@ float time::get_time()
 	return (float)glfwGetTime();
 }
 
-void utils::restart_program()
+bool utils::restart_program()
 {
 	char programPath[MAX_PATH];
-	GetModuleFileNameA(NULL, programPath, MAX_PATH);
+	if (GetModuleFileNameA(NULL, programPath, MAX_PATH) == 0)
+	{
+		WHP_CORE_ERROR("[Application] restart_program failed. Windows error (GetModuleFileNameA): {0}", GetLastError());
+		return false;
+	}
+
+	std::string command_line = GetCommandLineA();
+	std::vector<char> command_line_buffer(command_line.begin(), command_line.end());
+	command_line_buffer.push_back('\0');
 
 	STARTUPINFOA si;
 	PROCESS_INFORMATION pi;
@@ -136,15 +146,16 @@ void utils::restart_program()
 	ZeroMemory(&si, sizeof(si));
 	si.cb = sizeof(si);
 	ZeroMemory(&pi, sizeof(pi));
-	if(!CreateProcessA(programPath, GetCommandLineA(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
-		WHP_CORE_ERROR("[Application] restart_program failed. Windows error (CreateProcessA): {0}", GetLastError());
-	else
+	if (!CreateProcessA(programPath, command_line_buffer.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
 	{
-		WHP_CORE_INFO("[Application] Program restarted!");
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
-		ExitProcess(0);
+		WHP_CORE_ERROR("[Application] restart_program failed. Windows error (CreateProcessA): {0}", GetLastError());
+		return false;
 	}
+
+	WHP_CORE_INFO("[Application] Program restart requested.");
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+	return true;
 }
 
 std::string utils::wstring_to_utf8(const std::wstring& wstr)
