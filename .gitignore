@@ -53,14 +53,22 @@ Whip/vendor/**/*.sln
 # F-Box C# build output
 F-Box/FboxProject/Assets/Scripts/Binaries/
 F-Box/FboxProject/Assets/Scripts/Intermediates/
+F-Box/FboxProject/Assets/Scripts/obj/
 F-Box/FboxProject/Assets/Scripts/.vs/
 F-Box/FboxProject/Assets/Scripts/.idea/
+F-Box/FboxProject/Assets/Scripts/Directory.Build.props
+F-Box/FboxProject/Assets/Scripts/Whip-ScriptCore/
+F-Box/FboxProject/Assets/Scripts/fbox-project.csproj
 
 # Editor/runtime C# output copied by old project files or CMake post-build steps.
 Whip-Editor/FboxProject/Assets/Scripts/Binaries/
 Whip-Editor/FboxProject/Assets/Scripts/Intermediates/
+Whip-Editor/FboxProject/Assets/Scripts/obj/
 Whip-Editor/FboxProject/Assets/Scripts/.vs/
 Whip-Editor/FboxProject/Assets/Scripts/.idea/
+Whip-Editor/FboxProject/Assets/Scripts/Directory.Build.props
+Whip-Editor/FboxProject/Assets/Scripts/Whip-ScriptCore/
+Whip-Editor/FboxProject/Assets/Scripts/fbox-project.csproj
 Whip-Editor/Resources/Scripts/Intermediates/
 Whip-Editor/Resources/Scripts/*.dll
 Whip-Editor/Resources/Scripts/*.pdb

@@ -25,7 +25,7 @@ application::application(const application_specification& spec)
 
 	m_window = scope<window>(window::create(m_specification.properties));
 	m_window->set_event_callback([this](auto&&... args) -> decltype(auto) { return this->on_event(std::forward<decltype(args)>(args)...); });
-	
+
 	m_window->set_vsync(false);
 	renderer::init();
 	audio_engine::init();

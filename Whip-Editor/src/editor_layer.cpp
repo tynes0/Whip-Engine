@@ -19,6 +19,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iterator>
@@ -32,6 +33,13 @@
 #include <entt.hpp>
 #include <ImGuizmo.h>
 #include <yaml-cpp/yaml.h>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
 
 _WHIP_START
 
@@ -105,10 +113,10 @@ namespace
 
 	std::string sanitize_project_token(std::string value, const std::string& fallback)
 	{
-		value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char c)
-			{
-				return !std::isalnum(c) && c != '_' && c != '-' && c != ' ';
-			}), value.end());
+		std::erase_if(value, [](unsigned char c)
+		{
+			return !std::isalnum(c) && c != '_' && c != '-' && c != ' ';
+		});
 
 		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())))
 			value.erase(value.begin());
@@ -350,129 +358,6 @@ namespace
 		return true;
 	}
 
-	void replace_all(std::string& text, std::string_view from, std::string_view to)
-	{
-		size_t position = 0;
-		while ((position = text.find(from, position)) != std::string::npos)
-		{
-			text.replace(position, from.size(), to.data(), to.size());
-			position += to.size();
-		}
-	}
-
-	void erase_block_containing(std::string& text, std::string_view block_start, std::string_view needle)
-	{
-		size_t search_position = 0;
-		while ((search_position = text.find(needle, search_position)) != std::string::npos)
-		{
-			const size_t start = text.rfind(block_start, search_position);
-			if (start == std::string::npos)
-			{
-				++search_position;
-				continue;
-			}
-
-			const size_t end = text.find("</ItemGroup>", search_position);
-			if (end == std::string::npos)
-			{
-				++search_position;
-				continue;
-			}
-
-			size_t erase_end = end + std::strlen("</ItemGroup>");
-			if (erase_end < text.size() && text[erase_end] == '\r')
-				++erase_end;
-			if (erase_end < text.size() && text[erase_end] == '\n')
-				++erase_end;
-			text.erase(start, erase_end - start);
-			search_position = start;
-		}
-	}
-
-	bool upgrade_script_project_file(const std::filesystem::path& project_file)
-	{
-		std::string contents = read_text_file(project_file);
-		if (contents.empty())
-			return false;
-
-		const std::string original = contents;
-		erase_block_containing(contents, "<ItemGroup", "<ProjectReference");
-		replace_all(contents, "    <WhipScriptCoreProject>Whip-ScriptCore\\Whip-ScriptCore.csproj</WhipScriptCoreProject>\n", "");
-		replace_all(contents, "    <WhipScriptCoreProject>Whip-ScriptCore/Whip-ScriptCore.csproj</WhipScriptCoreProject>\n", "");
-		replace_all(contents, "<ItemGroup Condition=\"!Exists('$(WhipScriptCoreProject)') And '$(WhipScriptCoreHint)' != '' \">", "<ItemGroup Condition=\" '$(WhipScriptCoreHint)' != '' \">");
-
-		if (contents.find("Binaries\\Whip-ScriptCore.dll") == std::string::npos)
-		{
-			const std::string binary_hint = "    <WhipScriptCoreHint Condition=\"Exists('Binaries\\Whip-ScriptCore.dll')\">Binaries\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n";
-			const size_t first_hint = contents.find("    <WhipScriptCoreHint");
-			if (first_hint != std::string::npos)
-			{
-				contents.insert(first_hint, binary_hint);
-			}
-			else
-			{
-				const size_t property_group_end = contents.find("  </PropertyGroup>");
-				if (property_group_end != std::string::npos)
-					contents.insert(property_group_end, binary_hint);
-			}
-		}
-
-		if (contents.find("<Reference Include=\"Whip-ScriptCore\">") == std::string::npos)
-		{
-			const std::string reference =
-				"  <ItemGroup Condition=\" '$(WhipScriptCoreHint)' != '' \">\n"
-				"    <Reference Include=\"Whip-ScriptCore\">\n"
-				"      <HintPath>$(WhipScriptCoreHint)</HintPath>\n"
-				"      <Private>False</Private>\n"
-				"    </Reference>\n"
-				"  </ItemGroup>\n";
-			const size_t import = contents.find("  <Import Project=\"$(MSBuildToolsPath)\\Microsoft.CSharp.targets\" />");
-			if (import != std::string::npos)
-				contents.insert(import, reference);
-		}
-
-		if (contents == original)
-			return true;
-
-		return write_text_file(project_file, contents);
-	}
-
-	bool upgrade_script_solution_file(const std::filesystem::path& solution_file)
-	{
-		std::string contents = read_text_file(solution_file);
-		if (contents.empty() || contents.find("Whip-ScriptCore") == std::string::npos)
-			return true;
-
-		size_t script_core_project_start = contents.find("Project(\"", contents.find("Whip-ScriptCore"));
-		if (script_core_project_start == std::string::npos)
-			script_core_project_start = contents.rfind("Project(\"", contents.find("Whip-ScriptCore"));
-		if (script_core_project_start != std::string::npos)
-		{
-			const size_t script_core_project_end = contents.find("EndProject", script_core_project_start);
-			if (script_core_project_end != std::string::npos)
-			{
-				size_t erase_end = script_core_project_end + std::strlen("EndProject");
-				if (erase_end < contents.size() && contents[erase_end] == '\r')
-					++erase_end;
-				if (erase_end < contents.size() && contents[erase_end] == '\n')
-					++erase_end;
-				contents.erase(script_core_project_start, erase_end - script_core_project_start);
-			}
-		}
-
-		std::istringstream input(contents);
-		std::ostringstream output;
-		std::string line;
-		while (std::getline(input, line))
-		{
-			if (line.find("Whip-ScriptCore") != std::string::npos || line.find("{28835EC3-940E-CC87-9D1F-4F7C092A2888}") != std::string::npos)
-				continue;
-			output << line << '\n';
-		}
-
-		return write_text_file(solution_file, output.str());
-	}
-
 	bool copy_directory_recursive(const std::filesystem::path& source, const std::filesystem::path& destination)
 	{
 		std::error_code error;
@@ -513,126 +398,70 @@ namespace
 
 	std::string script_core_csproj_contents(const std::string& core_guid)
 	{
+		WHP_UNUSED(core_guid);
 		std::ostringstream stream;
 		stream
 			<< "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
-			<< "<Project ToolsVersion=\"15.0\" DefaultTargets=\"Build\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n"
-			<< "  <Import Project=\"$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props\" Condition=\"Exists('$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props')\" />\n"
+			<< "<Project Sdk=\"Microsoft.NET.Sdk\">\n"
 			<< "  <PropertyGroup>\n"
-			<< "    <Configuration Condition=\" '$(Configuration)' == '' \">Debug</Configuration>\n"
-			<< "    <Platform Condition=\" '$(Platform)' == '' \">x64</Platform>\n"
-			<< "    <ProjectGuid>" << core_guid << "</ProjectGuid>\n"
-			<< "    <OutputType>Library</OutputType>\n"
+			<< "    <TargetFramework>net472</TargetFramework>\n"
 			<< "    <RootNamespace>Whip</RootNamespace>\n"
 			<< "    <AssemblyName>Whip-ScriptCore</AssemblyName>\n"
-			<< "    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>\n"
-			<< "    <FileAlignment>512</FileAlignment>\n"
+			<< "    <OutputType>Library</OutputType>\n"
+			<< "    <OutputPath>..\\Binaries\\</OutputPath>\n"
+			<< "    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>\n"
 			<< "    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>\n"
 			<< "    <LangVersion>latest</LangVersion>\n"
+			<< "    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>\n"
 			<< "  </PropertyGroup>\n"
-			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Debug|x64' \">\n"
-			<< "    <PlatformTarget>x64</PlatformTarget>\n"
-			<< "    <DebugType>portable</DebugType>\n"
-			<< "    <DebugSymbols>true</DebugSymbols>\n"
-			<< "    <Optimize>false</Optimize>\n"
-			<< "    <OutputPath>..\\Binaries\\</OutputPath>\n"
-			<< "    <BaseIntermediateOutputPath>Intermediates\\Debug\\</BaseIntermediateOutputPath>\n"
-			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
-			<< "    <WarningLevel>4</WarningLevel>\n"
-			<< "  </PropertyGroup>\n"
-			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Release|x64' \">\n"
-			<< "    <PlatformTarget>x64</PlatformTarget>\n"
-			<< "    <DebugType>portable</DebugType>\n"
-			<< "    <DebugSymbols>true</DebugSymbols>\n"
-			<< "    <Optimize>true</Optimize>\n"
-			<< "    <OutputPath>..\\Binaries\\</OutputPath>\n"
-			<< "    <BaseIntermediateOutputPath>Intermediates\\Release\\</BaseIntermediateOutputPath>\n"
-			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
-			<< "    <WarningLevel>4</WarningLevel>\n"
-			<< "  </PropertyGroup>\n"
-			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Dist|x64' \">\n"
-			<< "    <PlatformTarget>x64</PlatformTarget>\n"
-			<< "    <DebugType>none</DebugType>\n"
-			<< "    <DebugSymbols>false</DebugSymbols>\n"
-			<< "    <Optimize>true</Optimize>\n"
-			<< "    <OutputPath>..\\Binaries\\</OutputPath>\n"
-			<< "    <BaseIntermediateOutputPath>Intermediates\\Dist\\</BaseIntermediateOutputPath>\n"
-			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
-			<< "    <WarningLevel>4</WarningLevel>\n"
-			<< "  </PropertyGroup>\n"
-			<< "  <ItemGroup>\n"
-			<< "    <Reference Include=\"System\" />\n"
-			<< "  </ItemGroup>\n"
-			<< "  <ItemGroup>\n"
-			<< "    <Compile Include=\"Source\\Whip\\**\\*.cs\" />\n"
-			<< "  </ItemGroup>\n"
-			<< "  <Import Project=\"$(MSBuildToolsPath)\\Microsoft.CSharp.targets\" />\n"
 			<< "</Project>\n";
 		return stream.str();
 	}
 
 	std::string project_csproj_contents(const std::string& project_folder_name, const std::string& project_guid, const std::string& core_guid)
 	{
-		const std::filesystem::path runtime_script_core = std::filesystem::current_path() / "Resources" / "Scripts" / "Whip-ScriptCore.dll";
+		WHP_UNUSED(project_guid);
 		std::ostringstream stream;
 		stream
 			<< "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
-			<< "<Project ToolsVersion=\"15.0\" DefaultTargets=\"Build\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n"
-			<< "  <Import Project=\"$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props\" Condition=\"Exists('$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props')\" />\n"
+			<< "<Project Sdk=\"Microsoft.NET.Sdk\">\n"
 			<< "  <PropertyGroup>\n"
-			<< "    <Configuration Condition=\" '$(Configuration)' == '' \">Debug</Configuration>\n"
-			<< "    <Platform Condition=\" '$(Platform)' == '' \">x64</Platform>\n"
-			<< "    <ProjectGuid>" << project_guid << "</ProjectGuid>\n"
-			<< "    <OutputType>Library</OutputType>\n"
+			<< "    <TargetFramework>net472</TargetFramework>\n"
 			<< "    <RootNamespace>" << project_folder_name << "</RootNamespace>\n"
 			<< "    <AssemblyName>" << project_folder_name << "</AssemblyName>\n"
-			<< "    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>\n"
-			<< "    <FileAlignment>512</FileAlignment>\n"
-			<< "    <WhipScriptCoreHint Condition=\"Exists('Binaries\\Whip-ScriptCore.dll')\">Binaries\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n"
-			<< "    <WhipScriptCoreHint Condition=\"Exists('..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll')\">..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n"
-			<< "    <WhipScriptCoreHint Condition=\" '$(WhipScriptCoreHint)' == '' And Exists('$(MSBuildProjectDirectory)\\..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll')\">$(MSBuildProjectDirectory)\\..\\..\\..\\Resources\\Scripts\\Whip-ScriptCore.dll</WhipScriptCoreHint>\n"
-			<< "    <WhipScriptCoreHint Condition=\" '$(WhipScriptCoreHint)' == '' And Exists('" << runtime_script_core.string() << "')\">" << runtime_script_core.string() << "</WhipScriptCoreHint>\n"
-			<< "  </PropertyGroup>\n"
-			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Debug|x64' \">\n"
-			<< "    <PlatformTarget>x64</PlatformTarget>\n"
-			<< "    <DebugType>portable</DebugType>\n"
-			<< "    <DebugSymbols>true</DebugSymbols>\n"
-			<< "    <Optimize>false</Optimize>\n"
+			<< "    <OutputType>Library</OutputType>\n"
 			<< "    <OutputPath>Binaries\\</OutputPath>\n"
-			<< "    <BaseIntermediateOutputPath>Intermediates\\Debug\\</BaseIntermediateOutputPath>\n"
-			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
-			<< "    <WarningLevel>4</WarningLevel>\n"
-			<< "  </PropertyGroup>\n"
-			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Release|x64' \">\n"
-			<< "    <PlatformTarget>x64</PlatformTarget>\n"
-			<< "    <DebugType>portable</DebugType>\n"
-			<< "    <DebugSymbols>true</DebugSymbols>\n"
-			<< "    <Optimize>true</Optimize>\n"
-			<< "    <OutputPath>Binaries\\</OutputPath>\n"
-			<< "    <BaseIntermediateOutputPath>Intermediates\\Release\\</BaseIntermediateOutputPath>\n"
-			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
-			<< "    <WarningLevel>4</WarningLevel>\n"
-			<< "  </PropertyGroup>\n"
-			<< "  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Dist|x64' \">\n"
-			<< "    <PlatformTarget>x64</PlatformTarget>\n"
-			<< "    <DebugType>none</DebugType>\n"
-			<< "    <DebugSymbols>false</DebugSymbols>\n"
-			<< "    <Optimize>true</Optimize>\n"
-			<< "    <OutputPath>Binaries\\</OutputPath>\n"
-			<< "    <BaseIntermediateOutputPath>Intermediates\\Dist\\</BaseIntermediateOutputPath>\n"
-			<< "    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>\n"
-			<< "    <WarningLevel>4</WarningLevel>\n"
+			<< "    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>\n"
+			<< "    <LangVersion>latest</LangVersion>\n"
+			<< "    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>\n"
 			<< "  </PropertyGroup>\n"
 			<< "  <ItemGroup>\n"
-			<< "    <Compile Include=\"Source\\*.cs\" />\n"
+			<< "    <Compile Remove=\"Whip-ScriptCore\\**\\*.cs\" />\n"
 			<< "  </ItemGroup>\n"
-			<< "  <ItemGroup Condition=\" '$(WhipScriptCoreHint)' != '' \">\n"
-			<< "    <Reference Include=\"Whip-ScriptCore\">\n"
-			<< "      <HintPath>$(WhipScriptCoreHint)</HintPath>\n"
+			<< "  <ItemGroup>\n"
+			<< "    <ProjectReference Include=\"Whip-ScriptCore\\Whip-ScriptCore.csproj\">\n"
+			<< "      <Project>" << core_guid << "</Project>\n"
+			<< "      <Name>Whip-ScriptCore</Name>\n"
 			<< "      <Private>False</Private>\n"
-			<< "    </Reference>\n"
+			<< "    </ProjectReference>\n"
 			<< "  </ItemGroup>\n"
-			<< "  <Import Project=\"$(MSBuildToolsPath)\\Microsoft.CSharp.targets\" />\n"
+			<< "</Project>\n";
+		return stream.str();
+	}
+
+	std::string directory_build_props_contents(const std::string& project_folder_name)
+	{
+		std::ostringstream stream;
+		stream
+			<< "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+			<< "<Project>\n"
+			<< "  <PropertyGroup>\n"
+			<< "    <WhipScriptIntermediateRoot Condition=\"'$(TEMP)' != ''\">$(TEMP)/Whip/ScriptIntermediates/" << project_folder_name << "/</WhipScriptIntermediateRoot>\n"
+			<< "    <WhipScriptIntermediateRoot Condition=\"'$(WhipScriptIntermediateRoot)' == '' and '$(TMPDIR)' != ''\">$(TMPDIR)/Whip/ScriptIntermediates/" << project_folder_name << "/</WhipScriptIntermediateRoot>\n"
+			<< "    <WhipScriptIntermediateRoot Condition=\"'$(WhipScriptIntermediateRoot)' == ''\">$(MSBuildThisFileDirectory)Intermediates/" << project_folder_name << "/</WhipScriptIntermediateRoot>\n"
+			<< "    <BaseIntermediateOutputPath>$(WhipScriptIntermediateRoot)$(MSBuildProjectName)/</BaseIntermediateOutputPath>\n"
+			<< "    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>\n"
+			<< "  </PropertyGroup>\n"
 			<< "</Project>\n";
 		return stream.str();
 	}
@@ -648,6 +477,8 @@ namespace
 			<< "MinimumVisualStudioVersion = 10.0.40219.1\n"
 			<< "Project(\"" << csharp_project_type_guid << "\") = \"" << project_folder_name << "\", \"" << project_folder_name << ".csproj\", \"" << project_guid << "\"\n"
 			<< "EndProject\n"
+			<< "Project(\"" << csharp_project_type_guid << "\") = \"Whip-ScriptCore\", \"Whip-ScriptCore\\Whip-ScriptCore.csproj\", \"" << core_guid << "\"\n"
+			<< "EndProject\n"
 			<< "Global\n"
 			<< "\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n"
 			<< "\t\tDebug|x64 = Debug|x64\n"
@@ -657,7 +488,7 @@ namespace
 			<< "\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n";
 
 		const std::array<std::string, 3> configs = { "Debug|x64", "Release|x64", "Dist|x64" };
-		for (const std::string& guid : { project_guid })
+		for (const std::string& guid : { project_guid, core_guid })
 		{
 			for (const std::string& config : configs)
 			{
@@ -684,7 +515,7 @@ namespace
 			<< "{\n"
 			<< "\tpublic class StarterEntity : Entity\n"
 			<< "\t{\n"
-			<< "\t\tpublic void OnCreate()\n"
+			<< "\t\tpublic override void OnCreate()\n"
 			<< "\t\t{\n"
 			<< "\t\t\tLogger.Log(\"StarterEntity created.\", Logger.LogLevel.Info);\n"
 			<< "\t\t}\n"
@@ -693,9 +524,26 @@ namespace
 		return stream.str();
 	}
 
+	bool refresh_script_workspace_files(const std::filesystem::path& scripts_directory, const std::string& project_folder_name);
+
 	bool write_script_project_files(const std::filesystem::path& project_directory, const std::string& project_folder_name)
 	{
 		const std::filesystem::path scripts_directory = project_directory / "Assets" / "Scripts";
+		if (!refresh_script_workspace_files(scripts_directory, project_folder_name))
+			return false;
+
+		if (!write_text_file(scripts_directory / "Source" / "StarterEntity.cs", starter_script_contents(project_folder_name)))
+		{
+			WHP_EDITOR_ERROR("[Whip Hub] Could not write starter script file.");
+			return false;
+		}
+
+		sync_script_core_binary(scripts_directory);
+		return true;
+	}
+
+	bool refresh_script_workspace_files(const std::filesystem::path& scripts_directory, const std::string& project_folder_name)
+	{
 		const std::string project_guid = make_guid(project_folder_name + ":scripts");
 		const std::string core_guid = make_guid(project_folder_name + ":scriptcore");
 
@@ -712,6 +560,12 @@ namespace
 			return false;
 		}
 
+		if (!write_text_file(scripts_directory / "Directory.Build.props", directory_build_props_contents(project_folder_name)))
+		{
+			WHP_EDITOR_ERROR("[Whip Hub] Could not write script build properties file.");
+			return false;
+		}
+
 		if (!write_text_file(scripts_directory / (project_folder_name + ".csproj"), project_csproj_contents(project_folder_name, project_guid, core_guid)))
 		{
 			WHP_EDITOR_ERROR("[Whip Hub] Could not write script project file.");
@@ -724,24 +578,17 @@ namespace
 			return false;
 		}
 
-		if (!write_text_file(scripts_directory / "Source" / "StarterEntity.cs", starter_script_contents(project_folder_name)))
-		{
-			WHP_EDITOR_ERROR("[Whip Hub] Could not write starter script file.");
-			return false;
-		}
-
-		sync_script_core_binary(scripts_directory);
 		return true;
 	}
 
 	std::filesystem::path find_script_project_file(const std::filesystem::path& scripts_directory, const std::string& project_name)
 	{
-		std::filesystem::path preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".csproj");
+		std::filesystem::path preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".sln");
 		std::error_code error;
 		if (std::filesystem::exists(preferred, error))
 			return preferred;
 
-		preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".sln");
+		preferred = scripts_directory / (sanitize_path_token(project_name, "Untitled") + ".csproj");
 		if (std::filesystem::exists(preferred, error))
 			return preferred;
 
@@ -752,7 +599,7 @@ namespace
 		{
 			if (error)
 				break;
-			if (entry.is_regular_file(error) && entry.path().extension() == ".csproj")
+			if (entry.is_regular_file(error) && entry.path().extension() == ".sln")
 				return entry.path();
 		}
 
@@ -760,15 +607,222 @@ namespace
 		{
 			if (error)
 				break;
-			if (entry.is_regular_file(error) && entry.path().extension() == ".sln")
+			if (entry.is_regular_file(error) && entry.path().extension() == ".csproj")
 				return entry.path();
 		}
 
 		return {};
 	}
 
+	std::string quote_command_path(const std::filesystem::path& path)
+	{
+		return "\"" + path.string() + "\"";
+	}
+
+#ifdef _WIN32
+	int run_windows_process(const std::string& command, bool log_output, std::string* first_line = nullptr)
+	{
+		SECURITY_ATTRIBUTES security_attributes{};
+		security_attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
+		security_attributes.bInheritHandle = TRUE;
+
+		HANDLE read_pipe = nullptr;
+		HANDLE write_pipe = nullptr;
+		if (!CreatePipe(&read_pipe, &write_pipe, &security_attributes, 0))
+		{
+			WHP_EDITOR_ERROR("[Script Build] Could not create process output pipe.");
+			return -1;
+		}
+		SetHandleInformation(read_pipe, HANDLE_FLAG_INHERIT, 0);
+
+		STARTUPINFOA startup_info{};
+		startup_info.cb = sizeof(STARTUPINFOA);
+		startup_info.dwFlags = STARTF_USESTDHANDLES;
+		startup_info.hStdOutput = write_pipe;
+		startup_info.hStdError = write_pipe;
+		startup_info.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+
+		PROCESS_INFORMATION process_info{};
+		std::string mutable_command = command;
+		BOOL created = CreateProcessA(nullptr, mutable_command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup_info, &process_info);
+		CloseHandle(write_pipe);
+
+		if (!created)
+		{
+			const DWORD error = GetLastError();
+			CloseHandle(read_pipe);
+			WHP_EDITOR_ERROR(std::string("[Script Build] Could not start process. Windows error ") + std::to_string(error) + ".");
+			return -1;
+		}
+
+		std::string pending;
+		std::array<char, 512> buffer{};
+		DWORD bytes_read = 0;
+		while (ReadFile(read_pipe, buffer.data(), static_cast<DWORD>(buffer.size() - 1), &bytes_read, nullptr) && bytes_read > 0)
+		{
+			buffer[bytes_read] = '\0';
+			pending.append(buffer.data(), bytes_read);
+
+			size_t newline = std::string::npos;
+			while ((newline = pending.find('\n')) != std::string::npos)
+			{
+				std::string line = pending.substr(0, newline);
+				pending.erase(0, newline + 1);
+				if (!line.empty() && line.back() == '\r')
+					line.pop_back();
+
+				if (first_line && first_line->empty() && !line.empty())
+					*first_line = line;
+				if (log_output && !line.empty())
+					WHP_EDITOR_INFO(std::string("[Script Build] ") + line);
+			}
+		}
+
+		if (!pending.empty())
+		{
+			if (!pending.empty() && pending.back() == '\r')
+				pending.pop_back();
+			if (first_line && first_line->empty() && !pending.empty())
+				*first_line = pending;
+			if (log_output && !pending.empty())
+				WHP_EDITOR_INFO(std::string("[Script Build] ") + pending);
+		}
+
+		WaitForSingleObject(process_info.hProcess, INFINITE);
+		DWORD exit_code = 0;
+		GetExitCodeProcess(process_info.hProcess, &exit_code);
+
+		CloseHandle(process_info.hProcess);
+		CloseHandle(process_info.hThread);
+		CloseHandle(read_pipe);
+		return static_cast<int>(exit_code);
+	}
+#endif
+
+	std::filesystem::path path_from_environment(const char* name)
+	{
+		const char* value = std::getenv(name);
+		return value ? std::filesystem::path(value) : std::filesystem::path{};
+	}
+
+	std::filesystem::path find_executable_in_path(const std::string& executable_name)
+	{
+		const std::filesystem::path direct(executable_name);
+		std::error_code error;
+		if ((direct.is_absolute() || direct.has_parent_path()) && std::filesystem::exists(direct, error))
+			return direct;
+
+		std::vector<std::string> candidate_names = { executable_name };
+#ifdef _WIN32
+		if (std::filesystem::path(executable_name).extension().empty())
+			candidate_names.push_back(executable_name + ".exe");
+		constexpr char separator = ';';
+#else
+		constexpr char separator = ':';
+#endif
+
+		const char* path_env = std::getenv("PATH");
+		if (!path_env)
+			return {};
+
+		std::stringstream stream(path_env);
+		std::string directory;
+		while (std::getline(stream, directory, separator))
+		{
+			if (directory.empty())
+				continue;
+
+			for (const std::string& candidate_name : candidate_names)
+			{
+				std::filesystem::path candidate = std::filesystem::path(directory) / candidate_name;
+				error.clear();
+				if (std::filesystem::exists(candidate, error) && std::filesystem::is_regular_file(candidate, error))
+					return candidate;
+			}
+		}
+
+		return {};
+	}
+
+	std::string run_command_first_line(const std::string& command)
+	{
+#ifdef _WIN32
+		std::string first_line;
+		run_windows_process(command, false, &first_line);
+		return first_line;
+#else
+		FILE* pipe = popen(command.c_str(), "r");
+		if (!pipe)
+			return {};
+
+		std::array<char, 1024> buffer{};
+		std::string line;
+		if (std::fgets(buffer.data(), static_cast<int>(buffer.size()), pipe))
+			line = buffer.data();
+
+		pclose(pipe);
+
+		while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
+			line.pop_back();
+		return line;
+#endif
+	}
+
+	std::filesystem::path find_vswhere_executable()
+	{
+		if (std::filesystem::path path_candidate = find_executable_in_path("vswhere.exe"); !path_candidate.empty())
+			return path_candidate;
+
+		std::vector<std::filesystem::path> candidates;
+		if (std::filesystem::path program_files_x86 = path_from_environment("ProgramFiles(x86)"); !program_files_x86.empty())
+			candidates.push_back(program_files_x86 / "Microsoft Visual Studio" / "Installer" / "vswhere.exe");
+		if (std::filesystem::path program_files = path_from_environment("ProgramFiles"); !program_files.empty())
+			candidates.push_back(program_files / "Microsoft Visual Studio" / "Installer" / "vswhere.exe");
+
+		std::error_code error;
+		for (const auto& candidate : candidates)
+		{
+			if (std::filesystem::exists(candidate, error) && std::filesystem::is_regular_file(candidate, error))
+				return candidate;
+		}
+
+		return {};
+	}
+
+	std::filesystem::path find_msbuild_with_vswhere()
+	{
+		const std::filesystem::path vswhere = find_vswhere_executable();
+		if (vswhere.empty())
+			return {};
+
+		const std::string command = quote_command_path(vswhere) + " -latest -products * -requires Microsoft.Component.MSBuild -find \"MSBuild\\**\\Bin\\MSBuild.exe\"";
+		const std::string first_line = run_command_first_line(command);
+		if (first_line.empty())
+			return {};
+
+		std::error_code error;
+		std::filesystem::path candidate(first_line);
+		if (std::filesystem::exists(candidate, error) && std::filesystem::is_regular_file(candidate, error))
+			return candidate;
+		return {};
+	}
+
 	std::filesystem::path find_msbuild_executable()
 	{
+		if (std::filesystem::path env_msbuild = path_from_environment("WHIP_MSBUILD_PATH"); !env_msbuild.empty())
+		{
+			std::error_code error;
+			if (std::filesystem::exists(env_msbuild, error))
+				return env_msbuild;
+			WHP_EDITOR_WARN(std::string("[Script Build] WHIP_MSBUILD_PATH is set but does not exist: ") + env_msbuild.string());
+		}
+
+		if (std::filesystem::path path_msbuild = find_executable_in_path("MSBuild.exe"); !path_msbuild.empty())
+			return path_msbuild;
+
+		if (std::filesystem::path vswhere_msbuild = find_msbuild_with_vswhere(); !vswhere_msbuild.empty())
+			return vswhere_msbuild;
+
 		const std::array<std::filesystem::path, 12> candidates =
 		{
 			"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
@@ -792,21 +846,42 @@ namespace
 				return candidate;
 		}
 
-		return "MSBuild.exe";
+		return {};
 	}
 
-	std::string quote_command_path(const std::filesystem::path& path)
+	struct script_build_command
 	{
-		return "\"" + path.string() + "\"";
+		std::string command;
+		std::string tool_name;
+	};
+
+	script_build_command make_script_build_command(const std::filesystem::path& build_file)
+	{
+		if (std::filesystem::path msbuild = find_msbuild_executable(); !msbuild.empty())
+		{
+			return {
+				quote_command_path(msbuild) + " " + quote_command_path(build_file) + " /restore /nologo /v:minimal /p:Configuration=Debug /p:Platform=x64 /nr:false",
+				msbuild.string()
+			};
+		}
+
+		if (std::filesystem::path dotnet = find_executable_in_path("dotnet"); !dotnet.empty())
+		{
+			return {
+				quote_command_path(dotnet) + " build " + quote_command_path(build_file) + " --nologo --restore -v:minimal -p:Configuration=Debug -p:Platform=x64",
+				dotnet.string()
+			};
+		}
+
+		return {};
 	}
 
 	int run_command_and_log_output(const std::string& command)
 	{
 #ifdef _WIN32
-		FILE* pipe = _popen(command.c_str(), "r");
+		return run_windows_process(command, true);
 #else
 		FILE* pipe = popen(command.c_str(), "r");
-#endif
 		if (!pipe)
 		{
 			WHP_EDITOR_ERROR("[Script Build] Could not start script build process.");
@@ -823,9 +898,6 @@ namespace
 				WHP_EDITOR_INFO(std::string("[Script Build] ") + line);
 		}
 
-#ifdef _WIN32
-		return _pclose(pipe);
-#else
 		return pclose(pipe);
 #endif
 	}
@@ -2363,17 +2435,36 @@ bool editor_layer::build_project_scripts() const
 	}
 
 	const std::filesystem::path scripts_directory = project::get_active_asset_directory() / "Scripts";
-	sync_script_core_binary(scripts_directory);
-
-	const std::filesystem::path preferred_project_file = scripts_directory / (sanitize_path_token(config.name, "Untitled") + ".csproj");
+	const std::string project_folder_name = sanitize_path_token(config.name, "Untitled");
+	const std::filesystem::path preferred_project_file = scripts_directory / (project_folder_name + ".csproj");
+	const std::filesystem::path preferred_solution_file = scripts_directory / (project_folder_name + ".sln");
+	const std::filesystem::path build_props_file = scripts_directory / "Directory.Build.props";
 	std::error_code error;
-	if (std::filesystem::exists(preferred_project_file, error))
-		upgrade_script_project_file(preferred_project_file);
-
-	const std::filesystem::path preferred_solution_file = scripts_directory / (sanitize_path_token(config.name, "Untitled") + ".sln");
+	bool needs_workspace_refresh = !std::filesystem::exists(preferred_project_file, error);
 	error.clear();
-	if (std::filesystem::exists(preferred_solution_file, error))
-		upgrade_script_solution_file(preferred_solution_file);
+	needs_workspace_refresh = needs_workspace_refresh || !std::filesystem::exists(preferred_solution_file, error);
+	error.clear();
+	needs_workspace_refresh = needs_workspace_refresh || !std::filesystem::exists(build_props_file, error);
+	if (!needs_workspace_refresh)
+	{
+		const std::string project_file_contents = read_text_file(preferred_project_file);
+		const std::string solution_file_contents = read_text_file(preferred_solution_file);
+		const std::string build_props_contents = read_text_file(build_props_file);
+		needs_workspace_refresh =
+			project_file_contents.find("<Project Sdk=\"Microsoft.NET.Sdk\">") == std::string::npos ||
+			project_file_contents.find("<ProjectReference Include=\"Whip-ScriptCore\\Whip-ScriptCore.csproj\">") == std::string::npos ||
+			project_file_contents.find("<BaseIntermediateOutputPath>") != std::string::npos ||
+			build_props_contents.find("ScriptIntermediates") == std::string::npos ||
+			solution_file_contents.find("Whip-ScriptCore\\Whip-ScriptCore.csproj") == std::string::npos;
+	}
+	if (needs_workspace_refresh)
+	{
+		WHP_EDITOR_INFO("[Script Build] Refreshing generated C# workspace files.");
+		if (!refresh_script_workspace_files(scripts_directory, project_folder_name))
+			WHP_EDITOR_WARN("[Script Build] Could not refresh generated C# workspace files.");
+	}
+
+	sync_script_core_binary(scripts_directory);
 
 	const std::filesystem::path script_project_file = find_script_project_file(scripts_directory, config.name);
 	if (script_project_file.empty())
@@ -2381,21 +2472,16 @@ bool editor_layer::build_project_scripts() const
 		WHP_EDITOR_WARN(std::string("[Script Build] No C# project file found under ") + scripts_directory.string() + ". Reloading the existing assembly if it exists.");
 		return true;
 	}
-	if (script_project_file.extension() == ".csproj")
-		upgrade_script_project_file(script_project_file);
-	else if (script_project_file.extension() == ".sln")
-		upgrade_script_solution_file(script_project_file);
 
-	const std::filesystem::path msbuild = find_msbuild_executable();
-	if (msbuild.empty())
+	const script_build_command build_command = make_script_build_command(script_project_file);
+	if (build_command.command.empty())
 	{
-		WHP_EDITOR_WARN("[Script Build] MSBuild.exe was not found. Reloading the existing assembly if it exists.");
+		WHP_EDITOR_WARN("[Script Build] Could not find MSBuild.exe or dotnet. Set WHIP_MSBUILD_PATH or add MSBuild/dotnet to PATH. Reloading the existing assembly if it exists.");
 		return true;
 	}
 
-	WHP_EDITOR_INFO(std::string("[Script Build] Building ") + script_project_file.string());
-	const std::string command = quote_command_path(msbuild) + " " + quote_command_path(script_project_file) + " /nologo /v:minimal /p:Configuration=Debug /p:Platform=x64 /nr:false 2>&1";
-	const int result = run_command_and_log_output(command);
+	WHP_EDITOR_INFO(std::string("[Script Build] Building ") + script_project_file.string() + " with " + build_command.tool_name);
+	const int result = run_command_and_log_output(build_command.command);
 	if (result != 0)
 	{
 		WHP_EDITOR_ERROR(std::string("[Script Build] Build failed with exit code ") + std::to_string(result) + ".");
