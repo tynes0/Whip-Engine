@@ -13,6 +13,10 @@
 #include "panels/animation_editor_panel.h"
 #include "panels/console_panel.h"
 
+#include <FileWatch.h>
+
+#include <chrono>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -85,7 +89,11 @@ private:
 	void save_scene_as();
 
 	bool build_project_scripts() const;
-	void reload_assembly(bool reset_app_assembly_filepath = true) const;
+	void reload_assembly(bool reset_app_assembly_filepath = true);
+	void start_script_source_watcher();
+	void stop_script_source_watcher();
+	void handle_script_source_event(const std::string& path, filewatch::Event event_type);
+	void process_script_source_changes();
 
 	void serialize_scene(ref<scene> scene_in, const std::filesystem::path& path);
 
@@ -150,6 +158,15 @@ private:
 	bool m_command_palette_open = false;
 	bool m_command_palette_focus_search = false;
 	char m_command_palette_filter[128]{ 0 };
+
+	scope<filewatch::FileWatch<std::string>> m_script_source_watcher;
+	std::filesystem::path m_script_source_watch_directory;
+	std::mutex m_script_source_mutex;
+	std::chrono::steady_clock::time_point m_last_script_source_change_time{};
+	std::filesystem::path m_last_script_source_change_path;
+	std::string m_last_script_source_change_event;
+	bool m_script_source_dirty = false;
+	bool m_script_source_queued_while_running = false;
 
 	struct project_history_entry
 	{

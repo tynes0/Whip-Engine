@@ -50,6 +50,67 @@ namespace
 		return input::is_key_down(key::left_control) || input::is_key_down(key::right_control);
 	}
 
+	std::string lower_copy(std::string value)
+	{
+		std::transform(value.begin(), value.end(), value.begin(),
+			[](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+		return value;
+	}
+
+	bool is_ignored_script_watch_segment(const std::filesystem::path& path)
+	{
+		for (const auto& segment : path)
+		{
+			const std::string name = lower_copy(segment.string());
+			if (name == "binaries" || name == "intermediates" || name == "obj" || name == "bin" ||
+				name == ".vs" || name == ".idea" || name == "whip-scriptcore")
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool is_script_source_watch_event(const std::filesystem::path& path, filewatch::Event event_type)
+	{
+		if (path.empty() || is_ignored_script_watch_segment(path))
+			return false;
+
+		switch (event_type)
+		{
+		case filewatch::Event::added:
+		case filewatch::Event::removed:
+		case filewatch::Event::modified:
+		case filewatch::Event::renamed_old:
+		case filewatch::Event::renamed_new:
+			break;
+		default:
+			return false;
+		}
+
+		const std::string extension = lower_copy(path.extension().string());
+		return extension == ".cs" ||
+			extension == ".csproj" ||
+			extension == ".sln" ||
+			extension == ".props" ||
+			extension == ".targets" ||
+			extension == ".config" ||
+			extension == ".rsp";
+	}
+
+	std::string script_source_event_name(filewatch::Event event_type)
+	{
+		switch (event_type)
+		{
+		case filewatch::Event::added: return "added";
+		case filewatch::Event::removed: return "removed";
+		case filewatch::Event::modified: return "modified";
+		case filewatch::Event::renamed_old: return "renamed";
+		case filewatch::Event::renamed_new: return "renamed";
+		default: return "changed";
+		}
+	}
+
 	int gizmo_snap_index(int operation)
 	{
 		if (operation == ImGuizmo::OPERATION::TRANSLATE)
@@ -94,12 +155,6 @@ namespace
 		UI::editor_shortcut_action::OpenSettings,
 		UI::editor_shortcut_action::OpenCommandPalette
 	};
-
-	std::string lower_copy(std::string value)
-	{
-		std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-		return value;
-	}
 
 	bool command_matches_filter(UI::editor_shortcut_action action, const char* filter)
 	{
@@ -964,6 +1019,7 @@ void editor_layer::on_attach()
 void editor_layer::on_detach()
 {
 	WHP_PROFILE_FUNCTION();
+	stop_script_source_watcher();
 	save_editor_preferences();
 	console_panel::shutdown();
 
@@ -978,6 +1034,7 @@ void editor_layer::on_update(timestep ts)
 {
 	WHP_PROFILE_FUNCTION();
 	m_ts = ts;
+	process_script_source_changes();
 
 	{
 		WHP_PROFILE_SCOPE("Viewport Size");
@@ -2291,6 +2348,7 @@ bool editor_layer::open_project(const std::filesystem::path& path)
 {
 	if (has_project_loaded())
 	{
+		stop_script_source_watcher();
 		if (m_scene_state != scene_state::edit)
 			on_scene_stop();
 		m_content_browser_panel.reset();
@@ -2306,6 +2364,7 @@ bool editor_layer::open_project(const std::filesystem::path& path)
 		if (!build_project_scripts())
 			WHP_EDITOR_WARN("[Script Build] Project opened, but script build failed.");
 		script_engine::init();
+		start_script_source_watcher();
 		asset_handle start_scene = (project::get_active()->get_config().start_scene);
 		if (start_scene && project::get_active()->get_editor_asset_manager()->is_asset_handle_valid(start_scene))
 		{
@@ -2492,7 +2551,108 @@ bool editor_layer::build_project_scripts() const
 	return true;
 }
 
-void editor_layer::reload_assembly(bool reset_app_assembly_filepath) const
+void editor_layer::start_script_source_watcher()
+{
+	stop_script_source_watcher();
+
+	if (!has_project_loaded())
+		return;
+
+	const project_config& config = project::get_active()->get_config();
+	if (config.script_module_path.empty())
+		return;
+
+	const std::filesystem::path scripts_directory = project::get_active_asset_directory() / "Scripts";
+	std::error_code error;
+	if (!std::filesystem::exists(scripts_directory, error) || !std::filesystem::is_directory(scripts_directory, error))
+		return;
+
+	try
+	{
+		m_script_source_watch_directory = scripts_directory;
+		m_script_source_watcher = make_scope<filewatch::FileWatch<std::string>>(
+			scripts_directory.string(),
+			[this](const std::string& path, const filewatch::Event event_type)
+			{
+				handle_script_source_event(path, event_type);
+			});
+		WHP_EDITOR_INFO(std::string("[Script Watcher] Watching C# source changes under ") + scripts_directory.string());
+	}
+	catch (const std::exception& exception)
+	{
+		m_script_source_watcher.reset();
+		WHP_EDITOR_WARN(std::string("[Script Watcher] Could not start source watcher: ") + exception.what());
+	}
+}
+
+void editor_layer::stop_script_source_watcher()
+{
+	m_script_source_watcher.reset();
+	m_script_source_watch_directory.clear();
+}
+
+void editor_layer::handle_script_source_event(const std::string& path, filewatch::Event event_type)
+{
+	const std::filesystem::path changed_path(path);
+	if (!is_script_source_watch_event(changed_path, event_type))
+		return;
+
+	std::scoped_lock lock(m_script_source_mutex);
+	m_script_source_dirty = true;
+	m_last_script_source_change_time = std::chrono::steady_clock::now();
+	m_last_script_source_change_path = changed_path;
+	m_last_script_source_change_event = script_source_event_name(event_type);
+}
+
+void editor_layer::process_script_source_changes()
+{
+	if (!has_project_loaded())
+		return;
+
+	constexpr auto debounce_duration = std::chrono::milliseconds(750);
+	std::filesystem::path changed_path;
+	std::string event_name;
+
+	{
+		std::scoped_lock lock(m_script_source_mutex);
+		if (!m_script_source_dirty)
+			return;
+
+		if (std::chrono::steady_clock::now() - m_last_script_source_change_time < debounce_duration)
+			return;
+
+		if (m_scene_state != scene_state::edit)
+		{
+			if (!m_script_source_queued_while_running)
+			{
+				m_script_source_queued_while_running = true;
+				WHP_EDITOR_INFO("[Script Watcher] Source change detected while scene is running. Build and reload will run after Stop.");
+			}
+			return;
+		}
+
+		m_script_source_dirty = false;
+		m_script_source_queued_while_running = false;
+		changed_path = m_last_script_source_change_path;
+		event_name = m_last_script_source_change_event;
+	}
+
+	WHP_EDITOR_INFO(std::string("[Script Watcher] Source ") + event_name + ": " + changed_path.generic_string() + ". Building scripts.");
+	stop_script_source_watcher();
+	const bool build_succeeded = build_project_scripts();
+	if (build_succeeded)
+	{
+		assembly_manager::reload_assembly(true);
+		WHP_EDITOR_INFO("[Script Watcher] Scripts rebuilt and reloaded.");
+	}
+	else
+	{
+		WHP_EDITOR_WARN("[Script Watcher] Script reload skipped because source build failed.");
+	}
+	start_script_source_watcher();
+}
+
+void editor_layer::reload_assembly(bool reset_app_assembly_filepath)
 {
 	if (!has_project_loaded())
 	{
@@ -2502,12 +2662,15 @@ void editor_layer::reload_assembly(bool reset_app_assembly_filepath) const
 
 	if (m_scene_state == scene_state::edit)
 	{
+		stop_script_source_watcher();
 		if (!build_project_scripts())
 		{
 			WHP_CORE_WARN("[Script Engine] Assembly reload skipped because script build failed.");
+			start_script_source_watcher();
 			return;
 		}
 		assembly_manager::reload_assembly(reset_app_assembly_filepath);
+		start_script_source_watcher();
 	}
 	else
 		WHP_CORE_WARN("[Script Engine] Failed to reload assembly. Scene is running or simulating!");

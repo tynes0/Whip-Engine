@@ -642,7 +642,6 @@ bool assembly_manager::load_app_assembly(const std::filesystem::path& filepath)
 		return false;
 	}
 
-	s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(filepath.string(), utils::on_app_assembly_file_system_event_1);
 	s_script_engine_data->app_assembly_image = mono_assembly_get_image(s_script_engine_data->app_assembly);
 	WHP_CORE_INFO("[Script Engine] Loaded app assembly: {0}", filepath.string());
 	return true;
@@ -888,19 +887,7 @@ void script_engine::shutdown()
 
 void script_engine::set_filewatcher_state(bool run)
 {
-	if (!s_script_engine_data || s_script_engine_data->is_shutting_down)
-		return;
-
-	if (s_script_engine_data->app_assembly_filepath.empty() || !std::filesystem::exists(s_script_engine_data->app_assembly_filepath))
-		return;
-
-	if (run)
-	{
-		s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(s_script_engine_data->app_assembly_filepath.string(), utils::on_app_assembly_file_system_event_1);
-		utils::on_app_assembly_file_system_event_1(std::string(), static_cast<filewatch::Event>(-1)); // If we need to reload, let it be reloaded.
-	}
-	else
-		s_script_engine_data->app_assembly_watcher = make_scope<filewatch::FileWatch<std::string>>(s_script_engine_data->app_assembly_filepath.string(), utils::on_app_assembly_file_system_event_2);
+	WHP_UNUSED(run);
 }
 
 void script_engine::on_runtime_start(scene* scene_in)
