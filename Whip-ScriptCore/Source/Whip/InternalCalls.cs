@@ -32,6 +32,19 @@ namespace Whip
 		internal extern static AssetType AssetManager_GetAssetType(ulong assetHandle);
 		#endregion
 
+		#region SceneManager
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool SceneManager_LoadScene(ulong sceneHandle);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool SceneManager_LoadStartScene();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool SceneManager_ReloadScene();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool SceneManager_UnloadScene();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static ulong SceneManager_GetActiveSceneHandle();
+		#endregion
+
 		#region Input
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool Input_IsKeyDown(KeyCode keycode);

@@ -320,6 +320,31 @@ namespace utils
 		return create_string(path.c_str());
 	}
 
+	static bool scene_manager_load_scene(asset_handle handle)
+	{
+		return script_engine::request_runtime_scene_load(handle);
+	}
+
+	static bool scene_manager_load_start_scene()
+	{
+		return script_engine::request_runtime_start_scene_load();
+	}
+
+	static bool scene_manager_reload_scene()
+	{
+		return script_engine::request_runtime_scene_reload();
+	}
+
+	static bool scene_manager_unload_scene()
+	{
+		return script_engine::request_runtime_scene_unload();
+	}
+
+	static asset_handle scene_manager_get_active_scene_handle()
+	{
+		return script_engine::get_runtime_active_scene_handle();
+	}
+
 	static bool input_is_key_down(key_code keycode)
 	{
 		return input::is_key_down(keycode);
@@ -1489,6 +1514,13 @@ void script_glue::register_functions()
 	ADD_INTERNAL_CALL(AssetManager_IsAssetLoaded, utils::asset_manager_is_asset_loaded);
 	ADD_INTERNAL_CALL(AssetManager_GetAssetType, utils::asset_manager_get_asset_type);
 	ADD_INTERNAL_CALL(AssetManager_GetFilepath, utils::asset_manager_get_filepath);
+
+	// scene manager
+	ADD_INTERNAL_CALL(SceneManager_LoadScene, utils::scene_manager_load_scene);
+	ADD_INTERNAL_CALL(SceneManager_LoadStartScene, utils::scene_manager_load_start_scene);
+	ADD_INTERNAL_CALL(SceneManager_ReloadScene, utils::scene_manager_reload_scene);
+	ADD_INTERNAL_CALL(SceneManager_UnloadScene, utils::scene_manager_unload_scene);
+	ADD_INTERNAL_CALL(SceneManager_GetActiveSceneHandle, utils::scene_manager_get_active_scene_handle);
 
 	// input
 	ADD_INTERNAL_CALL(Input_IsKeyDown, utils::input_is_key_down);

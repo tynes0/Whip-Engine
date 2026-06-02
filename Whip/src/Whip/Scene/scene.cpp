@@ -83,7 +83,7 @@ scene::~scene() {}
 ref<scene> scene::copy(ref<scene> other)
 {
 	WHP_PROFILE_FUNCTION();
-	ref<scene> new_scene = make_ref<scene>();
+	ref<scene> new_scene = make_ref<scene>(other->handle);
 
 	new_scene->m_viewport_width = other->m_viewport_width;
 	new_scene->m_viewport_height = other->m_viewport_height;

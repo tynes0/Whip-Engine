@@ -9,6 +9,7 @@
 #include <Whip/Core/Application.h>
 #include <Whip/Project/project.h>
 #include <Whip/UI/UI_helpers.h>
+#include <Whip/Utils/platform_utils.h>
 
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -121,10 +122,14 @@ void content_browser_panel::init(ref<project> proj)
 void content_browser_panel::on_imgui_render()
 {
 	if (!m_open)
+	{
+		m_hovered = false;
 		return;
+	}
 
 	bool open = m_open;
 	ImGui::Begin("Content Browser", &open);
+	m_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
 	if (open != m_open)
 		set_open(open);
 
@@ -162,6 +167,8 @@ void content_browser_panel::on_imgui_render()
 	{
 		if (ImGui::MenuItem("Refresh"))
 			refresh_asset_tree();
+		if (ImGui::MenuItem("Open Current Folder in Explorer"))
+			utils::open_external_path(m_current_directory);
 		if (ImGui::MenuItem("Settings"))
 			m_show_settings_popup = true;
 		ImGui::EndPopup();
@@ -455,6 +462,8 @@ void content_browser_panel::draw_item(const browser_item& item)
 		{
 			if (ImGui::MenuItem("Open"))
 				set_current_directory(item.absolute_path);
+			if (ImGui::MenuItem("Open in Explorer"))
+				utils::open_external_path(item.absolute_path);
 			if (ImGui::MenuItem("Rename"))
 				request_rename_item(item);
 			if (ImGui::MenuItem("Move To..."))
@@ -484,6 +493,8 @@ void content_browser_panel::draw_item(const browser_item& item)
 			}
 			else
 			{
+				if (ImGui::MenuItem("Show in Explorer"))
+					utils::open_external_path(item.absolute_path.parent_path());
 				if (item.supported && !item.imported && ImGui::MenuItem("Import"))
 					import_file(item.relative_path);
 				if (ImGui::MenuItem("Rename"))
@@ -1096,6 +1107,75 @@ void content_browser_panel::import_supported_files_under(const std::filesystem::
 	}
 }
 
+bool content_browser_panel::handle_external_drop(const std::vector<std::filesystem::path>& paths)
+{
+	if (!m_project || paths.empty())
+		return false;
+
+	import_summary summary;
+	bool handled = false;
+	for (const auto& source_path : paths)
+		handled = import_external_path(source_path, summary) || handled;
+
+	refresh_asset_tree();
+	set_status("External drop: " + import_summary_text(summary), summary.failed > 0 || summary.missing > 0);
+	return handled;
+}
+
+bool content_browser_panel::import_external_path(const std::filesystem::path& source_path, import_summary& summary)
+{
+	std::error_code error;
+	if (!std::filesystem::exists(source_path, error))
+	{
+		++summary.missing;
+		return false;
+	}
+
+	const bool source_inside_assets = is_inside_base_directory(source_path);
+	std::filesystem::path import_path = source_path;
+	if (!source_inside_assets)
+	{
+		std::filesystem::create_directories(m_current_directory, error);
+		if (error)
+		{
+			++summary.failed;
+			return false;
+		}
+
+		import_path = make_unique_import_path(m_current_directory / source_path.filename());
+		error.clear();
+		if (std::filesystem::is_directory(source_path, error))
+			std::filesystem::copy(source_path, import_path, std::filesystem::copy_options::recursive, error);
+		else if (std::filesystem::is_regular_file(source_path, error))
+			std::filesystem::copy_file(source_path, import_path, std::filesystem::copy_options::none, error);
+		else
+		{
+			++summary.unsupported;
+			return false;
+		}
+
+		if (error)
+		{
+			++summary.failed;
+			set_status("External drop failed: " + error.message(), true);
+			return false;
+		}
+	}
+
+	error.clear();
+	if (std::filesystem::is_directory(import_path, error))
+	{
+		import_supported_files_under(import_path, summary);
+		return true;
+	}
+
+	if (std::filesystem::is_regular_file(import_path, error))
+		return import_file(make_relative_path(import_path), &summary);
+
+	++summary.unsupported;
+	return false;
+}
+
 bool content_browser_panel::is_inside_base_directory(const std::filesystem::path& path) const
 {
 	std::error_code error;
@@ -1170,6 +1250,13 @@ std::filesystem::path content_browser_panel::make_unique_copy_path(const std::fi
 	while (std::filesystem::exists(candidate))
 		candidate = parent / (stem + " Copy " + std::to_string(suffix++) + extension);
 	return candidate;
+}
+
+std::filesystem::path content_browser_panel::make_unique_import_path(const std::filesystem::path& absolute_path) const
+{
+	if (!std::filesystem::exists(absolute_path))
+		return absolute_path;
+	return make_unique_copy_path(absolute_path);
 }
 
 void content_browser_panel::set_status(std::string message, bool error)

@@ -43,6 +43,20 @@ enum class script_field_type
 
 MakeFrenumInNamespace(whip, script_field_type, None, String, Float, Double, Bool, Char, SByte, Short, Int, Long, Byte, UShort, UInt, ULong, KeyCode, MouseCode, Vector2, Vector3, Vector4, Entity, Logger)
 
+enum class runtime_scene_transition_type
+{
+	None = 0,
+	Load,
+	Unload,
+	Reload
+};
+
+struct runtime_scene_transition_request
+{
+	runtime_scene_transition_type type = runtime_scene_transition_type::None;
+	asset_handle scene_handle = 0;
+};
+
 struct script_field
 {
 	script_field_type type = script_field_type::None;
@@ -286,6 +300,14 @@ public:
 	static void on_collider_exit_entity(UUID entity_left, std::string_view tag);
 
 	static scene* get_scene_context();
+	static void set_runtime_active_scene_handle(asset_handle handle);
+	static asset_handle get_runtime_active_scene_handle();
+	static bool request_runtime_scene_load(asset_handle handle);
+	static bool request_runtime_start_scene_load();
+	static bool request_runtime_scene_reload();
+	static bool request_runtime_scene_unload();
+	static runtime_scene_transition_request consume_runtime_scene_transition_request();
+	static void clear_runtime_scene_transition_request();
 	static ref<script_instance> get_entity_script_instance(UUID entityID);
 	static ref<script_class> get_entity_class(const std::string& class_name);
 	static std::unordered_map<std::string, ref<script_class>> get_entity_classes();

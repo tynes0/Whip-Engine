@@ -287,6 +287,8 @@ struct script_engine_data
 
 	// Runtime
 	scene* scene_context = nullptr;
+	asset_handle runtime_active_scene_handle = 0;
+	runtime_scene_transition_request runtime_scene_transition;
 };
 
 static script_engine_data* s_script_engine_data = nullptr;
@@ -951,6 +953,8 @@ void script_engine::on_runtime_start(scene* scene_in)
 void script_engine::on_runtime_stop()
 {
 	s_script_engine_data->scene_context = nullptr;
+	s_script_engine_data->runtime_active_scene_handle = 0;
+	s_script_engine_data->runtime_scene_transition = {};
 	s_script_engine_data->entity_instances.clear();
 	script_glue::on_runtime_stop();
 }
@@ -1024,6 +1028,81 @@ void script_engine::on_collider_exit_entity(UUID entity_left, std::string_view t
 scene* script_engine::get_scene_context()
 {
 	return s_script_engine_data->scene_context;
+}
+
+void script_engine::set_runtime_active_scene_handle(asset_handle handle)
+{
+	if (!s_script_engine_data)
+		return;
+	s_script_engine_data->runtime_active_scene_handle = handle;
+}
+
+asset_handle script_engine::get_runtime_active_scene_handle()
+{
+	if (!s_script_engine_data)
+		return 0;
+	return s_script_engine_data->runtime_active_scene_handle;
+}
+
+bool script_engine::request_runtime_scene_load(asset_handle handle)
+{
+	if (!s_script_engine_data || handle == 0)
+		return false;
+
+	ref<project> active_project = project::get_active();
+	if (!active_project || !active_project->get_runtime_asset_manager() ||
+		!active_project->get_runtime_asset_manager()->is_asset_handle_valid(handle) ||
+		active_project->get_runtime_asset_manager()->get_asset_type(handle) != asset_type::scene)
+	{
+		WHP_CORE_WARN("[Scene Manager] Cannot load scene. Invalid scene handle: {0}", (uint64_t)handle);
+		return false;
+	}
+
+	s_script_engine_data->runtime_scene_transition = { runtime_scene_transition_type::Load, handle };
+	return true;
+}
+
+bool script_engine::request_runtime_start_scene_load()
+{
+	ref<project> active_project = project::get_active();
+	if (!active_project)
+		return false;
+	return request_runtime_scene_load(active_project->get_config().start_scene);
+}
+
+bool script_engine::request_runtime_scene_reload()
+{
+	if (!s_script_engine_data || s_script_engine_data->runtime_active_scene_handle == 0)
+		return false;
+
+	s_script_engine_data->runtime_scene_transition = { runtime_scene_transition_type::Reload, s_script_engine_data->runtime_active_scene_handle };
+	return true;
+}
+
+bool script_engine::request_runtime_scene_unload()
+{
+	if (!s_script_engine_data)
+		return false;
+
+	s_script_engine_data->runtime_scene_transition = { runtime_scene_transition_type::Unload, 0 };
+	return true;
+}
+
+runtime_scene_transition_request script_engine::consume_runtime_scene_transition_request()
+{
+	if (!s_script_engine_data)
+		return {};
+
+	runtime_scene_transition_request request = s_script_engine_data->runtime_scene_transition;
+	s_script_engine_data->runtime_scene_transition = {};
+	return request;
+}
+
+void script_engine::clear_runtime_scene_transition_request()
+{
+	if (!s_script_engine_data)
+		return;
+	s_script_engine_data->runtime_scene_transition = {};
 }
 
 ref<script_instance> script_engine::get_entity_script_instance(UUID entityID)

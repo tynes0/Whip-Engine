@@ -49,6 +49,8 @@ public:
 	bool consume_preferences_dirty();
 	void set_open(bool open);
 	bool is_open() const { return m_open; }
+	bool is_hovered() const { return m_hovered; }
+	bool handle_external_drop(const std::vector<std::filesystem::path>& paths);
 private:
 	enum class mode
 	{
@@ -106,6 +108,7 @@ private:
 	bool duplicate_item(const browser_item& item);
 	bool move_path_to_directory(const std::filesystem::path& source_relative_path, const std::filesystem::path& destination_directory);
 	void import_supported_files_under(const std::filesystem::path& directory, import_summary& summary);
+	bool import_external_path(const std::filesystem::path& source_path, import_summary& summary);
 
 	bool is_inside_base_directory(const std::filesystem::path& path) const;
 	bool matches_search(const browser_item& item) const;
@@ -114,6 +117,7 @@ private:
 	asset_handle find_asset_handle(const std::filesystem::path& relative_path) const;
 	std::filesystem::path make_relative_path(const std::filesystem::path& absolute_path) const;
 	std::filesystem::path make_unique_copy_path(const std::filesystem::path& absolute_path) const;
+	std::filesystem::path make_unique_import_path(const std::filesystem::path& absolute_path) const;
 	void set_status(std::string message, bool error = false);
 	std::string display_path(const std::filesystem::path& path) const;
 	std::string item_type_label(const browser_item& item) const;
@@ -148,6 +152,7 @@ private:
 	bool m_initialized = false;
 	bool m_preferences_dirty = false;
 	bool m_open = true;
+	bool m_hovered = false;
 };
 
 _WHIP_END

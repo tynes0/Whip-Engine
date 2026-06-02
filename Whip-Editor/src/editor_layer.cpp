@@ -1108,6 +1108,7 @@ void editor_layer::on_update(timestep ts)
 		case scene_state::play:
 		{
 			m_active_scene->on_update_runtime(ts);
+			process_runtime_scene_transition();
 			break;
 		}
 		case scene_state::simulate:
@@ -1116,6 +1117,7 @@ void editor_layer::on_update(timestep ts)
 				m_editor_camera.on_update(ts);
 			draw_editor_grid();
 			m_active_scene->on_update_simulation(ts, m_editor_camera);
+			process_runtime_scene_transition();
 			break;
 		}
 		}
@@ -1753,6 +1755,9 @@ bool editor_layer::on_window_drop(window_drop_event& evnt)
 {
 	if (!has_project_loaded())
 		return false;
+
+	if (m_content_browser_panel && m_content_browser_panel->is_hovered())
+		return m_content_browser_panel->handle_external_drop(evnt.get_paths());
 
 	bool handled = false;
 	for (const auto& path : evnt.get_paths())
@@ -2856,6 +2861,91 @@ void editor_layer::set_script_build_status(const std::string& message, bool warn
 	m_script_build_status_failure = failure;
 }
 
+void editor_layer::process_runtime_scene_transition()
+{
+	if (m_scene_state != scene_state::play && m_scene_state != scene_state::simulate)
+	{
+		script_engine::clear_runtime_scene_transition_request();
+		return;
+	}
+
+	const runtime_scene_transition_request request = script_engine::consume_runtime_scene_transition_request();
+	switch (request.type)
+	{
+	case runtime_scene_transition_type::Load:
+	case runtime_scene_transition_type::Reload:
+		load_runtime_scene(request.scene_handle);
+		break;
+	case runtime_scene_transition_type::Unload:
+		unload_runtime_scene();
+		break;
+	default:
+		break;
+	}
+}
+
+bool editor_layer::load_runtime_scene(asset_handle handle)
+{
+	if (!has_project_loaded() || handle == 0)
+		return false;
+
+	ref<project> active_project = project::get_active();
+	if (!active_project->get_runtime_asset_manager()->is_asset_handle_valid(handle) ||
+		active_project->get_runtime_asset_manager()->get_asset_type(handle) != asset_type::scene)
+	{
+		WHP_EDITOR_WARN("[Scene Manager] Runtime scene load failed. Invalid scene handle.");
+		return false;
+	}
+
+	ref<scene> source_scene = asset_manager::get_asset<scene>(handle);
+	if (!source_scene)
+	{
+		WHP_EDITOR_WARN("[Scene Manager] Runtime scene load failed. Scene asset could not be loaded.");
+		return false;
+	}
+
+	stop_active_runtime_scene_for_transition();
+	m_active_scene = scene::copy(source_scene);
+	m_active_scene->on_viewport_resize(static_cast<uint32_t>(m_viewport_size.x), static_cast<uint32_t>(m_viewport_size.y));
+	m_scene_hierarchy_panel.set_context(m_active_scene);
+	m_scene_hierarchy_panel.set_selected_entity({});
+	start_active_runtime_scene_for_transition(handle);
+	WHP_EDITOR_INFO(std::string("[Scene Manager] Runtime scene loaded: ") + active_project->get_runtime_asset_manager()->get_filepath(handle).generic_string());
+	return true;
+}
+
+bool editor_layer::unload_runtime_scene()
+{
+	if (m_scene_state != scene_state::play && m_scene_state != scene_state::simulate)
+		return false;
+
+	stop_active_runtime_scene_for_transition();
+	m_active_scene = make_ref<scene>();
+	m_active_scene->on_viewport_resize(static_cast<uint32_t>(m_viewport_size.x), static_cast<uint32_t>(m_viewport_size.y));
+	m_scene_hierarchy_panel.set_context(m_active_scene);
+	m_scene_hierarchy_panel.set_selected_entity({});
+	start_active_runtime_scene_for_transition(0);
+	WHP_EDITOR_INFO("[Scene Manager] Runtime scene unloaded.");
+	return true;
+}
+
+void editor_layer::stop_active_runtime_scene_for_transition()
+{
+	if (!m_active_scene)
+		return;
+
+	m_active_scene->on_runtime_stop();
+}
+
+void editor_layer::start_active_runtime_scene_for_transition(asset_handle handle)
+{
+	script_engine::set_runtime_active_scene_handle(handle);
+	if (m_scene_state == scene_state::simulate)
+		m_active_scene->on_simulation_start();
+	m_active_scene->on_runtime_start();
+	script_engine::set_runtime_active_scene_handle(handle);
+}
+
 void editor_layer::start_script_source_watcher()
 {
 	stop_script_source_watcher();
@@ -2999,7 +3089,9 @@ void editor_layer::on_scene_play()
 	m_scene_state = scene_state::play;
 	script_engine::set_filewatcher_state(false);
 	m_active_scene = scene::copy(m_editor_scene);
+	script_engine::set_runtime_active_scene_handle(m_active_scene->handle);
 	m_active_scene->on_runtime_start();
+	script_engine::set_runtime_active_scene_handle(m_active_scene->handle);
 	m_last_selected_entity = m_scene_hierarchy_panel.get_selected_entity();
 	m_scene_hierarchy_panel.set_context(m_active_scene);
 }
@@ -3018,7 +3110,9 @@ void editor_layer::on_scene_simulate()
 	m_active_scene = scene::copy(m_editor_scene);
 	m_active_scene->on_simulation_start();
 
+	script_engine::set_runtime_active_scene_handle(m_active_scene->handle);
 	m_active_scene->on_runtime_start();
+	script_engine::set_runtime_active_scene_handle(m_active_scene->handle);
 	m_last_selected_entity = m_scene_hierarchy_panel.get_selected_entity();
 	m_scene_hierarchy_panel.set_context(m_active_scene);
 	// maybe do not ??
@@ -3033,8 +3127,10 @@ void editor_layer::on_scene_stop()
 	if (m_scene_state == scene_state::play)
 		m_active_scene->on_runtime_stop();
 	else if (m_scene_state == scene_state::simulate)
-		m_active_scene->on_simulation_stop();
+		m_active_scene->on_runtime_stop();
 	m_scene_state = scene_state::edit;
+	script_engine::clear_runtime_scene_transition_request();
+	script_engine::set_runtime_active_scene_handle(0);
 	script_engine::set_filewatcher_state(true);
 	m_active_scene = m_editor_scene;
 	m_scene_hierarchy_panel.set_context(m_active_scene);

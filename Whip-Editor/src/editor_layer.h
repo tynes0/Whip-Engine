@@ -101,6 +101,11 @@ private:
 	void handle_script_source_event(const std::string& path, filewatch::Event event_type);
 	void process_script_source_changes();
 	void set_script_build_status(const std::string& message, bool warning = false, bool failure = false);
+	void process_runtime_scene_transition();
+	bool load_runtime_scene(asset_handle handle);
+	bool unload_runtime_scene();
+	void stop_active_runtime_scene_for_transition();
+	void start_active_runtime_scene_for_transition(asset_handle handle);
 
 	void serialize_scene(ref<scene> scene_in, const std::filesystem::path& path);
 
