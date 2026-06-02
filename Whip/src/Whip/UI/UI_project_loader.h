@@ -328,24 +328,29 @@ namespace UI
 				ImGui::OpenPopup("New Project");
 				m_new_project_popup_requested = false;
 			}
-			ImGui::SetNextWindowSize(ImVec2(820.0f, 560.0f), ImGuiCond_Appearing);
+			ImGui::SetNextWindowSize(ImVec2(980.0f, 640.0f), ImGuiCond_Appearing);
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(12.0f, 10.0f));
 			if (ImGui::BeginPopupModal("New Project", &m_new_project_modal_open, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar))
 			{
 				const ImVec2 window_pos = ImGui::GetWindowPos();
 				const ImVec2 window_size = ImGui::GetWindowSize();
+				const float content_top = 108.0f;
+				const float content_height = window_size.y - 204.0f;
+				const float template_width = 280.0f;
+				const float details_x = 340.0f;
+				const float details_width = window_size.x - details_x - 28.0f;
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
-				draw_list->AddRectFilled(window_pos, ImVec2(window_pos.x + window_size.x, window_pos.y + 76.0f), ImGui::ColorConvertFloat4ToU32(ImVec4(0.06f, 0.07f, 0.07f, 1.0f)), 8.0f, ImDrawFlags_RoundCornersTop);
-				draw_list->AddLine(ImVec2(window_pos.x, window_pos.y + 76.0f), ImVec2(window_pos.x + window_size.x, window_pos.y + 76.0f), ImGui::ColorConvertFloat4ToU32(ImVec4(0.18f, 0.20f, 0.20f, 1.0f)));
+				draw_list->AddRectFilled(window_pos, ImVec2(window_pos.x + window_size.x, window_pos.y + 84.0f), ImGui::ColorConvertFloat4ToU32(ImVec4(0.06f, 0.07f, 0.07f, 1.0f)), 8.0f, ImDrawFlags_RoundCornersTop);
+				draw_list->AddLine(ImVec2(window_pos.x, window_pos.y + 84.0f), ImVec2(window_pos.x + window_size.x, window_pos.y + 84.0f), ImGui::ColorConvertFloat4ToU32(ImVec4(0.18f, 0.20f, 0.20f, 1.0f)));
 
 				ImGui::SetCursorPos(ImVec2(24.0f, 18.0f));
 				ImGui::TextUnformatted("Create Whip Project");
 				ImGui::SetCursorPosX(24.0f);
 				ImGui::TextDisabled("A ready-to-build Whip project with a C# solution.");
 
-				ImGui::SetCursorPos(ImVec2(24.0f, 98.0f));
-				ImGui::BeginChild("##TemplateRail", ImVec2(260.0f, 378.0f), false);
+				ImGui::SetCursorPos(ImVec2(24.0f, content_top));
+				ImGui::BeginChild("##TemplateRail", ImVec2(template_width, content_height), false);
 				draw_field_label("Template");
 				ImGui::Spacing();
 				const float card_width = ImGui::GetContentRegionAvail().x;
@@ -353,18 +358,21 @@ namespace UI
 					draw_template_card(i, card_width);
 				ImGui::EndChild();
 
-				ImGui::SetCursorPos(ImVec2(306.0f, 98.0f));
-				ImGui::BeginChild("##ProjectDetails", ImVec2(490.0f, 378.0f), false);
+				ImGui::SetCursorPos(ImVec2(details_x, content_top));
+				ImGui::BeginChild("##ProjectDetails", ImVec2(details_width, content_height), false);
 				draw_field_label("Project Details");
 				ImGui::Spacing();
 
+				draw_field_label("Project Name");
 				ImGui::SetNextItemWidth(-1.0f);
-				ImGui::InputText("Project Name", m_new_project_name, sizeof(m_new_project_name));
+				ImGui::InputText("##NewProjectName", m_new_project_name, sizeof(m_new_project_name));
 
-				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 94.0f);
-				ImGui::InputText("Location", m_new_project_location, sizeof(m_new_project_location));
+				draw_field_label("Location");
+				const float browse_width = 104.0f;
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_width - ImGui::GetStyle().ItemSpacing.x);
+				ImGui::InputText("##NewProjectLocation", m_new_project_location, sizeof(m_new_project_location));
 				ImGui::SameLine();
-				if (ImGui::Button("Browse", ImVec2(84.0f, 0.0f)))
+				if (ImGui::Button("Browse##NewProjectBrowse", ImVec2(browse_width, 0.0f)))
 				{
 					std::string folder = file_dialogs::open_folder();
 					if (!folder.empty())
@@ -373,8 +381,9 @@ namespace UI
 
 				ImGui::Checkbox("Create startup scene", &m_new_project_create_start_scene);
 				ImGui::BeginDisabled(!m_new_project_create_start_scene);
+				draw_field_label("Startup Scene");
 				ImGui::SetNextItemWidth(-1.0f);
-				ImGui::InputText("Startup Scene", m_new_project_scene_name, sizeof(m_new_project_scene_name));
+				ImGui::InputText("##NewProjectStartupScene", m_new_project_scene_name, sizeof(m_new_project_scene_name));
 				ImGui::EndDisabled();
 				ImGui::Checkbox("Open after create", &m_new_project_open_after_create);
 
@@ -397,11 +406,11 @@ namespace UI
 
 				draw_list->AddRectFilled(ImVec2(window_pos.x, window_pos.y + window_size.y - 64.0f), ImVec2(window_pos.x + window_size.x, window_pos.y + window_size.y), ImGui::ColorConvertFloat4ToU32(ImVec4(0.055f, 0.06f, 0.06f, 1.0f)), 8.0f, ImDrawFlags_RoundCornersBottom);
 				draw_list->AddLine(ImVec2(window_pos.x, window_pos.y + window_size.y - 64.0f), ImVec2(window_pos.x + window_size.x, window_pos.y + window_size.y - 64.0f), ImGui::ColorConvertFloat4ToU32(ImVec4(0.18f, 0.20f, 0.20f, 1.0f)));
-				ImGui::SetCursorPos(ImVec2(window_size.x - 270.0f, window_size.y - 44.0f));
+				ImGui::SetCursorPos(ImVec2(window_size.x - 296.0f, window_size.y - 44.0f));
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.55f, 0.49f, 1.0f));
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.65f, 0.58f, 1.0f));
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.45f, 0.40f, 1.0f));
-				if (ImGui::Button("Create Project", ImVec2(136.0f, 30.0f)))
+				if (ImGui::Button("Create Project", ImVec2(156.0f, 30.0f)))
 				{
 					project_create_settings settings;
 					if (validate_new_project(settings))

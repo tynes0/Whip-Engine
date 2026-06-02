@@ -29,11 +29,10 @@ struct console_data
 {
 	std::vector<console_entry> buffer;
 	std::thread file_watcher_thread;
-	std::ifstream stream;
 	std::mutex mtx;
-	std::streamoff last_stream_index = 0;
+	std::uintmax_t last_stream_index = 0;
+	std::uintmax_t cleared_stream_index = 0;
 	std::atomic<bool> running;
-	std::atomic<bool> filestream_was_open;
 	std::filesystem::file_time_type last_write_time{};
 	std::string text_filter;
 	std::string category_filter;
@@ -50,8 +49,6 @@ console_data g_data;
 
 namespace utils
 {
-	static bool reopen();
-
 	static std::string trim(std::string value)
 	{
 		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())))
@@ -153,61 +150,63 @@ namespace utils
 		return true;
 	}
 
-	static void clear_filestream_context()
+	static std::uintmax_t log_file_size()
 	{
-		if (!g_data.stream.is_open())
-			return; // not opened
-		g_data.stream.clear();
-		g_data.last_stream_index = 0;
+		std::error_code error;
+		const auto& path = editor_log::get_log_filepath();
+		if (!std::filesystem::exists(path, error))
+			return 0;
+		const std::uintmax_t size = std::filesystem::file_size(path, error);
+		return error ? 0 : size;
 	}
 
 	static void skip_to_end()
 	{
-		if (!g_data.stream.is_open() && !reopen())
-			return;
-
-		g_data.stream.clear();
-		g_data.stream.seekg(0, std::ios::end);
-		g_data.last_stream_index = g_data.stream.tellg();
-	}
-
-	static bool reopen()
-	{
-		if (g_data.stream.is_open())
-			return true; // already opened
-		g_data.stream.open(editor_log::get_log_filepath());
-		return g_data.stream.is_open();
+		const std::uintmax_t size = log_file_size();
+		g_data.last_stream_index = size;
+		g_data.cleared_stream_index = size;
+		editor_log::file_should_reset().store(false);
 	}
 
 	static void reset_buffer()
 	{
-		if (!g_data.stream)
-		{
-			if (g_data.filestream_was_open.load())
-			{
-				if (reopen())
-					goto skip_error;
-			}
-			WHP_CLIENT_ERROR("[Console Panel] Filestream is undefined!");
+		const auto& log_path = editor_log::get_log_filepath();
+		std::error_code error;
+		if (!std::filesystem::exists(log_path, error))
 			return;
-		skip_error:;
-		}
 
-		g_data.stream.seekg(0, std::ios::end);
-		std::streampos end_pos = g_data.stream.tellg();
+		const std::uintmax_t end_pos = std::filesystem::file_size(log_path, error);
+		if (error)
+			return;
+
 		if (end_pos < g_data.last_stream_index)
 		{
-			clear_filestream_context();
-			return;
+			g_data.last_stream_index = 0;
+			g_data.cleared_stream_index = 0;
 		}
-		g_data.stream.seekg(g_data.last_stream_index);
 
-		std::streamoff buf_size = std::streamoff(end_pos) - g_data.last_stream_index;
+		if (g_data.last_stream_index < g_data.cleared_stream_index)
+			g_data.last_stream_index = g_data.cleared_stream_index;
+
+		if (end_pos <= g_data.last_stream_index)
+			return;
+
+		std::ifstream stream(log_path, std::ios::binary);
+		if (!stream.is_open())
+			return;
+
+		const std::uintmax_t buf_size = end_pos - g_data.last_stream_index;
 		std::string buf;
-		buf.resize(buf_size);
-		g_data.stream.read(buf.data(), buf_size);
+		buf.resize(static_cast<size_t>(buf_size));
+		stream.seekg(static_cast<std::streamoff>(g_data.last_stream_index), std::ios::beg);
+		stream.read(buf.data(), static_cast<std::streamsize>(buf.size()));
+		const std::streamsize bytes_read = stream.gcount();
 
 		g_data.last_stream_index = end_pos;
+		if (bytes_read <= 0)
+			return;
+		if (static_cast<size_t>(bytes_read) < buf.size())
+			buf.resize(static_cast<size_t>(bytes_read));
 
 		static constexpr const char* token = "level::";
 		static constexpr size_t token_length = sizeof(token) - 1;
@@ -284,15 +283,8 @@ void console_panel::initialize()
 {
 	if (editor_log::should_log())
 	{
-		g_data.stream.open(editor_log::get_log_filepath());
-		if (g_data.stream.is_open())
-		{
-			g_data.filestream_was_open.store(true);
-			std::error_code error;
-			g_data.last_write_time = std::filesystem::last_write_time(editor_log::get_log_filepath(), error);
-		}
-		else
-			g_data.filestream_was_open.store(false);
+		std::error_code error;
+		g_data.last_write_time = std::filesystem::last_write_time(editor_log::get_log_filepath(), error);
 
 		utils::reset_buffer();
 		g_data.running.store(true);
@@ -305,11 +297,12 @@ void console_panel::initialize()
 void console_panel::shutdown()
 {
 	g_data.running.store(false);
-	g_data.stream.close();
 	if (g_data.file_watcher_thread.joinable())
 		g_data.file_watcher_thread.join();
 
 	g_data.buffer.clear();
+	g_data.last_stream_index = 0;
+	g_data.cleared_stream_index = 0;
 	editor_log::log_state(false);
 	editor_log::erase();
 	if (std::filesystem::exists(editor_log::get_log_filepath()))

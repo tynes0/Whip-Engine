@@ -668,6 +668,8 @@ void scene_hierarchy_panel::draw_entity_node(entity entity_in)
 				notify_scene_change();
 				set_entity_parent(entity_in, {});
 			}
+			if (m_save_entity_template_callback && ImGui::MenuItem("Save as Entity Template"))
+				m_save_entity_template_callback(entity_in);
 			ImGui::Separator();
 			if (ImGui::MenuItem("Delete Entity"))
 				entityDeleted = true;

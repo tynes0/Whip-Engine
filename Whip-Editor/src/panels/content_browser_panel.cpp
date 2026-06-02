@@ -332,7 +332,7 @@ void content_browser_panel::draw_directory_tree(const std::filesystem::path& dir
 
 void content_browser_panel::draw_breadcrumbs()
 {
-	if (ImGui::Button("Assets"))
+	if (ImGui::Button("Assets##ContentBrowserBreadcrumbRoot"))
 		set_current_directory(m_base_directory);
 
 	std::error_code error;
@@ -347,8 +347,10 @@ void content_browser_panel::draw_breadcrumbs()
 		ImGui::SameLine();
 		ImGui::TextUnformatted("/");
 		ImGui::SameLine();
+		ImGui::PushID(cursor.generic_string().c_str());
 		if (ImGui::Button(part.string().c_str()))
 			set_current_directory(cursor);
+		ImGui::PopID();
 	}
 }
 
@@ -422,10 +424,16 @@ void content_browser_panel::draw_item(const browser_item& item)
 	{
 		std::string relative_path = item.relative_path.generic_string();
 		ImGui::SetDragDropPayload("CONTENT_BROWSER_PATH", relative_path.data(), relative_path.size());
-		if (item.imported && !item.directory)
+		if (item.supported && !item.directory && !item.missing)
 		{
 			asset_handle handle = item.handle;
-			ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &handle, sizeof(asset_handle));
+			if (handle == 0)
+			{
+				import_file(item.relative_path);
+				handle = find_asset_handle(item.relative_path);
+			}
+			if (handle != 0)
+				ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &handle, sizeof(asset_handle));
 		}
 		ImGui::TextUnformatted(item.relative_path.filename().string().c_str());
 		ImGui::EndDragDropSource();

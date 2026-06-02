@@ -291,6 +291,7 @@ public:
 	static std::unordered_map<std::string, ref<script_class>> get_entity_classes();
 	static script_field_map& get_script_field_map(entity entity_in);
 	static script_field_map& get_base_script_field_map(const std::string& class_name);
+	static void copy_script_field_map(entity source_entity, entity destination_entity);
 
 	static MonoObject* get_managed_instance(UUID uuid);
 private:

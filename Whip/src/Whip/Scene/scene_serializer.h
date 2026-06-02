@@ -4,6 +4,7 @@
 #include <Whip/Core/memory.h>
 
 #include "scene.h"
+#include "entity.h"
 
 _WHIP_START
 
@@ -14,6 +15,8 @@ public:
 
 	void serialize(const std::filesystem::path& filepath);
 	bool deserialize(const std::filesystem::path& filepath);
+	bool serialize_entity_template(entity entity_in, const std::filesystem::path& filepath);
+	entity deserialize_entity_template(const std::filesystem::path& filepath);
 
 	void serialize_runtime(const std::filesystem::path& filepath);
 	bool deserialize_runtime(const std::filesystem::path& filepath);

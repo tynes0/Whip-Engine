@@ -6,6 +6,7 @@
 #include "font_importer.h"
 #include "audio_importer.h"
 #include "animation_importer.h"
+#include "entity_template_importer.h"
 
 #include <map>
 #include <functional>
@@ -20,7 +21,8 @@ static std::map<asset_type, asset_import_function> s_asset_import_functions =
 		{ asset_type::scene, scene_importer::import_scene },
 		{ asset_type::audio, audio_importer::import_audio },
 		{ asset_type::font, font_importer::import_font },
-		{ asset_type::animation, animation_importer::import_animation }
+		{ asset_type::animation, animation_importer::import_animation },
+		{ asset_type::entity, entity_template_importer::import_entity_template }
 };
 
 

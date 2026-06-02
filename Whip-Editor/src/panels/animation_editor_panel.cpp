@@ -12,6 +12,8 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 
+#include <algorithm>
+
 _WHIP_START
 
 animation_editor_panel::animation_editor_panel()
@@ -28,6 +30,7 @@ void animation_editor_panel::on_imgui_render()
 	ImGui::Begin("Animation Editor", &open);
 	if (open != m_open)
 		set_open(open);
+	update_preview();
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
@@ -46,6 +49,7 @@ void animation_editor_panel::on_imgui_render()
 		new_anim->set_name("New Animation");
 		m_current_animation = new_anim;
 		m_selected_frame_index = -1;
+		stop_preview(false);
 		std::string filepath = file_dialogs::save_file("Whip Animation (*.wanim)\0*.wanim\0", project::get_active_asset_directory().string().c_str());
 		if (!filepath.empty())
 		{
@@ -66,6 +70,7 @@ void animation_editor_panel::on_imgui_render()
 	{
 		m_current_animation = nullptr;
 		m_selected_frame_index = -1;
+		stop_preview(false);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Save", ImVec2(82.0f, 32.0f)))
@@ -99,6 +104,7 @@ void animation_editor_panel::on_imgui_render()
 				{
 					m_current_animation = anim;
 					m_selected_frame_index = -1;
+					stop_preview(false);
 				}
 		});
 		ImGui::EndCombo();
@@ -160,9 +166,11 @@ bool animation_editor_panel::consume_open_dirty()
 
 void animation_editor_panel::draw_animation_drag_drop_area(float width, float height)
 {
-	static const auto drag_drop_callback = [this](asset_handle handle)
+	const auto drag_drop_callback = [this](asset_handle handle)
 		{
 			m_current_animation = asset_manager::get_asset<animation2D>(handle);
+			m_selected_frame_index = -1;
+			stop_preview(false);
 		};
 
 	UI::drag_drop_target(asset_type::animation, drag_drop_callback, "Select Animation", true, width, height, true);
@@ -173,6 +181,7 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 	ImVec2 size(width, height);
 	ImDrawList* draw_list = ImGui::GetWindowDrawList();
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 0.0f));
+	const bool has_frames = m_current_animation && !m_current_animation->get_frames().empty();
 
 	auto draw_button = [&](icon icon_type, const char* tooltip) -> bool
 		{
@@ -210,22 +219,35 @@ void animation_editor_panel::draw_playback_controls(float width, float height)
 
 	if (draw_button(icon::step_back, "Previous frame"))
 	{
+		step_preview(-1);
 	}
 	ImGui::SameLine();
-	if (draw_button(icon::play, "Play preview"))
+	if (draw_button(icon::play, m_preview_paused ? "Resume preview" : "Play preview"))
 	{
+		if (has_frames)
+		{
+			if (m_selected_frame_index < 0 || m_selected_frame_index >= (int)m_current_animation->get_frames().size())
+				m_selected_frame_index = 0;
+			m_preview_playing = true;
+			m_preview_paused = false;
+			m_preview_elapsed = 0.0f;
+		}
 	}
 	ImGui::SameLine();
 	if (draw_button(icon::pause, "Pause preview"))
 	{
+		if (m_preview_playing)
+			m_preview_paused = true;
 	}
 	ImGui::SameLine();
 	if (draw_button(icon::stop, "Stop preview"))
 	{
+		stop_preview(true);
 	}
 	ImGui::SameLine();
 	if (draw_button(icon::step_forward, "Next frame"))
 	{
+		step_preview(1);
 	}
 
 	ImGui::PopStyleVar();
@@ -265,6 +287,7 @@ void animation_editor_panel::draw_close_button(float width, float left_padding)
 	{
 		m_current_animation = nullptr;
 		m_selected_frame_index = -1;
+		stop_preview(false);
 	}
 }
 
@@ -309,7 +332,11 @@ void animation_editor_panel::draw_animation_selector(float width, float left_pad
 			{
 				auto anim = asset_manager::get_asset<animation2D>(value.first);
 				if (ImGui::Selectable(anim->get_name().c_str(), m_current_animation ? m_current_animation->handle == value.first : false, 0, ImVec2(width - ImGui::GetStyle().WindowPadding.x, 0.0f)))
+				{
 					m_current_animation = asset_manager::get_asset<animation2D>(value.first);
+					m_selected_frame_index = -1;
+					stop_preview(false);
+				}
 			});
 		ImGui::EndCombo();
 	}
@@ -347,8 +374,11 @@ void animation_editor_panel::draw_add_frame_button(float width)
 		return;
 	if (ImGui::Button("Add Frame", ImVec2(width, 0.0f)))
 	{
-		m_current_animation->add_frame(animation_frame());
+		animation_frame frame;
+		frame.duration = 0.1f;
+		m_current_animation->add_frame(frame);
 		m_selected_frame_index = int(m_current_animation->get_frames().size() - 1);
+		stop_preview(false);
 	}
 }
 
@@ -359,7 +389,11 @@ void animation_editor_panel::draw_remove_frame_button(float width)
 	if (ImGui::Button("Remove Frame", ImVec2(width, 0.0f)))
 	{
 		m_current_animation->remove_frame(m_selected_frame_index);
-		m_selected_frame_index = -1;
+		if (m_current_animation->get_frames().empty())
+			m_selected_frame_index = -1;
+		else
+			m_selected_frame_index = std::min(m_selected_frame_index, (int)m_current_animation->get_frames().size() - 1);
+		stop_preview(false);
 	}
 }
 
@@ -375,7 +409,7 @@ void animation_editor_panel::draw_frame_editor(float width)
 	}
 
 	auto& frame = m_current_animation->get_frames()[m_selected_frame_index];
-	static const auto drag_drop_callback = [&frame](asset_handle handle)
+	const auto drag_drop_callback = [&frame](asset_handle handle)
 		{
 			frame.texture = handle;
 		};
@@ -402,6 +436,70 @@ void animation_editor_panel::draw_frame_editor(float width)
 
 		ImGui::EndTable();
 	}
+}
+
+void animation_editor_panel::update_preview()
+{
+	if (!m_preview_playing || m_preview_paused || !m_current_animation)
+		return;
+
+	auto& frames = m_current_animation->get_frames();
+	if (frames.empty())
+	{
+		stop_preview(false);
+		return;
+	}
+
+	if (m_selected_frame_index < 0 || m_selected_frame_index >= (int)frames.size())
+		m_selected_frame_index = 0;
+
+	m_preview_elapsed += ImGui::GetIO().DeltaTime;
+	const float current_duration = std::max(frames[m_selected_frame_index].duration, 0.033f);
+	if (m_preview_elapsed < current_duration)
+		return;
+
+	m_preview_elapsed = 0.0f;
+	const int next_frame = m_selected_frame_index + 1;
+	if (next_frame < (int)frames.size())
+	{
+		m_selected_frame_index = next_frame;
+		return;
+	}
+
+	if (m_current_animation->is_looping())
+		m_selected_frame_index = 0;
+	else
+		stop_preview(false);
+}
+
+void animation_editor_panel::step_preview(int direction)
+{
+	if (!m_current_animation)
+		return;
+
+	auto& frames = m_current_animation->get_frames();
+	if (frames.empty())
+		return;
+
+	if (m_selected_frame_index < 0 || m_selected_frame_index >= (int)frames.size())
+		m_selected_frame_index = direction < 0 ? (int)frames.size() - 1 : 0;
+	else
+	{
+		const int frame_count = (int)frames.size();
+		m_selected_frame_index = (m_selected_frame_index + direction + frame_count) % frame_count;
+	}
+
+	m_preview_elapsed = 0.0f;
+}
+
+void animation_editor_panel::stop_preview(bool reset_selection)
+{
+	m_preview_playing = false;
+	m_preview_paused = false;
+	m_preview_elapsed = 0.0f;
+
+	if (reset_selection && m_current_animation && !m_current_animation->get_frames().empty())
+		m_selected_frame_index = 0;
 }
 
 _WHIP_END

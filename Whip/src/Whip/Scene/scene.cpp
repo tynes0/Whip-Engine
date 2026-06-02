@@ -22,6 +22,7 @@
 #include "entity.h"
 
 #include <algorithm>
+#include <functional>
 
 #include "box2d/b2_world.h"
 #include "box2d/b2_body.h"
@@ -357,7 +358,60 @@ entity scene::duplicate_entity(entity entity_in)
 	utils::copy_component_if_exist(all_components_no_id_no_tag{}, new_entity, entity_in);
 	if (new_entity.has_component<hierarchy_component>())
 		new_entity.get_component<hierarchy_component>() = {};
+	if (entity_in.has_component<script_component>())
+		script_engine::copy_script_field_map(entity_in, new_entity);
 	return new_entity;
+}
+
+entity scene::instantiate_entity_template(entity source_entity)
+{
+	WHP_PROFILE_FUNCTION();
+	if (!source_entity)
+		return {};
+
+	scene* source_scene = source_entity.get_scene();
+	std::function<entity(entity)> instantiate_tree = [&](entity source) -> entity
+	{
+		entity new_entity = create_entity(source.get_name());
+		utils::copy_component_if_exist(all_components_no_id_no_tag{}, new_entity, source);
+
+		hierarchy_component source_hierarchy{};
+		if (source.has_component<hierarchy_component>())
+			source_hierarchy = source.get_component<hierarchy_component>();
+
+		if (new_entity.has_component<hierarchy_component>())
+		{
+			auto& new_hierarchy = new_entity.get_component<hierarchy_component>();
+			new_hierarchy = {};
+			new_hierarchy.is_group = source_hierarchy.is_group;
+		}
+
+		if (source.has_component<script_component>())
+			script_engine::copy_script_field_map(source, new_entity);
+
+		if (source_scene && source.has_component<hierarchy_component>())
+		{
+			auto& new_hierarchy = new_entity.get_component<hierarchy_component>();
+			for (UUID child_id : source_hierarchy.children)
+			{
+				entity source_child = source_scene->find_entity_by_UUID(child_id);
+				if (!source_child)
+					continue;
+
+				entity new_child = instantiate_tree(source_child);
+				if (!new_child)
+					continue;
+
+				new_hierarchy.children.push_back(new_child.get_UUID());
+				if (new_child.has_component<hierarchy_component>())
+					new_child.get_component<hierarchy_component>().parent = new_entity.get_UUID();
+			}
+		}
+
+		return new_entity;
+	};
+
+	return instantiate_tree(source_entity);
 }
 
 entity scene::get_primary_camera_entity()

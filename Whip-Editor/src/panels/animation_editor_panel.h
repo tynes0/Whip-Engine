@@ -42,9 +42,15 @@ private:
 	void draw_add_frame_button(float width);
 	void draw_remove_frame_button(float width);
 	void draw_frame_editor(float width);
+	void update_preview();
+	void step_preview(int direction);
+	void stop_preview(bool reset_selection);
 
 	ref<animation2D> m_current_animation = nullptr;
 	int m_selected_frame_index = -1;
+	bool m_preview_playing = false;
+	bool m_preview_paused = false;
+	float m_preview_elapsed = 0.0f;
 	bool m_open = true;
 	bool m_open_dirty = false;
 

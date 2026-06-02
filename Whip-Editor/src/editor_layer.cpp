@@ -8,6 +8,7 @@
 #include <Whip/UI/UI_project_loader.h>
 #include <Whip/Math/math.h>
 #include <Whip/Asset/asset_manager.h>
+#include <Whip/Asset/utils.h>
 #include <Whip/Asset/scene_importer.h>
 #include <Whip/Asset/texture_atlas_parser.h>
 
@@ -30,6 +31,7 @@
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <entt.hpp>
 #include <ImGuizmo.h>
 #include <yaml-cpp/yaml.h>
@@ -288,6 +290,40 @@ namespace
 
 		WHP_EDITOR_ERROR(std::string("[Whip Hub] Could not create ") + std::string(label) + ": " + path.string() + " (" + error.message() + ")");
 		return false;
+	}
+
+	std::filesystem::path make_unique_path(const std::filesystem::path& target_path)
+	{
+		std::error_code error;
+		if (!std::filesystem::exists(target_path, error))
+			return target_path;
+
+		const std::filesystem::path parent = target_path.parent_path();
+		const std::string stem = target_path.stem().string();
+		const std::string extension = target_path.extension().string();
+		for (uint32_t index = 1; index < 10000; ++index)
+		{
+			std::filesystem::path candidate = parent / (stem + "_" + std::to_string(index) + extension);
+			error.clear();
+			if (!std::filesystem::exists(candidate, error))
+				return candidate;
+		}
+
+		return target_path;
+	}
+
+	std::filesystem::path default_import_directory_for_type(asset_type type)
+	{
+		switch (type)
+		{
+		case asset_type::scene: return "Scenes";
+		case asset_type::texture2D: return "textures";
+		case asset_type::audio: return "Audios";
+		case asset_type::font: return "fonts";
+		case asset_type::animation: return "Animations";
+		case asset_type::entity: return "EntityTemplates";
+		default: return {};
+		}
 	}
 
 	uint64_t fnv1a64(std::string_view value)
@@ -970,6 +1006,7 @@ void editor_layer::on_attach()
 
 	m_animation_editor_panel.set_refresh_asset_tree_callback([this]() {if (m_content_browser_panel) { m_content_browser_panel->refresh_asset_tree(); } });
 	m_scene_hierarchy_panel.set_scene_change_callback([this]() { capture_scene_history(); });
+	m_scene_hierarchy_panel.set_save_entity_template_callback([this](entity entity_in) { save_entity_template(entity_in); });
 	m_UI_project.set_scene_callbacks(
 		[this](asset_handle handle) { open_scene(handle); },
 		[this]() { close_scene(); },
@@ -1293,7 +1330,32 @@ void editor_layer::on_imgui_render()
 		m_viewport_size = { viewport_panel_size.x, viewport_panel_size.y };
 
 		UI::image(UI::to_imgui_texture_id(m_framebuffer->get_color_attachment_renderer_id()), viewport_panel_size, ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
-		UI::drag_drop_target(asset_type::scene, [this](asset_handle handle) { open_scene(handle); }, "scene drag drop", false);
+		if (ImGui::BeginDragDropTarget())
+		{
+			bool handled_drop = false;
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+			{
+				asset_handle handle = *(asset_handle*)payload->Data;
+				handled_drop = handle_viewport_asset_drop(handle);
+			}
+
+			if (!handled_drop)
+			{
+				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_PATH"))
+				{
+					std::filesystem::path relative_path(std::string(static_cast<const char*>(payload->Data), payload->DataSize));
+					std::filesystem::path absolute_path = project::get_active_asset_directory() / relative_path;
+					if (std::filesystem::is_regular_file(absolute_path))
+					{
+						asset_handle handle = project::get_active()->get_editor_asset_manager()->get_handle_from_filepath(relative_path);
+						if (handle == 0 && utils::try_get_asset_type_from_file_extension(relative_path.extension()) != asset_type::none)
+							handle = project::get_active()->get_editor_asset_manager()->import_asset(relative_path);
+						handle_viewport_asset_drop(handle);
+					}
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
 
 		// gizmos
 		entity selected_entity = m_scene_hierarchy_panel.get_selected_entity();
@@ -1410,6 +1472,7 @@ void editor_layer::on_event(event& evnt)
     event_dispatcher dispatcher(evnt);
     dispatcher.dispatch<key_pressed_event>([this](auto&&... args) -> decltype(auto) { return this->on_key_pressed(std::forward<decltype(args)>(args)...); });
     dispatcher.dispatch<mouse_button_pressed_event>([this](auto&&... args) -> decltype(auto) { return this->on_mouse_button_pressed(std::forward<decltype(args)>(args)...); });
+	dispatcher.dispatch<window_drop_event>([this](auto&&... args) -> decltype(auto) { return this->on_window_drop(std::forward<decltype(args)>(args)...); });
 }
 
 bool editor_layer::on_key_pressed(key_pressed_event& evnt)
@@ -1688,7 +1751,163 @@ bool editor_layer::on_mouse_button_pressed(mouse_button_pressed_event& evnt)
 
 bool editor_layer::on_window_drop(window_drop_event& evnt)
 {
+	if (!has_project_loaded())
+		return false;
+
+	bool handled = false;
+	for (const auto& path : evnt.get_paths())
+	{
+		asset_handle handle = import_external_asset_file(path);
+		if (handle != 0)
+		{
+			handled = true;
+			if (m_viewport_hovered)
+				handle_viewport_asset_drop(handle);
+		}
+	}
+	if (m_content_browser_panel)
+		m_content_browser_panel->refresh_asset_tree();
+	return handled;
+}
+
+bool editor_layer::handle_viewport_asset_drop(asset_handle handle)
+{
+	if (handle == 0 || !has_project_loaded())
+		return false;
+
+	ref<project> active_project = project::get_active();
+	if (!active_project->get_editor_asset_manager()->is_asset_handle_valid(handle))
+		return false;
+
+	const asset_type type = active_project->get_editor_asset_manager()->get_asset_type(handle);
+	switch (type)
+	{
+	case asset_type::scene:
+		open_scene(handle);
+		return true;
+	case asset_type::entity:
+		return instantiate_entity_template(handle);
+	case asset_type::texture2D:
+		return create_sprite_entity_from_texture(handle, get_viewport_mouse_world_position());
+	default:
+		WHP_EDITOR_WARN("[Viewport] This asset type cannot be dropped into the viewport yet.");
+		return false;
+	}
+}
+
+bool editor_layer::create_sprite_entity_from_texture(asset_handle handle, const glm::vec3& position)
+{
+	if (!has_project_loaded() || !m_editor_scene || m_scene_state != scene_state::edit)
+		return false;
+
+	ref<project> active_project = project::get_active();
+	if (!active_project->get_editor_asset_manager()->is_asset_handle_valid(handle) ||
+		active_project->get_editor_asset_manager()->get_asset_type(handle) != asset_type::texture2D)
+	{
+		return false;
+	}
+
+	capture_scene_history();
+	const auto& metadata = active_project->get_editor_asset_manager()->get_metadata(handle);
+	const std::string name = metadata.filepath.stem().empty() ? "Sprite" : metadata.filepath.stem().string();
+	entity sprite = m_editor_scene->create_entity(name);
+	auto& transform = sprite.get_component<transform_component>();
+	transform.translation = position;
+
+	auto texture = asset_manager::get_asset<texture2D>(handle);
+	if (texture && texture->is_loaded())
+	{
+		constexpr float pixels_per_unit = 100.0f;
+		transform.scale = {
+			glm::max(texture->get_width() / pixels_per_unit, 0.1f),
+			glm::max(texture->get_height() / pixels_per_unit, 0.1f),
+			1.0f
+		};
+	}
+
+	auto& sprite_renderer = sprite.add_component<sprite_renderer_component>();
+	sprite_renderer.texture = handle;
+	sprite_renderer.color = glm::vec4(1.0f);
+	m_scene_hierarchy_panel.set_selected_entity(sprite);
+	WHP_EDITOR_INFO(std::string("[Viewport] Created sprite entity from texture ") + metadata.filepath.generic_string());
 	return true;
+}
+
+asset_handle editor_layer::import_external_asset_file(const std::filesystem::path& source_path)
+{
+	if (!has_project_loaded())
+		return 0;
+
+	std::error_code error;
+	if (!std::filesystem::exists(source_path, error) || !std::filesystem::is_regular_file(source_path, error))
+		return 0;
+
+	const asset_type type = utils::try_get_asset_type_from_file_extension(source_path.extension());
+	if (type == asset_type::none)
+	{
+		WHP_EDITOR_WARN(std::string("[Asset Import] Unsupported dropped file: ") + source_path.string());
+		return 0;
+	}
+
+	const std::filesystem::path asset_directory = project::get_active_asset_directory();
+	std::filesystem::path asset_path = source_path;
+	if (!path_is_or_is_under(source_path, asset_directory))
+	{
+		const std::filesystem::path import_directory = asset_directory / default_import_directory_for_type(type);
+		std::filesystem::create_directories(import_directory, error);
+		if (error)
+		{
+			WHP_EDITOR_WARN(std::string("[Asset Import] Could not create import directory: ") + error.message());
+			return 0;
+		}
+
+		asset_path = make_unique_path(import_directory / source_path.filename());
+		error.clear();
+		std::filesystem::copy_file(source_path, asset_path, std::filesystem::copy_options::none, error);
+		if (error)
+		{
+			WHP_EDITOR_WARN(std::string("[Asset Import] Could not copy dropped file: ") + error.message());
+			return 0;
+		}
+	}
+
+	error.clear();
+	std::filesystem::path relative_path = std::filesystem::relative(asset_path, asset_directory, error).lexically_normal();
+	if (error)
+		return 0;
+
+	if (asset_handle existing_handle = project::get_active()->get_editor_asset_manager()->get_handle_from_filepath(relative_path); existing_handle != 0)
+		return existing_handle;
+
+	return project::get_active()->get_editor_asset_manager()->import_asset(relative_path);
+}
+
+glm::vec3 editor_layer::get_viewport_mouse_world_position() const
+{
+	const glm::vec2 viewport_size = m_viewport_bounds[1] - m_viewport_bounds[0];
+	const glm::vec3 fallback = m_editor_camera.get_position() + m_editor_camera.get_forward_direction() * glm::max(m_editor_camera.get_distance(), 1.0f);
+	if (viewport_size.x <= 0.0f || viewport_size.y <= 0.0f)
+		return { fallback.x, fallback.y, 0.0f };
+
+	const ImVec2 mouse = ImGui::GetMousePos();
+	const float x = glm::clamp((mouse.x - m_viewport_bounds[0].x) / viewport_size.x, 0.0f, 1.0f);
+	const float y = glm::clamp((mouse.y - m_viewport_bounds[0].y) / viewport_size.y, 0.0f, 1.0f);
+	const glm::vec2 ndc{ x * 2.0f - 1.0f, (1.0f - y) * 2.0f - 1.0f };
+
+	const glm::mat4 inverse_view_projection = glm::inverse(m_editor_camera.get_view_projection());
+	glm::vec4 near_point = inverse_view_projection * glm::vec4(ndc.x, ndc.y, -1.0f, 1.0f);
+	glm::vec4 far_point = inverse_view_projection * glm::vec4(ndc.x, ndc.y, 1.0f, 1.0f);
+	near_point /= near_point.w;
+	far_point /= far_point.w;
+
+	const glm::vec3 ray_origin = glm::vec3(near_point);
+	const glm::vec3 ray_direction = glm::normalize(glm::vec3(far_point - near_point));
+	if (glm::abs(ray_direction.z) < 0.0001f)
+		return { fallback.x, fallback.y, 0.0f };
+
+	const float t = -ray_origin.z / ray_direction.z;
+	const glm::vec3 world_position = ray_origin + ray_direction * t;
+	return { world_position.x, world_position.y, 0.0f };
 }
 
 void editor_layer::draw_editor_grid()
@@ -2481,7 +2700,79 @@ void editor_layer::save_scene_as()
     }
 }
 
-bool editor_layer::build_project_scripts() const
+void editor_layer::save_entity_template(entity entity_in)
+{
+	if (!has_project_loaded() || !entity_in)
+		return;
+
+	const std::filesystem::path templates_directory = project::get_active_asset_directory() / "EntityTemplates";
+	std::error_code error;
+	std::filesystem::create_directories(templates_directory, error);
+
+	std::string filepath = file_dialogs::save_file("Whip Entity Template (*.went)\0*.went\0", templates_directory.string().c_str());
+	if (filepath.empty())
+		return;
+
+	std::filesystem::path template_path(filepath);
+	if (template_path.extension() != ".went")
+		template_path.replace_extension(".went");
+
+	scene_serializer serializer(m_editor_scene);
+	if (!serializer.serialize_entity_template(entity_in, template_path))
+	{
+		WHP_EDITOR_ERROR(std::string("[Entity Template] Could not save template: ") + template_path.string());
+		return;
+	}
+
+	const std::filesystem::path asset_directory = project::get_active_asset_directory();
+	if (path_is_or_is_under(template_path, asset_directory))
+	{
+		error.clear();
+		const std::filesystem::path relative_path = std::filesystem::relative(template_path, asset_directory, error).lexically_normal();
+		if (!error)
+			project::get_active()->get_editor_asset_manager()->import_asset(relative_path);
+	}
+
+	if (m_content_browser_panel)
+		m_content_browser_panel->refresh_asset_tree();
+
+	WHP_EDITOR_INFO(std::string("[Entity Template] Saved ") + template_path.string());
+}
+
+bool editor_layer::instantiate_entity_template(asset_handle handle)
+{
+	if (!has_project_loaded() || !m_editor_scene)
+		return false;
+
+	ref<project> active_project = project::get_active();
+	if (!active_project->get_editor_asset_manager()->is_asset_handle_valid(handle) ||
+		active_project->get_editor_asset_manager()->get_asset_type(handle) != asset_type::entity)
+	{
+		return false;
+	}
+
+	if (m_scene_state != scene_state::edit)
+	{
+		WHP_EDITOR_WARN("[Entity Template] Templates can only be instantiated while editing.");
+		return false;
+	}
+
+	const std::filesystem::path template_path = project::get_active_asset_directory() / active_project->get_editor_asset_manager()->get_filepath(handle);
+	capture_scene_history();
+	scene_serializer serializer(m_editor_scene);
+	entity instance = serializer.deserialize_entity_template(template_path);
+	if (!instance)
+	{
+		WHP_EDITOR_ERROR(std::string("[Entity Template] Could not instantiate template: ") + template_path.string());
+		return false;
+	}
+
+	m_scene_hierarchy_panel.set_selected_entity(instance);
+	WHP_EDITOR_INFO(std::string("[Entity Template] Instantiated ") + template_path.string());
+	return true;
+}
+
+bool editor_layer::build_project_scripts()
 {
 	if (!has_project_loaded())
 		return false;
@@ -2490,6 +2781,7 @@ bool editor_layer::build_project_scripts() const
 	if (config.script_module_path.empty())
 	{
 		WHP_EDITOR_INFO("[Script Build] Project has no script module configured.");
+		set_script_build_status("No script module", true);
 		return true;
 	}
 
@@ -2529,6 +2821,7 @@ bool editor_layer::build_project_scripts() const
 	if (script_project_file.empty())
 	{
 		WHP_EDITOR_WARN(std::string("[Script Build] No C# project file found under ") + scripts_directory.string() + ". Reloading the existing assembly if it exists.");
+		set_script_build_status("No C# project found", true);
 		return true;
 	}
 
@@ -2536,19 +2829,31 @@ bool editor_layer::build_project_scripts() const
 	if (build_command.command.empty())
 	{
 		WHP_EDITOR_WARN("[Script Build] Could not find MSBuild.exe or dotnet. Set WHIP_MSBUILD_PATH or add MSBuild/dotnet to PATH. Reloading the existing assembly if it exists.");
+		set_script_build_status("MSBuild/dotnet not found", true, true);
 		return true;
 	}
 
 	WHP_EDITOR_INFO(std::string("[Script Build] Building ") + script_project_file.string() + " with " + build_command.tool_name);
+	set_script_build_status("Building scripts...");
 	const int result = run_command_and_log_output(build_command.command);
 	if (result != 0)
 	{
 		WHP_EDITOR_ERROR(std::string("[Script Build] Build failed with exit code ") + std::to_string(result) + ".");
+		set_script_build_status("Script build failed", false, true);
 		return false;
 	}
 
 	WHP_EDITOR_INFO("[Script Build] Build succeeded.");
+	set_script_build_status("Scripts built");
 	return true;
+}
+
+void editor_layer::set_script_build_status(const std::string& message, bool warning, bool failure)
+{
+	m_script_build_status = message;
+	m_script_build_status_time = std::chrono::steady_clock::now();
+	m_script_build_status_warning = warning;
+	m_script_build_status_failure = failure;
 }
 
 void editor_layer::start_script_source_watcher()
@@ -2627,6 +2932,7 @@ void editor_layer::process_script_source_changes()
 			{
 				m_script_source_queued_while_running = true;
 				WHP_EDITOR_INFO("[Script Watcher] Source change detected while scene is running. Build and reload will run after Stop.");
+				set_script_build_status("Script changes queued", true);
 			}
 			return;
 		}
@@ -2638,6 +2944,7 @@ void editor_layer::process_script_source_changes()
 	}
 
 	WHP_EDITOR_INFO(std::string("[Script Watcher] Source ") + event_name + ": " + changed_path.generic_string() + ". Building scripts.");
+	set_script_build_status("Script changes detected");
 	stop_script_source_watcher();
 	const bool build_succeeded = build_project_scripts();
 	if (build_succeeded)
@@ -3087,6 +3394,31 @@ void editor_layer::UI_toolbar()
 		}
 	}
 	ImGui::PopStyleVar();
+
+	if (has_project_loaded() && !m_script_build_status.empty())
+	{
+		const ImVec2 text_size = ImGui::CalcTextSize(m_script_build_status.c_str());
+		const float status_padding_x = 10.0f;
+		const float status_height = 24.0f;
+		const float status_width = glm::min(text_size.x + status_padding_x * 2.0f, 260.0f);
+		ImVec2 status_pos(panel_end.x + 10.0f, panel_pos.y + (panel_height - status_height) * 0.5f);
+		if (status_pos.x + status_width > viewport_max.x - 10.0f)
+			status_pos = ImVec2(panel_pos.x - status_width - 10.0f, status_pos.y);
+
+		if (status_pos.x > viewport_min.x + 10.0f)
+		{
+			const ImU32 status_fill = m_script_build_status_failure ? IM_COL32(84, 34, 32, 230) :
+				m_script_build_status_warning ? IM_COL32(78, 58, 28, 230) : IM_COL32(34, 62, 48, 220);
+			const ImU32 status_border = m_script_build_status_failure ? IM_COL32(214, 94, 84, 230) :
+				m_script_build_status_warning ? IM_COL32(226, 174, 74, 230) : IM_COL32(112, 184, 136, 220);
+			ImVec2 status_end(status_pos.x + status_width, status_pos.y + status_height);
+			draw_list->AddRectFilled(status_pos, status_end, status_fill, 5.0f);
+			draw_list->AddRect(status_pos, status_end, status_border, 5.0f);
+			draw_list->AddText(ImVec2(status_pos.x + status_padding_x, status_pos.y + 4.0f), IM_COL32(238, 232, 220, 255), m_script_build_status.c_str());
+			if (ImGui::IsMouseHoveringRect(status_pos, status_end))
+				ImGui::SetTooltip("%s", m_script_build_status.c_str());
+		}
+	}
 }
 
 _WHIP_END

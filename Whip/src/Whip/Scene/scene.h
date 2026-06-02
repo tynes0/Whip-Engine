@@ -33,6 +33,7 @@ public:
 	void on_viewport_resize(uint32_t width, uint32_t height);
 
 	entity duplicate_entity(entity entity_in);
+	entity instantiate_entity_template(entity source_entity);
 	entity get_primary_camera_entity();
 
 	bool is_running() const { return m_is_running; }

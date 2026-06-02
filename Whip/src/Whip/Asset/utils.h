@@ -5,6 +5,8 @@
 
 #include "asset.h"
 
+#include <algorithm>
+#include <cctype>
 #include <map>
 #include <filesystem>
 
@@ -33,7 +35,10 @@ namespace utils
 
 	static asset_type try_get_asset_type_from_file_extension(const std::filesystem::path& extension)
 	{
-		auto it = s_asset_extensions_map.find(extension);
+		std::string normalized_extension = extension.string();
+		std::transform(normalized_extension.begin(), normalized_extension.end(), normalized_extension.begin(),
+			[](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+		auto it = s_asset_extensions_map.find(normalized_extension);
 		if (it == s_asset_extensions_map.end())
 			return asset_type::none;
 

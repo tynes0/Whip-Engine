@@ -22,6 +22,7 @@ public:
 
 	void on_imgui_render();
 	void set_scene_change_callback(std::function<void()> callback) { m_scene_change_callback = std::move(callback); }
+	void set_save_entity_template_callback(std::function<void(entity)> callback) { m_save_entity_template_callback = std::move(callback); }
 	void set_open(bool open);
 	bool is_open() const { return m_open; }
 	bool consume_open_dirty();
@@ -70,6 +71,7 @@ private:
 	entity m_selection_context;
 	std::vector<UUID> m_selection_contexts;
 	std::function<void()> m_scene_change_callback;
+	std::function<void(entity)> m_save_entity_template_callback;
 	bool m_property_edit_history_active = false;
 	bool m_open = true;
 	bool m_open_dirty = false;

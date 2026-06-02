@@ -87,13 +87,20 @@ private:
 	void close_scene();
 	void save_scene();
 	void save_scene_as();
+	void save_entity_template(entity entity_in);
+	bool instantiate_entity_template(asset_handle handle);
+	bool handle_viewport_asset_drop(asset_handle handle);
+	bool create_sprite_entity_from_texture(asset_handle handle, const glm::vec3& position);
+	asset_handle import_external_asset_file(const std::filesystem::path& source_path);
+	glm::vec3 get_viewport_mouse_world_position() const;
 
-	bool build_project_scripts() const;
+	bool build_project_scripts();
 	void reload_assembly(bool reset_app_assembly_filepath = true);
 	void start_script_source_watcher();
 	void stop_script_source_watcher();
 	void handle_script_source_event(const std::string& path, filewatch::Event event_type);
 	void process_script_source_changes();
+	void set_script_build_status(const std::string& message, bool warning = false, bool failure = false);
 
 	void serialize_scene(ref<scene> scene_in, const std::filesystem::path& path);
 
@@ -167,6 +174,10 @@ private:
 	std::string m_last_script_source_change_event;
 	bool m_script_source_dirty = false;
 	bool m_script_source_queued_while_running = false;
+	std::string m_script_build_status = "Scripts idle";
+	std::chrono::steady_clock::time_point m_script_build_status_time{};
+	bool m_script_build_status_warning = false;
+	bool m_script_build_status_failure = false;
 
 	struct project_history_entry
 	{

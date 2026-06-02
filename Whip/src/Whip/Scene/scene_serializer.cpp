@@ -551,6 +551,62 @@ void scene_serializer::serialize(const std::filesystem::path& filepath)
 	WHP_CORE_DEBUG("[Scene serializer] Scene serialized in {0} millisecond.", coco_timer.get_time());
 }
 
+bool scene_serializer::serialize_entity_template(entity entity_in, const std::filesystem::path& filepath)
+{
+	if (!entity_in)
+		return false;
+
+	ref<scene> template_scene = make_ref<scene>();
+	entity template_root = template_scene->instantiate_entity_template(entity_in);
+	if (!template_root)
+		return false;
+
+	YAML::Emitter out;
+	out << YAML::BeginMap;
+	out << YAML::Key << "scene" << YAML::Value << filepath.stem().string();
+	out << YAML::Key << "template_type" << YAML::Value << "entity";
+	out << YAML::Key << "entities" << YAML::Value << YAML::BeginSeq;
+
+	auto view = template_scene->m_registry.view<ID_component>();
+	for (auto entity_id : view)
+	{
+		entity template_entity{ entity_id, template_scene.get() };
+		utils::serialize_entity(out, template_entity);
+	}
+
+	out << YAML::EndSeq;
+	out << YAML::EndMap;
+
+	std::ofstream file(filepath);
+	if (!file)
+		return false;
+
+	file << out.c_str();
+	return true;
+}
+
+entity scene_serializer::deserialize_entity_template(const std::filesystem::path& filepath)
+{
+	ref<scene> template_scene = make_ref<scene>();
+	scene_serializer template_serializer(template_scene);
+	if (!template_serializer.deserialize(filepath))
+		return {};
+
+	auto view = template_scene->m_registry.view<ID_component>();
+	entity fallback_source;
+	for (auto entity_id : view)
+	{
+		entity source{ entity_id, template_scene.get() };
+		if (!fallback_source)
+			fallback_source = source;
+
+		if (source.has_component<hierarchy_component>() && source.get_component<hierarchy_component>().parent == 0)
+			return m_scene->instantiate_entity_template(source);
+	}
+
+	return fallback_source ? m_scene->instantiate_entity_template(fallback_source) : entity{};
+}
+
 void scene_serializer::serialize_runtime(const std::filesystem::path& filepath)
 {
 	WHP_CORE_ASSERT(false, "Not Implamented!"); // Not implemented

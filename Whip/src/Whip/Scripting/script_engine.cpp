@@ -95,6 +95,53 @@ namespace utils
 		return assembly;
 	}
 
+	static std::filesystem::path copy_assembly_to_runtime_shadow(const std::filesystem::path& assembly_path)
+	{
+		std::error_code error;
+		if (!std::filesystem::exists(assembly_path, error))
+			return assembly_path;
+
+		std::filesystem::path root = std::filesystem::temp_directory_path(error);
+		if (error || root.empty())
+			return assembly_path;
+
+		const std::uintmax_t size = std::filesystem::file_size(assembly_path, error);
+		if (error)
+			return assembly_path;
+
+		const auto write_time = std::filesystem::last_write_time(assembly_path, error);
+		if (error)
+			return assembly_path;
+
+		std::filesystem::path runtime_directory = root / "Whip" / "ScriptRuntime" / assembly_path.stem();
+		std::filesystem::create_directories(runtime_directory, error);
+		if (error)
+			return assembly_path;
+
+		const std::string runtime_name = assembly_path.stem().string() + "_" + std::to_string(size) + "_" + std::to_string(write_time.time_since_epoch().count());
+		const std::filesystem::path runtime_assembly = runtime_directory / (runtime_name + ".dll");
+		if (!std::filesystem::exists(runtime_assembly, error))
+		{
+			error.clear();
+			std::filesystem::copy_file(assembly_path, runtime_assembly, std::filesystem::copy_options::overwrite_existing, error);
+			if (error)
+			{
+				WHP_CORE_WARN("[Script Engine] Could not create runtime shadow copy for app assembly: {0}", error.message());
+				return assembly_path;
+			}
+		}
+
+		std::filesystem::path pdb_path = assembly_path;
+		pdb_path.replace_extension(".pdb");
+		if (std::filesystem::exists(pdb_path, error))
+		{
+			error.clear();
+			std::filesystem::copy_file(pdb_path, runtime_directory / (runtime_name + ".pdb"), std::filesystem::copy_options::overwrite_existing, error);
+		}
+
+		return runtime_assembly;
+	}
+
 	// development only -> todo: remove maybe
 	static void print_assembly_types(MonoAssembly* assembly)
 	{
@@ -217,6 +264,7 @@ struct script_engine_data
 
 	std::filesystem::path core_assembly_filepath;
 	std::filesystem::path app_assembly_filepath;
+	std::filesystem::path app_assembly_runtime_filepath;
 
 	script_class entity_class;
 
@@ -635,15 +683,18 @@ bool assembly_manager::load_app_assembly(const std::filesystem::path& filepath)
 		return false;
 	}
 
-	s_script_engine_data->app_assembly = utils::load_mono_assembly(filepath, s_script_engine_data->enable_debugging);
+	s_script_engine_data->app_assembly_runtime_filepath = utils::copy_assembly_to_runtime_shadow(filepath);
+	s_script_engine_data->app_assembly = utils::load_mono_assembly(s_script_engine_data->app_assembly_runtime_filepath, s_script_engine_data->enable_debugging);
 	if (s_script_engine_data->app_assembly == nullptr)
 	{
-		WHP_CORE_ERROR("[Script Engine] Failed to load app assembly bytes: {0}", filepath.string());
+		WHP_CORE_ERROR("[Script Engine] Failed to load app assembly bytes: {0}", s_script_engine_data->app_assembly_runtime_filepath.string());
 		return false;
 	}
 
 	s_script_engine_data->app_assembly_image = mono_assembly_get_image(s_script_engine_data->app_assembly);
 	WHP_CORE_INFO("[Script Engine] Loaded app assembly: {0}", filepath.string());
+	if (s_script_engine_data->app_assembly_runtime_filepath != filepath)
+		WHP_CORE_INFO("[Script Engine] Runtime shadow copy: {0}", s_script_engine_data->app_assembly_runtime_filepath.string());
 	return true;
 }
 
@@ -667,6 +718,7 @@ bool assembly_manager::reload_assembly(bool reset_app_assembly_filepath)
 
 	s_script_engine_data->app_assembly = nullptr;
 	s_script_engine_data->app_assembly_image = nullptr;
+	s_script_engine_data->app_assembly_runtime_filepath.clear();
 
 	if (s_script_engine_data->app_assembly_filepath.empty() || s_script_engine_data->app_assembly_filepath == project::get_active_asset_directory())
 	{
@@ -1009,6 +1061,32 @@ script_field_map& script_engine::get_base_script_field_map(const std::string& cl
 {
 	WHP_CORE_ASSERT(s_script_engine_data->base_entity_script_fields.find(class_name) != s_script_engine_data->base_entity_script_fields.end(), "[Script Engine] Class not found!");
 	return s_script_engine_data->base_entity_script_fields[class_name];
+}
+
+void script_engine::copy_script_field_map(entity source_entity, entity destination_entity)
+{
+	if (!s_script_engine_data || !source_entity || !destination_entity)
+		return;
+
+	UUID source_id = source_entity.get_UUID();
+	UUID destination_id = destination_entity.get_UUID();
+	if (source_id == destination_id)
+		return;
+
+	auto source_fields_it = s_script_engine_data->entity_script_fields.find(source_id);
+	if (source_fields_it == s_script_engine_data->entity_script_fields.end())
+		return;
+
+	auto& destination_fields = s_script_engine_data->entity_script_fields[destination_id];
+	destination_fields.clear();
+
+	for (const auto& [field_name, source_field] : source_fields_it->second)
+	{
+		script_field_instance& destination_field = destination_fields[field_name];
+		destination_field.field = source_field.field;
+		if (source_field.m_buffer.data && source_field.m_buffer.size > 0)
+			destination_field.m_buffer = raw_buffer::copy(source_field.m_buffer);
+	}
 }
 
 MonoObject* script_engine::get_managed_instance(UUID uuid)
