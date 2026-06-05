@@ -18,6 +18,9 @@
 #include <FileWatch.h>
 #include <nps_formatter.h>
 
+#include <algorithm>
+#include <cctype>
+#include <vector>
 
 #ifndef WHP_MONO_FIELD_ATTRIBUTE_FIELD_ACCESS_MASK
 #define WHP_MONO_FIELD_ATTRIBUTE_FIELD_ACCESS_MASK 0x0007u
@@ -54,6 +57,7 @@ static std::unordered_map<std::string, script_field_type> s_script_field_type =
 	{ "Whip.Vector4", script_field_type::Vector4 },
 
 	{ "Whip.Entity", script_field_type::Entity },
+	{ "Whip.SceneReference", script_field_type::Scene },
 	{ "Whip.Logger", script_field_type::Logger }
 };
 
@@ -192,6 +196,7 @@ namespace utils
 		case whip::script_field_type::String:  return alignof(void*);   // referans tip -> pointer
 		case whip::script_field_type::Entity:  return alignof(void*);   // referans tip
 		case whip::script_field_type::Logger:  return alignof(void*);   // referans tip
+		case whip::script_field_type::Scene:   return alignof(asset_handle);
 
 		case whip::script_field_type::Float:   return alignof(float);
 		case whip::script_field_type::Double:  return alignof(double);
@@ -333,6 +338,79 @@ namespace utils
 		return entity;
 	}
 
+	static asset_handle asset_handle_from_managed_object(MonoObject* asset_handle_object)
+	{
+		if (!asset_handle_object)
+			return 0;
+
+		MonoClass* asset_handle_class = mono_class_from_name(s_script_engine_data->core_assembly_image, "Whip", "AssetHandle");
+		if (!asset_handle_class)
+			return 0;
+
+		MonoClassField* id_field = mono_class_get_field_from_name(asset_handle_class, "ID");
+		if (!id_field)
+			return 0;
+
+		uint64_t id = 0;
+		mono_field_get_value(asset_handle_object, id_field, &id);
+		return asset_handle(id);
+	}
+
+	static MonoObject* create_managed_scene_reference(asset_handle handle)
+	{
+		MonoClass* scene_reference_class = mono_class_from_name(s_script_engine_data->core_assembly_image, "Whip", "SceneReference");
+		if (!scene_reference_class)
+			return nullptr;
+
+		MonoObject* scene_reference = mono_object_new(s_script_engine_data->app_domain, scene_reference_class);
+		if (!scene_reference)
+			return nullptr;
+
+		MonoMethod* constructor = mono_class_get_method_from_name(scene_reference_class, ".ctor", 1);
+		if (!constructor)
+		{
+			mono_runtime_object_init(scene_reference);
+			return scene_reference;
+		}
+
+		uint64_t raw_handle = handle;
+		void* param = &raw_handle;
+		MonoObject* exception = nullptr;
+		mono_runtime_invoke(constructor, scene_reference, &param, &exception);
+		if (exception)
+		{
+			WHP_CORE_ERROR("[Script Engine] Mono Exception while creating SceneReference.");
+			return nullptr;
+		}
+
+		return scene_reference;
+	}
+
+	static std::string normalize_scene_lookup_key(std::string_view value)
+	{
+		std::string result(value);
+		std::replace(result.begin(), result.end(), '\\', '/');
+		std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+		constexpr const char* assets_prefix = "assets/";
+		constexpr size_t assets_prefix_length = 7;
+		if (result.rfind(assets_prefix, 0) == 0)
+			result.erase(0, assets_prefix_length);
+
+		return result;
+	}
+
+	static bool scene_lookup_key_matches(const std::filesystem::path& path, std::string_view query)
+	{
+		std::filesystem::path path_without_extension = path;
+		path_without_extension.replace_extension();
+
+		return normalize_scene_lookup_key(path.generic_string()) == query ||
+			normalize_scene_lookup_key(path_without_extension.generic_string()) == query ||
+			normalize_scene_lookup_key(path.filename().generic_string()) == query ||
+			normalize_scene_lookup_key(path.stem().generic_string()) == query;
+	}
+
 	static void on_app_assembly_file_system_event_1(const std::string& path, const filewatch::Event change_type)
 	{
 		if (!s_script_engine_data || s_script_engine_data->is_shutting_down)
@@ -417,6 +495,7 @@ script_instance::script_instance(ref<script_class> script_class_in, entity entit
 	m_constructor = s_script_engine_data->entity_class.get_method(".ctor", 1);
 	m_on_create_method = script_class_in->get_method("OnCreate", 0);
 	m_on_update_method = script_class_in->get_method("OnUpdate", 1);
+	m_on_destroy_method = script_class_in->get_method("OnDestroy", 0);
 	m_on_collider_enter_method = script_class_in->get_method("OnColliderEnter", 1);
 	m_on_collider_exit_method = script_class_in->get_method("OnColliderExit", 1);
 	if (!m_instance)
@@ -442,6 +521,12 @@ void script_instance::invoke_on_update(float ts)
 		void* param = &ts;
 		m_script_class->invoke_method(m_instance, m_on_update_method, &param, make_method_context("OnUpdate"));
 	}
+}
+
+void script_instance::invoke_on_destroy()
+{
+	if (m_instance && m_on_destroy_method)
+		m_script_class->invoke_method(m_instance, m_on_destroy_method, nullptr, make_method_context("OnDestroy"));
 }
 
 void script_instance::invoke_on_collider_enter(std::string_view tag)
@@ -500,6 +585,15 @@ bool script_instance::get_field_value_internal(const std::string& name)
 		return true;
 	}
 
+	if (field.type == script_field_type::Scene)
+	{
+		MonoObject* scene_reference = nullptr;
+		mono_field_get_value(m_instance, field.class_field, &scene_reference);
+		asset_handle scene_handle = utils::asset_handle_from_managed_object(scene_reference);
+		s_field_value_buffer.store<uint64_t>(scene_handle);
+		return true;
+	}
+
 	if (static_cast<size_t>(field.type_size) > s_field_value_buffer.size)
 		s_field_value_buffer.allocate(field.type_size);
 
@@ -533,6 +627,14 @@ bool script_instance::set_field_value_internal(const std::string& name, const vo
 		const UUID entity_id = value ? *static_cast<const UUID*>(value) : UUID(0);
 		MonoObject* entity = utils::create_managed_entity_reference(entity_id);
 		mono_field_set_value(m_instance, field.class_field, entity);
+		return true;
+	}
+
+	if (field.type == script_field_type::Scene)
+	{
+		const asset_handle scene_handle = value ? asset_handle(*static_cast<const uint64_t*>(value)) : asset_handle(0);
+		MonoObject* scene_reference = utils::create_managed_scene_reference(scene_handle);
+		mono_field_set_value(m_instance, field.class_field, scene_reference);
 		return true;
 	}
 
@@ -579,6 +681,14 @@ bool script_instance::get_field_array_value_internal(const std::string& name, si
 	if (!field.is_array)
 		return false;
 
+	if (field.type == script_field_type::Scene)
+	{
+		if (size)
+			*size = 0;
+		WHP_CORE_WARN("[Script Engine] SceneReference arrays are not supported yet: {0}", name);
+		return false;
+	}
+
 	MonoArray* array;
 	mono_field_get_value(m_instance, field.class_field, &array);
 	if (!array)
@@ -608,7 +718,7 @@ bool script_instance::set_field_array_value_internal(const std::string& name, co
 	if (!field.is_array)
 		return false;
 
-	if (field.type == script_field_type::String || field.type == script_field_type::Entity || field.type == script_field_type::Logger)
+	if (field.type == script_field_type::String || field.type == script_field_type::Entity || field.type == script_field_type::Scene || field.type == script_field_type::Logger)
 	{
 		WHP_CORE_WARN("[Script Engine] Script field array type is not assignable at runtime yet: {0}", name);
 		return false;
@@ -770,6 +880,12 @@ void assembly_manager::load_base_script_fields()
 
 			if (field.is_array)
 			{
+				if (field.type == script_field_type::Scene)
+				{
+					WHP_CORE_WARN("[Script Engine] SceneReference arrays are not supported yet: {0}.{1}", class_name, field_name);
+					continue;
+				}
+
 				MonoArray* array;
 				mono_field_get_value(instance, field.class_field, &array);
 				if (!array)
@@ -796,6 +912,12 @@ void assembly_manager::load_base_script_fields()
 					MonoObject* entity = nullptr;
 					mono_field_get_value(instance, field.class_field, &entity);
 					field_instance.set_entity_value(utils::entity_id_from_managed_object(entity));
+				}
+				else if (field.type == script_field_type::Scene)
+				{
+					MonoObject* scene_reference = nullptr;
+					mono_field_get_value(instance, field.class_field, &scene_reference);
+					field_instance.set_value<uint64_t>(utils::asset_handle_from_managed_object(scene_reference));
 				}
 				else
 				{
@@ -858,7 +980,12 @@ void assembly_manager::load_assembly_classes()
 				auto [field_type, is_array] = utils::mono_type_to_script_field_type(type);
 				int alignment = utils::align_of_type(field_type);
 				int type_size = 0;
-				if (is_array)
+				if (field_type == script_field_type::Scene)
+				{
+					type_size = sizeof(uint64_t);
+					alignment = alignof(uint64_t);
+				}
+				else if (is_array)
 				{
 					MonoType* element_type = utils::get_mono_type_element_type(type);
 					type_size = mono_type_size(element_type, &alignment);
@@ -965,6 +1092,23 @@ void script_engine::invoke_all_on_create_methods()
 		instance.second->invoke_on_create();
 }
 
+void script_engine::invoke_all_on_destroy_methods()
+{
+	if (!s_script_engine_data)
+		return;
+
+	std::vector<ref<script_instance>> instances;
+	instances.reserve(s_script_engine_data->entity_instances.size());
+	for (auto& [entity_id, instance] : s_script_engine_data->entity_instances)
+		instances.push_back(instance);
+
+	for (const ref<script_instance>& instance : instances)
+	{
+		if (instance)
+			instance->invoke_on_destroy();
+	}
+}
+
 bool script_engine::entity_class_exists(const std::string& full_class_name)
 {
 	if (!s_script_engine_data)
@@ -993,6 +1137,20 @@ void script_engine::on_create_entity(entity entity_in)
 			}
 		}
 	}
+}
+
+void script_engine::on_destroy_entity(entity entity_in)
+{
+	if (!s_script_engine_data || !entity_in)
+		return;
+
+	const UUID entityID = entity_in.get_UUID();
+	auto instance_it = s_script_engine_data->entity_instances.find(entityID);
+	if (instance_it == s_script_engine_data->entity_instances.end())
+		return;
+
+	instance_it->second->invoke_on_destroy();
+	s_script_engine_data->entity_instances.erase(instance_it);
 }
 
 void script_engine::on_update_entity(entity entity_in, timestep ts)
@@ -1044,6 +1202,30 @@ asset_handle script_engine::get_runtime_active_scene_handle()
 	return s_script_engine_data->runtime_active_scene_handle;
 }
 
+asset_handle script_engine::find_runtime_scene_handle(std::string_view scene_name)
+{
+	ref<project> active_project = project::get_active();
+	if (!active_project || !active_project->get_editor_asset_manager())
+		return 0;
+
+	const std::string query = utils::normalize_scene_lookup_key(scene_name);
+	if (query.empty())
+		return 0;
+
+	asset_handle match = 0;
+	const asset_registry& registry = active_project->get_editor_asset_manager()->get_asset_registry();
+	registry.foreach_checked(asset_type::scene, [&](const asset_registry::value_type& value) -> uint8_t
+		{
+			if (!utils::scene_lookup_key_matches(value.second.filepath, query))
+				return asset_registry::loop_continue;
+
+			match = value.first;
+			return asset_registry::loop_stop;
+		});
+
+	return match;
+}
+
 bool script_engine::request_runtime_scene_load(asset_handle handle)
 {
 	if (!s_script_engine_data || handle == 0)
@@ -1060,6 +1242,18 @@ bool script_engine::request_runtime_scene_load(asset_handle handle)
 
 	s_script_engine_data->runtime_scene_transition = { runtime_scene_transition_type::Load, handle };
 	return true;
+}
+
+bool script_engine::request_runtime_scene_load(std::string_view scene_name)
+{
+	const asset_handle handle = find_runtime_scene_handle(scene_name);
+	if (handle == 0)
+	{
+		WHP_CORE_WARN("[Scene Manager] Cannot load scene. Scene name was not found: {0}", std::string(scene_name));
+		return false;
+	}
+
+	return request_runtime_scene_load(handle);
 }
 
 bool script_engine::request_runtime_start_scene_load()

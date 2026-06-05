@@ -1800,6 +1800,27 @@ bool editor_layer::handle_viewport_asset_drop(asset_handle handle)
 	}
 }
 
+bool editor_layer::handle_content_browser_asset_open(asset_handle handle)
+{
+	if (handle == 0 || !has_project_loaded())
+		return false;
+
+	ref<project> active_project = project::get_active();
+	if (!active_project->get_editor_asset_manager()->is_asset_handle_valid(handle))
+		return false;
+
+	switch (active_project->get_editor_asset_manager()->get_asset_type(handle))
+	{
+	case asset_type::scene:
+		open_scene(handle);
+		return true;
+	case asset_type::entity:
+		return instantiate_entity_template(handle);
+	default:
+		return false;
+	}
+}
+
 bool editor_layer::create_sprite_entity_from_texture(asset_handle handle, const glm::vec3& position)
 {
 	if (!has_project_loaded() || !m_editor_scene || m_scene_state != scene_state::edit)
@@ -2556,6 +2577,7 @@ void editor_layer::finish_project_settings()
 	project::save_active();
 	reload_assembly(true);
 	m_content_browser_panel = make_scope<content_browser_panel>(project::get_active());
+	m_content_browser_panel->set_asset_open_callback([this](asset_handle handle) { return handle_content_browser_asset_open(handle); });
 	apply_preferences_to_content_browser();
 }
 
@@ -2613,6 +2635,7 @@ bool editor_layer::open_project(const std::filesystem::path& path)
 			new_scene();
 		}
 		m_content_browser_panel = make_scope<content_browser_panel>(project::get_active());
+		m_content_browser_panel->set_asset_open_callback([this](asset_handle handle) { return handle_content_browser_asset_open(handle); });
 		apply_preferences_to_content_browser();
 		add_recent_project(path);
 		m_project_loader.set_loaded(true);
@@ -2697,12 +2720,50 @@ void editor_layer::save_scene_as()
 	if (!has_project_loaded())
 		return;
 
-    std::string filepath = file_dialogs::save_file("Whip Scene (*.whip)\0*.whip\0");
-    if (!filepath.empty())
-    {
-		serialize_scene(m_active_scene, filepath);
-		m_editor_scene_path = filepath;
-    }
+	const std::filesystem::path scenes_directory = project::get_active_asset_directory() / "Scenes";
+	std::error_code error;
+	std::filesystem::create_directories(scenes_directory, error);
+
+    std::string filepath = file_dialogs::save_file("Whip Scene (*.whip)\0*.whip\0", scenes_directory.string().c_str());
+	if (filepath.empty())
+		return;
+
+	std::filesystem::path scene_path(filepath);
+	if (scene_path.extension() != ".whip")
+		scene_path.replace_extension(".whip");
+
+	serialize_scene(m_active_scene, scene_path);
+
+	const std::filesystem::path asset_directory = project::get_active_asset_directory();
+	if (path_is_or_is_under(scene_path, asset_directory))
+	{
+		error.clear();
+		const std::filesystem::path relative_path = std::filesystem::relative(scene_path, asset_directory, error).lexically_normal();
+		if (!error)
+		{
+			m_editor_scene_path = relative_path;
+			asset_handle handle = project::get_active()->get_editor_asset_manager()->get_handle_from_filepath(relative_path);
+			if (handle == 0)
+				handle = project::get_active()->get_editor_asset_manager()->import_asset(relative_path);
+			if (handle != 0)
+			{
+				m_active_scene->handle = handle;
+				if (m_editor_scene)
+					m_editor_scene->handle = handle;
+			}
+		}
+		else
+		{
+			m_editor_scene_path = scene_path;
+		}
+	}
+	else
+	{
+		m_editor_scene_path = scene_path;
+	}
+
+	if (m_content_browser_panel)
+		m_content_browser_panel->refresh_asset_tree();
 }
 
 void editor_layer::save_entity_template(entity entity_in)
@@ -2934,7 +2995,10 @@ void editor_layer::stop_active_runtime_scene_for_transition()
 	if (!m_active_scene)
 		return;
 
-	m_active_scene->on_runtime_stop();
+	if (m_scene_state == scene_state::simulate)
+		m_active_scene->on_simulation_stop();
+	else
+		m_active_scene->on_runtime_stop();
 }
 
 void editor_layer::start_active_runtime_scene_for_transition(asset_handle handle)
@@ -2942,7 +3006,8 @@ void editor_layer::start_active_runtime_scene_for_transition(asset_handle handle
 	script_engine::set_runtime_active_scene_handle(handle);
 	if (m_scene_state == scene_state::simulate)
 		m_active_scene->on_simulation_start();
-	m_active_scene->on_runtime_start();
+	else
+		m_active_scene->on_runtime_start();
 	script_engine::set_runtime_active_scene_handle(handle);
 }
 
@@ -3076,6 +3141,42 @@ void editor_layer::reload_assembly(bool reset_app_assembly_filepath)
 void editor_layer::serialize_scene(ref<scene> scene_in, const std::filesystem::path& path)
 {
 	scene_importer::save_scene(scene_in, path);
+
+	if (!has_project_loaded() || !scene_in)
+		return;
+
+	const std::filesystem::path asset_directory = project::get_active_asset_directory();
+	std::filesystem::path scene_path = path;
+	if (!scene_path.is_absolute())
+		scene_path = asset_directory / scene_path;
+	scene_path = scene_path.lexically_normal();
+
+	if (!path_is_or_is_under(scene_path, asset_directory))
+		return;
+
+	std::error_code error;
+	const std::filesystem::path relative_path = std::filesystem::relative(scene_path, asset_directory, error).lexically_normal();
+	if (error || relative_path.empty() || relative_path.extension() != ".whip")
+		return;
+
+	ref<editor_asset_manager> editor_asset_manager = project::get_active()->get_editor_asset_manager();
+	if (!editor_asset_manager)
+		return;
+
+	asset_handle handle = editor_asset_manager->get_handle_from_filepath(relative_path);
+	if (handle == 0)
+		handle = editor_asset_manager->import_asset(relative_path);
+
+	if (handle == 0)
+		return;
+
+	scene_in->handle = handle;
+	if (m_editor_scene)
+		m_editor_scene->handle = handle;
+	if (m_active_scene)
+		m_active_scene->handle = handle;
+
+	editor_asset_manager->set_loaded_asset(handle, scene::copy(scene_in));
 }
 
 void editor_layer::on_scene_play()
@@ -3108,10 +3209,8 @@ void editor_layer::on_scene_simulate()
 	m_scene_state = scene_state::simulate;
 	script_engine::set_filewatcher_state(false);
 	m_active_scene = scene::copy(m_editor_scene);
-	m_active_scene->on_simulation_start();
-
 	script_engine::set_runtime_active_scene_handle(m_active_scene->handle);
-	m_active_scene->on_runtime_start();
+	m_active_scene->on_simulation_start();
 	script_engine::set_runtime_active_scene_handle(m_active_scene->handle);
 	m_last_selected_entity = m_scene_hierarchy_panel.get_selected_entity();
 	m_scene_hierarchy_panel.set_context(m_active_scene);
@@ -3127,7 +3226,7 @@ void editor_layer::on_scene_stop()
 	if (m_scene_state == scene_state::play)
 		m_active_scene->on_runtime_stop();
 	else if (m_scene_state == scene_state::simulate)
-		m_active_scene->on_runtime_stop();
+		m_active_scene->on_simulation_stop();
 	m_scene_state = scene_state::edit;
 	script_engine::clear_runtime_scene_transition_request();
 	script_engine::set_runtime_active_scene_handle(0);
@@ -3213,6 +3312,7 @@ void editor_layer::restore_project_history(const project_history_entry& entry)
 	if (m_content_browser_panel)
 	{
 		m_content_browser_panel = make_scope<content_browser_panel>(active_project);
+		m_content_browser_panel->set_asset_open_callback([this](asset_handle handle) { return handle_content_browser_asset_open(handle); });
 		apply_preferences_to_content_browser();
 	}
 }

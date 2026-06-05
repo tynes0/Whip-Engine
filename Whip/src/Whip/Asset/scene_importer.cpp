@@ -22,8 +22,12 @@ ref<scene> scene_importer::load_scene(const std::filesystem::path& path, asset_h
 
 void scene_importer::save_scene(ref<scene> scne, const std::filesystem::path& path)
 {
+	std::filesystem::path scene_path = path;
+	if (!scene_path.is_absolute())
+		scene_path = project::get_active_asset_directory() / scene_path;
+
 	scene_serializer serializer(scne);
-	serializer.serialize(project::get_active_asset_directory() / path);
+	serializer.serialize(scene_path);
 }
 
 

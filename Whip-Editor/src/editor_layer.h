@@ -90,6 +90,7 @@ private:
 	void save_entity_template(entity entity_in);
 	bool instantiate_entity_template(asset_handle handle);
 	bool handle_viewport_asset_drop(asset_handle handle);
+	bool handle_content_browser_asset_open(asset_handle handle);
 	bool create_sprite_entity_from_texture(asset_handle handle, const glm::vec3& position);
 	asset_handle import_external_asset_file(const std::filesystem::path& source_path);
 	glm::vec3 get_viewport_mouse_world_position() const;

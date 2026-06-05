@@ -17,17 +17,35 @@ namespace Whip
 
 		public static bool IsAssetHandleValid(AssetHandle handle)
 		{
+			if (handle == null)
+				return false;
 			return InternalCalls.AssetManager_IsAssetHandleValid(handle.ID);
 		}
 
 		public static bool IsAssetLoaded(AssetHandle handle)
 		{
+			if (handle == null)
+				return false;
 			return InternalCalls.AssetManager_IsAssetLoaded(handle.ID);
 		}
 
 		public static AssetType GetAssetType(AssetHandle handle)
 		{
+			if (handle == null)
+				return AssetType.None;
 			return InternalCalls.AssetManager_GetAssetType(handle.ID);
+		}
+
+		public static string GetFilepath(AssetHandle handle)
+		{
+			if (handle == null || handle.ID == 0)
+				return string.Empty;
+			return InternalCalls.AssetManager_GetFilepath(handle.ID);
+		}
+
+		public static bool IsScene(AssetHandle handle)
+		{
+			return IsAssetHandleValid(handle) && GetAssetType(handle) == AssetType.Scene;
 		}
 	}
 

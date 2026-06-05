@@ -55,6 +55,7 @@ namespace Whip
 		}
 		public virtual void OnCreate() { }
 		public virtual void OnUpdate(float ts) {}
+		public virtual void OnDestroy() {}
 		public virtual void OnColliderEnter(String tag) {}
 		public virtual void OnColliderExit(String tag) {}
 		public bool HasComponent<T>() where T : Component, new()

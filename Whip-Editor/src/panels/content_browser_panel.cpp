@@ -426,6 +426,8 @@ void content_browser_panel::draw_item(const browser_item& item)
 
 	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && item.directory)
 		set_current_directory(item.absolute_path);
+	else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !item.directory)
+		open_asset(item);
 
 	if (ImGui::BeginDragDropSource())
 	{
@@ -493,6 +495,16 @@ void content_browser_panel::draw_item(const browser_item& item)
 			}
 			else
 			{
+				if (item.imported && item.type == asset_type::scene)
+				{
+					if (ImGui::MenuItem("Open Scene"))
+						open_asset(item);
+					const bool is_start_scene = m_project && m_project->get_config().start_scene == item.handle;
+					if (ImGui::MenuItem("Set as Start Scene", nullptr, is_start_scene))
+						set_scene_as_start_scene(item);
+					ImGui::Separator();
+				}
+
 				if (ImGui::MenuItem("Show in Explorer"))
 					utils::open_external_path(item.absolute_path.parent_path());
 				if (item.supported && !item.imported && ImGui::MenuItem("Import"))
@@ -840,6 +852,53 @@ void content_browser_panel::request_delete_item(const browser_item& item)
 	m_pending_operation_is_directory = item.directory;
 	m_operation_text.clear();
 	m_operation_error.clear();
+}
+
+bool content_browser_panel::open_asset(const browser_item& item)
+{
+	if (item.directory || item.missing || !item.supported)
+		return false;
+
+	asset_handle handle = item.handle;
+	if (handle == 0)
+	{
+		if (!import_file(item.relative_path))
+			return false;
+		handle = find_asset_handle(item.relative_path);
+	}
+
+	if (handle == 0 || !m_asset_open_callback)
+		return false;
+
+	if (m_asset_open_callback(handle))
+	{
+		set_status("Opened: " + item.relative_path.generic_string());
+		return true;
+	}
+
+	return false;
+}
+
+bool content_browser_panel::set_scene_as_start_scene(const browser_item& item)
+{
+	if (!m_project || item.directory || item.missing || item.type != asset_type::scene)
+		return false;
+
+	asset_handle handle = item.handle;
+	if (handle == 0)
+	{
+		if (!import_file(item.relative_path))
+			return false;
+		handle = find_asset_handle(item.relative_path);
+	}
+
+	if (handle == 0)
+		return false;
+
+	m_project->get_config().start_scene = handle;
+	project::save_active();
+	set_status("Start scene set: " + item.relative_path.generic_string());
+	return true;
 }
 
 void content_browser_panel::clear_pending_operation()

@@ -7,7 +7,9 @@
 #include <Whip/Render/Texture.h>
 
 #include <filesystem>
+#include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 
@@ -50,6 +52,7 @@ public:
 	void set_open(bool open);
 	bool is_open() const { return m_open; }
 	bool is_hovered() const { return m_hovered; }
+	void set_asset_open_callback(std::function<bool(asset_handle)> callback) { m_asset_open_callback = std::move(callback); }
 	bool handle_external_drop(const std::vector<std::filesystem::path>& paths);
 private:
 	enum class mode
@@ -100,6 +103,8 @@ private:
 	void request_move_item(const browser_item& item);
 	void request_delete_item(const browser_item& item);
 	void request_remove_asset(asset_handle handle, const std::filesystem::path& relative_path);
+	bool open_asset(const browser_item& item);
+	bool set_scene_as_start_scene(const browser_item& item);
 	void clear_pending_operation();
 	bool rename_pending_item();
 	bool move_pending_item();
@@ -142,6 +147,7 @@ private:
 	bool m_pending_operation_is_directory = false;
 	std::string m_operation_text;
 	std::string m_operation_error;
+	std::function<bool(asset_handle)> m_asset_open_callback;
 
 	std::string m_search_query;
 	std::string m_status_message;

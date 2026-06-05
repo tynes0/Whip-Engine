@@ -38,10 +38,11 @@ enum class script_field_type
 	KeyCode, MouseCode,
 	Vector2, Vector3, Vector4,
 	Entity,
+	Scene,
 	Logger
 };
 
-MakeFrenumInNamespace(whip, script_field_type, None, String, Float, Double, Bool, Char, SByte, Short, Int, Long, Byte, UShort, UInt, ULong, KeyCode, MouseCode, Vector2, Vector3, Vector4, Entity, Logger)
+MakeFrenumInNamespace(whip, script_field_type, None, String, Float, Double, Bool, Char, SByte, Short, Int, Long, Byte, UShort, UInt, ULong, KeyCode, MouseCode, Vector2, Vector3, Vector4, Entity, Scene, Logger)
 
 enum class runtime_scene_transition_type
 {
@@ -84,6 +85,12 @@ struct script_field_instance
 	T get_value()
 	{
 		return m_buffer.load<T>();
+	}
+
+	template<typename T>
+	bool can_get_value() const
+	{
+		return m_buffer.can_cast_to<T>();
 	}
 
 	template<typename T>
@@ -194,6 +201,7 @@ public:
 
 	void invoke_on_create();
 	void invoke_on_update(float ts);
+	void invoke_on_destroy();
 	void invoke_on_collider_enter(std::string_view tag);
 	void invoke_on_collider_exit(std::string_view tag);
 
@@ -253,6 +261,7 @@ private:
 	MonoMethod* m_constructor = nullptr;
 	MonoMethod* m_on_create_method = nullptr;
 	MonoMethod* m_on_update_method = nullptr;
+	MonoMethod* m_on_destroy_method = nullptr;
 	MonoMethod* m_on_collider_enter_method = nullptr;
 	MonoMethod* m_on_collider_exit_method = nullptr;
 	UUID m_entity_id = 0;
@@ -292,9 +301,11 @@ public:
 	static void on_runtime_stop();
 
 	static void invoke_all_on_create_methods();
+	static void invoke_all_on_destroy_methods();
 
 	static bool entity_class_exists(const std::string& full_class_name);
 	static void on_create_entity(entity entity_in);
+	static void on_destroy_entity(entity entity_in);
 	static void on_update_entity(entity entity_in, timestep ts);
 	static void on_collider_enter_entity(UUID entity_left, std::string_view tag);
 	static void on_collider_exit_entity(UUID entity_left, std::string_view tag);
@@ -302,7 +313,9 @@ public:
 	static scene* get_scene_context();
 	static void set_runtime_active_scene_handle(asset_handle handle);
 	static asset_handle get_runtime_active_scene_handle();
+	static asset_handle find_runtime_scene_handle(std::string_view scene_name);
 	static bool request_runtime_scene_load(asset_handle handle);
+	static bool request_runtime_scene_load(std::string_view scene_name);
 	static bool request_runtime_start_scene_load();
 	static bool request_runtime_scene_reload();
 	static bool request_runtime_scene_unload();

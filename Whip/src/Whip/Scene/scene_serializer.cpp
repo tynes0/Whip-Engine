@@ -192,6 +192,24 @@ namespace utils
 	}
 
 	template <>
+	void write_script_field_data<uint64_t>(YAML::Emitter& out, script_field_instance& field_instance)
+	{
+		if (!field_instance.field.is_array)
+		{
+			out << (field_instance.can_get_value<uint64_t>() ? field_instance.get_value<uint64_t>() : 0);
+			return;
+		}
+
+		const size_t size = field_instance.get_array_size<uint64_t>();
+		uint64_t* values = field_instance.get_value_array<uint64_t>();
+
+		out << YAML::BeginSeq;
+		for (size_t i = 0; i < size; ++i)
+			out << values[i];
+		out << YAML::EndSeq;
+	}
+
+	template <>
 	void write_script_field_data<std::string>(YAML::Emitter& out, script_field_instance& field_instance)
 	{
 		if (field_instance.field.is_array)
@@ -385,6 +403,7 @@ namespace utils
 							WRITE_SCRIPT_FIELD(Vector3, glm::vec3);
 							WRITE_SCRIPT_FIELD(Vector4, glm::vec4);
 							WRITE_SCRIPT_FIELD(Entity, UUID);
+							WRITE_SCRIPT_FIELD(Scene, uint64_t);
 						}
 						out << YAML::EndMap; // script_fields
 					}
@@ -545,7 +564,24 @@ void scene_serializer::serialize(const std::filesystem::path& filepath)
 	out << YAML::EndSeq;
 	out << YAML::EndMap;
 
+	std::error_code error;
+	if (!filepath.parent_path().empty())
+	{
+		std::filesystem::create_directories(filepath.parent_path(), error);
+		if (error)
+		{
+			WHP_CORE_ERROR("[Scene serializer] Could not create scene directory '{0}': {1}", filepath.parent_path().string(), error.message());
+			return;
+		}
+	}
+
 	std::ofstream fout(filepath);
+	if (!fout)
+	{
+		WHP_CORE_ERROR("[Scene serializer] Could not open scene file for writing: {0}", filepath.string());
+		return;
+	}
+
 	fout << out.c_str();
 	coco_timer.stop();
 	WHP_CORE_DEBUG("[Scene serializer] Scene serialized in {0} millisecond.", coco_timer.get_time());
@@ -755,6 +791,7 @@ bool scene_serializer::deserialize(const std::filesystem::path& filepath)
 								READ_SCRIPT_FIELD(Vector3, glm::vec3);
 								READ_SCRIPT_FIELD(Vector4, glm::vec4);
 								READ_SCRIPT_FIELD(Entity, UUID);
+								READ_SCRIPT_FIELD(Scene, uint64_t);
 							}
 						}
 					}

@@ -127,6 +127,22 @@ void editor_asset_manager::delete_asset(asset_handle handle)
 	m_asset_registry.serialize();
 }
 
+void editor_asset_manager::set_loaded_asset(asset_handle handle, const ref<asset>& asset_in)
+{
+	if (!is_asset_handle_valid(handle) || !asset_in)
+		return;
+
+	asset_in->handle = handle;
+	m_loaded_assets[handle] = asset_in;
+}
+
+void editor_asset_manager::unload_asset(asset_handle handle)
+{
+	auto it = m_loaded_assets.find(handle);
+	if (it != m_loaded_assets.end())
+		m_loaded_assets.erase(it);
+}
+
 bool editor_asset_manager::update_asset_filepath(asset_handle handle, const std::filesystem::path& filepath)
 {
 	if (!is_asset_handle_valid(handle))

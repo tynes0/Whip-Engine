@@ -30,11 +30,17 @@ namespace Whip
 		internal extern static bool AssetManager_IsAssetLoaded(ulong assetHandle);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static AssetType AssetManager_GetAssetType(ulong assetHandle);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static string AssetManager_GetFilepath(ulong assetHandle);
 		#endregion
 
 		#region SceneManager
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool SceneManager_LoadScene(ulong sceneHandle);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool SceneManager_LoadSceneByName(string sceneName);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static ulong SceneManager_FindSceneByName(string sceneName);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool SceneManager_LoadStartScene();
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]

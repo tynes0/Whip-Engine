@@ -325,6 +325,22 @@ namespace utils
 		return script_engine::request_runtime_scene_load(handle);
 	}
 
+	static bool scene_manager_load_scene_by_name(MonoString* scene_name)
+	{
+		if (!scene_name)
+			return false;
+
+		return script_engine::request_runtime_scene_load(detail::mono_string_to_string(scene_name));
+	}
+
+	static uint64_t scene_manager_find_scene_by_name(MonoString* scene_name)
+	{
+		if (!scene_name)
+			return 0;
+
+		return script_engine::find_runtime_scene_handle(detail::mono_string_to_string(scene_name));
+	}
+
 	static bool scene_manager_load_start_scene()
 	{
 		return script_engine::request_runtime_start_scene_load();
@@ -1517,6 +1533,8 @@ void script_glue::register_functions()
 
 	// scene manager
 	ADD_INTERNAL_CALL(SceneManager_LoadScene, utils::scene_manager_load_scene);
+	ADD_INTERNAL_CALL(SceneManager_LoadSceneByName, utils::scene_manager_load_scene_by_name);
+	ADD_INTERNAL_CALL(SceneManager_FindSceneByName, utils::scene_manager_find_scene_by_name);
 	ADD_INTERNAL_CALL(SceneManager_LoadStartScene, utils::scene_manager_load_start_scene);
 	ADD_INTERNAL_CALL(SceneManager_ReloadScene, utils::scene_manager_reload_scene);
 	ADD_INTERNAL_CALL(SceneManager_UnloadScene, utils::scene_manager_unload_scene);

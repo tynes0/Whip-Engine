@@ -148,6 +148,9 @@ void scene::destroy_entity(entity entity_in)
 		}
 	}
 
+	if (m_is_running && entity_in.has_component<script_component>())
+		script_engine::on_destroy_entity(entity_in);
+
 	m_unique_name_manager.remove_name(entity_in.get_name());
 	m_entity_map.erase(entity_in.get_UUID());
     m_registry.destroy(entity_in);
@@ -193,6 +196,9 @@ void scene::on_runtime_start()
 void scene::on_runtime_stop()
 {
 	WHP_PROFILE_FUNCTION();
+	if (m_is_running)
+		script_engine::invoke_all_on_destroy_methods();
+
 	m_is_running = false;
 	m_physics_world.destroy();
 	script_engine::on_runtime_stop();
@@ -202,14 +208,29 @@ void scene::on_runtime_stop()
 void scene::on_simulation_start()
 {
 	WHP_PROFILE_FUNCTION();
-	script_engine::on_runtime_start(this);
+	m_is_running = true;
 	m_physics_world.create();
+	{
+		script_engine::on_runtime_start(this);
+		auto view = m_registry.view<script_component>();
+		for (auto e : view)
+		{
+			entity ent = { e, this };
+			script_engine::on_create_entity(ent);
+		}
+		script_engine::invoke_all_on_create_methods();
+	}
 }
 
 void scene::on_simulation_stop()
 {
 	WHP_PROFILE_FUNCTION();
+	if (m_is_running)
+		script_engine::invoke_all_on_destroy_methods();
+
+	m_is_running = false;
 	m_physics_world.destroy();
+	script_engine::on_runtime_stop();
 	on_audios_stop();
 }
 

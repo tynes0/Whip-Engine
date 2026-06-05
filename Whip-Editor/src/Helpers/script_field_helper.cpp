@@ -2,6 +2,7 @@
 
 #include <Whip/Core/KeyCodes.h>
 #include <Whip/Core/MouseButtonCodes.h>
+#include <Whip/Project/project.h>
 #include <Whip/UI/UI_helpers.h>
 
 #include <imgui.h>
@@ -9,11 +10,13 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 _WHIP_START
 
@@ -284,6 +287,170 @@ namespace
 		return changed;
 	}
 
+	struct scene_picker_item
+	{
+		asset_handle handle = 0;
+		std::filesystem::path path;
+		std::string label;
+	};
+
+	std::vector<scene_picker_item> collect_scene_picker_items()
+	{
+		std::vector<scene_picker_item> items;
+		ref<project> active_project = project::get_active();
+		if (!active_project || !active_project->get_editor_asset_manager())
+			return items;
+
+		active_project->get_editor_asset_manager()->get_asset_registry().foreach(asset_type::scene, [&](const asset_registry::value_type& value)
+			{
+				scene_picker_item item;
+				item.handle = value.first;
+				item.path = value.second.filepath;
+				item.label = value.second.filepath.stem().string();
+				if (item.label.empty())
+					item.label = value.second.filepath.filename().string();
+				items.push_back(std::move(item));
+			});
+
+		std::sort(items.begin(), items.end(), [](const scene_picker_item& lhs, const scene_picker_item& rhs)
+			{
+				return lhs.path.generic_string() < rhs.path.generic_string();
+			});
+
+		return items;
+	}
+
+	std::string scene_reference_label(asset_handle handle)
+	{
+		if (handle == 0)
+			return "None";
+
+		ref<project> active_project = project::get_active();
+		if (!active_project || !active_project->get_editor_asset_manager() ||
+			!active_project->get_editor_asset_manager()->is_asset_handle_valid(handle) ||
+			active_project->get_editor_asset_manager()->get_asset_type(handle) != asset_type::scene)
+			return "Missing Scene";
+
+		const std::filesystem::path& path = active_project->get_editor_asset_manager()->get_filepath(handle);
+		std::string label = path.stem().string();
+		if (label.empty())
+			label = path.filename().string();
+		return label;
+	}
+
+	std::string to_lower(std::string text)
+	{
+		std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		return text;
+	}
+
+	bool scene_matches_query(const scene_picker_item& scene, const std::string& query)
+	{
+		if (query.empty())
+			return true;
+
+		const std::string lowered_query = to_lower(query);
+		return to_lower(scene.label).find(lowered_query) != std::string::npos ||
+			to_lower(scene.path.generic_string()).find(lowered_query) != std::string::npos;
+	}
+
+	bool draw_scene_control(const char* id, uint64_t& value)
+	{
+		static std::string scene_search_query;
+		bool changed = false;
+		asset_handle current_handle(value);
+		std::string label = scene_reference_label(current_handle);
+
+		ImGui::PushID(id);
+
+		const float clear_button_width = ImGui::GetFrameHeight();
+		const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
+		const float width = ImGui::GetContentRegionAvail().x;
+		const float picker_width = current_handle == 0 ? width : std::max(0.0f, width - clear_button_width - spacing);
+
+		if (ImGui::Button(label.c_str(), ImVec2(picker_width, 0.0f)))
+			ImGui::OpenPopup("ScenePickerPopup");
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+			{
+				asset_handle dropped_handle = *static_cast<asset_handle*>(payload->Data);
+				ref<project> active_project = project::get_active();
+				if (active_project && active_project->get_editor_asset_manager() &&
+					active_project->get_editor_asset_manager()->is_asset_handle_valid(dropped_handle) &&
+					active_project->get_editor_asset_manager()->get_asset_type(dropped_handle) == asset_type::scene)
+				{
+					value = dropped_handle;
+					changed = true;
+				}
+				else
+				{
+					WHP_CORE_WARN("[Asset Manager] Wrong asset type!");
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (current_handle != 0)
+		{
+			ImGui::SameLine();
+			if (ImGui::Button("X", ImVec2(clear_button_width, 0.0f)))
+			{
+				value = 0;
+				changed = true;
+			}
+		}
+
+		if (ImGui::BeginPopup("ScenePickerPopup"))
+		{
+			ImGui::SetNextItemWidth(260.0f);
+			ImGui::InputTextWithHint("##SceneSearch", "Search scenes", &scene_search_query);
+			ImGui::Separator();
+
+			if (ImGui::Selectable("None", current_handle == 0))
+			{
+				value = 0;
+				changed = true;
+			}
+
+			const std::vector<scene_picker_item> scenes = collect_scene_picker_items();
+			if (!scenes.empty())
+				ImGui::Separator();
+
+			size_t visible_count = 0;
+			for (const scene_picker_item& scene : scenes)
+			{
+				if (!scene_matches_query(scene, scene_search_query))
+					continue;
+
+				++visible_count;
+				ImGui::PushID(static_cast<int>((uint64_t)scene.handle & 0xffffffffu));
+				const bool selected = scene.handle == current_handle;
+				if (ImGui::Selectable(scene.label.c_str(), selected))
+				{
+					value = scene.handle;
+					changed = true;
+				}
+
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip("%s", scene.path.generic_string().c_str());
+
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+				ImGui::PopID();
+			}
+
+			if (visible_count == 0 && !scene_search_query.empty())
+				ImGui::TextDisabled("No matching scenes");
+
+			ImGui::EndPopup();
+		}
+
+		ImGui::PopID();
+		return changed;
+	}
+
 	template <UI::script_field_draw DrawMode, typename T, typename DrawFn>
 	void draw_value_contents(const script_field& field, entity ent, const std::string& class_name, const std::string& id, DrawFn draw)
 	{
@@ -405,6 +572,46 @@ namespace
 			UUID data = sc_field.get_entity_value();
 			if (draw_entity_control(id.c_str(), data, ent))
 				override_field(ent, field).set_entity_value(data);
+		}
+	}
+
+	template <UI::script_field_draw DrawMode>
+	void draw_scene_field(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		if (field.is_array)
+		{
+			draw_unsupported_array(field, in_table);
+			return;
+		}
+
+		table_row_scope row(in_table, field.name.c_str());
+		const std::string id = control_label(field, in_table);
+
+		if constexpr (DrawMode == UI::script_field_draw::while_scene_running)
+		{
+			(void)class_name;
+			ref<script_instance> sc_instance = script_engine::get_entity_script_instance(ent.get_UUID());
+			if (!sc_instance)
+				return;
+
+			uint64_t data = sc_instance->get_field_value<uint64_t>(field.name);
+			if (draw_scene_control(id.c_str(), data))
+				sc_instance->set_field_value<uint64_t>(field.name, data);
+		}
+		else if constexpr (DrawMode == UI::script_field_draw::set_in_the_editor)
+		{
+			(void)class_name;
+			script_field_instance& sc_field = editor_field(ent, field);
+			uint64_t data = sc_field.get_value<uint64_t>();
+			if (draw_scene_control(id.c_str(), data))
+				sc_field.set_value<uint64_t>(data);
+		}
+		else
+		{
+			script_field_instance& sc_field = base_field(class_name, field);
+			uint64_t data = sc_field.get_value<uint64_t>();
+			if (draw_scene_control(id.c_str(), data))
+				override_field(ent, field).set_value<uint64_t>(data);
 		}
 	}
 
@@ -735,6 +942,24 @@ namespace UI
 		draw_entity_field<script_field_draw::with_base_value>(field, ent, class_name, in_table);
 	}
 
+	template <>
+	void draw_field<script_field_type::Scene, script_field_draw::while_scene_running>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		draw_scene_field<script_field_draw::while_scene_running>(field, ent, class_name, in_table);
+	}
+
+	template <>
+	void draw_field<script_field_type::Scene, script_field_draw::set_in_the_editor>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		draw_scene_field<script_field_draw::set_in_the_editor>(field, ent, class_name, in_table);
+	}
+
+	template <>
+	void draw_field<script_field_type::Scene, script_field_draw::with_base_value>(const script_field& field, entity ent, const std::string& class_name, bool in_table)
+	{
+		draw_scene_field<script_field_draw::with_base_value>(field, ent, class_name, in_table);
+	}
+
 	template <script_field_draw DrawMode>
 	void draw_field_by_type(const script_field& field, entity ent, const std::string& class_name, bool in_table)
 	{
@@ -759,6 +984,7 @@ namespace UI
 		case script_field_type::MouseCode: draw_field<script_field_type::MouseCode, DrawMode>(field, ent, class_name, in_table); break;
 		case script_field_type::String: draw_field<script_field_type::String, DrawMode>(field, ent, class_name, in_table); break;
 		case script_field_type::Entity: draw_field<script_field_type::Entity, DrawMode>(field, ent, class_name, in_table); break;
+		case script_field_type::Scene: draw_field<script_field_type::Scene, DrawMode>(field, ent, class_name, in_table); break;
 		case script_field_type::None:
 		case script_field_type::Logger:
 		default:
