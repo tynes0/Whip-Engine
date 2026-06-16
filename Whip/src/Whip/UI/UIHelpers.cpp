@@ -492,6 +492,8 @@ namespace UI
 		if (anim)
 		{
 			auto& frames = anim->GetFrames();
+			int moveFrameFrom = -1;
+			int moveFrameTo = -1;
 
 			for (size_t i = 0; i < frames.size(); ++i)
 			{
@@ -521,6 +523,29 @@ namespace UI
 						ImGui::SetTooltip("Frame %zu: %.3fs - %.3fs", i, frameStart, frameEnd);
 						if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && selectedIndex)
 							*selectedIndex = static_cast<int>(i);
+					}
+					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+					{
+						const float mouseX = std::clamp(ImGui::GetIO().MousePos.x, cursorStart.x, cursorStart.x + timelineWidth);
+						const float targetTime = offsetTime + ((mouseX - cursorStart.x) / timelineWidth) * scaledMaxTime;
+						float cursor = 0.0f;
+						int targetIndex = (int)frames.size() - 1;
+						for (size_t frameIndex = 0; frameIndex < frames.size(); ++frameIndex)
+						{
+							cursor += std::max(frames[frameIndex].m_Duration, 0.0f);
+							if (targetTime <= cursor)
+							{
+								targetIndex = (int)frameIndex;
+								break;
+							}
+						}
+
+						if (targetIndex != (int)i)
+						{
+							moveFrameFrom = (int)i;
+							moveFrameTo = targetIndex;
+							ImGui::SetTooltip("Move frame %zu to %d", i, targetIndex);
+						}
 					}
 				}
 
@@ -556,6 +581,17 @@ namespace UI
 								*selectedIndex = static_cast<int>(i);
 					}
 				}
+			}
+
+			if (moveFrameFrom >= 0 && moveFrameTo >= 0 && moveFrameFrom != moveFrameTo)
+			{
+				if (moveFrameTo > moveFrameFrom)
+					std::rotate(frames.begin() + moveFrameFrom, frames.begin() + moveFrameFrom + 1, frames.begin() + moveFrameTo + 1);
+				else
+					std::rotate(frames.begin() + moveFrameTo, frames.begin() + moveFrameFrom, frames.begin() + moveFrameFrom + 1);
+
+				if (selectedIndex)
+					*selectedIndex = moveFrameTo;
 			}
 		}
 		ImGui::EndChild();

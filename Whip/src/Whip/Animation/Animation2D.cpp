@@ -41,6 +41,7 @@ Ref<Animation2D> Animation2D::Copy(Ref<Animation2D> anim)
 {
 	auto newAnimation = MakeRef<Animation2D>();
 	newAnimation->m_Frames = anim->m_Frames;
+	newAnimation->m_Events = anim->m_Events;
 	newAnimation->m_Loop = anim->m_Loop;
 	newAnimation->m_Name = anim->m_Name;
 	return newAnimation;
@@ -167,10 +168,28 @@ float Animation2D::GetFrameStartTime(size_t index) const
 	return time;
 }
 
+size_t Animation2D::GetFrameIndexAtTime(float time) const
+{
+	if (m_Frames.empty())
+		return 0;
+
+	float cursor = 0.0f;
+	const float sampleTime = std::max(time, 0.0f);
+	for (size_t i = 0; i < m_Frames.size(); ++i)
+	{
+		cursor += std::max(m_Frames[i].m_Duration, 0.0f);
+		if (sampleTime <= cursor || i == m_Frames.size() - 1)
+			return i;
+	}
+
+	return m_Frames.size() - 1;
+}
+
 void Animation2D::Serialize(const std::filesystem::path& filepath)
 {
 	YAML::Emitter out;
 	out << YAML::BeginMap;
+	out << YAML::Key << "version" << YAML::Value << FormatVersion;
 	out << YAML::Key << "name" << YAML::Value << m_Name;
 	out << YAML::Key << "loop" << YAML::Value << m_Loop;
 	out << YAML::Key << "frames" << YAML::Value << YAML::BeginSeq;
@@ -183,6 +202,15 @@ void Animation2D::Serialize(const std::filesystem::path& filepath)
 		out << YAML::EndMap;
 	}
 
+	out << YAML::EndSeq;
+	out << YAML::Key << "events" << YAML::Value << YAML::BeginSeq;
+	for (const AnimationEventKey& eventKey : m_Events)
+	{
+		out << YAML::BeginMap;
+		out << YAML::Key << "time" << YAML::Value << eventKey.m_Time;
+		out << YAML::Key << "name" << YAML::Value << eventKey.m_Name;
+		out << YAML::EndMap;
+	}
 	out << YAML::EndSeq;
 	out << YAML::EndMap;
 
@@ -206,6 +234,7 @@ bool Animation2D::Deserialize(const std::filesystem::path& filepath)
 	m_Name = AnimationManager::GetAnimationNameManager().AddName(data["name"].as<std::string>());
 	m_Loop = data["loop"].as<bool>();
 	m_Frames.clear();
+	m_Events.clear();
 
 	const auto& framesNode = data["frames"];
 	for (const auto& frameNode : framesNode)
@@ -215,6 +244,19 @@ bool Animation2D::Deserialize(const std::filesystem::path& filepath)
 		frame.m_Duration = frameNode["duration"].as<float>();
 		m_Frames.push_back(frame);
 	}
+
+	if (const YAML::Node eventsNode = data["events"])
+	{
+		for (const YAML::Node& eventNode : eventsNode)
+		{
+			AnimationEventKey eventKey;
+			eventKey.m_Time = eventNode["time"].as<float>(0.0f);
+			eventKey.m_Name = eventNode["name"].as<std::string>("");
+			if (!eventKey.m_Name.empty())
+				m_Events.push_back(eventKey);
+		}
+	}
+
 	return true;
 }
 

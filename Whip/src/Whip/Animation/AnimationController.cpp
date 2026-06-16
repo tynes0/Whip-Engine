@@ -150,6 +150,7 @@ void AnimationController::Serialize(const std::filesystem::path& filepath) const
 	YAML::Emitter out;
 	out << YAML::BeginMap;
 	out << YAML::Key << "animation_controller" << YAML::Value << YAML::BeginMap;
+	out << YAML::Key << "version" << YAML::Value << FormatVersion;
 	out << YAML::Key << "default_state" << YAML::Value << m_DefaultState;
 
 	out << YAML::Key << "parameters" << YAML::Value << YAML::BeginSeq;

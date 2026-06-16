@@ -73,6 +73,8 @@ struct AnimationControllerState
 class AnimationController : public Asset
 {
 public:
+	static constexpr uint32_t FormatVersion = 1;
+
 	AnimationController(AssetHandle handle = AssetHandle{});
 
 	AssetType GetType() const override { return AssetType::AnimationController; }

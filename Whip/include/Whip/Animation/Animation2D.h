@@ -6,6 +6,7 @@
 #include <Whip/Scene/Entity.h>
 
 #include <filesystem>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -17,9 +18,25 @@ struct AnimationFrame
 	float m_Duration = 0.0f;
 };
 
+enum class AnimationTrackType : uint8_t
+{
+	Sprite,
+	Event
+};
+
+MakeFrenumInNamespace(whip, AnimationTrackType, Sprite, Event)
+
+struct AnimationEventKey
+{
+	float m_Time = 0.0f;
+	std::string m_Name;
+};
+
 class Animation2D : public Asset
 {
 public:
+	static constexpr uint32_t FormatVersion = 1;
+
 	Animation2D(AssetHandle handleIn = AssetHandle{});
 	~Animation2D();
 
@@ -44,8 +61,11 @@ public:
 
 	std::vector<AnimationFrame>& GetFrames() { return m_Frames; }
 	const std::vector<AnimationFrame>& GetFrames() const { return m_Frames; }
+	std::vector<AnimationEventKey>& GetEvents() { return m_Events; }
+	const std::vector<AnimationEventKey>& GetEvents() const { return m_Events; }
 	float GetDuration() const;
 	float GetFrameStartTime(size_t index) const;
+	size_t GetFrameIndexAtTime(float time) const;
 
 	bool IsPlaying() const { return m_IsPlaying; }
 	bool IsPaused() const { return m_IsPaused; }
@@ -59,6 +79,7 @@ private:
 	void ApplyFrame(AssetHandle texture);
 
 	std::vector<AnimationFrame> m_Frames;
+	std::vector<AnimationEventKey> m_Events;
 
 	Entity m_TargetEntity;
 	AssetHandle m_OriginalTexture = AssetHandle(0);

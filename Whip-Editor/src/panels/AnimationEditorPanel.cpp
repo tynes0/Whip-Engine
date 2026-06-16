@@ -13,6 +13,7 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <misc/cpp/imgui_stdlib.h>
 
 #include <algorithm>
 
@@ -87,10 +88,26 @@ void AnimationEditorPanel::OnImGuiRender()
 			metadata.m_Filepath = std::filesystem::relative(controllerPath, Project::GetActiveAssetDirectory());
 			Project::GetActive()->GetEditorAssetManager()->AddRegistry(controller->m_Handle, metadata);
 			Project::GetActive()->GetEditorAssetManager()->SerializeAssetRegistry();
+			m_CurrentController = controller;
+			m_SelectedControllerStateIndex = 0;
+			m_SelectedControllerParameterIndex = -1;
 			if (m_RefreshAssetTreeCallback)
 				m_RefreshAssetTreeCallback();
 		}
 	}
+
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!m_CurrentController);
+	if (ImGui::Button("Save Ctrl", ImVec2(86.0f, 32.0f)))
+		SaveCurrentController();
+	ImGui::SameLine();
+	if (ImGui::Button("Close Ctrl", ImVec2(90.0f, 32.0f)))
+	{
+		m_CurrentController = nullptr;
+		m_SelectedControllerStateIndex = 0;
+		m_SelectedControllerParameterIndex = -1;
+	}
+	ImGui::EndDisabled();
 
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!m_CurrentAnimation);
@@ -121,7 +138,7 @@ void AnimationEditorPanel::OnImGuiRender()
 	}
 	ImGui::EndDisabled();
 
-	ImGui::SetNextItemWidth(std::min(260.0f, ImGui::GetContentRegionAvail().x));
+	ImGui::SetNextItemWidth(std::min(220.0f, ImGui::GetContentRegionAvail().x));
 	if (ImGui::BeginCombo("##AnimationSelector", m_CurrentAnimation ? m_CurrentAnimation->GetName().data() : "Select Animation"))
 	{
 		const auto& reg = Project::GetActive()->GetEditorAssetManager()->GetAssetRegistry();
@@ -137,9 +154,20 @@ void AnimationEditorPanel::OnImGuiRender()
 		});
 		ImGui::EndCombo();
 	}
+	ImGui::SameLine();
+	DrawControllerSelector(std::min(220.0f, ImGui::GetContentRegionAvail().x));
 	ImGui::EndChild();
 
 	ImGui::Spacing();
+	if (m_CurrentController)
+	{
+		DrawControllerEditor(std::max(260.0f, ImGui::GetContentRegionAvail().y));
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar(3);
+		ImGui::End();
+		return;
+	}
+
 	if (!m_CurrentAnimation)
 	{
 		ImGui::BeginChild("##AnimationEditorEmpty", ImVec2(0.0f, 0.0f), true);
@@ -383,6 +411,477 @@ void AnimationEditorPanel::DrawAnimationSelector(float width, float leftPadding)
 			});
 		ImGui::EndCombo();
 	}
+}
+
+void AnimationEditorPanel::DrawControllerSelector(float width)
+{
+	if (width <= 0.0f)
+		return;
+
+	std::string preview = "Select Controller";
+	if (m_CurrentController)
+	{
+		const AssetMetadata& metadata = AssetManager::GetAssetMetadata(m_CurrentController->m_Handle);
+		preview = metadata ? metadata.m_Filepath.filename().string() : "Controller";
+	}
+
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::BeginCombo("##ControllerSelector", preview.c_str()))
+	{
+		const auto& reg = Project::GetActive()->GetEditorAssetManager()->GetAssetRegistry();
+		reg.Foreach(AssetType::AnimationController, [&](const AssetRegistry::ValueType& value)
+			{
+				const std::string label = value.second.m_Filepath.filename().string();
+				const bool selected = m_CurrentController && m_CurrentController->m_Handle == value.first;
+				if (ImGui::Selectable(label.c_str(), selected))
+				{
+					m_CurrentController = AssetManager::GetAsset<AnimationController>(value.first);
+					m_SelectedControllerStateIndex = 0;
+					m_SelectedControllerParameterIndex = -1;
+				}
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+			});
+		ImGui::EndCombo();
+	}
+}
+
+void AnimationEditorPanel::DrawControllerEditor(float height)
+{
+	if (!m_CurrentController)
+		return;
+
+	if (m_CurrentController->GetStates().empty())
+	{
+		m_CurrentController->AddState("Entry");
+		m_CurrentController->SetDefaultState("Entry");
+	}
+
+	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)m_CurrentController->GetStates().size() - 1);
+
+	const float availableWidth = ImGui::GetContentRegionAvail().x;
+	const float parameterWidth = std::min(270.0f, availableWidth * 0.28f);
+	const float inspectorWidth = std::min(360.0f, availableWidth * 0.34f);
+	const float graphWidth = std::max(260.0f, availableWidth - parameterWidth - inspectorWidth - ImGui::GetStyle().ItemSpacing.x * 2.0f);
+
+	DrawControllerParameters(parameterWidth, height);
+	ImGui::SameLine();
+	DrawControllerGraph(graphWidth, height);
+	ImGui::SameLine();
+	DrawControllerStateInspector(inspectorWidth, height);
+}
+
+void AnimationEditorPanel::DrawControllerParameters(float width, float height)
+{
+	ImGui::BeginChild("##ControllerParameters", ImVec2(width, height), true);
+	ImGui::TextDisabled("Parameters");
+	ImGui::Separator();
+
+	auto addParameter = [this](AnimationParameterType type)
+		{
+			AnimationControllerParameter& parameter = m_CurrentController->AddParameter(frenum::to_string(type).data(), type);
+			m_SelectedControllerParameterIndex = (int)m_CurrentController->GetParameters().size() - 1;
+			if (type == AnimationParameterType::Bool || type == AnimationParameterType::Trigger)
+				parameter.m_DefaultBool = false;
+		};
+
+	if (ImGui::Button("+ Bool"))
+		addParameter(AnimationParameterType::Bool);
+	ImGui::SameLine();
+	if (ImGui::Button("+ Int"))
+		addParameter(AnimationParameterType::Int);
+	if (ImGui::Button("+ Float"))
+		addParameter(AnimationParameterType::Float);
+	ImGui::SameLine();
+	if (ImGui::Button("+ Trigger"))
+		addParameter(AnimationParameterType::Trigger);
+
+	ImGui::Spacing();
+	auto& parameters = m_CurrentController->GetParameters();
+	for (size_t i = 0; i < parameters.size(); ++i)
+	{
+		ImGui::PushID((int)i);
+		const bool selected = m_SelectedControllerParameterIndex == (int)i;
+		if (ImGui::Selectable(parameters[i].m_Name.c_str(), selected))
+			m_SelectedControllerParameterIndex = (int)i;
+		ImGui::PopID();
+	}
+
+	if (m_SelectedControllerParameterIndex >= 0 && m_SelectedControllerParameterIndex < (int)parameters.size())
+	{
+		ImGui::Separator();
+		AnimationControllerParameter& parameter = parameters[m_SelectedControllerParameterIndex];
+		std::string oldName = parameter.m_Name;
+		if (ImGui::InputText("Name", &parameter.m_Name))
+		{
+			if (parameter.m_Name.empty())
+				parameter.m_Name = oldName;
+			else if (parameter.m_Name != oldName)
+			{
+				for (AnimationControllerState& state : m_CurrentController->GetStates())
+				{
+					for (AnimationControllerTransition& transition : state.m_Transitions)
+					{
+						for (AnimationControllerCondition& condition : transition.m_Conditions)
+						{
+							if (condition.m_Parameter == oldName)
+								condition.m_Parameter = parameter.m_Name;
+						}
+					}
+				}
+			}
+		}
+
+		const std::array<AnimationParameterType, 4> parameterTypes =
+		{
+			AnimationParameterType::Bool,
+			AnimationParameterType::Int,
+			AnimationParameterType::Float,
+			AnimationParameterType::Trigger
+		};
+		std::string typePreview = frenum::to_string(parameter.m_Type).data();
+		if (ImGui::BeginCombo("Type", typePreview.c_str()))
+		{
+			for (AnimationParameterType type : parameterTypes)
+			{
+				std::string typeLabel = frenum::to_string(type).data();
+				const bool selected = parameter.m_Type == type;
+				if (ImGui::Selectable(typeLabel.c_str(), selected))
+					parameter.m_Type = type;
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+
+		if (parameter.m_Type == AnimationParameterType::Bool)
+			ImGui::Checkbox("Default", &parameter.m_DefaultBool);
+		else if (parameter.m_Type == AnimationParameterType::Int)
+			ImGui::DragInt("Default", &parameter.m_DefaultInt, 1.0f);
+		else if (parameter.m_Type == AnimationParameterType::Float)
+			ImGui::DragFloat("Default", &parameter.m_DefaultFloat, 0.01f);
+
+		if (ImGui::Button("Remove Parameter", ImVec2(-1.0f, 0.0f)))
+		{
+			const std::string removedName = parameter.m_Name;
+			for (AnimationControllerState& state : m_CurrentController->GetStates())
+			{
+				for (AnimationControllerTransition& transition : state.m_Transitions)
+				{
+					std::erase_if(transition.m_Conditions, [&removedName](const AnimationControllerCondition& condition)
+						{
+							return condition.m_Parameter == removedName;
+						});
+				}
+			}
+			parameters.erase(parameters.begin() + m_SelectedControllerParameterIndex);
+			m_SelectedControllerParameterIndex = -1;
+		}
+	}
+
+	ImGui::EndChild();
+}
+
+void AnimationEditorPanel::DrawControllerGraph(float width, float height)
+{
+	ImGui::BeginChild("##ControllerGraph", ImVec2(width, height), true);
+	ImGui::TextDisabled("Controller Graph");
+	ImGui::SameLine();
+	if (ImGui::Button("+ State"))
+	{
+		AnimationControllerState& state = m_CurrentController->AddState("State");
+		m_SelectedControllerStateIndex = (int)m_CurrentController->GetStates().size() - 1;
+		if (m_CurrentController->GetDefaultState().empty())
+			m_CurrentController->SetDefaultState(state.m_Name);
+	}
+	ImGui::SameLine();
+	ImGui::BeginDisabled(m_CurrentController->GetStates().size() <= 1);
+	if (ImGui::Button("Remove"))
+	{
+		const std::string removedName = m_CurrentController->GetStates()[m_SelectedControllerStateIndex].m_Name;
+		m_CurrentController->RemoveState(removedName);
+		m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)m_CurrentController->GetStates().size() - 1);
+	}
+	ImGui::EndDisabled();
+	ImGui::SameLine();
+	if (ImGui::Button("Set Default"))
+		m_CurrentController->SetDefaultState(m_CurrentController->GetStates()[m_SelectedControllerStateIndex].m_Name);
+	ImGui::Separator();
+
+	auto& states = m_CurrentController->GetStates();
+	const ImVec2 canvasMin = ImGui::GetCursorScreenPos();
+	const ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+	const ImVec2 canvasMax(canvasMin.x + canvasSize.x, canvasMin.y + canvasSize.y);
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	drawList->AddRectFilled(canvasMin, canvasMax, IM_COL32(18, 17, 15, 255), 4.0f);
+	drawList->AddRect(canvasMin, canvasMax, IM_COL32(76, 68, 54, 170), 4.0f);
+
+	const float nodeWidth = 164.0f;
+	const float nodeHeight = 72.0f;
+	const float gapX = 34.0f;
+	const float gapY = 30.0f;
+	const int columns = std::max(1, (int)((canvasSize.x - 32.0f) / (nodeWidth + gapX)));
+	std::vector<ImVec2> nodePositions(states.size());
+
+	for (size_t i = 0; i < states.size(); ++i)
+	{
+		const int row = (int)i / columns;
+		const int column = (int)i % columns;
+		nodePositions[i] = ImVec2(canvasMin.x + 22.0f + column * (nodeWidth + gapX), canvasMin.y + 24.0f + row * (nodeHeight + gapY));
+	}
+
+	for (size_t i = 0; i < states.size(); ++i)
+	{
+		const ImVec2 source = nodePositions[i];
+		const ImVec2 sourceCenter(source.x + nodeWidth, source.y + nodeHeight * 0.5f);
+		for (const AnimationControllerTransition& transition : states[i].m_Transitions)
+		{
+			const auto targetIt = std::find_if(states.begin(), states.end(), [&transition](const AnimationControllerState& state)
+				{
+					return state.m_Name == transition.m_TargetState;
+				});
+			if (targetIt == states.end())
+				continue;
+
+			const size_t targetIndex = (size_t)std::distance(states.begin(), targetIt);
+			const ImVec2 target = nodePositions[targetIndex];
+			const ImVec2 targetCenter(target.x, target.y + nodeHeight * 0.5f);
+			drawList->AddLine(sourceCenter, targetCenter, IM_COL32(170, 126, 78, 210), 2.0f);
+			drawList->AddCircleFilled(targetCenter, 4.0f, IM_COL32(220, 176, 112, 230));
+		}
+	}
+
+	for (size_t i = 0; i < states.size(); ++i)
+	{
+		const AnimationControllerState& state = states[i];
+		const ImVec2 nodeMin = nodePositions[i];
+		const ImVec2 nodeMax(nodeMin.x + nodeWidth, nodeMin.y + nodeHeight);
+		const bool selected = m_SelectedControllerStateIndex == (int)i;
+		const bool isDefault = state.m_Name == m_CurrentController->GetDefaultState();
+		const ImU32 fill = selected ? IM_COL32(96, 66, 42, 255) : IM_COL32(46, 39, 31, 255);
+		const ImU32 border = isDefault ? IM_COL32(226, 174, 92, 255) : selected ? IM_COL32(230, 206, 168, 230) : IM_COL32(104, 88, 66, 190);
+		drawList->AddRectFilled(nodeMin, nodeMax, fill, 5.0f);
+		drawList->AddRect(nodeMin, nodeMax, border, 5.0f, 0, isDefault ? 2.0f : 1.2f);
+		drawList->AddText(ImVec2(nodeMin.x + 10.0f, nodeMin.y + 9.0f), IM_COL32(238, 230, 214, 255), state.m_Name.c_str());
+
+		std::string clipLabel = "No Clip";
+		if (state.m_Clip != 0 && AssetManager::IsAssetHandleValid(state.m_Clip) && AssetManager::GetAssetType(state.m_Clip) == AssetType::Animation)
+			clipLabel = AssetManager::GetAssetMetadata(state.m_Clip).m_Filepath.filename().string();
+		drawList->AddText(ImVec2(nodeMin.x + 10.0f, nodeMin.y + 34.0f), IM_COL32(178, 168, 148, 255), clipLabel.c_str());
+
+		if (isDefault)
+			drawList->AddText(ImVec2(nodeMin.x + 10.0f, nodeMin.y + 52.0f), IM_COL32(225, 172, 90, 255), "Default");
+
+		ImGui::SetCursorScreenPos(nodeMin);
+		ImGui::PushID((int)i);
+		ImGui::InvisibleButton("##ControllerStateNode", ImVec2(nodeWidth, nodeHeight));
+		if (ImGui::IsItemClicked())
+			m_SelectedControllerStateIndex = (int)i;
+		ImGui::PopID();
+	}
+
+	ImGui::Dummy(canvasSize);
+	ImGui::EndChild();
+}
+
+void AnimationEditorPanel::DrawControllerStateInspector(float width, float height)
+{
+	ImGui::BeginChild("##ControllerStateInspector", ImVec2(width, height), true);
+	ImGui::TextDisabled("State Inspector");
+	ImGui::Separator();
+
+	auto& states = m_CurrentController->GetStates();
+	if (states.empty())
+	{
+		ImGui::EndChild();
+		return;
+	}
+
+	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)states.size() - 1);
+	AnimationControllerState& state = states[m_SelectedControllerStateIndex];
+
+	const std::string oldName = state.m_Name;
+	if (ImGui::InputText("Name", &state.m_Name))
+	{
+		if (state.m_Name.empty())
+			state.m_Name = oldName;
+		else if (state.m_Name != oldName)
+		{
+			if (m_CurrentController->GetDefaultState() == oldName)
+				m_CurrentController->SetDefaultState(state.m_Name);
+			for (AnimationControllerState& sourceState : states)
+			{
+				for (AnimationControllerTransition& transition : sourceState.m_Transitions)
+				{
+					if (transition.m_TargetState == oldName)
+						transition.m_TargetState = state.m_Name;
+				}
+			}
+		}
+	}
+
+	std::string clipLabel = "Drop Animation";
+	bool isClipValid = false;
+	if (state.m_Clip != 0)
+	{
+		if (AssetManager::IsAssetHandleValid(state.m_Clip) && AssetManager::GetAssetType(state.m_Clip) == AssetType::Animation)
+		{
+			clipLabel = AssetManager::GetAssetMetadata(state.m_Clip).m_Filepath.filename().string();
+			isClipValid = true;
+		}
+		else
+			clipLabel = "Invalid";
+	}
+
+	const auto clipDropCallback = [&state](AssetHandle handle)
+		{
+			state.m_Clip = handle;
+		};
+	UI::DragDropTarget(AssetType::Animation, clipDropCallback, clipLabel.c_str(), true, std::max(140.0f, width - 42.0f), 0.0f);
+	if (isClipValid)
+	{
+		ImGui::SameLine();
+		if (ImGui::Button("X##ClearStateClip"))
+			state.m_Clip = 0;
+	}
+	ImGui::DragFloat("Speed", &state.m_Speed, 0.01f, 0.0f, 20.0f, "%.2f");
+	ImGui::Checkbox("Loop", &state.m_Loop);
+
+	ImGui::Separator();
+	ImGui::TextDisabled("Transitions");
+	if (ImGui::Button("+ Transition", ImVec2(-1.0f, 0.0f)))
+	{
+		AnimationControllerTransition transition;
+		for (const AnimationControllerState& targetState : states)
+		{
+			if (targetState.m_Name != state.m_Name)
+			{
+				transition.m_TargetState = targetState.m_Name;
+				break;
+			}
+		}
+		state.m_Transitions.push_back(transition);
+	}
+
+	for (size_t transitionIndex = 0; transitionIndex < state.m_Transitions.size(); ++transitionIndex)
+	{
+		ImGui::PushID((int)transitionIndex);
+		AnimationControllerTransition& transition = state.m_Transitions[transitionIndex];
+		std::string header = "-> " + (transition.m_TargetState.empty() ? std::string("None") : transition.m_TargetState);
+		if (ImGui::TreeNodeEx(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			if (ImGui::BeginCombo("Target", transition.m_TargetState.empty() ? "None" : transition.m_TargetState.c_str()))
+			{
+				for (const AnimationControllerState& targetState : states)
+				{
+					const bool selected = transition.m_TargetState == targetState.m_Name;
+					if (ImGui::Selectable(targetState.m_Name.c_str(), selected))
+						transition.m_TargetState = targetState.m_Name;
+					if (selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::Checkbox("Has Exit Time", &transition.m_HasExitTime);
+			ImGui::DragFloat("Exit Time", &transition.m_ExitTime, 0.01f, 0.0f, 10.0f, "%.2f");
+			ImGui::DragFloat("Duration", &transition.m_Duration, 0.01f, 0.0f, 10.0f, "%.2f");
+
+			ImGui::TextDisabled("Conditions");
+			if (ImGui::Button("+ Condition") && !m_CurrentController->GetParameters().empty())
+			{
+				AnimationControllerCondition condition;
+				condition.m_Parameter = m_CurrentController->GetParameters().front().m_Name;
+				transition.m_Conditions.push_back(condition);
+			}
+
+			for (size_t conditionIndex = 0; conditionIndex < transition.m_Conditions.size(); ++conditionIndex)
+			{
+				ImGui::PushID((int)conditionIndex);
+				AnimationControllerCondition& condition = transition.m_Conditions[conditionIndex];
+				if (ImGui::BeginCombo("Parameter", condition.m_Parameter.empty() ? "None" : condition.m_Parameter.c_str()))
+				{
+					for (const AnimationControllerParameter& parameter : m_CurrentController->GetParameters())
+					{
+						const bool selected = condition.m_Parameter == parameter.m_Name;
+						if (ImGui::Selectable(parameter.m_Name.c_str(), selected))
+							condition.m_Parameter = parameter.m_Name;
+						if (selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+				}
+
+				const std::array<AnimationConditionMode, 6> conditionModes =
+				{
+					AnimationConditionMode::If,
+					AnimationConditionMode::IfNot,
+					AnimationConditionMode::Greater,
+					AnimationConditionMode::Less,
+					AnimationConditionMode::Equals,
+					AnimationConditionMode::NotEquals
+				};
+				std::string modePreview = frenum::to_string(condition.m_Mode).data();
+				if (ImGui::BeginCombo("Mode", modePreview.c_str()))
+				{
+					for (AnimationConditionMode mode : conditionModes)
+					{
+						std::string modeLabel = frenum::to_string(mode).data();
+						const bool selected = condition.m_Mode == mode;
+						if (ImGui::Selectable(modeLabel.c_str(), selected))
+							condition.m_Mode = mode;
+						if (selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+				}
+
+				const auto parameterIt = std::find_if(m_CurrentController->GetParameters().begin(), m_CurrentController->GetParameters().end(), [&condition](const AnimationControllerParameter& parameter)
+					{
+						return parameter.m_Name == condition.m_Parameter;
+					});
+				if (parameterIt != m_CurrentController->GetParameters().end())
+				{
+					if (parameterIt->m_Type == AnimationParameterType::Float)
+						ImGui::DragFloat("Threshold", &condition.m_Threshold, 0.01f);
+					else if (parameterIt->m_Type == AnimationParameterType::Int)
+						ImGui::DragInt("Value", &condition.m_IntValue, 1.0f);
+					else
+						ImGui::Checkbox("Value", &condition.m_BoolValue);
+				}
+
+				if (ImGui::Button("Remove Condition", ImVec2(-1.0f, 0.0f)))
+				{
+					transition.m_Conditions.erase(transition.m_Conditions.begin() + conditionIndex);
+					ImGui::PopID();
+					break;
+				}
+				ImGui::Separator();
+				ImGui::PopID();
+			}
+
+			if (ImGui::Button("Remove Transition", ImVec2(-1.0f, 0.0f)))
+			{
+				state.m_Transitions.erase(state.m_Transitions.begin() + transitionIndex);
+				ImGui::TreePop();
+				ImGui::PopID();
+				break;
+			}
+			ImGui::TreePop();
+		}
+		ImGui::PopID();
+	}
+
+	ImGui::EndChild();
+}
+
+void AnimationEditorPanel::SaveCurrentController()
+{
+	if (!m_CurrentController)
+		return;
+
+	const AssetMetadata& metadata = AssetManager::GetAssetMetadata(m_CurrentController->m_Handle);
+	if (metadata)
+		m_CurrentController->Serialize(Project::GetActiveAssetDirectory() / metadata.m_Filepath);
 }
 
 void AnimationEditorPanel::DrawTimeline(float width, float timelineHeight, float totalHeight)

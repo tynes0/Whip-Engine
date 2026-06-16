@@ -14,6 +14,8 @@
 #include <Whip/Project/Project.h>
 #include <Whip/Audio/AudioEngine.h>
 #include <Whip/Animation/AnimationManager.h>
+#include <Whip/Animation/AnimationController.h>
+#include <Whip/Asset/AssetManager.h>
 
 #include <glm/glm.hpp>
 
@@ -149,6 +151,7 @@ void Scene::DestroyEntity(Entity entityIn)
 	if (m_IsRunning && entityIn.HasComponent<ScriptComponent>())
 		ScriptEngine::InvokeEntityMethod(EntityMethodType::OnDestroy, entityIn);
 
+	m_AnimatorRuntimes.erase(entityIn.GetUUID());
 	m_UniqueNameManager.RemoveName(entityIn.GetName());
 	m_EntityMap.erase(entityIn.GetUUID());
     m_Registry.destroy(entityIn);
@@ -189,6 +192,7 @@ void Scene::OnRuntimeStart()
 		}
 		// ScriptEngine::InvokeAllOnCreateMethods();
 	}
+	CreateAnimatorRuntimes();
 }
 
 void Scene::OnRuntimeStop()
@@ -201,6 +205,7 @@ void Scene::OnRuntimeStop()
 	m_PhysicsWorld.Destroy();
 	ScriptEngine::OnRuntimeStop();
 	OnAudiosStop();
+	ClearAnimatorRuntimes();
 }
 
 void Scene::OnSimulationStart()
@@ -218,6 +223,7 @@ void Scene::OnSimulationStart()
 		}
 		// ScriptEngine::InvokeAllOnCreateMethods();
 	}
+	CreateAnimatorRuntimes();
 }
 
 void Scene::OnSimulationStop()
@@ -230,6 +236,7 @@ void Scene::OnSimulationStop()
 	m_PhysicsWorld.Destroy();
 	ScriptEngine::OnRuntimeStop();
 	OnAudiosStop();
+	ClearAnimatorRuntimes();
 }
 
 void Scene::OnUpdateRuntime(Timestep ts)
@@ -269,6 +276,7 @@ void Scene::OnUpdateRuntime(Timestep ts)
 		// animations
 		{
 			AnimationManager::Get().Update(ts);
+			UpdateAnimators(ts);
 		}
 	}
 
@@ -344,6 +352,7 @@ void Scene::OnUpdateSimulation(Timestep ts, EditorCamera& cam)
 
 		m_PhysicsWorld.Update(ts);
 		AnimationManager::Get().Update(ts);
+		UpdateAnimators(ts);
 	}
 
 	RenderScene(cam);
@@ -480,6 +489,69 @@ void Scene::OnAudiosStop()
 	}
 }
 
+void Scene::CreateAnimatorRuntimes()
+{
+	m_AnimatorRuntimes.clear();
+
+	auto view = m_Registry.view<AnimatorComponent>();
+	for (auto e : view)
+	{
+		Entity entity{ e, this };
+		auto& component = entity.GetComponent<AnimatorComponent>();
+		if (component.m_Controller == 0 || !AssetManager::IsAssetHandleValid(component.m_Controller) || AssetManager::GetAssetType(component.m_Controller) != AssetType::AnimationController)
+			continue;
+
+		Ref<AnimationController> controller = AssetManager::GetAsset<AnimationController>(component.m_Controller);
+		if (!controller)
+			continue;
+
+		AnimatorRuntime& runtime = m_AnimatorRuntimes[entity.GetUUID()];
+		runtime.Bind(this, entity.GetUUID(), controller, component.m_InitialState);
+		if (component.m_PlayOnStart)
+			runtime.Play(component.m_InitialState);
+	}
+}
+
+void Scene::ClearAnimatorRuntimes()
+{
+	m_AnimatorRuntimes.clear();
+}
+
+void Scene::UpdateAnimators(Timestep ts)
+{
+	auto view = m_Registry.view<AnimatorComponent>();
+	for (auto e : view)
+	{
+		Entity entity{ e, this };
+		auto& component = entity.GetComponent<AnimatorComponent>();
+		if (component.m_Controller == 0 || !AssetManager::IsAssetHandleValid(component.m_Controller) || AssetManager::GetAssetType(component.m_Controller) != AssetType::AnimationController)
+		{
+			m_AnimatorRuntimes.erase(entity.GetUUID());
+			continue;
+		}
+
+		AnimatorRuntime* runtime = nullptr;
+		auto runtimeIt = m_AnimatorRuntimes.find(entity.GetUUID());
+		if (runtimeIt != m_AnimatorRuntimes.end())
+			runtime = &runtimeIt->second;
+
+		if (!runtime || runtime->GetControllerHandle() != component.m_Controller)
+		{
+			Ref<AnimationController> controller = AssetManager::GetAsset<AnimationController>(component.m_Controller);
+			if (!controller)
+				continue;
+
+			AnimatorRuntime& reboundRuntime = m_AnimatorRuntimes[entity.GetUUID()];
+			reboundRuntime.Bind(this, entity.GetUUID(), controller, component.m_InitialState);
+			if (component.m_PlayOnStart)
+				reboundRuntime.Play(component.m_InitialState);
+			runtime = &reboundRuntime;
+		}
+
+		runtime->Update(ts, component.m_Speed);
+	}
+}
+
 void Scene::RenderScene(EditorCamera& cam)
 {
 	WHP_PROFILE_FUNCTION();
@@ -565,6 +637,11 @@ void Scene::OnComponentAdded<PrefabComponent>(Entity entityIn, PrefabComponent& 
 
 template<>
 void Scene::OnComponentAdded<ScriptComponent>(Entity entityIn, ScriptComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<AnimatorComponent>(Entity entityIn, AnimatorComponent& component)
 {
 }
 

@@ -465,6 +465,19 @@ namespace Utils
 			out << YAML::EndMap; // script_component
 		}
 
+		if (entityIn.HasComponent<AnimatorComponent>())
+		{
+			auto& animatorComponent = entityIn.GetComponent<AnimatorComponent>();
+
+			out << YAML::Key << "animator_component";
+			out << YAML::BeginMap; // animator_component
+			out << YAML::Key << "controller" << YAML::Value << (uint64_t)animatorComponent.m_Controller;
+			out << YAML::Key << "initial_state" << YAML::Value << animatorComponent.m_InitialState;
+			out << YAML::Key << "play_on_start" << YAML::Value << animatorComponent.m_PlayOnStart;
+			out << YAML::Key << "speed" << YAML::Value << animatorComponent.m_Speed;
+			out << YAML::EndMap; // animator_component
+		}
+
 		if (entityIn.HasComponent<SpriteRendererComponent>())
 		{
 			out << YAML::Key << "sprite_renderer_component";
@@ -869,6 +882,16 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 						}
 					}
 				}
+			}
+
+			auto animatorComponent = entityNode["animator_component"];
+			if (animatorComponent)
+			{
+				auto& animator = deserializedEntity.AddComponent<AnimatorComponent>();
+				animator.m_Controller = animatorComponent["controller"].as<uint64_t>(0);
+				animator.m_InitialState = animatorComponent["initial_state"].as<std::string>("");
+				animator.m_PlayOnStart = animatorComponent["play_on_start"].as<bool>(animator.m_PlayOnStart);
+				animator.m_Speed = animatorComponent["speed"].as<float>(animator.m_Speed);
 			}
 
 			auto spriteRendererComponent = entityNode["sprite_renderer_component"];

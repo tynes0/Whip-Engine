@@ -6,9 +6,12 @@
 #include <Whip/Core/UUID.h>
 #include <Whip/Helper/UniqueNameManager.h>
 #include <Whip/Asset/Asset.h>
+#include <Whip/Animation/AnimatorRuntime.h>
 #include <Whip/Render/EditorCamera.h>
 
 #include <Whip/Physics/PhysicsWorld.h>
+
+#include <unordered_map>
 
 _WHIP_START
 
@@ -61,6 +64,9 @@ public:
 private:
 
 	void OnAudiosStop();
+	void CreateAnimatorRuntimes();
+	void ClearAnimatorRuntimes();
+	void UpdateAnimators(Timestep ts);
 
 	void RenderScene(EditorCamera& cam);
 
@@ -82,6 +88,7 @@ private:
 	int m_StepFrames = 0;
 
 	PhysicsWorld m_PhysicsWorld;
+	std::unordered_map<UUID, AnimatorRuntime> m_AnimatorRuntimes;
 };
 
 _WHIP_END

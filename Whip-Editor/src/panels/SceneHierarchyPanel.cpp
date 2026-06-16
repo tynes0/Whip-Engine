@@ -8,6 +8,7 @@
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/AssetMetadata.h>
 #include <Whip/Asset/TextureImporter.h>
+#include <Whip/Animation/AnimationController.h>
 #include <Whip/Audio/AudioSource.h>
 #include <Whip/Core/Input.h>
 #include <Whip/Core/KeyCodes.h>
@@ -853,6 +854,7 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 	{
 		DisplayAddComponentEntry<CameraComponent>("Camera");
 		DisplayAddComponentEntry<ScriptComponent>("Script");
+		DisplayAddComponentEntry<AnimatorComponent>("Animator");
 		DisplayAddComponentEntry<SpriteRendererComponent>("Sprite Renderer");
 		DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer");
 		DisplayAddComponentEntry<TextComponent>("Text");
@@ -917,6 +919,7 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 	DrawPropertySectionTitle("Component Coverage");
 	DrawMultiComponentSummary<CameraComponent>("Camera", selectedEntities.size());
 	DrawMultiComponentSummary<ScriptComponent>("Script", selectedEntities.size());
+	DrawMultiComponentSummary<AnimatorComponent>("Animator", selectedEntities.size());
 	DrawMultiComponentSummary<SpriteRendererComponent>("Sprite Renderer", selectedEntities.size());
 	DrawMultiComponentSummary<CircleRendererComponent>("Circle Renderer", selectedEntities.size());
 	DrawMultiComponentSummary<TextComponent>("Text Renderer", selectedEntities.size());
@@ -1645,6 +1648,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 	{
 		DisplayAddComponentEntry<CameraComponent>("Camera");
 		DisplayAddComponentEntry<ScriptComponent>("Script");
+		DisplayAddComponentEntry<AnimatorComponent>("Animator");
 		DisplayAddComponentEntry<SpriteRendererComponent>("Sprite Renderer");
 		DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer");
 		DisplayAddComponentEntry<TextComponent>("Text");
@@ -1840,6 +1844,94 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 					}
 				}
 			ImGui::EndTable();
+			}
+		});
+	ImGui::Spacing();
+	DrawComponent<AnimatorComponent>("Animator", entityIn, m_SceneChangeCallback, [entityIn, sceneIn = m_Context](auto& component) mutable
+		{
+			bool isControllerValid = false;
+			Ref<AnimationController> controller = nullptr;
+			std::string controllerLabel = AssetLabel(component.m_Controller, AssetType::AnimationController);
+			if (component.m_Controller != 0 && AssetManager::IsAssetHandleValid(component.m_Controller) && AssetManager::GetAssetType(component.m_Controller) == AssetType::AnimationController)
+			{
+				isControllerValid = true;
+				controller = AssetManager::GetAsset<AnimationController>(component.m_Controller);
+			}
+
+			const auto dragDropCallback = [&component](AssetHandle handle)
+				{
+					component.m_Controller = handle;
+				};
+
+			if (ImGui::BeginTable("AnimatorTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable))
+			{
+				BEGIN_COMPONENT_TABLE_ROW("Controller");
+				const float controllerButtonWidth = std::max(140.0f, ImGui::GetContentRegionAvail().x - 36.0f);
+				UI::DragDropTarget(AssetType::AnimationController, dragDropCallback, controllerLabel.c_str(), true, controllerButtonWidth, 0.0f);
+				if (isControllerValid)
+				{
+					ImGui::SameLine();
+					if (ImGui::Button("X##ClearAnimatorController"))
+					{
+						component.m_Controller = 0;
+						component.m_InitialState.clear();
+					}
+				}
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Initial State");
+				if (controller)
+				{
+					const std::string preview = component.m_InitialState.empty() ? "Default" : component.m_InitialState;
+					if (ImGui::BeginCombo("##AnimatorInitialState", preview.c_str()))
+					{
+						if (ImGui::Selectable("Default", component.m_InitialState.empty()))
+							component.m_InitialState.clear();
+
+						for (const AnimationControllerState& state : controller->GetStates())
+						{
+							const bool selected = component.m_InitialState == state.m_Name;
+							if (ImGui::Selectable(state.m_Name.c_str(), selected))
+								component.m_InitialState = state.m_Name;
+							if (selected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+				}
+				else
+				{
+					ImGui::InputText("##AnimatorInitialStateText", &component.m_InitialState);
+				}
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Play On Start");
+				ImGui::Checkbox("##AnimatorPlayOnStart", &component.m_PlayOnStart);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Speed");
+				ImGui::DragFloat("##AnimatorSpeed", &component.m_Speed, 0.01f, 0.0f, 20.0f, "%.2f");
+				END_COMPONENT_TABLE_ROW();
+
+				if (controller)
+				{
+					BEGIN_COMPONENT_TABLE_ROW("Default");
+					ImGui::TextDisabled("%s", controller->GetDefaultState().empty() ? "None" : controller->GetDefaultState().c_str());
+					END_COMPONENT_TABLE_ROW();
+				}
+
+				if (sceneIn && sceneIn->IsRunning())
+				{
+					const auto runtimeIt = sceneIn->m_AnimatorRuntimes.find(entityIn.GetUUID());
+					BEGIN_COMPONENT_TABLE_ROW("Runtime");
+					if (runtimeIt != sceneIn->m_AnimatorRuntimes.end())
+						ImGui::TextDisabled("%s  %.2fs", runtimeIt->second.GetCurrentStateName().c_str(), runtimeIt->second.GetStateTime());
+					else
+						ImGui::TextDisabled("Not playing");
+					END_COMPONENT_TABLE_ROW();
+				}
+
+				ImGui::EndTable();
 			}
 		});
 	ImGui::Spacing();

@@ -154,6 +154,20 @@ struct ScriptComponent
 	static constexpr const char* ScriptStructName = "ScriptComponent";
 };
 
+struct AnimatorComponent
+{
+	AssetHandle m_Controller = 0;
+	std::string m_InitialState;
+	bool m_PlayOnStart = true;
+	float m_Speed = 1.0f;
+
+	AnimatorComponent() = default;
+	AnimatorComponent(const AnimatorComponent&) = default;
+	AnimatorComponent& operator=(const AnimatorComponent&) = default;
+
+	static constexpr const char* ScriptStructName = "AnimatorComponent";
+};
+
 class ScriptableEntity;
 
 struct NativeScriptComponent
@@ -280,11 +294,11 @@ using AllComponentsNoIDNoTagNoScript = ComponentGroup<TransformComponent,
 	Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent>;
 
 using AllComponentsNoIDNoTag = ComponentGroup<TransformComponent, SpriteRendererComponent,
-	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, NativeScriptComponent,
+	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, AnimatorComponent, NativeScriptComponent,
 	Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, HierarchyComponent, PrefabComponent>;
 
 using AllComponents = ComponentGroup<TransformComponent, SpriteRendererComponent,
-	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, NativeScriptComponent,
+	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, AnimatorComponent, NativeScriptComponent,
 	Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, IDComponent, TagComponent, HierarchyComponent, PrefabComponent>;
 
 _WHIP_END
