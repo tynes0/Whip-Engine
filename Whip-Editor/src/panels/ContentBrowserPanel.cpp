@@ -34,6 +34,7 @@ namespace
 		AssetType::Audio,
 		AssetType::Font,
 		AssetType::Animation,
+		AssetType::AnimationController,
 		AssetType::Entity
 	};
 

@@ -6,6 +6,7 @@
 #include <Whip/Asset/FontImporter.h>
 #include <Whip/Asset/AudioImporter.h>
 #include <Whip/Asset/AnimationImporter.h>
+#include <Whip/Asset/AnimationControllerImporter.h>
 #include <Whip/Asset/EntityTemplateImporter.h>
 
 #include <map>
@@ -22,6 +23,7 @@ static std::map<AssetType, AssetImportFunction> s_AssetImportFunctions =
 		{ AssetType::Audio, AudioImporter::ImportAudio },
 		{ AssetType::Font, FontImporter::ImportFont },
 		{ AssetType::Animation, AnimationImporter::ImportAnimation },
+		{ AssetType::AnimationController, AnimationControllerImporter::ImportAnimationController },
 		{ AssetType::Entity, EntityTemplateImporter::ImportEntityTemplate }
 };
 

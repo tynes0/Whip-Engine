@@ -524,7 +524,7 @@ namespace UI
 					}
 				}
 
-				float scaledTime = (frameStart - offsetTime) / scaledMaxTime;
+				float scaledTime = (frameEnd - offsetTime) / scaledMaxTime;
 				if (scaledTime < 0.0f || scaledTime > 1.0f)
 					continue;
 
@@ -550,7 +550,7 @@ namespace UI
 				{
 					if (ImGui::IsItemHovered())
 					{
-						ImGui::SetTooltip("Frame %zu start: %.3fs, duration: %.3fs", i, frameStart, frames[i].m_Duration);
+						ImGui::SetTooltip("Drag to resize frame %zu: %.3fs", i, frames[i].m_Duration);
 						if (Input::IsMouseButtonDown(Mouse::Button0))
 							if (selectedIndex)
 								*selectedIndex = static_cast<int>(i);

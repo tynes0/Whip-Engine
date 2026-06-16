@@ -56,6 +56,7 @@
 // Animation
 #include <Whip/Animation/Animation2D.h>
 #include <Whip/Animation/AnimationManager.h>
+#include <Whip/Animation/AnimationController.h>
 
 // Audio
 #include <Whip/Audio/AudioSource.h>

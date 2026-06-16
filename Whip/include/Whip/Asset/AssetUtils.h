@@ -32,6 +32,7 @@ namespace Utils
 		{ ".ogg", AssetType::Audio },
 		{ ".ttf", AssetType::Font },
 		{ FileExtensions::Animation, AssetType::Animation },
+		{ FileExtensions::AnimationController, AssetType::AnimationController },
 		{ FileExtensions::EntityTemplate, AssetType::Entity }
 	};
 

@@ -332,6 +332,7 @@ namespace
 		case AssetType::Audio: return "Audios";
 		case AssetType::Font: return "fonts";
 		case AssetType::Animation: return "Animations";
+		case AssetType::AnimationController: return "Animations";
 		case AssetType::Entity: return "EntityTemplates";
 		case AssetType::None: return {};
 		}

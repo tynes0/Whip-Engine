@@ -20,10 +20,11 @@ enum class AssetType : uint16_t
 	Audio,
 	Font,
 	Animation,
+	AnimationController,
 	Entity
 };
 
-MakeFrenumInNamespace(whip, AssetType, None, Scene, Texture2D, Audio, Font, Animation, Entity)
+MakeFrenumInNamespace(whip, AssetType, None, Scene, Texture2D, Audio, Font, Animation, AnimationController, Entity)
 
 class Asset
 {

@@ -63,6 +63,8 @@ static AssetType ParseAssetType(std::string_view typeName)
 	if (typeName == "audio") return AssetType::Audio;
 	if (typeName == "font") return AssetType::Font;
 	if (typeName == "animation") return AssetType::Animation;
+	if (typeName == "animationController") return AssetType::AnimationController;
+	if (typeName == "animationcontroller") return AssetType::AnimationController;
 	if (typeName == "entity") return AssetType::Entity;
 
 	WHP_CORE_WARN("[Asset Registry] Unknown AssetType '{0}'", typeName);

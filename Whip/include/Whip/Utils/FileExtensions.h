@@ -17,6 +17,7 @@ namespace FileExtensions
 	inline constexpr const char* AssetRegistry = ".wreg";
 	inline constexpr const char* AssetRegistryLegacy = ".whipr";
 	inline constexpr const char* Animation = ".wanim";
+	inline constexpr const char* AnimationController = ".wac";
 	inline constexpr const char* EntityTemplate = ".went";
 
 	inline constexpr const char* AssetRegistryFilename = "AssetRegistry.wreg";

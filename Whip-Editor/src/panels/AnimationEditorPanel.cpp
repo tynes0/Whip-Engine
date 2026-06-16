@@ -7,6 +7,7 @@
 #include <Whip/Asset/AnimationImporter.h>
 #include <Whip/UI/UIHelpers.h>
 #include <Whip/Animation/AnimationManager.h>
+#include <Whip/Animation/AnimationController.h>
 #include <Whip/Utils/PlatformUtils.h>
 #include "../Helpers/IconManager.h"
 
@@ -62,6 +63,29 @@ void AnimationEditorPanel::OnImGuiRender()
 			metadata.m_Type = AssetType::Animation;
 			metadata.m_Filepath = std::filesystem::relative(animationPath, Project::GetActiveAssetDirectory());
 			Project::GetActive()->GetEditorAssetManager()->AddRegistry(m_CurrentAnimation->m_Handle, metadata);
+			Project::GetActive()->GetEditorAssetManager()->SerializeAssetRegistry();
+			if (m_RefreshAssetTreeCallback)
+				m_RefreshAssetTreeCallback();
+		}
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("Controller", ImVec2(96.0f, 32.0f)))
+	{
+		Ref<AnimationController> controller = MakeRef<AnimationController>();
+		std::filesystem::path startDirectory = Project::GetActiveAssetDirectory() / "Animations";
+		std::string filepath = FileDialogs::SaveFile("Whip Animation Controller (*.wac)\0*.wac\0", startDirectory.string().c_str());
+		if (!filepath.empty())
+		{
+			std::filesystem::path controllerPath(filepath);
+			if (!FileExtensions::ExtensionEquals(controllerPath, FileExtensions::AnimationController))
+				controllerPath.replace_extension(FileExtensions::AnimationController);
+			controller->Serialize(controllerPath);
+
+			AssetMetadata metadata;
+			metadata.m_Type = AssetType::AnimationController;
+			metadata.m_Filepath = std::filesystem::relative(controllerPath, Project::GetActiveAssetDirectory());
+			Project::GetActive()->GetEditorAssetManager()->AddRegistry(controller->m_Handle, metadata);
 			Project::GetActive()->GetEditorAssetManager()->SerializeAssetRegistry();
 			if (m_RefreshAssetTreeCallback)
 				m_RefreshAssetTreeCallback();
@@ -151,7 +175,12 @@ void AnimationEditorPanel::OnImGuiRender()
 	DrawRemoveFrameButton(128.0f);
 	ImGui::EndChild();
 
-	ImGui::BeginChild("##AnimationEditorFrameInspector", ImVec2(0.0f, 112.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	const float lowerHeight = std::max(220.0f, ImGui::GetContentRegionAvail().y);
+	ImGui::BeginChild("##AnimationEditorPreview", ImVec2(180.0f, lowerHeight), true);
+	DrawPreviewPane(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y);
+	ImGui::EndChild();
+	ImGui::SameLine();
+	ImGui::BeginChild("##AnimationEditorFrameInspector", ImVec2(0.0f, lowerHeight), true);
 	DrawFrameEditor(ImGui::GetContentRegionAvail().x);
 	ImGui::EndChild();
 
@@ -411,6 +440,45 @@ void AnimationEditorPanel::DrawRemoveFrameButton(float width)
 	}
 }
 
+void AnimationEditorPanel::DrawPreviewPane(float width, float height)
+{
+	ImGui::TextDisabled("Preview");
+	ImGui::Separator();
+
+	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+	{
+		ImGui::TextDisabled("Select a frame.");
+		return;
+	}
+
+	const AnimationFrame& frame = m_CurrentAnimation->GetFrames()[m_SelectedFrameIndex];
+	if (!frame.m_Texture)
+	{
+		ImGui::TextDisabled("No texture assigned.");
+		return;
+	}
+
+	Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(frame.m_Texture);
+	if (!texture || !texture->IsLoaded())
+	{
+		ImGui::TextDisabled("Texture is not loaded.");
+		return;
+	}
+
+	const float maxPreview = std::max(48.0f, std::min(width, height - 42.0f));
+	const float aspect = texture->GetHeight() > 0 ? static_cast<float>(texture->GetWidth()) / static_cast<float>(texture->GetHeight()) : 1.0f;
+	ImVec2 previewSize(maxPreview, maxPreview);
+	if (aspect > 1.0f)
+		previewSize.y = previewSize.x / aspect;
+	else
+		previewSize.x = previewSize.y * aspect;
+
+	const float centerOffset = std::max(0.0f, (width - previewSize.x) * 0.5f);
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + centerOffset);
+	UI::Image(UI::ToImGuiTextureId(texture->GetRendererId()), previewSize, ImVec2(0, 1), ImVec2(1, 0));
+	ImGui::TextDisabled("%ux%u", texture->GetWidth(), texture->GetHeight());
+}
+
 void AnimationEditorPanel::DrawFrameEditor(float width)
 {
 	if (!m_CurrentAnimation)
@@ -447,28 +515,6 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 		ImGui::SetNextItemWidth(-1.0f);
 		static constexpr float minValue = 0.0f;
 		ImGui::DragScalar("##DurationSeconds", ImGuiDataType_Float, &frame.m_Duration, 0.01f, &minValue, nullptr, "%.3f s");
-
-		ImGui::TableNextRow();
-		ImGui::TableNextColumn();
-		ImGui::TextUnformatted("Preview");
-		ImGui::TableNextColumn();
-		if (frame.m_Texture)
-		{
-			Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(frame.m_Texture);
-			if (texture)
-			{
-				const float previewSize = std::min(96.0f, std::max(48.0f, width - 140.0f));
-				UI::Image(UI::ToImGuiTextureId(texture->GetRendererId()), ImVec2(previewSize, previewSize), ImVec2(0, 1), ImVec2(1, 0));
-			}
-			else
-			{
-				ImGui::TextDisabled("Texture is not loaded.");
-			}
-		}
-		else
-		{
-			ImGui::TextDisabled("No texture assigned.");
-		}
 
 		ImGui::EndTable();
 	}

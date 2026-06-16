@@ -41,6 +41,7 @@ private:
 	void DrawFrameList(float width);
 	void DrawAddFrameButton(float width);
 	void DrawRemoveFrameButton(float width);
+	void DrawPreviewPane(float width, float height);
 	void DrawFrameEditor(float width);
 	void UpdatePreview();
 	void StepPreview(int direction);
