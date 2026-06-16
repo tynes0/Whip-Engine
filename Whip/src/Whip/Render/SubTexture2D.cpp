@@ -1,32 +1,32 @@
-#include "whippch.h"
-#include "SubTexture2D.h"
+#include "WhipPch.h"
+#include <Whip/Render/SubTexture2D.h>
 
 _WHIP_START
 
-sub_texture2D::sub_texture2D(const ref<texture2D>& _texture, const glm::vec2& min, const glm::vec2& max) : m_texture(_texture)
+SubTexture2D::SubTexture2D(const Ref<Texture2D>& texture, const glm::vec2& min, const glm::vec2& max) : m_Texture(texture)
 {
-	m_texture_coords[0] = { min.x, min.y };
-	m_texture_coords[1] = { max.x, min.y };
-	m_texture_coords[2] = { max.x, max.y };
-	m_texture_coords[3] = { min.x, max.y };
+	m_TextureCoords[0] = { min.x, min.y };
+	m_TextureCoords[1] = { max.x, min.y };
+	m_TextureCoords[2] = { max.x, max.y };
+	m_TextureCoords[3] = { min.x, max.y };
 }
 
-const ref<texture2D> sub_texture2D::get_texture()
+const Ref<Texture2D> SubTexture2D::GetTexture()
 {
-	return m_texture;
+	return m_Texture;
 }
 
-const glm::vec2* sub_texture2D::get_texture_coords()
+const glm::vec2* SubTexture2D::GetTextureCoords()
 {
-	return m_texture_coords;
+	return m_TextureCoords;
 }
 
-ref<sub_texture2D> sub_texture2D::create_from_coords(const ref<texture2D>& _texture, const glm::vec2& coords, const glm::vec2& cell_size, const glm::vec2& pixel_size_between_sprites, const glm::vec2& sprite_size)
+Ref<SubTexture2D> SubTexture2D::CreateFromCoords(const Ref<Texture2D>& texture, const glm::vec2& coords, const glm::vec2& cellSize, const glm::vec2& pixelSizeBetweenSprites, const glm::vec2& spriteSize)
 {
-	glm::vec2 empty_pixel_size = { pixel_size_between_sprites.x * coords.x, pixel_size_between_sprites.y * coords.y };
-	glm::vec2 min = { ((coords.x * cell_size.x) + empty_pixel_size.x) / _texture->get_width(), ((coords.y * cell_size.y) + empty_pixel_size.y) / _texture->get_height() };
-	glm::vec2 max = { (((coords.x + sprite_size.x) * cell_size.x) + empty_pixel_size.x) / _texture->get_width(), (((coords.y + sprite_size.y) * cell_size.y) + empty_pixel_size.y) / _texture->get_height() };
-	return make_ref<sub_texture2D>(_texture, min, max);
+	glm::vec2 emptyPixelSize = { pixelSizeBetweenSprites.x * coords.x, pixelSizeBetweenSprites.y * coords.y };
+	glm::vec2 min = { ((coords.x * cellSize.x) + emptyPixelSize.x) / texture->GetWidth(), ((coords.y * cellSize.y) + emptyPixelSize.y) / texture->GetHeight() };
+	glm::vec2 max = { (((coords.x + spriteSize.x) * cellSize.x) + emptyPixelSize.x) / texture->GetWidth(), (((coords.y + spriteSize.y) * cellSize.y) + emptyPixelSize.y) / texture->GetHeight() };
+	return MakeRef<SubTexture2D>(texture, min, max);
 }
 
 _WHIP_END

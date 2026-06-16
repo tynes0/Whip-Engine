@@ -1,11 +1,11 @@
-#include <whippch.h>
-#include "Layer.h"
+#include <WhipPch.h>
+#include <Whip/Core/Layer.h>
 
 _WHIP_START
 
-layer::layer(const std::string& name) : m_name(name) {}
+Layer::Layer(const std::string& name) : m_Name(name) {}
 
-layer::~layer()
+Layer::~Layer()
 {
 
 }

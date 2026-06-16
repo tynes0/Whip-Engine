@@ -1,74 +1,74 @@
-#include "whippch.h"
-#include "physics2D.h"
+#include "WhipPch.h"
+#include <Whip/Physics/Physics2D.h>
 
 #include "box2d/b2_body.h"
 #include "box2d/b2_fixture.h"
 
 _WHIP_START
 
-enum collision_category
+enum CollisionCategory
 {
-	STATIC_CATEGORY		= 0x0001,
-	KINEMATIC_CATEGORY	= 0x0002,
-	DYNAMIC_CATEGORY	= 0x0004,
-	SENSOR_CATEGORY		= 0x0008
+	StaticCategory		= 0x0001,
+	KinematicCategory	= 0x0002,
+	DynamicCategory		= 0x0004,
+	SensorCategory		= 0x0008
 };
 
-void physics2D::set_collision_filter(b2FixtureDef& fixture_def, b2BodyType body_type, bool is_sensor)
+void Physics2D::SetCollisionFilter(b2FixtureDef& fixtureDef, b2BodyType bodyType, bool isSensor)
 {
-	switch (body_type)
+	switch (bodyType)
 	{
 	case b2_staticBody:
-		fixture_def.filter.categoryBits = STATIC_CATEGORY;
-		fixture_def.filter.maskBits = DYNAMIC_CATEGORY | SENSOR_CATEGORY;
+		fixtureDef.filter.categoryBits = StaticCategory;
+		fixtureDef.filter.maskBits = DynamicCategory | SensorCategory;
 		break;
 
 	case b2_kinematicBody:
-		fixture_def.filter.categoryBits = KINEMATIC_CATEGORY;
-		fixture_def.filter.maskBits = DYNAMIC_CATEGORY | STATIC_CATEGORY | SENSOR_CATEGORY;
+		fixtureDef.filter.categoryBits = KinematicCategory;
+		fixtureDef.filter.maskBits = DynamicCategory | StaticCategory | SensorCategory;
 		break;
 
 	case b2_dynamicBody:
-		fixture_def.filter.categoryBits = DYNAMIC_CATEGORY;
-		fixture_def.filter.maskBits = STATIC_CATEGORY | KINEMATIC_CATEGORY | DYNAMIC_CATEGORY | SENSOR_CATEGORY;
+		fixtureDef.filter.categoryBits = DynamicCategory;
+		fixtureDef.filter.maskBits = StaticCategory | KinematicCategory | DynamicCategory | SensorCategory;
 		break;
 	}
-	if (is_sensor)
+	if (isSensor)
 	{
-		fixture_def.filter.categoryBits = SENSOR_CATEGORY;
-		fixture_def.filter.maskBits = STATIC_CATEGORY | KINEMATIC_CATEGORY | DYNAMIC_CATEGORY | SENSOR_CATEGORY;
+		fixtureDef.filter.categoryBits = SensorCategory;
+		fixtureDef.filter.maskBits = StaticCategory | KinematicCategory | DynamicCategory | SensorCategory;
 	}
 }
 
 
-b2BodyType physics2D::rigidbody2D_type_to_box2D_body(rigidbody2D_component::body_type type)
+b2BodyType Physics2D::Rigidbody2DTypeToBox2DBody(Rigidbody2DComponent::BodyType type)
 
 {
 	switch (type)
 	{
-	case rigidbody2D_component::body_type::bt_static:    return b2_staticBody;
-	case rigidbody2D_component::body_type::bt_dynamic:   return b2_dynamicBody;
-	case rigidbody2D_component::body_type::bt_kinematic: return b2_kinematicBody;
+	case Rigidbody2DComponent::BodyType::Static:    return b2_staticBody;
+	case Rigidbody2DComponent::BodyType::Dynamic:   return b2_dynamicBody;
+	case Rigidbody2DComponent::BodyType::Kinematic: return b2_kinematicBody;
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown body type!");
 	return b2_staticBody;
 }
 
-rigidbody2D_component::body_type physics2D::rigidbody2D_type_from_box2D_body(b2BodyType type)
+Rigidbody2DComponent::BodyType Physics2D::Rigidbody2DTypeFromBox2DBody(b2BodyType type)
 {
 	switch (type)
 	{
-	case b2_staticBody:    return rigidbody2D_component::body_type::bt_static;
-	case b2_dynamicBody:   return rigidbody2D_component::body_type::bt_dynamic;
-	case b2_kinematicBody: return rigidbody2D_component::body_type::bt_kinematic;
+	case b2_staticBody:    return Rigidbody2DComponent::BodyType::Static;
+	case b2_dynamicBody:   return Rigidbody2DComponent::BodyType::Dynamic;
+	case b2_kinematicBody: return Rigidbody2DComponent::BodyType::Kinematic;
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown body type");
-	return rigidbody2D_component::body_type::bt_static;
+	return Rigidbody2DComponent::BodyType::Static;
 }
 
-void physics2D::set_body_as_sensor(b2Body* body)
+void Physics2D::SetBodyAsSensor(b2Body* body)
 {
 	body->SetLinearVelocity(b2Vec2_zero);
 	if (body->GetType() == b2BodyType::b2_dynamicBody)

@@ -29,7 +29,7 @@ namespace Fbox
 			Vector3 bluePosition = m_BluePlayer.Translation;
 			Vector3 greenPosition = m_GreenPlayer.Translation;
 
-			// Soldaki ve saðdaki karakteri kontrol et
+			// Soldaki ve saï¿½daki karakteri kontrol et
 			Vector3 leftMostCharacter = bluePosition.X < greenPosition.X ? bluePosition : greenPosition;
 			Vector3 rightMostCharacter = bluePosition.X > greenPosition.X ? bluePosition : greenPosition;
 
@@ -38,18 +38,18 @@ namespace Fbox
 			// Perspektif kamera FOV'sini al
 			float fov = m_CameraComponent.PerspectiveVerticalFOV;
 
-			// Aspect ratio (16:9 ekran varsayýyoruz)
+			// Aspect ratio (16:9 ekran varsayï¿½yoruz)
 			float aspectRatio = 16.0f / 9.0f;
-			// Kamera görüþ alanýnýn yüksekliðini hesapla
+			// Kamera gï¿½rï¿½ï¿½ alanï¿½nï¿½n yï¿½ksekliï¿½ini hesapla
 			float cameraHeight = (float)(Math.Tan(Math.PI * fov / 360) * 2 * cameraDistance);
-			// Kamera geniþliði
+			// Kamera geniï¿½liï¿½i
 			float cameraWidth = cameraHeight * aspectRatio;
 
-			// Kamera alanýný soldan ve saðdan takip etmek için sol ve sað sýnýrlarý hesapla
+			// Kamera alanï¿½nï¿½ soldan ve saï¿½dan takip etmek iï¿½in sol ve saï¿½ sï¿½nï¿½rlarï¿½ hesapla
 			float cameraLeftEdge = cameraPosition.X - cameraWidth * 0.5f;
 			float cameraRightEdge = cameraPosition.X + cameraWidth * 0.5f;
 
-			// Buffer zone: karakterin kameradan önce hareket etmesini engelleyen boþluk
+			// Buffer zone: karakterin kameradan ï¿½nce hareket etmesini engelleyen boï¿½luk
 			float bufferZone = 1.0f;
 
 			// Sol karakteri takip et
@@ -57,7 +57,7 @@ namespace Fbox
 			{
 				cameraPosition.X = Lerp(cameraPosition.X, leftMostCharacter.X + cameraWidth * 0.5f, moveSpeed * ts);
 			}
-			// Sað karakteri takip et
+			// Saï¿½ karakteri takip et
 			if (rightMostCharacter.X > cameraRightEdge + bufferZone)
 			{
 				cameraPosition.X = Lerp(cameraPosition.X, rightMostCharacter.X - cameraWidth * 0.5f, moveSpeed * ts);
@@ -66,7 +66,7 @@ namespace Fbox
 			// Kamera Z mesafesini ayarla
 			cameraPosition.Z = -cameraDistance;
 
-			// Kameranýn pozisyonunu güncelle
+			// Kameranï¿½n pozisyonunu gï¿½ncelle
 			this.Translation = new Vector3(cameraPosition.XY, cameraDistance);
 		}
 

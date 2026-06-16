@@ -1,49 +1,49 @@
-#include "whippch.h"
-#include "Renderer.h"
+#include "WhipPch.h"
+#include <Whip/Render/Renderer.h>
 #include <Platform/OpenGL/OpenGLShader.h>
 #include <Whip/Render/Renderer2D.h>
 
 _WHIP_START
 
-ref<scene_data> renderer::m_scene_data = make_ref<scene_data>();
+Ref<SceneData> Renderer::s_SceneData = MakeRef<SceneData>();
 
-void renderer::init()
+void Renderer::Init()
 {
 	WHP_PROFILE_FUNCTION();
 
-	render_command::init();
-	renderer2D::init();
+	RenderCommand::Init();
+	Renderer2D::Init();
 }
 
-void renderer::shutdown()
+void Renderer::Shutdown()
 {
 	WHP_PROFILE_FUNCTION();
 
-	renderer2D::shutdown();
+	Renderer2D::Shutdown();
 }
 
-void renderer::on_window_resize(uint32_t width, uint32_t height)
+void Renderer::OnWindowResize(uint32_t width, uint32_t height)
 {
-	render_command::set_viewport(0, 0, width, height);
+	RenderCommand::SetViewport(0, 0, width, height);
 }
 
-void renderer::begin_scene(orthographic_camera& camera)
+void Renderer::BeginScene(OrthographicCamera& camera)
 {
-	m_scene_data->view_projection_matrix = camera.get_view_projection_matrix();
+	s_SceneData->m_ViewProjectionMatrix = camera.GetViewProjectionMatrix();
 }
 
-void renderer::end_scene()
+void Renderer::EndScene()
 {
 }
 
-void renderer::submit(const ref<shader>& shader, const ref<vertex_array>& vertexArray, const glm::mat4& transform)
+void Renderer::Submit(const Ref<Shader>& shader, const Ref<VertexArray>& vertexArray, const glm::mat4& transform)
 {
-	shader->bind();
-	dynamic_pointer_cast<opengl_shader>(shader)->upload_uniform_mat4("u_view_projection", m_scene_data->view_projection_matrix);
-	dynamic_pointer_cast<opengl_shader>(shader)->upload_uniform_mat4("u_transform", transform);
+	shader->Bind();
+	dynamic_pointer_cast<OpenGLShader>(shader)->UploadUniformMat4("u_view_projection", s_SceneData->m_ViewProjectionMatrix);
+	dynamic_pointer_cast<OpenGLShader>(shader)->UploadUniformMat4("u_transform", transform);
 	
-	vertexArray->bind();
-	render_command::draw_indexed(vertexArray);
+	vertexArray->Bind();
+	RenderCommand::DrawIndexed(vertexArray);
 }
 
 _WHIP_END

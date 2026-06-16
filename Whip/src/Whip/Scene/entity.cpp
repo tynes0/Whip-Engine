@@ -1,9 +1,9 @@
-#include "whippch.h"
+#include "WhipPch.h"
 
-#include "entity.h"
+#include <Whip/Scene/Entity.h>
 
 _WHIP_START
 
-entity::entity(entt::entity handle, scene* scene) : m_entity_handle(handle), m_scene(scene) {}
+Entity::Entity(entt::entity handle, Scene* scene) : m_EntityHandle(handle), m_Scene(scene) {}
 
 _WHIP_END

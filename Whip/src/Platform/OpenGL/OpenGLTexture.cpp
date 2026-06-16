@@ -1,28 +1,28 @@
-#include "whippch.h"
+#include "WhipPch.h"
 #include "OpenGLTexture.h"
 
 _WHIP_START
 
-namespace utils
+namespace Utils
 {
-	static GLenum whip_image_format_to_gl_data_format(image_format format)
+	static GLenum WhipImageFormatToGLDataFormat(ImageFormat format)
 	{
 		switch (format)
 		{
-		case image_format::RGB8:  return GL_RGB;
-		case image_format::RGBA8: return GL_RGBA;
+		case ImageFormat::Rgb8:  return GL_RGB;
+		case ImageFormat::Rgba8: return GL_RGBA;
 		}
 
 		WHP_CORE_ASSERT(false);
 		return 0;
 	}
 
-	static GLenum whip_image_format_to_gl_internal_format(image_format format)
+	static GLenum WhipImageFormatToGLInternalFormat(ImageFormat format)
 	{
 		switch (format)
 		{
-		case image_format::RGB8:  return GL_RGB8;
-		case image_format::RGBA8: return GL_RGBA8;
+		case ImageFormat::Rgb8:  return GL_RGB8;
+		case ImageFormat::Rgba8: return GL_RGBA8;
 		}
 
 		WHP_CORE_ASSERT(false);
@@ -31,68 +31,68 @@ namespace utils
 }
 
 
-opengl_texture2D::opengl_texture2D(const texture_specification& spesification, raw_buffer data)
-	: m_specification(spesification)
+OpenGLTexture2D::OpenGLTexture2D(const TextureSpecification& specification, RawBuffer data)
+	: m_Specification(specification)
 {
 	WHP_PROFILE_FUNCTION();
 
-	m_internal_format = utils::whip_image_format_to_gl_internal_format(m_specification.format);
-	m_data_format = utils::whip_image_format_to_gl_data_format(m_specification.format);
+	m_InternalFormat = Utils::WhipImageFormatToGLInternalFormat(m_Specification.m_Format);
+	m_DataFormat = Utils::WhipImageFormatToGLDataFormat(m_Specification.m_Format);
 
-	glCreateTextures(GL_TEXTURE_2D, 1, &m_rendererID);
-	glTextureStorage2D(m_rendererID, 1, m_internal_format, m_specification.width, m_specification.height);
+	glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
+	glTextureStorage2D(m_RendererID, 1, m_InternalFormat, m_Specification.m_Width, m_Specification.m_Height);
 
-	glTextureParameteri(m_rendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTextureParameteri(m_rendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	glTextureParameteri(m_rendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTextureParameteri(m_rendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	if (data)
-		set_data(data);
+		SetData(data);
 }
 
 
-opengl_texture2D::~opengl_texture2D()
+OpenGLTexture2D::~OpenGLTexture2D()
 {
-	glDeleteTextures(1, &m_rendererID);
+	glDeleteTextures(1, &m_RendererID);
 }
 
-void opengl_texture2D::set_data(raw_buffer data)
-{
-	WHP_PROFILE_FUNCTION();
-
-	uint32_t bytes_per_pixel = (m_data_format == GL_RGBA) ? 4 : 3;
-	WHP_CORE_ASSERT(data.size == m_specification.width * m_specification.height * bytes_per_pixel, "Data must be entire texture!");
-
-	glTextureSubImage2D(m_rendererID, 0, 0, 0, m_specification.width, m_specification.height, m_data_format, GL_UNSIGNED_BYTE, data.data);
-}
-
-raw_buffer opengl_texture2D::get_data() const
+void OpenGLTexture2D::SetData(RawBuffer data)
 {
 	WHP_PROFILE_FUNCTION();
 
-	uint32_t bytes_per_pixel = (m_data_format == GL_RGBA) ? 4 : 3;
-	uint64_t total_size = uint64_t(m_specification.width * m_specification.height * bytes_per_pixel);
+	uint32_t bytesPerPixel = (m_DataFormat == GL_RGBA) ? 4 : 3;
+	WHP_CORE_ASSERT(data.m_Size == m_Specification.m_Width * m_Specification.m_Height * bytesPerPixel, "Data must be entire Texture!");
 
-	raw_buffer buffer(total_size);
+	glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Specification.m_Width, m_Specification.m_Height, m_DataFormat, GL_UNSIGNED_BYTE, data.m_Data);
+}
 
-	glBindTexture(GL_TEXTURE_2D, m_rendererID);
-	glGetTexImage(GL_TEXTURE_2D, 0, m_data_format, GL_UNSIGNED_BYTE, buffer.data);
+RawBuffer OpenGLTexture2D::GetData() const
+{
+	WHP_PROFILE_FUNCTION();
+
+	uint32_t bytesPerPixel = (m_DataFormat == GL_RGBA) ? 4 : 3;
+	uint64_t totalSize = uint64_t(m_Specification.m_Width * m_Specification.m_Height * bytesPerPixel);
+
+	RawBuffer buffer(totalSize);
+
+	glBindTexture(GL_TEXTURE_2D, m_RendererID);
+	glGetTexImage(GL_TEXTURE_2D, 0, m_DataFormat, GL_UNSIGNED_BYTE, buffer.m_Data);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	return buffer;
 }
 
-void opengl_texture2D::bind(uint32_t slot) const
+void OpenGLTexture2D::Bind(uint32_t slot) const
 {
 	WHP_PROFILE_FUNCTION();
 
-	glBindTextureUnit(slot, m_rendererID);
+	glBindTextureUnit(slot, m_RendererID);
 }
 
-bool opengl_texture2D::operator==(const texture& other) const
+bool OpenGLTexture2D::operator==(const Texture& other) const
 {
-	return (m_rendererID == other.get_renderer_id());
+	return (m_RendererID == other.GetRendererId());
 }
 
 _WHIP_END

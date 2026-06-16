@@ -1,4 +1,4 @@
-﻿using Whip;
+using Whip;
 using System;
 namespace Fbox
 {

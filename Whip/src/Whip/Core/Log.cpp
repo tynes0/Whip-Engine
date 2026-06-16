@@ -1,5 +1,5 @@
-#include "whippch.h"
-#include "Log.h"
+#include "WhipPch.h"
+#include <Whip/Core/Log.h>
 
 #pragma warning(push, 0)
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -11,101 +11,101 @@
 
 _WHIP_START
 
-std::shared_ptr<spdlog::logger> log::s_core_logger;
-std::shared_ptr<spdlog::logger> log::s_client_logger;
+std::shared_ptr<spdlog::logger> Log::s_CoreLogger;
+std::shared_ptr<spdlog::logger> Log::s_ClientLogger;
 
-std::shared_ptr<spdlog::logger> editor_log::s_editor_logger;
-spdlog::sink_ptr					editor_log::s_file_sink;
-std::filesystem::path			editor_log::s_log_filepath;
-bool							editor_log::s_should_log = true;
-std::atomic<bool>				editor_log::s_file_should_reset{ false };
+std::shared_ptr<spdlog::logger> EditorLog::s_EditorLogger;
+spdlog::sink_ptr					EditorLog::s_FileSink;
+std::filesystem::path			EditorLog::s_LogFilepath;
+bool							EditorLog::s_ShouldLog = true;
+std::atomic<bool>				EditorLog::s_FileShouldReset{ false };
 
-void log::init()
+void Log::Init()
 {
-	const spdlog::level::level_enum initial_level = log::whip_log_level_to_spdlog_level(level::trace);
+	const spdlog::level::level_enum initialLevel = Log::WhipLogLevelToSpdlogLevel(Level::Trace);
 
-	editor_log::init();
+	EditorLog::Init();
 
-	auto make_console_sink = []()
+	auto makeConsoleSink = []()
 		{
 			auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 			sink->set_pattern("%^[%T] %n: %v%$");
 			return sink;
 		};
 
-	std::vector<spdlog::sink_ptr> core_sinks{ make_console_sink(), editor_log::s_file_sink };
-	s_core_logger = std::make_shared<spdlog::logger>("WHIP ENGINE", core_sinks.begin(), core_sinks.end());
-	s_core_logger->set_level(initial_level);
-	s_core_logger->flush_on(spdlog::level::trace);
-	spdlog::register_logger(s_core_logger);
+	std::vector<spdlog::sink_ptr> coreSinks{ makeConsoleSink(), EditorLog::s_FileSink };
+	s_CoreLogger = std::make_shared<spdlog::logger>("WHIP ENGINE", coreSinks.begin(), coreSinks.end());
+	s_CoreLogger->set_level(initialLevel);
+	s_CoreLogger->flush_on(spdlog::level::trace);
+	spdlog::register_logger(s_CoreLogger);
 
-	std::vector<spdlog::sink_ptr> client_sinks{ make_console_sink(), editor_log::s_file_sink };
-	s_client_logger = std::make_shared<spdlog::logger>("CLIENT", client_sinks.begin(), client_sinks.end());
-	s_client_logger->set_level(initial_level);
-	s_client_logger->flush_on(spdlog::level::trace);
-	spdlog::register_logger(s_client_logger);
+	std::vector<spdlog::sink_ptr> clientSinks{ makeConsoleSink(), EditorLog::s_FileSink };
+	s_ClientLogger = std::make_shared<spdlog::logger>("CLIENT", clientSinks.begin(), clientSinks.end());
+	s_ClientLogger->set_level(initialLevel);
+	s_ClientLogger->flush_on(spdlog::level::trace);
+	spdlog::register_logger(s_ClientLogger);
 }
 
-void log::reset_logger(logger& logger_in, const std::string& new_name, output_target target)
+void Log::ResetLogger(Logger& loggerIn, const std::string& newName, OutputTarget target)
 {
-	if ((s_core_logger && new_name == s_core_logger->name()) ||
-		(s_client_logger && new_name == s_client_logger->name()) ||
-		(editor_log::s_editor_logger && new_name == editor_log::s_editor_logger->name()))
+	if ((s_CoreLogger && newName == s_CoreLogger->name()) ||
+		(s_ClientLogger && newName == s_ClientLogger->name()) ||
+		(EditorLog::s_EditorLogger && newName == EditorLog::s_EditorLogger->name()))
 		return;
 	spdlog::level::level_enum level = spdlog::level::level_enum::trace;
-	if (logger_in)
+	if (loggerIn)
 	{
-		level = logger_in->level();
-		spdlog::drop(logger_in->name());
+		level = loggerIn->level();
+		spdlog::drop(loggerIn->name());
 	}
-	if (target == output_target::editor)
+	if (target == OutputTarget::Editor)
 	{
-		logger_in = std::make_shared<spdlog::logger>(new_name, editor_log::s_file_sink);
-		spdlog::register_logger(logger_in);
-		logger_in->flush_on(spdlog::level::trace);
+		loggerIn = std::make_shared<spdlog::logger>(newName, EditorLog::s_FileSink);
+		spdlog::register_logger(loggerIn);
+		loggerIn->flush_on(spdlog::level::trace);
 	}
 	else
 	{
-		logger_in = spdlog::stdout_color_mt(new_name);
+		loggerIn = spdlog::stdout_color_mt(newName);
 	}
-	logger_in->set_level(level);
+	loggerIn->set_level(level);
 }
 
-spdlog::level::level_enum log::whip_log_level_to_spdlog_level(level log_level)
+spdlog::level::level_enum Log::WhipLogLevelToSpdlogLevel(Level logLevel)
 {
-	switch (log_level)
+	switch (logLevel)
 	{
-	case level::trace:			return spdlog::level::trace;
-	case level::debug:			return spdlog::level::debug;
-	case level::info:			return spdlog::level::info;
-	case level::warning:		return spdlog::level::warn;
-	case level::error:			return spdlog::level::err;
-	case level::critical:		return spdlog::level::critical;
-	case level::off:			return spdlog::level::off;
-	case level::levels_size:	return spdlog::level::n_levels;
+	case Level::Trace:			return spdlog::level::trace;
+	case Level::Debug:			return spdlog::level::debug;
+	case Level::Info:			return spdlog::level::info;
+	case Level::Warning:		return spdlog::level::warn;
+	case Level::Error:			return spdlog::level::err;
+	case Level::Critical:		return spdlog::level::critical;
+	case Level::Off:			return spdlog::level::off;
+	case Level::LevelsSize:	return spdlog::level::n_levels;
 	default:					return spdlog::level::trace;
 	}
 }
 
-void editor_log::init()
+void EditorLog::Init()
 {
 	std::filesystem::create_directory("log");
-	s_log_filepath = std::filesystem::current_path() / "log/client.log";
-	std::string path = s_log_filepath.string();
-	s_file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(path, MAX_FILE_SIZE, MAX_FILES);
-	s_file_sink->set_pattern("level::%l,[%T] %n: %v");
-	s_editor_logger = std::make_shared<spdlog::logger>("WHIP", s_file_sink);
-	spdlog::register_logger(s_editor_logger);
-	s_editor_logger->set_level(spdlog::level::trace);
-	s_editor_logger->flush_on(spdlog::level::trace);
+	s_LogFilepath = std::filesystem::current_path() / "log/client.log";
+	std::string path = s_LogFilepath.string();
+	s_FileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(path, MaxFileSize, MaxFiles);
+	s_FileSink->set_pattern("level::%l,[%T] %n: %v");
+	s_EditorLogger = std::make_shared<spdlog::logger>("WHIP", s_FileSink);
+	spdlog::register_logger(s_EditorLogger);
+	s_EditorLogger->set_level(spdlog::level::trace);
+	s_EditorLogger->flush_on(spdlog::level::trace);
 }
 
-void editor_log::erase()
+void EditorLog::Erase()
 {
-	if (s_editor_logger)
-		spdlog::drop(s_editor_logger->name());
-	s_editor_logger.reset();
-	s_file_sink.reset();
+	if (s_EditorLogger)
+		spdlog::drop(s_EditorLogger->name());
+	s_EditorLogger.reset();
+	s_FileSink.reset();
 }
 
 _WHIP_END

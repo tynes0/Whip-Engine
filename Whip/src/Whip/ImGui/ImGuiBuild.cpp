@@ -1,4 +1,4 @@
-#include <whippch.h>
+#include <WhipPch.h>
 
 #include "misc/cpp/imgui_stdlib.cpp"
 

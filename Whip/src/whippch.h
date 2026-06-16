@@ -28,7 +28,7 @@
 #include <unordered_set>
 
 #include <Whip/Core/Log.h>
-#include <Whip/Core/buffer.h>
+#include <Whip/Helper/Buffer.h>
 #include <Whip/Debug/Instrumentor.h>
 
 //#ifdef WHP_PLATFORM_WINDOWS

@@ -1,91 +1,91 @@
-#include "whippch.h"
-#include "OrthographicCameraController.h"
+#include "WhipPch.h"
+#include <Whip/Render/OrthographicCameraController.h>
 
 _WHIP_START
 
-orthographic_camera_controller::orthographic_camera_controller(float aspect_ratio, bool rotation)
-	:m_aspect_ratio(aspect_ratio), m_bounds({ -m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level }), m_camera(m_bounds.left, m_bounds.right, m_bounds.bottom, m_bounds.top), m_rotation(rotation) {}
+OrthographicCameraController::OrthographicCameraController(float aspectRatio, bool rotation)
+	:m_AspectRatio(aspectRatio), m_Bounds({ -m_AspectRatio * m_ZoomLevel, m_AspectRatio * m_ZoomLevel, -m_ZoomLevel, m_ZoomLevel }), m_Camera(m_Bounds.left, m_Bounds.right, m_Bounds.bottom, m_Bounds.top), m_Rotation(rotation) {}
 
-void orthographic_camera_controller::on_update(timestep ts)
+void OrthographicCameraController::OnUpdate(Timestep ts)
 {
 	WHP_PROFILE_FUNCTION();
 
-	if (input::is_key_down(key::A))
+	if (Input::IsKeyDown(Key::A))
 	{
-		m_camera_position.x -= cos(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
-		m_camera_position.y -= sin(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
+		m_CameraPosition.x -= cos(glm::radians(m_CameraRotation)) * m_CameraTranslationSpeed * ts;
+		m_CameraPosition.y -= sin(glm::radians(m_CameraRotation)) * m_CameraTranslationSpeed * ts;
 	}
-	if (input::is_key_down(key::D))
+	if (Input::IsKeyDown(Key::D))
 	{
-		m_camera_position.x += cos(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
-		m_camera_position.y += sin(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
+		m_CameraPosition.x += cos(glm::radians(m_CameraRotation)) * m_CameraTranslationSpeed * ts;
+		m_CameraPosition.y += sin(glm::radians(m_CameraRotation)) * m_CameraTranslationSpeed * ts;
 	}
-	if (input::is_key_down(key::S))
+	if (Input::IsKeyDown(Key::S))
 	{
-		m_camera_position.x -= -sin(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
-		m_camera_position.y -= cos(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
+		m_CameraPosition.x -= -sin(glm::radians(m_CameraRotation)) * m_CameraTranslationSpeed * ts;
+		m_CameraPosition.y -= cos(glm::radians(m_CameraRotation)) * m_CameraTranslationSpeed * ts;
 	}
-	if (input::is_key_down(key::W))
+	if (Input::IsKeyDown(Key::W))
 	{
-		m_camera_position.x += -sin(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
-		m_camera_position.y += cos(glm::radians(m_camera_rotation)) * m_camera_translation_speed * ts;
+		m_CameraPosition.x += -sin(glm::radians(m_CameraRotation)) * m_CameraTranslationSpeed * ts;
+		m_CameraPosition.y += cos(glm::radians(m_CameraRotation)) * m_CameraTranslationSpeed * ts;
 	}
-	if(m_rotation)
+	if(m_Rotation)
 	{
-		if (input::is_key_down(key::Q))
-			m_camera_rotation += m_camera_rotation_speed * ts;
-		if (input::is_key_down(key::E))
-			m_camera_rotation -= m_camera_rotation_speed * ts;
-		if (m_camera_rotation > 180.0f)
-			m_camera_rotation -= 360.0f;
-		if (m_camera_rotation <= -180.0f)
-			m_camera_rotation += 360.0f;
-		m_camera.set_rotation(m_camera_rotation);
+		if (Input::IsKeyDown(Key::Q))
+			m_CameraRotation += m_CameraRotationSpeed * ts;
+		if (Input::IsKeyDown(Key::E))
+			m_CameraRotation -= m_CameraRotationSpeed * ts;
+		if (m_CameraRotation > 180.0f)
+			m_CameraRotation -= 360.0f;
+		if (m_CameraRotation <= -180.0f)
+			m_CameraRotation += 360.0f;
+		m_Camera.SetRotation(m_CameraRotation);
 	}
-	m_camera.set_position(m_camera_position);
-	m_camera_translation_speed = (m_zoom_level * m_camera_translation_speed_stabil);
+	m_Camera.SetPosition(m_CameraPosition);
+	m_CameraTranslationSpeed = (m_ZoomLevel * m_CameraTranslationSpeedStabil);
 }
 
-void orthographic_camera_controller::on_event(event& evnt)
+void OrthographicCameraController::OnEvent(Event& event)
 {
 	WHP_PROFILE_FUNCTION();
 
-	event_dispatcher dispatcher(evnt);
-	dispatcher.dispatch<mouse_scrolled_event>([this]<typename ...Args>(Args&&... args) -> decltype(auto) { return this->on_mouse_scrolled(std::forward<decltype(args)>(args)...); });
-	dispatcher.dispatch<window_resize_event>([this](auto&&... args) -> decltype(auto) { return this->on_window_resized(std::forward<decltype(args)>(args)...); });
+	EventDispatcher dispatcher(event);
+	dispatcher.Dispatch<MouseScrolledEvent>([this]<typename ...Args>(Args&&... args) -> decltype(auto) { return this->OnMouseScrolled(std::forward<decltype(args)>(args)...); });
+	dispatcher.Dispatch<WindowResizeEvent>([this](auto&&... args) -> decltype(auto) { return this->OnWindowResized(std::forward<decltype(args)>(args)...); });
 }
 
-void orthographic_camera_controller::on_resize(float width, float height)
+void OrthographicCameraController::OnResize(float width, float height)
 {
-	m_aspect_ratio = width / height;
-	calculate_view();
+	m_AspectRatio = width / height;
+	CalculateView();
 }
 
-void orthographic_camera_controller::set_zoom_level(float zoom_level)
+void OrthographicCameraController::SetZoomLevel(float zoomLevel)
 {
-	m_zoom_level = zoom_level;
-	calculate_view();
+	m_ZoomLevel = zoomLevel;
+	CalculateView();
 }
 
-void orthographic_camera_controller::calculate_view()
+void OrthographicCameraController::CalculateView()
 {
-	m_bounds = { -m_aspect_ratio * m_zoom_level, m_aspect_ratio * m_zoom_level, -m_zoom_level, m_zoom_level };
-	m_camera.set_projection(m_bounds.left, m_bounds.right, m_bounds.bottom, m_bounds.top);
+	m_Bounds = { -m_AspectRatio * m_ZoomLevel, m_AspectRatio * m_ZoomLevel, -m_ZoomLevel, m_ZoomLevel };
+	m_Camera.SetProjection(m_Bounds.left, m_Bounds.right, m_Bounds.bottom, m_Bounds.top);
 }
 
-bool orthographic_camera_controller::on_mouse_scrolled(mouse_scrolled_event& evnt)
+bool OrthographicCameraController::OnMouseScrolled(MouseScrolledEvent& event)
 {
 	WHP_PROFILE_FUNCTION();
-	m_zoom_level -= evnt.get_offset_y() * 0.15f;
-	m_zoom_level = (m_zoom_level > 0.1f) ? m_zoom_level : 0.1f;
-	calculate_view();
+	m_ZoomLevel -= event.GetOffsetY() * 0.15f;
+	m_ZoomLevel = (m_ZoomLevel > 0.1f) ? m_ZoomLevel : 0.1f;
+	CalculateView();
 	return false;
 }
 
-bool orthographic_camera_controller::on_window_resized(window_resize_event& evnt)
+bool OrthographicCameraController::OnWindowResized(WindowResizeEvent& event)
 {
 	WHP_PROFILE_FUNCTION();
-	on_resize((float)evnt.get_width(), (float)evnt.get_height());
+	OnResize((float)event.GetWidth(), (float)event.GetHeight());
 	return false;
 }
 

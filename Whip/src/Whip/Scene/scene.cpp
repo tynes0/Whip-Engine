@@ -1,25 +1,25 @@
-#include "whippch.h"
-#include "scene.h"
+#include "WhipPch.h"
+#include <Whip/Scene/Scene.h>
 
-#include "components.h"
-#include "scriptable_entity.h"
+#include <Whip/Scene/Components.h>
+#include <Whip/Scene/ScriptableEntity.h>
 
 #include <Whip/Core/Input.h>
-#include <Whip/Scripting/script_engine.h>
+#include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Render/Renderer2D.h>
 
-#include <Whip/Physics/physics2D.h>
-#include <Whip/Physics/physics_world.h>
+#include <Whip/Physics/Physics2D.h>
+#include <Whip/Physics/PhysicsWorld.h>
 
-#include <Whip/Project/project.h>
-#include <Whip/Audio/audio_engine.h>
-#include <Whip/Animation/animation_manager.h>
+#include <Whip/Project/Project.h>
+#include <Whip/Audio/AudioEngine.h>
+#include <Whip/Animation/AnimationManager.h>
 
 #include <glm/glm.hpp>
 
 #include <coco.h>
 
-#include "entity.h"
+#include <Whip/Scene/Entity.h>
 
 #include <algorithm>
 #include <functional>
@@ -32,552 +32,569 @@
 
 _WHIP_START
 
-namespace utils
+namespace Utils
 {
 	template<class... Components>
-	static void copy_component(entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& entt_map)
+	static void CopyComponent(entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& enttMap)
 	{
 		([&]()
 			{
 				auto view = src.view<Components>();
-				for (auto src_entity : view)
+				for (auto srcEntity : view)
 				{
-					entt::entity dstEntity = entt_map.at(src.get<ID_component>(src_entity).ID);
+					entt::entity dstEntity = enttMap.at(src.get<IDComponent>(srcEntity).m_ID);
 
-					auto& src_component = src.get<Components>(src_entity);
-					dst.emplace_or_replace<Components>(dstEntity, src_component);
+					auto& srcComponent = src.get<Components>(srcEntity);
+					dst.emplace_or_replace<Components>(dstEntity, srcComponent);
 				}
 			}(), ...);
 	}
 
 	template<class... Components>
-	static void copy_component(component_group<Components...>, entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& entt_map)
+	static void CopyComponent(ComponentGroup<Components...>, entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& enttMap)
 	{
-		copy_component<Components...>(dst, src, entt_map);
+		CopyComponent<Components...>(dst, src, enttMap);
 	}
 
 	template<class... Components>
-	static void copy_component_if_exist(entity dst, entity src)
+	static void CopyComponentIfExists(Entity dst, Entity src)
 	{
 		([&]()
 			{
-				if (src.has_component<Components>())
-					dst.add_or_replace_component<Components>(src.get_component<Components>());
+				if (src.HasComponent<Components>())
+					dst.AddOrReplaceComponent<Components>(src.GetComponent<Components>());
 			}(), ...);
 	}
 
 	template<class... Components>
-	static void copy_component_if_exist(component_group<Components...>, entity dst, entity src)
+	static void CopyComponentIfExists(ComponentGroup<Components...>, Entity dst, Entity src)
 	{
-		copy_component_if_exist<Components...>(dst, src);
+		CopyComponentIfExists<Components...>(dst, src);
 	}
 }
 
-scene::scene(asset_handle handle) : asset(handle) 
+Scene::Scene(AssetHandle handle) : Asset(handle)
 {
-	m_physics_world.set_scene_context(this);
+	m_PhysicsWorld.SetSceneContext(this);
 }
 
-scene::~scene() {}
+Scene::~Scene() {}
 
-ref<scene> scene::copy(ref<scene> other)
+Ref<Scene> Scene::Copy(Ref<Scene> other)
 {
 	WHP_PROFILE_FUNCTION();
-	ref<scene> new_scene = make_ref<scene>(other->handle);
+	Ref<Scene> newScene = MakeRef<Scene>(other->m_Handle);
 
-	new_scene->m_viewport_width = other->m_viewport_width;
-	new_scene->m_viewport_height = other->m_viewport_height;
+	newScene->m_ViewportWidth = other->m_ViewportWidth;
+	newScene->m_ViewportHeight = other->m_ViewportHeight;
 
-	auto& src_scene_registry = other->m_registry;
-	auto& dst_scene_registry = new_scene->m_registry;
-	std::unordered_map<UUID, entt::entity> entt_map;
+	auto& srcSceneRegistry = other->m_Registry;
+	auto& dstSceneRegistry = newScene->m_Registry;
+	std::unordered_map<UUID, entt::entity> enttMap;
 
-	auto id_view = src_scene_registry.view<ID_component>();
-	for (auto e : id_view)
+	auto idView = srcSceneRegistry.view<IDComponent>();
+	for (auto e : idView)
 	{
-		UUID uuid = src_scene_registry.get<ID_component>(e).ID;
-		const auto& name = src_scene_registry.get<tag_component>(e).tag;
-		entity new_entity = new_scene->create_entity_with_UUID(uuid, name);
-		entt_map[uuid] = (entt::entity)new_entity;
+		UUID uuid = srcSceneRegistry.get<IDComponent>(e).m_ID;
+		const auto& name = srcSceneRegistry.get<TagComponent>(e).m_Tag;
+		Entity newEntity = newScene->CreateEntityWithUUID(uuid, name);
+		enttMap[uuid] = (entt::entity)newEntity;
 	}
 
-	utils::copy_component(all_components_no_id_no_tag{}, dst_scene_registry, src_scene_registry, entt_map);
+	Utils::CopyComponent(AllComponentsNoIDNoTag{}, dstSceneRegistry, srcSceneRegistry, enttMap);
 
-	return new_scene;
+	return newScene;
 }
 
-entity scene::create_entity(const std::string& name)
+Entity Scene::CreateEntity(const std::string& name)
 {
-	return create_entity_with_UUID(UUID(), name);
+	return CreateEntityWithUUID(UUID(), name);
 }
 
-entity scene::create_entity_with_UUID(UUID uuid, const std::string& name)
+Entity Scene::CreateEntityWithUUID(UUID uuid, const std::string& name)
 {
-	entity result = { m_registry.create(), this };
-	result.add_component<ID_component>(ID_component(uuid));
-	result.add_component<transform_component>();
-	result.add_component<hierarchy_component>();
-	auto& tag = result.add_component<tag_component>();
-	tag.tag = m_unique_name_manager.add_name(name);
-	m_entity_map[uuid] = result;
+	Entity result = { m_Registry.create(), this };
+	result.AddComponent<IDComponent>(IDComponent(uuid));
+	result.AddComponent<TransformComponent>();
+	result.AddComponent<HierarchyComponent>();
+	auto& tag = result.AddComponent<TagComponent>();
+	tag.m_Tag = m_UniqueNameManager.AddName(name);
+	m_EntityMap[uuid] = result;
 	return result;
 }
 
-void scene::destroy_entity(entity entity_in)
+void Scene::DestroyEntity(Entity entityIn)
 {
-	if (entity_in.has_component<hierarchy_component>())
+	if (entityIn.HasComponent<HierarchyComponent>())
 	{
-		auto hierarchy = entity_in.get_component<hierarchy_component>();
-		for (UUID child_id : hierarchy.children)
+		auto hierarchy = entityIn.GetComponent<HierarchyComponent>();
+		for (UUID childId : hierarchy.m_Children)
 		{
-			entity child = find_entity_by_UUID(child_id);
+			Entity child = FindEntityByUUID(childId);
 			if (child)
-				destroy_entity(child);
+				DestroyEntity(child);
 		}
 
-		if (hierarchy.parent != 0)
+		if (hierarchy.m_Parent != 0)
 		{
-			entity parent = find_entity_by_UUID(hierarchy.parent);
-			if (parent && parent.has_component<hierarchy_component>())
+			Entity parent = FindEntityByUUID(hierarchy.m_Parent);
+			if (parent && parent.HasComponent<HierarchyComponent>())
 			{
-				auto& parent_hierarchy = parent.get_component<hierarchy_component>();
-				parent_hierarchy.children.erase(
-					std::remove(parent_hierarchy.children.begin(), parent_hierarchy.children.end(), entity_in.get_UUID()),
-					parent_hierarchy.children.end());
+				auto& parentHierarchy = parent.GetComponent<HierarchyComponent>();
+				std::erase(parentHierarchy.m_Children, entityIn.GetUUID());
 			}
 		}
 	}
 
-	if (m_is_running && entity_in.has_component<script_component>())
-		script_engine::on_destroy_entity(entity_in);
+	if (m_IsRunning && entityIn.HasComponent<ScriptComponent>())
+		ScriptEngine::InvokeEntityMethod(EntityMethodType::OnDestroy, entityIn);
 
-	m_unique_name_manager.remove_name(entity_in.get_name());
-	m_entity_map.erase(entity_in.get_UUID());
-    m_registry.destroy(entity_in);
+	m_UniqueNameManager.RemoveName(entityIn.GetName());
+	m_EntityMap.erase(entityIn.GetUUID());
+    m_Registry.destroy(entityIn);
 }
 
-entity scene::find_entity_by_UUID(UUID uuid)
+Entity Scene::FindEntityByUUID(UUID uuid)
 {
-	auto it = m_entity_map.find(uuid);
-	if (it != m_entity_map.end())
+	auto it = m_EntityMap.find(uuid);
+	if (it != m_EntityMap.end())
 		return { it->second, this };
-	return entity{};
+	return Entity{};
 }
 
-entity scene::find_entity_by_name(std::string_view name)
+Entity Scene::FindEntityByName(std::string_view name)
 {
-	auto view = m_registry.view<tag_component>();
+	auto view = m_Registry.view<TagComponent>();
 	for (auto entityID : view)
 	{
-		const tag_component& tag_comp = view.get<tag_component>(entityID);
-		if (tag_comp.tag == name)
-			return entity{ entityID, this };
+		const TagComponent& tagComponent = view.get<TagComponent>(entityID);
+		if (tagComponent.m_Tag == name)
+			return Entity{ entityID, this };
 	}
-	return entity{};
+	return Entity{};
 }
 
-void scene::on_runtime_start()
+void Scene::OnRuntimeStart()
 {
 	WHP_PROFILE_FUNCTION();
-	m_is_running = true;
-	m_physics_world.create();
+	m_IsRunning = true;
+	m_PhysicsWorld.Create();
 	{
-		script_engine::on_runtime_start(this);
-		auto view = m_registry.view<script_component>();
+		ScriptEngine::OnRuntimeStart(this);
+		auto view = m_Registry.view<ScriptComponent>();
 		for (auto e : view)
 		{
-			entity ent = { e, this };
-			script_engine::on_create_entity(ent);
+			Entity ent = { e, this };
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnCreate, ent);
 		}
-		script_engine::invoke_all_on_create_methods();
+		// ScriptEngine::InvokeAllOnCreateMethods();
 	}
 }
 
-void scene::on_runtime_stop()
+void Scene::OnRuntimeStop()
 {
 	WHP_PROFILE_FUNCTION();
-	if (m_is_running)
-		script_engine::invoke_all_on_destroy_methods();
+	if (m_IsRunning)
+		ScriptEngine::InvokeAllOnDestroyMethods();
 
-	m_is_running = false;
-	m_physics_world.destroy();
-	script_engine::on_runtime_stop();
-	on_audios_stop();
+	m_IsRunning = false;
+	m_PhysicsWorld.Destroy();
+	ScriptEngine::OnRuntimeStop();
+	OnAudiosStop();
 }
 
-void scene::on_simulation_start()
+void Scene::OnSimulationStart()
 {
 	WHP_PROFILE_FUNCTION();
-	m_is_running = true;
-	m_physics_world.create();
+	m_IsRunning = true;
+	m_PhysicsWorld.Create();
 	{
-		script_engine::on_runtime_start(this);
-		auto view = m_registry.view<script_component>();
+		ScriptEngine::OnRuntimeStart(this);
+		auto view = m_Registry.view<ScriptComponent>();
 		for (auto e : view)
 		{
-			entity ent = { e, this };
-			script_engine::on_create_entity(ent);
+			Entity ent = { e, this };
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnCreate, ent);
 		}
-		script_engine::invoke_all_on_create_methods();
+		// ScriptEngine::InvokeAllOnCreateMethods();
 	}
 }
 
-void scene::on_simulation_stop()
+void Scene::OnSimulationStop()
 {
 	WHP_PROFILE_FUNCTION();
-	if (m_is_running)
-		script_engine::invoke_all_on_destroy_methods();
+	if (m_IsRunning)
+		ScriptEngine::InvokeAllOnDestroyMethods();
 
-	m_is_running = false;
-	m_physics_world.destroy();
-	script_engine::on_runtime_stop();
-	on_audios_stop();
+	m_IsRunning = false;
+	m_PhysicsWorld.Destroy();
+	ScriptEngine::OnRuntimeStop();
+	OnAudiosStop();
 }
 
-void scene::on_update_runtime(timestep ts)
+void Scene::OnUpdateRuntime(Timestep ts)
 {
 	WHP_PROFILE_FUNCTION();
-	if(!m_is_paused || m_step_frames-- > 0)
+	if(!m_IsPaused || m_StepFrames-- > 0)
 	{
 		{
 			{
 				// C# OnUpdate
-				auto view = m_registry.view<script_component>();
+				auto view = m_Registry.view<ScriptComponent>();
 				for (auto e : view)
 				{
-					entity ent = { e, this };
-					script_engine::on_update_entity(ent, ts);
+					Entity ent = { e, this };
+					float f = ts;
+					ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUpdate, ent, Payload::Ref<float>(f));
 				}
 			}
 
-			m_registry.view<native_script_component>().each([=](auto ent, auto& nsc)
+			m_Registry.view<NativeScriptComponent>().each([=](auto ent, auto& nsc)
 				{
-					if (!nsc.instance)
+					if (!nsc.m_Instance)
 					{
-						nsc.instance = nsc.instantiate_script();
-						nsc.instance->m_entity = entity{ ent, this };
-						nsc.instance->on_create();
+						nsc.m_Instance = nsc.m_InstantiateScript();
+						nsc.m_Instance->m_Entity = Entity{ ent, this };
+						nsc.m_Instance->OnCreate();
 					}
-					nsc.instance->on_update(ts);
+					nsc.m_Instance->OnUpdate(ts);
 				});
 		}
 
 		// Physics
 		{
-			m_physics_world.update(ts);
+			m_PhysicsWorld.Update(ts);
 		}
 
 		// animations
 		{
-			animation_manager::get().update(ts);
+			AnimationManager::Get().Update(ts);
 		}
 	}
 
-    camera* main_camera = nullptr;
-    glm::mat4 camera_transform;
+    Camera* mainCamera = nullptr;
+    glm::mat4 cameraTransform;
     {
-        auto group = m_registry.group<transform_component>(entt::get<camera_component>);
+        auto group = m_Registry.group<TransformComponent>(entt::get<CameraComponent>);
         for (auto entity : group)
         {
-            auto [transform, cam] = group.get<transform_component, camera_component>(entity);
-            if (cam.primary)
+            auto [transform, cam] = group.get<TransformComponent, CameraComponent>(entity);
+            if (cam.m_Primary)
             {
-                main_camera = &cam.camera;
-                camera_transform = transform.get_transform();
+                mainCamera = &cam.m_Camera;
+                cameraTransform = transform.GetTransform();
                 break;
             }
         }
     }
-    if (main_camera)
+    if (mainCamera)
     {
 		// sprites
-        renderer2D::begin_scene(*main_camera, camera_transform);
+        Renderer2D::BeginScene(*mainCamera, cameraTransform);
         {
-			auto view = m_registry.view<transform_component, sprite_renderer_component>();
+			auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
 			for (auto ent : view)
 			{
-				const auto& [transform, sprite] = view.get<transform_component, sprite_renderer_component>(ent);
-				renderer2D::draw_sprite(transform.get_transform(), sprite, (int)ent);
+				const auto& [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(ent);
+				Renderer2D::DrawSprite(transform.GetTransform(), sprite, (int)ent);
 			}
         }
 
 		// circles
 		{
-			auto view = m_registry.view<transform_component, circle_renderer_component>();
+			auto view = m_Registry.view<TransformComponent, CircleRendererComponent>();
 			for (auto ent : view)
 			{
-				const auto& [transform, circle] = view.get<transform_component, circle_renderer_component>(ent);
-			
-				renderer2D::draw_circle(transform.get_transform(), circle.color, circle.thickness, circle.fade, (int)ent);
+				const auto& [transform, circle] = view.get<TransformComponent, CircleRendererComponent>(ent);
+
+				Renderer2D::DrawCircle(transform.GetTransform(), circle.m_Color, circle.m_Thickness, circle.m_Fade, (int)ent);
 			}
 		}
 
 
 		// texts
 		{
-			auto view = m_registry.view<transform_component, text_component>();
+			auto view = m_Registry.view<TransformComponent, TextComponent>();
 			for (auto entity : view)
 			{
-				const auto& [transform, text] = view.get<transform_component, text_component>(entity);
+				const auto& [transform, text] = view.get<TransformComponent, TextComponent>(entity);
 
-				renderer2D::draw_string(text.text_string, transform.get_transform(), text, (int)entity);
+				Renderer2D::DrawString(text.m_TextString, transform.GetTransform(), text, (int)entity);
 			}
 		}
 
-        renderer2D::end_scene();
+        Renderer2D::EndScene();
     }
 }
 
-void scene::on_update_simulation(timestep ts, editor_camera& cam)
+void Scene::OnUpdateSimulation(Timestep ts, EditorCamera& cam)
 {
-	if (!m_is_paused || m_step_frames-- > 0)
+	if (!m_IsPaused || m_StepFrames-- > 0)
 	{
 		{
 			// C# OnUpdate
-			auto view = m_registry.view<script_component>();
+			auto view = m_Registry.view<ScriptComponent>();
 			for (auto e : view)
 			{
-				entity ent = { e, this };
-				script_engine::on_update_entity(ent, ts);
+				Entity ent = { e, this };
+				float f = ts;
+				ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUpdate, ent, Payload::Ref<float>(f));
 			}
 		}
-		
-		m_physics_world.update(ts);
-		animation_manager::get().update(ts);
+
+		m_PhysicsWorld.Update(ts);
+		AnimationManager::Get().Update(ts);
 	}
 
-	render_scene(cam);
+	RenderScene(cam);
 }
 
-void scene::on_update_editor(timestep ts, editor_camera& cam)
+void Scene::OnUpdateEditor(Timestep ts, EditorCamera& cam)
 {
 	WHP_PROFILE_FUNCTION();
-	render_scene(cam);
+	RenderScene(cam);
 }
 
-void scene::on_viewport_resize(uint32_t width, uint32_t height)
+void Scene::OnViewportResize(uint32_t width, uint32_t height)
 {
 	WHP_PROFILE_FUNCTION();
-    m_viewport_width = width;
-    m_viewport_height = height;
+    m_ViewportWidth = width;
+    m_ViewportHeight = height;
 
-    auto group = m_registry.group<camera_component>();
+    auto group = m_Registry.group<CameraComponent>();
     for (auto entity : group)
     {
-        auto& component = group.get<camera_component>(entity);
-        if (!component.fixed_aspect_ratio)
-            component.camera.set_viewport_size(width, height);
+        auto& component = group.get<CameraComponent>(entity);
+        if (!component.m_FixedAspectRatio)
+            component.m_Camera.SetViewportSize(width, height);
     }
 }
 
-entity scene::duplicate_entity(entity entity_in)
+Entity Scene::DuplicateEntity(Entity entityIn)
 {
 	WHP_PROFILE_FUNCTION();
-	std::string name = entity_in.get_name();
-	entity new_entity = create_entity(name);
+	std::string name = entityIn.GetName();
+	Entity newEntity = CreateEntity(name);
 
-	utils::copy_component_if_exist(all_components_no_id_no_tag{}, new_entity, entity_in);
-	if (new_entity.has_component<hierarchy_component>())
-		new_entity.get_component<hierarchy_component>() = {};
-	if (entity_in.has_component<script_component>())
-		script_engine::copy_script_field_map(entity_in, new_entity);
-	return new_entity;
+	Utils::CopyComponentIfExists(AllComponentsNoIDNoTag{}, newEntity, entityIn);
+	if (newEntity.HasComponent<HierarchyComponent>())
+		newEntity.GetComponent<HierarchyComponent>() = {};
+	if (entityIn.HasComponent<ScriptComponent>())
+		ScriptEngine::CopyScriptFieldMap(entityIn, newEntity);
+	return newEntity;
 }
 
-entity scene::instantiate_entity_template(entity source_entity)
+Entity Scene::InstantiateEntityTemplate(Entity sourceEntity, AssetHandle sourceHandle)
 {
 	WHP_PROFILE_FUNCTION();
-	if (!source_entity)
+	if (!sourceEntity)
 		return {};
 
-	scene* source_scene = source_entity.get_scene();
-	std::function<entity(entity)> instantiate_tree = [&](entity source) -> entity
+	Scene* sourceScene = sourceEntity.GetScene();
+	std::function<Entity(Entity, bool)> instantiateTree = [&](Entity source, bool root) -> Entity
 	{
-		entity new_entity = create_entity(source.get_name());
-		utils::copy_component_if_exist(all_components_no_id_no_tag{}, new_entity, source);
+		Entity newEntity = CreateEntity(source.GetName());
+		Utils::CopyComponentIfExists(AllComponentsNoIDNoTag{}, newEntity, source);
 
-		hierarchy_component source_hierarchy{};
-		if (source.has_component<hierarchy_component>())
-			source_hierarchy = source.get_component<hierarchy_component>();
+		HierarchyComponent sourceHierarchy{};
+		if (source.HasComponent<HierarchyComponent>())
+			sourceHierarchy = source.GetComponent<HierarchyComponent>();
 
-		if (new_entity.has_component<hierarchy_component>())
+		if (newEntity.HasComponent<HierarchyComponent>())
 		{
-			auto& new_hierarchy = new_entity.get_component<hierarchy_component>();
-			new_hierarchy = {};
-			new_hierarchy.is_group = source_hierarchy.is_group;
+			auto& newHierarchy = newEntity.GetComponent<HierarchyComponent>();
+			newHierarchy = {};
+			newHierarchy.m_IsGroup = sourceHierarchy.m_IsGroup;
 		}
 
-		if (source.has_component<script_component>())
-			script_engine::copy_script_field_map(source, new_entity);
-
-		if (source_scene && source.has_component<hierarchy_component>())
+		if (sourceHandle != 0)
 		{
-			auto& new_hierarchy = new_entity.get_component<hierarchy_component>();
-			for (UUID child_id : source_hierarchy.children)
+			auto& prefab = newEntity.HasComponent<PrefabComponent>() ? newEntity.GetComponent<PrefabComponent>() : newEntity.AddComponent<PrefabComponent>();
+			prefab.m_Source = sourceHandle;
+			prefab.m_SourceEntity = source.GetUUID();
+			prefab.m_Root = root;
+		}
+		else if (newEntity.HasComponent<PrefabComponent>())
+		{
+			newEntity.RemoveComponent<PrefabComponent>();
+		}
+
+		if (source.HasComponent<ScriptComponent>())
+			ScriptEngine::CopyScriptFieldMap(source, newEntity);
+
+		if (sourceScene && source.HasComponent<HierarchyComponent>())
+		{
+			auto& newHierarchy = newEntity.GetComponent<HierarchyComponent>();
+			for (UUID childId : sourceHierarchy.m_Children)
 			{
-				entity source_child = source_scene->find_entity_by_UUID(child_id);
-				if (!source_child)
+				Entity sourceChild = sourceScene->FindEntityByUUID(childId);
+				if (!sourceChild)
 					continue;
 
-				entity new_child = instantiate_tree(source_child);
-				if (!new_child)
+				Entity newChild = instantiateTree(sourceChild, false);
+				if (!newChild)
 					continue;
 
-				new_hierarchy.children.push_back(new_child.get_UUID());
-				if (new_child.has_component<hierarchy_component>())
-					new_child.get_component<hierarchy_component>().parent = new_entity.get_UUID();
+				newHierarchy.m_Children.push_back(newChild.GetUUID());
+				if (newChild.HasComponent<HierarchyComponent>())
+					newChild.GetComponent<HierarchyComponent>().m_Parent = newEntity.GetUUID();
 			}
 		}
 
-		return new_entity;
+		return newEntity;
 	};
 
-	return instantiate_tree(source_entity);
+	return instantiateTree(sourceEntity, true);
 }
 
-entity scene::get_primary_camera_entity()
+Entity Scene::GetPrimaryCameraEntity()
 {
 	WHP_PROFILE_FUNCTION();
-    auto view = m_registry.view<camera_component>();
+    auto view = m_Registry.view<CameraComponent>();
     for (auto ent : view)
     {
-        const auto& camera = view.get<camera_component>(ent);
-        if (camera.primary)
-            return entity{ ent, this };
+        const auto& camera = view.get<CameraComponent>(ent);
+        if (camera.m_Primary)
+            return Entity{ ent, this };
     }
     return {};
 }
 
-void scene::step(int frames)
+void Scene::Step(int frames)
 {
-	m_step_frames = frames;
+	m_StepFrames = frames;
 }
 
-void scene::on_audios_stop()
+void Scene::OnAudiosStop()
 {
-	auto view = m_registry.view<audio_component>();
+	auto view = m_Registry.view<AudioComponent>();
 	for (auto e : view)
 	{
-		const auto& ac = view.get<audio_component>(e);
-		for (const auto& audio_handle : ac.audio_datas)
+		const auto& ac = view.get<AudioComponent>(e);
+		for (const auto& audioHandle : ac.m_AudioDatas)
 		{
-			auto asset = project::get_active()->get_asset_manager()->get_asset(audio_handle.audio);
-			auto audio_asset = std::static_pointer_cast<audio_source>(asset);
-			audio_engine::stop(audio_asset);
+			auto asset = Project::GetActive()->GetAssetManager()->GetAsset(audioHandle.m_Audio);
+			auto audioAsset = std::static_pointer_cast<AudioSource>(asset);
+			AudioEngine::Stop(audioAsset);
 		}
 	}
 }
 
-void scene::render_scene(editor_camera& cam)
+void Scene::RenderScene(EditorCamera& cam)
 {
 	WHP_PROFILE_FUNCTION();
-	renderer2D::begin_scene(cam);
+	Renderer2D::BeginScene(cam);
 
 	// sprite
 	{
-		auto view = m_registry.view<transform_component, sprite_renderer_component>();
+		auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
 		for (auto entity : view)
 		{
-			const auto& [transform, sprite] = view.get<transform_component, sprite_renderer_component>(entity);
+			const auto& [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
 
-			renderer2D::draw_sprite(transform.get_transform(), sprite, (int)entity);
+			Renderer2D::DrawSprite(transform.GetTransform(), sprite, (int)entity);
 		}
 	}
 
 	// circle
 	{
-		auto view = m_registry.view<transform_component, circle_renderer_component>();
+		auto view = m_Registry.view<TransformComponent, CircleRendererComponent>();
 		for (auto entity : view)
 		{
-			const auto& [transform, circle] = view.get<transform_component, circle_renderer_component>(entity);
+			const auto& [transform, circle] = view.get<TransformComponent, CircleRendererComponent>(entity);
 
-			renderer2D::draw_circle(transform.get_transform(), circle.color, circle.thickness, circle.fade, (int)entity);
+			Renderer2D::DrawCircle(transform.GetTransform(), circle.m_Color, circle.m_Thickness, circle.m_Fade, (int)entity);
 		}
 	}
 
 	// texts
 	{
-		auto view = m_registry.view<transform_component, text_component>();
+		auto view = m_Registry.view<TransformComponent, TextComponent>();
 		for (auto entity : view)
 		{
-			const auto& [transform, text] = view.get<transform_component, text_component>(entity);
+			const auto& [transform, text] = view.get<TransformComponent, TextComponent>(entity);
 
-			renderer2D::draw_string(text.text_string, transform.get_transform(), text, (int)entity);
+			Renderer2D::DrawString(text.m_TextString, transform.GetTransform(), text, (int)entity);
 		}
 	}
 
-	renderer2D::end_scene();
+	Renderer2D::EndScene();
 }
 
 template<>
-void scene::on_component_added<transform_component>(entity entity_in, transform_component& component)
+void Scene::OnComponentAdded<TransformComponent>(Entity entityIn, TransformComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<camera_component>(entity entity_in, camera_component& component)
+void Scene::OnComponentAdded<CameraComponent>(Entity entityIn, CameraComponent& component)
 {
-	if(m_viewport_width > 0 && m_viewport_height > 0)
-		component.camera.set_viewport_size(m_viewport_width, m_viewport_height);
+	if(m_ViewportWidth > 0 && m_ViewportHeight > 0)
+		component.m_Camera.SetViewportSize(m_ViewportWidth, m_ViewportHeight);
 }
 
 template<>
-void scene::on_component_added<sprite_renderer_component>(entity entity_in, sprite_renderer_component& component)
-{
-}
-
-template<>
-void scene::on_component_added<circle_renderer_component>(entity entity_in, circle_renderer_component& component)
+void Scene::OnComponentAdded<SpriteRendererComponent>(Entity entityIn, SpriteRendererComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<text_component>(entity entity_in, text_component& component)
+void Scene::OnComponentAdded<CircleRendererComponent>(Entity entityIn, CircleRendererComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<tag_component>(entity entity_in, tag_component& component)
+void Scene::OnComponentAdded<TextComponent>(Entity entityIn, TextComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<hierarchy_component>(entity entity_in, hierarchy_component& component)
+void Scene::OnComponentAdded<TagComponent>(Entity entityIn, TagComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<script_component>(entity entity_in, script_component& component)
+void Scene::OnComponentAdded<HierarchyComponent>(Entity entityIn, HierarchyComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<native_script_component>(entity entity_in, native_script_component& component)
+void Scene::OnComponentAdded<PrefabComponent>(Entity entityIn, PrefabComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<rigidbody2D_component>(entity entity_in, rigidbody2D_component& component)
+void Scene::OnComponentAdded<ScriptComponent>(Entity entityIn, ScriptComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<box_collider2D_component>(entity entity_in, box_collider2D_component& component)
+void Scene::OnComponentAdded<NativeScriptComponent>(Entity entityIn, NativeScriptComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<circle_collider2D_component>(entity entity_in, circle_collider2D_component& component)
+void Scene::OnComponentAdded<Rigidbody2DComponent>(Entity entityIn, Rigidbody2DComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<ID_component>(entity entity_in, ID_component& component)
+void Scene::OnComponentAdded<BoxCollider2DComponent>(Entity entityIn, BoxCollider2DComponent& component)
 {
 }
 
 template<>
-void scene::on_component_added<audio_component>(entity entity_in, audio_component& component)
+void Scene::OnComponentAdded<CircleCollider2DComponent>(Entity entityIn, CircleCollider2DComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<IDComponent>(Entity entityIn, IDComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<AudioComponent>(Entity entityIn, AudioComponent& component)
 {
 }
 

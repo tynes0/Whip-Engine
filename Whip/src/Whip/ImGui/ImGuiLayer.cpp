@@ -1,9 +1,9 @@
-#include <whippch.h>
-#include "ImGuiLayer.h"
+#include <WhipPch.h>
+#include <Whip/ImGui/ImGuiLayer.h>
 
 #include <Whip/Core/KeyCodes.h>
 #include <Whip/Core/Application.h>
-#include <Whip/UI/UI_settings.h>
+#include <Whip/UI/UISettings.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -16,15 +16,15 @@
 
 _WHIP_START
 
-imgui_layer::imgui_layer() : layer("imgui_layer") {}
+ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") {}
 
 
-imgui_layer::~imgui_layer()
+ImGuiLayer::~ImGuiLayer()
 {
 	//
 }
 
-void imgui_layer::on_attach()
+void ImGuiLayer::OnAttach()
 {
 	WHP_PROFILE_FUNCTION();
 
@@ -37,19 +37,19 @@ void imgui_layer::on_attach()
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;			//Enable docking
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;			//Enable multi-viewport / platform windows
 
-	float font_size = 18.0f;
-	io.Fonts->AddFontFromFileTTF("assets/fonts/opensans/OpenSans-Bold.ttf", font_size);
-	io.FontDefault = io.Fonts->AddFontFromFileTTF("assets/fonts/opensans/OpenSans-Regular.ttf", font_size);
+	float fontSize = 18.0f;
+	io.Fonts->AddFontFromFileTTF("assets/fonts/opensans/OpenSans-Bold.ttf", fontSize);
+	io.FontDefault = io.Fonts->AddFontFromFileTTF("assets/fonts/opensans/OpenSans-Regular.ttf", fontSize);
 
-	set_initial_style();
-	set_dark_theme_color();
+	SetInitialStyle();
+	SetDarkThemeColor();
 
-	GLFWwindow* window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
+	GLFWwindow* window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 410");
 }
 
-void imgui_layer::on_detach()
+void ImGuiLayer::OnDetach()
 {
 	WHP_PROFILE_FUNCTION();
 
@@ -58,17 +58,17 @@ void imgui_layer::on_detach()
 	ImGui::DestroyContext();
 }
 
-void imgui_layer::on_event(event& evnt)
+void ImGuiLayer::OnEvent(Event& event)
 {
-	if (m_block_events)
+	if (m_BlockEvents)
 	{
 		ImGuiIO& io = ImGui::GetIO();
-		evnt.handled |= evnt.is_in_category(event_category_mouse) & io.WantCaptureMouse;
-		evnt.handled |= evnt.is_in_category(event_category_keyboard) & io.WantCaptureKeyboard;
+		event.m_Handled |= event.IsInCategory(EventCategoryMouse) & io.WantCaptureMouse;
+		event.m_Handled |= event.IsInCategory(EventCategoryKeyboard) & io.WantCaptureKeyboard;
 	}
 }
 
-void imgui_layer::begin()
+void ImGuiLayer::Begin()
 {
 	WHP_PROFILE_FUNCTION();
 
@@ -77,12 +77,12 @@ void imgui_layer::begin()
 	ImGui::NewFrame();
 }
 
-void imgui_layer::end()
+void ImGuiLayer::End()
 {
 	WHP_PROFILE_FUNCTION();
 
 	ImGuiIO& io = ImGui::GetIO();
-	io.DisplaySize = ImVec2((float)application::get().get_window().get_width(), (float)application::get().get_window().get_height());
+	io.DisplaySize = ImVec2((float)Application::Get().GetWindow().GetWidth(), (float)Application::Get().GetWindow().GetHeight());
 
 	// RENDERING
 	ImGui::Render();
@@ -90,20 +90,20 @@ void imgui_layer::end()
 
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
-		GLFWwindow* backup_context = glfwGetCurrentContext();
+		GLFWwindow* backupContext = glfwGetCurrentContext();
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
-		glfwMakeContextCurrent(backup_context);
+		glfwMakeContextCurrent(backupContext);
 	}
 }
 
 
-uint32_t imgui_layer::get_active_widgetID() const
+uint32_t ImGuiLayer::GetActiveWidgetID() const
 {
 	return GImGui->ActiveId;
 }
 
-void imgui_layer::set_initial_style()
+void ImGuiLayer::SetInitialStyle()
 {
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.Alpha = 1.0f;
@@ -160,9 +160,9 @@ void imgui_layer::set_initial_style()
 
 }
 
-void imgui_layer::set_dark_theme_color()
+void ImGuiLayer::SetDarkThemeColor()
 {
-	UI::apply_editor_theme(UI::editor_theme::whip_dark);
+	UI::ApplyEditorTheme(UI::EditorTheme::WhipDark);
 }
 
 _WHIP_END

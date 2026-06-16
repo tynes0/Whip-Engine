@@ -1,0 +1,130 @@
+#pragma once
+
+#include <filesystem>
+#include <memory>
+#include <string>
+
+#include <Whip/Asset/EditorAssetManager.h>
+#include <Whip/Asset/RuntimeAssetManager.h>
+#include <Whip/Core/Core.h>
+#include <Whip/Core/Log.h>
+#include <Whip/Core/Memory.h>
+#include <Whip/Utils/FileExtensions.h>
+
+_WHIP_START
+
+struct ProjectConfig
+{
+	std::string m_Name = "Untitled";
+
+	AssetHandle m_StartScene = 0;
+
+	std::filesystem::path m_AssetDirectory;
+	std::filesystem::path m_CacheDirectory;
+	std::filesystem::path m_AssetRegistryPath = FileExtensions::AssetRegistryFilename;
+	std::filesystem::path m_ScriptModulePath;
+};
+
+class Project
+{
+public:
+	const std::filesystem::path& GetProjectDirectory()
+	{
+		return s_ActiveProject->m_ProjectDirectory;
+	}
+
+	const std::filesystem::path& GetProjectPath()
+	{
+		return s_ActiveProject->m_ProjectPath;
+	}
+
+	void SetProjectPath(const std::filesystem::path& path)
+	{
+		s_ActiveProject->m_ProjectPath = path;
+		s_ActiveProject->m_ProjectDirectory = path.parent_path();
+	}
+
+	std::filesystem::path GetAssetDirectory()
+	{
+		return GetProjectDirectory() / s_ActiveProject->m_Config.m_AssetDirectory;
+	}
+
+	std::filesystem::path GetAssetRegistryPath()
+	{
+		return GetAssetDirectory() / s_ActiveProject->m_Config.m_AssetRegistryPath;
+	}
+
+	std::filesystem::path GetAssetFileSystemPath(const std::filesystem::path& path)
+	{
+		return GetAssetDirectory() / path;
+	}
+
+	std::filesystem::path GetAssetAbsolutePath(const std::filesystem::path& path);
+
+	static const std::filesystem::path& GetActiveProjectDirectory()
+	{
+		WHP_CORE_ASSERT(s_ActiveProject);
+		return s_ActiveProject->GetProjectDirectory();
+	}
+
+	static const std::filesystem::path& GetActiveProjectPath()
+	{
+		WHP_CORE_ASSERT(s_ActiveProject);
+		return s_ActiveProject->GetProjectPath();
+	}
+
+	static void SetActiveProjectPath(const std::filesystem::path& path)
+	{
+		WHP_CORE_ASSERT(s_ActiveProject);
+		s_ActiveProject->SetProjectPath(path);
+	}
+
+	static std::filesystem::path GetActiveAssetDirectory()
+	{
+		WHP_CORE_ASSERT(s_ActiveProject);
+		return s_ActiveProject->GetAssetDirectory();
+	}
+
+	static std::filesystem::path GetActiveAssetRegistryPath()
+	{
+		WHP_CORE_ASSERT(s_ActiveProject);
+		return s_ActiveProject->GetAssetRegistryPath();
+	}
+
+	static std::filesystem::path GetActiveAssetFileSystemPath(const std::filesystem::path& path)
+	{
+		WHP_CORE_ASSERT(s_ActiveProject);
+		return s_ActiveProject->GetAssetFileSystemPath(path);
+	}
+
+	ProjectConfig& GetConfig() { return m_Config; }
+	const ProjectConfig& GetConfig() const { return m_Config; }
+
+	static Ref<Project> GetActive() { return s_ActiveProject; }
+	static void SetActive(const Ref<Project>& project) { s_ActiveProject = project; }
+
+	std::shared_ptr<AssetManagerBase> GetAssetManager() { return m_Running ? m_RuntimeAssetManager : m_EditorAssetManager; }
+	std::shared_ptr<RuntimeAssetManager> GetRuntimeAssetManager() const { return std::static_pointer_cast<RuntimeAssetManager>(m_RuntimeAssetManager); }
+	std::shared_ptr<EditorAssetManager> GetEditorAssetManager() const { return std::static_pointer_cast<EditorAssetManager>(m_EditorAssetManager); }
+
+	static Ref<Project> NewProject();
+	static Ref<Project> Load(const std::filesystem::path& path);
+	static bool SaveActive();
+	static bool SaveActive(const std::filesystem::path& path);
+
+	static void RunState(bool running) { s_ActiveProject->m_Running = running; }
+	static bool Running() { return s_ActiveProject->m_Running; }
+	static bool Loaded() { return s_ActiveProject->m_Loaded; }
+private:
+	bool m_Loaded = false;
+	bool m_Running = false;
+	ProjectConfig m_Config;
+	std::filesystem::path m_ProjectDirectory;
+	std::filesystem::path m_ProjectPath;
+	std::shared_ptr<AssetManagerBase> m_EditorAssetManager;
+	std::shared_ptr<AssetManagerBase> m_RuntimeAssetManager;
+
+	inline static Ref<Project> s_ActiveProject;
+};
+
+_WHIP_END

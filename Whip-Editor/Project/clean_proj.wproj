@@ -1,5 +1,5 @@
-project:
+﻿project:
   name: Clean Project
-  start_scene: scenes\3dscene.whip
+  start_scene: scenes\3dscene.wscene
   asset_directory: assets
   script_module_path: ""

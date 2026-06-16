@@ -1,50 +1,50 @@
-#include <whippch.h>
+#include <WhipPch.h>
 #include "WindowsWindow.h"
 
 #include <Platform/OpenGL/OpenGLContext.h>
 
-#include "Whip/Events/ApplicationEvent.h"
-#include "Whip/Events/KeyEvent.h"
-#include "Whip/Events/MouseEvent.h"
+#include <Whip/Events/ApplicationEvent.h>
+#include <Whip/Events/KeyEvent.h>
+#include <Whip/Events/MouseEvent.h>
 
 #include <Whip/Debug/Instrumentor.h>
 
 _WHIP_START
 
-static uint32_t s_GLFWwindow_count = 0;
-static float s_scroll_delta = 0.0f;
+static uint32_t s_GLFWWindowCount = 0;
+static float s_ScrollDelta = 0.0f;
 
 #ifdef WHP_PLATFORM_WINDOWS
 
-WHP_NODISCARD window* window::create(const window_props& props)
+WHP_NODISCARD Window* Window::Create(const WindowProps& props)
 {
-	return new windows_window(props);
+	return new WindowsWindow(props);
 }
 
 #endif // WHP_PLATFORM_WINDOWS
 
-windows_window::windows_window(const window_props& props)
+WindowsWindow::WindowsWindow(const WindowProps& props)
 {
 	WHP_PROFILE_FUNCTION();
 
-	init(props);
+	Init(props);
 }
 
-windows_window::~windows_window()
+WindowsWindow::~WindowsWindow()
 {
 	WHP_PROFILE_FUNCTION();
 
-	shutdown();
+	Shutdown();
 }
 
-void windows_window::init(const window_props& props)
+void WindowsWindow::Init(const WindowProps& props)
 {
 	WHP_PROFILE_FUNCTION();
 
-	WHP_CORE_INFO("[Application] Creating Window {0} ({1}, {2})", props.title, props.width, props.height);
+	WHP_CORE_INFO("[Application] Creating Window {0} ({1}, {2})", props.m_Title, props.m_Width, props.m_Height);
 
 	// initialize GLFW
-	if (s_GLFWwindow_count == 0)
+	if (s_GLFWWindowCount == 0)
 	{
 		WHP_PROFILE_SCOPE("glfwInit");
 		int success = glfwInit();
@@ -61,163 +61,164 @@ void windows_window::init(const window_props& props)
 	// Get monitor video mode
 	const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
 
-	glfwWindowHint(GLFW_MAXIMIZED, props.fullscreen);
+	glfwWindowHint(GLFW_MAXIMIZED, props.m_Fullscreen);
 	
-	// create window
+	// create Window
 	{
 		WHP_PROFILE_SCOPE("glfwCreateWindow");
-		m_window = glfwCreateWindow((int)props.width, (int)props.height, m_data.win_props.title.c_str(), nullptr, nullptr);
-		++s_GLFWwindow_count;
+		m_Data.m_Properties = props;
+		m_Window = glfwCreateWindow((int)props.m_Width, (int)props.m_Height, m_Data.m_Properties.m_Title.c_str(), nullptr, nullptr);
+		++s_GLFWWindowCount;
 	}
 
-	if (props.fullscreen)
-		glfwGetWindowSize(m_window, (int*)(&m_data.win_props.width), (int*)(&m_data.win_props.height));
+	if (props.m_Fullscreen)
+		glfwGetWindowSize(m_Window, (int*)(&m_Data.m_Properties.m_Width), (int*)(&m_Data.m_Properties.m_Height));
 	
 
-	m_context = graphic_context::create(m_window);
-	m_context->init();
+	m_Context = GraphicContext::Create(m_Window);
+	m_Context->Init();
 
-	glfwSetWindowUserPointer(m_window, &m_data);
+	glfwSetWindowUserPointer(m_Window, &m_Data);
 
 	// Set GLFW callbacks
-	glfwSetWindowSizeCallback(m_window, [](GLFWwindow* window, int width, int height)->void
+	glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, int width, int height)->void
 		{
-			window_data& data = DREF(window_data*)glfwGetWindowUserPointer(window);
-			data.win_props.width = width;
-			data.win_props.height = height;
-			window_resize_event evnt(width, height);
-			data.event_callback(evnt);
+			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
+			data.m_Properties.m_Width = width;
+			data.m_Properties.m_Height = height;
+			WindowResizeEvent event(width, height);
+			data.m_EventCallback(event);
 		});
 
-	glfwSetWindowCloseCallback(m_window, [](GLFWwindow* window)->void 
+	glfwSetWindowCloseCallback(m_Window, [](GLFWwindow* window)->void 
 		{
-			window_data& data = DREF(window_data*)glfwGetWindowUserPointer(window);
-			window_close_event evnt;
-			data.event_callback(evnt);
+			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
+			WindowCloseEvent event;
+			data.m_EventCallback(event);
 		});
 
-	glfwSetKeyCallback(m_window, [](GLFWwindow * window, int key, int scanmode, int action, int mods)->void
+	glfwSetKeyCallback(m_Window, [](GLFWwindow * window, int key, int scanmode, int action, int mods)->void
 		{
-			window_data& data = DREF(window_data*)glfwGetWindowUserPointer(window);
-			static repeat_t repeat_time = 1;
+			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
+			static RepeatType repeatTime = 1;
 			switch (action)
 			{
 				case GLFW_RELEASE:
 				{
-					key_released_event evnt(static_cast<key_code>(key));
-					data.event_callback(evnt);
-					repeat_time = 1;
+					KeyReleasedEvent event(static_cast<KeyCode>(key));
+					data.m_EventCallback(event);
+					repeatTime = 1;
 					break;
 				}
 				case GLFW_PRESS:
 				{
-					key_pressed_event evnt(static_cast<key_code>(key), 0);
-					data.event_callback(evnt);
+					KeyPressedEvent event(static_cast<KeyCode>(key), 0);
+					data.m_EventCallback(event);
 					break;
 				}
 
 				case GLFW_REPEAT:
 				{
-					key_pressed_event evnt(static_cast<key_code>(key), repeat_time++);
-					data.event_callback(evnt);
+					KeyPressedEvent event(static_cast<KeyCode>(key), repeatTime++);
+					data.m_EventCallback(event);
 					break;
 				}
 			}
 		});
 
-	glfwSetCharCallback(m_window, [](GLFWwindow* window, unsigned int keycode)->void
-		{
-			window_data& data = DREF(window_data*)glfwGetWindowUserPointer(window);
-			key_typed_event evnt(keycode);
-			data.event_callback(evnt);
-		});
+	glfwSetCharCallback(m_Window, [](GLFWwindow* window, unsigned int keyCode)->void
+	{
+		WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
+		KeyTypedEvent event(keyCode);
+		data.m_EventCallback(event);
+	});
 
-	glfwSetMouseButtonCallback(m_window, [](GLFWwindow* window, int button, int action, int mods)->void 
+	glfwSetMouseButtonCallback(m_Window, [](GLFWwindow* window, int button, int action, int mods)->void 
 		{
-			window_data& data = DREF(window_data*)glfwGetWindowUserPointer(window);
+			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
 			switch (action)
 			{
 				case GLFW_RELEASE:
 				{
-					mouse_button_released_event evnt(static_cast<mouse_code>(button));
-					data.event_callback(evnt);
+					MouseButtonReleasedEvent event(static_cast<MouseCode>(button));
+					data.m_EventCallback(event);
 					break;
 				}
 				case GLFW_PRESS:
 				{
-					mouse_button_pressed_event evnt(static_cast<mouse_code>(button));
-					data.event_callback(evnt);
+					MouseButtonPressedEvent event(static_cast<MouseCode>(button));
+					data.m_EventCallback(event);
 					break;
 				}
 			}
 		});
-	glfwSetScrollCallback(m_window, [](GLFWwindow* window, double OffsetX, double OffsetY)->void
+	glfwSetScrollCallback(m_Window, [](GLFWwindow* window, double offsetX, double offsetY)->void
 		{
-			window_data& data = DREF(window_data*)glfwGetWindowUserPointer(window);
-			mouse_scrolled_event evnt((float)OffsetX, (float)OffsetY);
-			data.event_callback(evnt);
-			s_scroll_delta = (float)OffsetY;
+			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
+			MouseScrolledEvent event((float)offsetX, (float)offsetY);
+			data.m_EventCallback(event);
+			s_ScrollDelta = (float)offsetY;
 		});
-	glfwSetCursorPosCallback(m_window, [](GLFWwindow* window, double posX, double posY)->void
+	glfwSetCursorPosCallback(m_Window, [](GLFWwindow* window, double posX, double posY)->void
 		{
-			window_data& data = DREF(window_data*)glfwGetWindowUserPointer(window);
-			mouse_moved_event evnt((float)posX, (float)posY);
-			data.event_callback(evnt);
+			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
+			MouseMovedEvent event((float)posX, (float)posY);
+			data.m_EventCallback(event);
 		});
 
-	glfwSetDropCallback(m_window, [](GLFWwindow* window, int pathCount, const char* paths[])
+	glfwSetDropCallback(m_Window, [](GLFWwindow* window, int pathCount, const char* paths[])
 		{
-			window_data& data = *(window_data*)glfwGetWindowUserPointer(window);
+			WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
 
 			std::vector<std::filesystem::path> filepaths(pathCount);
 			for (int i = 0; i < pathCount; i++)
 				filepaths[i] = paths[i];
 
-			window_drop_event event(std::move(filepaths));
-			data.event_callback(event);
+			WindowDropEvent event(std::move(filepaths));
+			data.m_EventCallback(event);
 		});
 
-	WHP_CORE_INFO("[Application] Created Window {0} ({1}, {2})", props.title, props.width, props.height);
+	WHP_CORE_INFO("[Application] Created Window {0} ({1}, {2})", props.m_Title, props.m_Width, props.m_Height);
 }
 
-void windows_window::shutdown()
+void WindowsWindow::Shutdown()
 {
 	WHP_PROFILE_FUNCTION();
 
-	if (!m_window)
+	if (!m_Window)
 		return;
 
-	glfwDestroyWindow(m_window);
-	m_window = nullptr;
+	glfwDestroyWindow(m_Window);
+	m_Window = nullptr;
 
-	if (s_GLFWwindow_count > 0)
-		--s_GLFWwindow_count;
+	if (s_GLFWWindowCount > 0)
+		--s_GLFWWindowCount;
 
-	if (s_GLFWwindow_count == 0)
+	if (s_GLFWWindowCount == 0)
 		glfwTerminate();
 }
 
-void windows_window::on_update()
+void WindowsWindow::OnUpdate()
 {
 	WHP_PROFILE_FUNCTION();
-	s_scroll_delta = 0;
+	s_ScrollDelta = 0;
 	glfwPollEvents();
-	m_context->swap_buffers();
+	m_Context->SwapBuffers();
 }
 
-WHP_NODISCARD float windows_window::get_scroll_delta() const
+WHP_NODISCARD float WindowsWindow::GetScrollDelta() const
 {
-	return s_scroll_delta;
+	return s_ScrollDelta;
 }
 
-std::pair<int, int> windows_window::get_position() const
+std::pair<int, int> WindowsWindow::GetPosition() const
 {
 	int x, y;
-	glfwGetWindowPos(m_window, &x, &y);
+	glfwGetWindowPos(m_Window, &x, &y);
 	return { x, y };
 }
 
-void windows_window::set_vsync(bool enabled)
+void WindowsWindow::SetVsync(bool enabled)
 {
 	WHP_PROFILE_FUNCTION();
 
@@ -229,12 +230,12 @@ void windows_window::set_vsync(bool enabled)
 	{
 		glfwSwapInterval(0);
 	}
-	m_data.vsync = enabled;
+	m_Data.m_Vsync = enabled;
 }
 
-bool windows_window::is_vsync() const
+bool WindowsWindow::IsVsync() const
 {
-	return m_data.vsync;
+	return m_Data.m_Vsync;
 }
 
 _WHIP_END

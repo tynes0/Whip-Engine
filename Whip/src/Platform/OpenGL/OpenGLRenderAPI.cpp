@@ -1,11 +1,11 @@
-#include <whippch.h>
+#include <WhipPch.h>
 #include "OpenGLRenderAPI.h"
 
 #include <glad/glad.h>
 
 _WHIP_START
 
-void opengl_message_callback(unsigned source, unsigned type, unsigned id, unsigned severity, int length, const char* message, const void* userParam)
+void OpenglMessageCallback(unsigned source, unsigned type, unsigned id, unsigned severity, int length, const char* message, const void* userParam)
 {
 	switch (severity)
 	{
@@ -18,14 +18,14 @@ void opengl_message_callback(unsigned source, unsigned type, unsigned id, unsign
 	WHP_CORE_ASSERT(false, "Unknown severity level!");
 }
 
-void opengl_render_API::init()
+void OpenGLRenderAPI::Init()
 {
 	WHP_PROFILE_FUNCTION();
 
 #ifdef WHP_DEBUG
 	glEnable(GL_DEBUG_OUTPUT);
 	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-	glDebugMessageCallback(opengl_message_callback, nullptr);
+	glDebugMessageCallback(OpenglMessageCallback, nullptr);
 
 	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, NULL, GL_FALSE);
 #endif
@@ -39,35 +39,35 @@ void opengl_render_API::init()
 	glEnable(GL_LINE_SMOOTH);
 }
 
-void opengl_render_API::set_viewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+void OpenGLRenderAPI::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
 {
 	glViewport(x, y, width, height);
 }
 
-void opengl_render_API::set_clear_color(const glm::vec4& color)
+void OpenGLRenderAPI::SetClearColor(const glm::vec4& color)
 {
 	glClearColor(color.r, color.g, color.b, color.a);
 }
 
-void opengl_render_API::clear()
+void OpenGLRenderAPI::Clear()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void opengl_render_API::draw_indexed(const ref<vertex_array>& vertexArray, uint32_t index_count)
+void OpenGLRenderAPI::DrawIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount)
 {
-	vertexArray->bind();
-	uint32_t count = (index_count != 0) ? index_count : vertexArray->get_index_buffer()->get_count();
+	vertexArray->Bind();
+	uint32_t count = (indexCount != 0) ? indexCount : vertexArray->GetIndexBuffer()->GetCount();
 	glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr);
 }
 
-void opengl_render_API::draw_lines(const ref<vertex_array>& vertexArray, uint32_t vertex_count)
+void OpenGLRenderAPI::DrawLines(const Ref<VertexArray>& vertexArray, uint32_t vertexCount)
 {
-	vertexArray->bind();
-	glDrawArrays(GL_LINES, 0, vertex_count);
+	vertexArray->Bind();
+	glDrawArrays(GL_LINES, 0, vertexCount);
 }
 
-void opengl_render_API::set_line_width(float width)
+void OpenGLRenderAPI::SetLineWidth(float width)
 {
 	float range[2];
 	glGetFloatv(GL_LINE_WIDTH_RANGE, range);

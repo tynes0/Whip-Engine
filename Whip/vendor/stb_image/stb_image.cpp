@@ -1,4 +1,4 @@
-#include <whippch.h>
+#include <WhipPch.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"

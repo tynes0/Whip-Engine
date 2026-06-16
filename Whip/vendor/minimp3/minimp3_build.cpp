@@ -1,4 +1,4 @@
-#include <whippch.h>
+#include <WhipPch.h>
 
 #define MINIMP3_IMPLEMENTATION
 

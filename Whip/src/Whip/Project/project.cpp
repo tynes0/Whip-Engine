@@ -1,58 +1,117 @@
-#include "whippch.h"
-#include "project.h"
-#include "project_serializer.h"
-#include <Whip/Utils/platform_utils.h>
+#include "WhipPch.h"
+#include <Whip/Project/Project.h>
+#include <Whip/Project/ProjectSerializer.h>
 
 _WHIP_START
 
-std::filesystem::path project::get_asset_absolute_path(const std::filesystem::path& path)
+namespace
 {
-	return get_asset_directory() / path;
-}
-
-ref<project> project::new_project()
-{
-	s_active_project = make_ref<project>();
-	s_active_project->m_loaded = true;
-	return s_active_project;
-}
-
-ref<project> project::load(const std::filesystem::path& path)
-{
-	ref<project> result = make_ref<project>();
-	project_serializer serializer(result);
-	if (serializer.deserialize(path))
+	bool MigrateAssetRegistryExtension(const Ref<Project>& projectIn)
 	{
-		result->m_project_path = path;
-		result->m_project_directory = path.parent_path();
-		s_active_project = result;
-		std::shared_ptr<editor_asset_manager> editor_asset_mnger = std::make_shared<editor_asset_manager>();
-		editor_asset_mnger->deserialize_asset_registry();
-		s_active_project->m_editor_asset_manager = editor_asset_mnger;
-		std::shared_ptr<runtime_asset_manager> runtime_asset_mnger = std::make_shared<runtime_asset_manager>();
-		runtime_asset_mnger->set_editor_asset_manager(editor_asset_mnger);
-		s_active_project->m_runtime_asset_manager = runtime_asset_mnger;
-		s_active_project->m_loaded = true;
-		return s_active_project;
+		if (!projectIn)
+			return false;
+
+		ProjectConfig& config = projectIn->GetConfig();
+		if (!FileExtensions::ExtensionEquals(config.m_AssetRegistryPath, FileExtensions::AssetRegistryLegacy))
+			return false;
+
+		std::filesystem::path legacyRelativePath = config.m_AssetRegistryPath;
+		std::filesystem::path modernRelativePath = legacyRelativePath;
+		modernRelativePath.replace_extension(FileExtensions::AssetRegistry);
+
+		const std::filesystem::path assetDirectory = projectIn->GetAssetDirectory();
+		const std::filesystem::path legacyPath = assetDirectory / legacyRelativePath;
+		const std::filesystem::path modernPath = assetDirectory / modernRelativePath;
+
+		std::error_code error;
+		if (std::filesystem::exists(modernPath, error))
+		{
+			config.m_AssetRegistryPath = modernRelativePath;
+			return true;
+		}
+
+		if (std::filesystem::exists(legacyPath, error))
+		{
+			std::filesystem::rename(legacyPath, modernPath, error);
+			if (error)
+			{
+				error.clear();
+				std::filesystem::copy_file(legacyPath, modernPath, std::filesystem::copy_options::overwrite_existing, error);
+				if (error)
+					return false;
+			}
+		}
+
+		config.m_AssetRegistryPath = modernRelativePath;
+		return true;
 	}
+}
+
+std::filesystem::path Project::GetAssetAbsolutePath(const std::filesystem::path& path)
+{
+	return GetAssetDirectory() / path;
+}
+
+Ref<Project> Project::NewProject()
+{
+	s_ActiveProject = MakeRef<Project>();
+	s_ActiveProject->m_Loaded = true;
+	return s_ActiveProject;
+}
+
+Ref<Project> Project::Load(const std::filesystem::path& path)
+{
+	WHP_CORE_INFO("[Project] Load begin: {0}", path.string());
+	Ref<Project> result = MakeRef<Project>();
+	ProjectSerializer serializer(result);
+	WHP_CORE_INFO("[Project] Deserializing Project file.");
+	if (serializer.Deserialize(path))
+	{
+		WHP_CORE_INFO("[Project] Project file deserialized.");
+		result->m_ProjectPath = path;
+		result->m_ProjectDirectory = path.parent_path();
+		s_ActiveProject = result;
+
+		WHP_CORE_INFO("[Project] Migrating Asset registry extension if needed.");
+		if (MigrateAssetRegistryExtension(result))
+		{
+			ProjectSerializer migratedSerializer(result);
+			migratedSerializer.Serialize(path);
+		}
+
+		WHP_CORE_INFO("[Project] Loading editor Asset registry.");
+		std::shared_ptr<EditorAssetManager> editorAssetManager = std::make_shared<EditorAssetManager>();
+		editorAssetManager->DeserializeAssetRegistry();
+		s_ActiveProject->m_EditorAssetManager = editorAssetManager;
+		WHP_CORE_INFO("[Project] Editor Asset registry loaded.");
+
+		std::shared_ptr<RuntimeAssetManager> runtimeAssetManager = std::make_shared<RuntimeAssetManager>();
+		runtimeAssetManager->SetEditorAssetManager(editorAssetManager);
+		s_ActiveProject->m_RuntimeAssetManager = runtimeAssetManager;
+
+		s_ActiveProject->m_Loaded = true;
+		WHP_CORE_INFO("[Project] Load complete.");
+		return s_ActiveProject;
+	}
+	WHP_CORE_WARN("[Project] Load failed during Project file deserialization: {0}", path.string());
 	return nullptr;
 }
 
-bool project::save_active()
+bool Project::SaveActive()
 {
-	project_serializer serializer(s_active_project);
-	if (serializer.serialize(s_active_project->m_project_path))
+	ProjectSerializer serializer(s_ActiveProject);
+	if (serializer.Serialize(s_ActiveProject->m_ProjectPath))
 		return true;
 	return false;
 }
 
-bool project::save_active(const std::filesystem::path& path)
+bool Project::SaveActive(const std::filesystem::path& path)
 {
-	project_serializer serializer(s_active_project);
-	if (serializer.serialize(path))
+	ProjectSerializer serializer(s_ActiveProject);
+	if (serializer.Serialize(path))
 	{
-		s_active_project->m_project_path = path;
-		s_active_project->m_project_directory = path.parent_path();
+		s_ActiveProject->m_ProjectPath = path;
+		s_ActiveProject->m_ProjectDirectory = path.parent_path();
 		return true;
 	}
 	return false;

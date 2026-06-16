@@ -1,52 +1,52 @@
-#include "whippch.h"
-#include "LayerStack.h"
+#include "WhipPch.h"
+#include <Whip/Core/LayerStack.h>
 
 _WHIP_START
 
-layer_stack::layer_stack() {}
+LayerStack::LayerStack() {}
 
-layer_stack::~layer_stack()
+LayerStack::~LayerStack()
 {
-	clear();
+	Clear();
 }
 
-void layer_stack::push_layer(layerptr layer)
+void LayerStack::PushLayer(LayerPtr layer)
 {
-	m_layers.insert(m_layers.begin() + m_layer_insert_index, layer);
-	m_layer_insert_index++;
+	m_Layers.insert(m_Layers.begin() + m_LayerInsertIndex, layer);
+	m_LayerInsertIndex++;
 }
 
-void layer_stack::push_overlay(layerptr overlay)
+void LayerStack::PushOverlay(LayerPtr overlay)
 {
-	m_layers.push_back(overlay);
+	m_Layers.push_back(overlay);
 }
 
-void layer_stack::pop_layer(layerptr layer)
+void LayerStack::PopLayer(LayerPtr layer)
 {
-	auto iterator = std::find(m_layers.begin(), m_layers.end(), layer);
-	if (iterator != m_layers.end())
+	auto iterator = std::find(m_Layers.begin(), m_Layers.end(), layer);
+	if (iterator != m_Layers.end())
 	{
-		m_layers.erase(iterator);
-		m_layer_insert_index--;
+		m_Layers.erase(iterator);
+		m_LayerInsertIndex--;
 	}
 }
 
-void layer_stack::pop_overlay(layerptr overlay)
+void LayerStack::PopOverlay(LayerPtr overlay)
 {
-	auto iterator = std::find(m_layers.begin(), m_layers.end(), overlay);
-	if (iterator != m_layers.end())
+	auto iterator = std::find(m_Layers.begin(), m_Layers.end(), overlay);
+	if (iterator != m_Layers.end())
 	{
-		m_layers.erase(iterator);
+		m_Layers.erase(iterator);
 	}
 }
 
-void layer_stack::clear()
+void LayerStack::Clear()
 {
-	for (layerptr item : m_layers)
+	for (LayerPtr item : m_Layers)
 		delete item;
 
-	m_layers.clear();
-	m_layer_insert_index = 0;
+	m_Layers.clear();
+	m_LayerInsertIndex = 0;
 }
 
 _WHIP_END

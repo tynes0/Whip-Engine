@@ -9,6 +9,7 @@ whip_set_target_output(F-Box)
 whip_configure_native_target(F-Box)
 
 target_include_directories(F-Box PRIVATE
+    "${CMAKE_SOURCE_DIR}/Whip/include"
     "${CMAKE_SOURCE_DIR}/Whip/src"
     "${CMAKE_SOURCE_DIR}/Whip/vendor"
     "${CMAKE_CURRENT_SOURCE_DIR}/src")

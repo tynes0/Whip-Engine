@@ -6,30 +6,30 @@
 
 _WHIP_START
 
-class opengl_texture2D : public texture2D
+class OpenGLTexture2D : public Texture2D
 {
 public:
-	opengl_texture2D(const texture_specification& spesification, raw_buffer data = raw_buffer());
-	virtual ~opengl_texture2D();
+	OpenGLTexture2D(const TextureSpecification& specification, RawBuffer data = RawBuffer());
+	virtual ~OpenGLTexture2D();
 
-	virtual const texture_specification& get_specification() const override { return m_specification; }
+	virtual const TextureSpecification& GetSpecification() const override { return m_Specification; }
 
-	WHP_NODISCARD virtual uint32_t get_width() const override { return m_specification.width; }
-	WHP_NODISCARD virtual uint32_t get_height() const override { return m_specification.height; }
+	WHP_NODISCARD virtual uint32_t GetWidth() const override { return m_Specification.m_Width; }
+	WHP_NODISCARD virtual uint32_t GetHeight() const override { return m_Specification.m_Height; }
 
-	WHP_NODISCARD virtual renderer_id_t get_renderer_id() const override { return m_rendererID; }
+	WHP_NODISCARD virtual RendererId GetRendererId() const override { return m_RendererID; }
 
-	virtual void set_data(raw_buffer data) override;
-	virtual raw_buffer get_data() const override;
-	virtual void bind(uint32_t slot = 0) const override;
-	virtual bool is_loaded() const override { return m_is_loaded; }
-	virtual bool operator==(const texture& other) const override;
+	virtual void SetData(RawBuffer data) override;
+	virtual RawBuffer GetData() const override;
+	virtual void Bind(uint32_t slot = 0) const override;
+	virtual bool IsLoaded() const override { return m_IsLoaded; }
+	virtual bool operator==(const Texture& other) const override;
 private:
-	texture_specification m_specification;
+	TextureSpecification m_Specification;
 
-	bool m_is_loaded = false;
-	renderer_id_t m_rendererID = 0;
-	GLenum m_internal_format, m_data_format;
+	bool m_IsLoaded = false;
+	RendererId m_RendererID = 0;
+	GLenum m_InternalFormat, m_DataFormat;
 };
 
 _WHIP_END

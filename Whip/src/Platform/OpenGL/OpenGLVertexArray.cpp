@@ -1,4 +1,4 @@
-#include <whippch.h>
+#include <WhipPch.h>
 
 #include <glad/glad.h>
 
@@ -6,117 +6,117 @@
 
 _WHIP_START
 
-static GLenum shader_data_type_to_opengl_base_type(shader_data_type type)
+static GLenum ShaderDataTypeToOpenGLBaseType(ShaderDataType type)
 {
 	switch (type)
 	{
-		case whip::shader_data_type::none:			WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
-		case whip::shader_data_type::Float:			return GL_FLOAT;
-		case whip::shader_data_type::Float2:		return GL_FLOAT;
-		case whip::shader_data_type::Float3:		return GL_FLOAT;
-		case whip::shader_data_type::Float4:		return GL_FLOAT;
-		case whip::shader_data_type::Mat3:			return GL_FLOAT;
-		case whip::shader_data_type::Mat4:			return GL_FLOAT;
-		case whip::shader_data_type::Bool:			return GL_BOOL;
-		case whip::shader_data_type::Int:			return GL_INT;
-		case whip::shader_data_type::Int2:			return GL_INT;
-		case whip::shader_data_type::Int3:			return GL_INT;
-		case whip::shader_data_type::Int4:			return GL_INT;
+		case whip::ShaderDataType::None:			WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
+		case whip::ShaderDataType::Float:			return GL_FLOAT;
+		case whip::ShaderDataType::Float2:		return GL_FLOAT;
+		case whip::ShaderDataType::Float3:		return GL_FLOAT;
+		case whip::ShaderDataType::Float4:		return GL_FLOAT;
+		case whip::ShaderDataType::Mat3:			return GL_FLOAT;
+		case whip::ShaderDataType::Mat4:			return GL_FLOAT;
+		case whip::ShaderDataType::Bool:			return GL_BOOL;
+		case whip::ShaderDataType::Int:			return GL_INT;
+		case whip::ShaderDataType::Int2:			return GL_INT;
+		case whip::ShaderDataType::Int3:			return GL_INT;
+		case whip::ShaderDataType::Int4:			return GL_INT;
 	}
 	WHP_CORE_ASSERT(false, "Unknown ShaderDataType!");
 	return 0;
 }
 
-opengl_vertex_array::opengl_vertex_array()
+OpenGLVertexArray::OpenGLVertexArray()
 {
 	WHP_PROFILE_FUNCTION();
 
-	glCreateVertexArrays(1, &m_rendererID);
+	glCreateVertexArrays(1, &m_RendererID);
 }
 
-opengl_vertex_array::~opengl_vertex_array()
+OpenGLVertexArray::~OpenGLVertexArray()
 {
-	glDeleteVertexArrays(1, &m_rendererID);
+	glDeleteVertexArrays(1, &m_RendererID);
 }
 
-void opengl_vertex_array::bind() const
+void OpenGLVertexArray::Bind() const
 {
 	WHP_PROFILE_FUNCTION();
 
-	glBindVertexArray(m_rendererID);
+	glBindVertexArray(m_RendererID);
 }
 
-void opengl_vertex_array::unbind() const
+void OpenGLVertexArray::Unbind() const
 {
 	WHP_PROFILE_FUNCTION();
 
 	glBindVertexArray(0);
 }
 
-void opengl_vertex_array::add_vertex_buffer(const ref<vertex_buffer>& vertex_buffer_in)
+void OpenGLVertexArray::AddVertexBuffer(const Ref<VertexBuffer>& vertexBuffer)
 {
 	WHP_PROFILE_FUNCTION();
 
-	WHP_CORE_ASSERT(vertex_buffer_in->get_layout().get_elements().size(), "Vertex Buffer has no layout");
+	WHP_CORE_ASSERT(vertexBuffer->GetLayout().GetElements().size(), "Vertex Buffer has no layout");
 	
-	glBindVertexArray(m_rendererID);
-	vertex_buffer_in->bind();
+	glBindVertexArray(m_RendererID);
+	vertexBuffer->Bind();
 
 	uint32_t index = 0;
-	const auto& layout = vertex_buffer_in->get_layout();
+	const auto& layout = vertexBuffer->GetLayout();
 	for (const auto& elem : layout)
 	{
-		switch(elem.type)
+		switch(elem.m_Type)
 		{
-		case shader_data_type::Float:
-		case shader_data_type::Float2:
-		case shader_data_type::Float3:
-		case shader_data_type::Float4:
+		case ShaderDataType::Float:
+		case ShaderDataType::Float2:
+		case ShaderDataType::Float3:
+		case ShaderDataType::Float4:
 		{
-			glEnableVertexAttribArray(m_vertex_buffer_index);
-			glVertexAttribPointer(m_vertex_buffer_index, elem.get_component_count(), shader_data_type_to_opengl_base_type(elem.type), elem.normalized ? GL_TRUE : GL_FALSE, static_cast<GLsizei>(layout.get_stride()), (const void*)elem.offset);
-			m_vertex_buffer_index++;
+			glEnableVertexAttribArray(m_VertexBufferIndex);
+			glVertexAttribPointer(m_VertexBufferIndex, elem.GetComponentCount(), ShaderDataTypeToOpenGLBaseType(elem.m_Type), elem.m_Normalized ? GL_TRUE : GL_FALSE, static_cast<GLsizei>(layout.GetStride()), (const void*)elem.m_Offset);
+			m_VertexBufferIndex++;
 			break;
 		}
-		case shader_data_type::Int:
-		case shader_data_type::Int2:
-		case shader_data_type::Int3:
-		case shader_data_type::Int4:
-		case shader_data_type::Bool:
+		case ShaderDataType::Int:
+		case ShaderDataType::Int2:
+		case ShaderDataType::Int3:
+		case ShaderDataType::Int4:
+		case ShaderDataType::Bool:
 		{
-			glEnableVertexAttribArray(m_vertex_buffer_index);
-			glVertexAttribIPointer(m_vertex_buffer_index, elem.get_component_count(), shader_data_type_to_opengl_base_type(elem.type), static_cast<GLsizei>(layout.get_stride()), (const void*)elem.offset);
-			m_vertex_buffer_index++;
+			glEnableVertexAttribArray(m_VertexBufferIndex);
+			glVertexAttribIPointer(m_VertexBufferIndex, elem.GetComponentCount(), ShaderDataTypeToOpenGLBaseType(elem.m_Type), static_cast<GLsizei>(layout.GetStride()), (const void*)elem.m_Offset);
+			m_VertexBufferIndex++;
 			break;
 		}
-		case shader_data_type::Mat3:
-		case shader_data_type::Mat4:
+		case ShaderDataType::Mat3:
+		case ShaderDataType::Mat4:
 		{
-			uint8_t count = elem.get_component_count();
+			uint8_t count = elem.GetComponentCount();
 			for (uint8_t i = 0; i < count; i++)
 			{
-				glEnableVertexAttribArray(m_vertex_buffer_index);
-				glVertexAttribPointer(m_vertex_buffer_index, count, shader_data_type_to_opengl_base_type(elem.type), elem.normalized ? GL_TRUE : GL_FALSE, static_cast<GLsizei>(layout.get_stride()), (const void*)(elem.offset + sizeof(float) * count * i));
-				glVertexAttribDivisor(m_vertex_buffer_index, 1);
-				m_vertex_buffer_index++;
+				glEnableVertexAttribArray(m_VertexBufferIndex);
+				glVertexAttribPointer(m_VertexBufferIndex, count, ShaderDataTypeToOpenGLBaseType(elem.m_Type), elem.m_Normalized ? GL_TRUE : GL_FALSE, static_cast<GLsizei>(layout.GetStride()), (const void*)(elem.m_Offset + sizeof(float) * count * i));
+				glVertexAttribDivisor(m_VertexBufferIndex, 1);
+				m_VertexBufferIndex++;
 			}
 			break;
 		}
 		default:
-			WHP_CORE_ASSERT(false, "Unknown shader_data_type!");
+			WHP_CORE_ASSERT(false, "Unknown ShaderDataType!");
 		}
 	}
 
-	m_vertex_buffers.push_back(vertex_buffer_in);
+	m_VertexBuffers.push_back(vertexBuffer);
 }
 
-void opengl_vertex_array::set_index_buffer(const ref<index_buffer>& indexBuffer)
+void OpenGLVertexArray::SetIndexBuffer(const Ref<IndexBuffer>& indexBuffer)
 {
 	WHP_PROFILE_FUNCTION();
 
-	glBindVertexArray(m_rendererID);
-	indexBuffer->bind();
-	m_index_buffers = indexBuffer;
+	glBindVertexArray(m_RendererID);
+	indexBuffer->Bind();
+	m_IndexBuffer = indexBuffer;
 }
 
 

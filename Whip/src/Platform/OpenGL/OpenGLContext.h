@@ -6,14 +6,14 @@ struct GLFWwindow;
 
 _WHIP_START
 
-class opengl_context : public graphic_context
+class OpenGLContext : public GraphicContext
 {
 private:
-	GLFWwindow* m_window_handle;
+	GLFWwindow* m_WindowHandle;
 public:
-	opengl_context(GLFWwindow* win_handle);
-	virtual void init() override;
-	virtual void swap_buffers() override;
+	OpenGLContext(GLFWwindow* windowHandle);
+	virtual void Init() override;
+	virtual void SwapBuffers() override;
 };
 
 _WHIP_END

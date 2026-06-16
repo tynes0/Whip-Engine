@@ -1,3 +1,7 @@
+file(GLOB_RECURSE WHIP_PUBLIC_HEADERS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
+
 file(GLOB_RECURSE WHIP_NATIVE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
@@ -17,6 +21,7 @@ set(WHIP_INTERNAL_VENDOR_SOURCES
     "${WHP_IMGUIZMO_DIR}/ImGuizmo.cpp")
 
 add_library(Whip STATIC
+    ${WHIP_PUBLIC_HEADERS}
     ${WHIP_NATIVE_SOURCES}
     ${WHIP_INTERNAL_VENDOR_SOURCES})
 add_library(whip::engine ALIAS Whip)
@@ -24,11 +29,11 @@ add_library(whip::engine ALIAS Whip)
 whip_set_target_output(Whip)
 whip_configure_native_target(Whip)
 
-target_precompile_headers(Whip PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/whippch.h")
+target_precompile_headers(Whip PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/WhipPch.h")
 
 target_include_directories(Whip
     PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/vendor"
         "${WHP_IMGUI_DIR}"
         "${WHP_IMGUI_DIR}/backends"
@@ -40,6 +45,7 @@ target_include_directories(Whip
         "${WHP_MINIMP3_DIR}"
         "${WHP_ALHELPERS_DIR}"
     PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Whip")
 
 set(WHIP_OPTIONAL_PUBLIC_INCLUDE_DIRS)
@@ -97,11 +103,12 @@ endif()
 # Engine-internal third-party sources live under the Whip target to avoid
 # noisy solution projects, but they should still appear in readable source
 # groups inside IDEs.
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src" PREFIX "Engine" FILES ${WHIP_NATIVE_SOURCES})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/include" PREFIX "Engine Headers" FILES ${WHIP_PUBLIC_HEADERS})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src" PREFIX "Engine Source" FILES ${WHIP_NATIVE_SOURCES})
 source_group("Internal Vendor" FILES ${WHIP_INTERNAL_VENDOR_SOURCES})
 
 # ImGui/ImGuizmo/alhelpers/Glad are external code. Do not force Whip's PCH on
-# sources that do not include whippch.h themselves.
+# sources that do not include WhipPch.h themselves.
 foreach(src IN LISTS WHIP_INTERNAL_VENDOR_SOURCES)
     if(src MATCHES "[/\\](imgui|imguizmo|ImGuizmo|alhelpers|Glad|miniaudio|minimp3|stb_image)[/\\]" OR src MATCHES "[/\\]generated[/\\]" OR src MATCHES "[/\\]ImGuizmo\\.cpp$")
         set_source_files_properties("${src}" PROPERTIES SKIP_PRECOMPILE_HEADERS ON)

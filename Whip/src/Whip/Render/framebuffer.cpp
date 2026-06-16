@@ -1,18 +1,18 @@
-#include "whippch.h"
-#include "framebuffer.h"
-#include "Renderer.h"
+#include "WhipPch.h"
+#include <Whip/Render/Framebuffer.h>
+#include <Whip/Render/Renderer.h>
 
-#include "Platform/OpenGL/opengl_framebuffer.h"
+#include "Platform/OpenGL/OpenGLFramebuffer.h"
 #include "Platform/OpenGL/OpenGLBuffer.h"
 
 _WHIP_START
 
-ref<framebuffer> framebuffer::create(const framebuffer_specification& spec)
+Ref<Framebuffer> Framebuffer::Create(const FramebufferSpecification& spec)
 {
-	switch (renderer::get_API())
+	switch (Renderer::GetAPI())
 	{
-	case render_API::API::none:			WHP_CORE_ASSERT(false, "RendererAPI is none!"); return nullptr;
-	case render_API::API::opengl:		return make_ref<opengl_framebuffer>(spec);
+	case RenderAPI::API::None:			WHP_CORE_ASSERT(false, "RendererAPI is none!"); return nullptr;
+	case RenderAPI::API::OpenGL:		return MakeRef<OpenGLFramebuffer>(spec);
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI!");

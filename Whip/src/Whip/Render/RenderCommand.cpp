@@ -1,10 +1,10 @@
-#include "whippch.h"
-#include "RenderCommand.h"
+#include "WhipPch.h"
+#include <Whip/Render/RenderCommand.h>
 
 #include <Platform/OpenGL/OpenGLRenderAPI.h>
 
 _WHIP_START
 
-render_API* render_command::s_render_API = new opengl_render_API();
+RenderAPI* RenderCommand::s_RenderAPI = new OpenGLRenderAPI();
 
 _WHIP_END

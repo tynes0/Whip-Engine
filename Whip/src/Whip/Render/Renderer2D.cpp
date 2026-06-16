@@ -1,13 +1,13 @@
-#include "whippch.h"
-#include "Renderer2D.h"
+#include "WhipPch.h"
+#include <Whip/Render/Renderer2D.h>
 
-#include "VertexArray.h"
-#include "Shader.h"
-#include "RenderCommand.h"
-#include "uniform_buffer.h"
-#include "msdf_data.h"
+#include <Whip/Render/VertexArray.h>
+#include <Whip/Render/Shader.h>
+#include <Whip/Render/RenderCommand.h>
+#include <Whip/Render/UniformBuffer.h>
+#include <Whip/Render/MsdfData.h>
 
-#include <Whip/Asset/asset_manager.h>
+#include <Whip/Asset/AssetManager.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -17,774 +17,774 @@
 _WHIP_START
 
 
-struct quad_vertex
+struct QuadVertex
 {
-	glm::vec3 position;
-	glm::vec4 color;
-	glm::vec2 texture_coord;
-	float texture_index;
-	float tiling_factor;
-	int entityID; // editor only
+	glm::vec3 m_Position;
+	glm::vec4 m_Color;
+	glm::vec2 m_TextureCoord;
+	float m_TextureIndex;
+	float m_TilingFactor;
+	int m_EntityId; // editor only
 };
 
-struct circle_vertex
+struct CircleVertex
 {
-	glm::vec3 world_position;
-	glm::vec3 local_position;
-	glm::vec4 color;
-	float thickness;
-	float fade;
-	int entityID; // editor only
+	glm::vec3 m_WorldPosition;
+	glm::vec3 m_LocalPosition;
+	glm::vec4 m_Color;
+	float m_Thickness;
+	float m_Fade;
+	int m_EntityId; // editor only
 };
 
-struct line_vertex
+struct LineVertex
 {
-	glm::vec3 position;
-	glm::vec4 color;
-	int entityID; // editor only
+	glm::vec3 m_Position;
+	glm::vec4 m_Color;
+	int m_EntityId; // editor only
 };
 
-struct text_vertex
+struct TextVertex
 {
-	glm::vec3 position;
-	glm::vec4 color;
-	glm::vec2 texture_coord;
+	glm::vec3 m_Position;
+	glm::vec4 m_Color;
+	glm::vec2 m_TextureCoord;
 	// TODO: bg color for outline/bg
-	int entityID; // editor only
+	int m_EntityId; // editor only
 };
 
-struct renderer2D_data
+struct Renderer2DData
 {
-	static constexpr uint32_t max_quads = 20000;
-	static constexpr uint32_t max_vertices = max_quads * 4;
-	static constexpr uint32_t max_indices = max_quads * 6;
-	static constexpr uint32_t max_texture_slots = 32; // TODO: render_caps
+	static constexpr uint32_t MaxQuads = 20000;
+	static constexpr uint32_t MaxVertices = MaxQuads * 4;
+	static constexpr uint32_t MaxIndices = MaxQuads * 6;
+	static constexpr uint32_t MaxTextureSlots = 32; // TODO: render_caps
 
-	ref<vertex_array> quad_vertex_arr;
-	ref<vertex_buffer> quad_vertex_buffer;
-	ref<shader> quad_shader;
-	ref<texture2D> white_texture;
+	Ref<VertexArray> m_QuadVertexArray;
+	Ref<VertexBuffer> m_QuadVertexBuffer;
+	Ref<Shader> m_QuadShader;
+	Ref<Texture2D> m_WhiteTexture;
 
-	ref<vertex_array> circle_vertex_arr;
-	ref<vertex_buffer> circle_vertex_buffer;
-	ref<shader> circle_shader;
+	Ref<VertexArray> m_CircleVertexArray;
+	Ref<VertexBuffer> m_CircleVertexBuffer;
+	Ref<Shader> m_CircleShader;
 
-	ref<vertex_array> line_vertex_arr;
-	ref<vertex_buffer> line_vertex_buffer;
-	ref<shader> line_shader;
+	Ref<VertexArray> m_LineVertexArray;
+	Ref<VertexBuffer> m_LineVertexBuffer;
+	Ref<Shader> m_LineShader;
 
-	ref<vertex_array> text_vertex_arr;
-	ref<vertex_buffer> text_vertex_buffer;
-	ref<shader> text_shader;
+	Ref<VertexArray> m_TextVertexArray;
+	Ref<VertexBuffer> m_TextVertexBuffer;
+	Ref<Shader> m_TextShader;
 
-	uint32_t quad_index_count = 0;
-	quad_vertex* quad_vertex_buffer_base = nullptr;
-	quad_vertex* quad_vertex_buffer_ptr = nullptr;
+	uint32_t m_QuadIndexCount = 0;
+	QuadVertex* m_QuadVertexBufferBase = nullptr;
+	QuadVertex* m_QuadVertexBufferPtr = nullptr;
 
-	uint32_t circle_index_count = 0;
-	circle_vertex* circle_vertex_buffer_base = nullptr;
-	circle_vertex* circle_vertex_buffer_ptr = nullptr;
+	uint32_t m_CircleIndexCount = 0;
+	CircleVertex* m_CircleVertexBufferBase = nullptr;
+	CircleVertex* m_CircleVertexBufferPtr = nullptr;
 
-	uint32_t line_vertex_count = 0;
-	line_vertex* line_vertex_buffer_base = nullptr;
-	line_vertex* line_vertex_buffer_ptr = nullptr;
+	uint32_t m_LineVertexCount = 0;
+	LineVertex* m_LineVertexBufferBase = nullptr;
+	LineVertex* m_LineVertexBufferPtr = nullptr;
 
-	uint32_t text_index_count = 0;
-	text_vertex* text_vertex_buffer_base = nullptr;
-	text_vertex* text_vertex_buffer_ptr = nullptr;
+	uint32_t m_TextIndexCount = 0;
+	TextVertex* m_TextVertexBufferBase = nullptr;
+	TextVertex* m_TextVertexBufferPtr = nullptr;
 
-	std::array <ref<texture2D>, max_texture_slots> texture_slots;
-	uint32_t texture_slot_index = 1; // 0 = white texture
+	std::array <Ref<Texture2D>, MaxTextureSlots> m_TextureSlots;
+	uint32_t m_TextureSlotIndex = 1; // 0 = white Texture
 
-	ref<texture2D> font_atlas_texture;
+	Ref<Texture2D> m_FontAtlasTexture;
 
-	glm::vec4 quad_vertex_positions[4] = {};
+	glm::vec4 m_QuadVertexPositions[4] = {};
 
-	renderer2D::statistics stats;
+	Renderer2D::Statistics m_Stats;
 
-	struct camera_data
+	struct CameraData
 	{
-		glm::mat4 view_projection;
+		glm::mat4 m_ViewProjection;
 	};
-	camera_data camera_buffer{};
-	ref<uniform_buffer> camera_uniform_buffer;
+	CameraData m_CameraBuffer{};
+	Ref<UniformBuffer> m_CameraUniformBuffer;
 };
 
 
 namespace
 {
-	renderer2D_data s_data;
+	Renderer2DData s_Data;
 
 	template <typename T>
-	void release_vertex_buffer(T*& buffer)
+	void ReleaseVertexBuffer(T*& buffer)
 	{
 		delete[] buffer;
 		buffer = nullptr;
 	}
 
-	void set_and_increment_quad_vertex_buffer_ptr(const glm::vec3& position, const glm::vec4& color, glm::vec2 texture_coord, float texture_index, float tiling_factor, int entityID)
+	void SetAndIncrementQuadVertexBufferPtr(const glm::vec3& position, const glm::vec4& color, glm::vec2 textureCoord, float textureIndex, float tilingFactor, int entityId)
 	{
-		s_data.quad_vertex_buffer_ptr->position = position;
-		s_data.quad_vertex_buffer_ptr->color = color;
-		s_data.quad_vertex_buffer_ptr->texture_coord = texture_coord;
-		s_data.quad_vertex_buffer_ptr->texture_index = texture_index;
-		s_data.quad_vertex_buffer_ptr->tiling_factor = tiling_factor;
-		s_data.quad_vertex_buffer_ptr->entityID = entityID;
-		s_data.quad_vertex_buffer_ptr++;
+		s_Data.m_QuadVertexBufferPtr->m_Position = position;
+		s_Data.m_QuadVertexBufferPtr->m_Color = color;
+		s_Data.m_QuadVertexBufferPtr->m_TextureCoord = textureCoord;
+		s_Data.m_QuadVertexBufferPtr->m_TextureIndex = textureIndex;
+		s_Data.m_QuadVertexBufferPtr->m_TilingFactor = tilingFactor;
+		s_Data.m_QuadVertexBufferPtr->m_EntityId = entityId;
+		s_Data.m_QuadVertexBufferPtr++;
 	}
 }
 
-void renderer2D::init()
+void Renderer2D::Init()
 {
 	WHP_PROFILE_FUNCTION();
 
-	s_data.quad_vertex_arr = vertex_array::create();
-	s_data.quad_vertex_buffer = vertex_buffer::create(s_data.max_vertices * sizeof(quad_vertex));
-	s_data.quad_vertex_buffer->set_layout({
-			{whip::shader_data_type::Float3, "a_position"},
-			{whip::shader_data_type::Float4, "a_color"},
-			{whip::shader_data_type::Float2, "a_texture_coord"},
-			{whip::shader_data_type::Float,  "a_texture_index"},
-			{whip::shader_data_type::Float,  "a_tiling_factor"},
-			{whip::shader_data_type::Int,  "a_entityID"}
+	s_Data.m_QuadVertexArray = VertexArray::Create();
+	s_Data.m_QuadVertexBuffer = VertexBuffer::Create(s_Data.MaxVertices * sizeof(QuadVertex));
+	s_Data.m_QuadVertexBuffer->SetLayout({
+			{whip::ShaderDataType::Float3, "a_position"},
+			{whip::ShaderDataType::Float4, "a_color"},
+			{whip::ShaderDataType::Float2, "a_texture_coord"},
+			{whip::ShaderDataType::Float,  "a_texture_index"},
+			{whip::ShaderDataType::Float,  "a_tiling_factor"},
+			{whip::ShaderDataType::Int,  "a_entityID"}
 		});
-	s_data.quad_vertex_arr->add_vertex_buffer(s_data.quad_vertex_buffer);
+	s_Data.m_QuadVertexArray->AddVertexBuffer(s_Data.m_QuadVertexBuffer);
 
-	s_data.quad_vertex_buffer_base = new quad_vertex[s_data.max_vertices];
+	s_Data.m_QuadVertexBufferBase = new QuadVertex[s_Data.MaxVertices];
 
-	uint32_t* quad_indices = new uint32_t[s_data.max_indices];
+	uint32_t* quadIndices = new uint32_t[s_Data.MaxIndices];
 
 	uint32_t offset = 0;
 
 	_WHP_PRAGMA_WARNING(push)
 		_WHP_PRAGMA_WARNING_DISABLE(6386)
 
-		for (uint32_t i = 0; i < s_data.max_indices; i += 6)
+		for (uint32_t i = 0; i < s_Data.MaxIndices; i += 6)
 		{
-			quad_indices[i + 0] = offset + 0;
-			quad_indices[i + 1] = offset + 1;
-			quad_indices[i + 2] = offset + 2;
-			quad_indices[i + 3] = offset + 2;
-			quad_indices[i + 4] = offset + 3;
-			quad_indices[i + 5] = offset + 0;
+			quadIndices[i + 0] = offset + 0;
+			quadIndices[i + 1] = offset + 1;
+			quadIndices[i + 2] = offset + 2;
+			quadIndices[i + 3] = offset + 2;
+			quadIndices[i + 4] = offset + 3;
+			quadIndices[i + 5] = offset + 0;
 
 			offset += 4;
 		}
 
 	_WHP_PRAGMA_WARNING(pop)
 
-	ref<index_buffer> quad_index_buffer = index_buffer::create(quad_indices, s_data.max_indices);
-	s_data.quad_vertex_arr->set_index_buffer(quad_index_buffer);
-	delete[] quad_indices;
+	Ref<IndexBuffer> quadIndexBuffer = IndexBuffer::Create(quadIndices, s_Data.MaxIndices);
+	s_Data.m_QuadVertexArray->SetIndexBuffer(quadIndexBuffer);
+	delete[] quadIndices;
 
 	// Circles
-	s_data.circle_vertex_arr = vertex_array::create();
+	s_Data.m_CircleVertexArray = VertexArray::Create();
 
-	s_data.circle_vertex_buffer = vertex_buffer::create(s_data.max_vertices * sizeof(circle_vertex));
-	s_data.circle_vertex_buffer->set_layout({
-		{ shader_data_type::Float3, "a_world_position" },
-		{ shader_data_type::Float3, "a_local_position" },
-		{ shader_data_type::Float4, "a_color"         },
-		{ shader_data_type::Float,  "a_thickness"     },
-		{ shader_data_type::Float,  "a_fade"          },
-		{ shader_data_type::Int,    "a_entityID"      }
+	s_Data.m_CircleVertexBuffer = VertexBuffer::Create(s_Data.MaxVertices * sizeof(CircleVertex));
+	s_Data.m_CircleVertexBuffer->SetLayout({
+		{ ShaderDataType::Float3, "a_world_position" },
+		{ ShaderDataType::Float3, "a_local_position" },
+		{ ShaderDataType::Float4, "a_color"         },
+		{ ShaderDataType::Float,  "a_thickness"     },
+		{ ShaderDataType::Float,  "a_fade"          },
+		{ ShaderDataType::Int,    "a_entityID"      }
 		});
-	s_data.circle_vertex_arr->add_vertex_buffer(s_data.circle_vertex_buffer);
-	s_data.circle_vertex_arr->set_index_buffer(quad_index_buffer);
-	s_data.circle_vertex_buffer_base = new circle_vertex[s_data.max_vertices];
+	s_Data.m_CircleVertexArray->AddVertexBuffer(s_Data.m_CircleVertexBuffer);
+	s_Data.m_CircleVertexArray->SetIndexBuffer(quadIndexBuffer);
+	s_Data.m_CircleVertexBufferBase = new CircleVertex[s_Data.MaxVertices];
 
 	// lines
-	s_data.line_vertex_arr = vertex_array::create();
+	s_Data.m_LineVertexArray = VertexArray::Create();
 
-	s_data.line_vertex_buffer = vertex_buffer::create(s_data.max_vertices * sizeof(line_vertex));
-	s_data.line_vertex_buffer->set_layout({
-		{ shader_data_type::Float3, "a_position" },
-		{ shader_data_type::Float4, "a_color"    },
-		{ shader_data_type::Int,    "a_entityID" }
+	s_Data.m_LineVertexBuffer = VertexBuffer::Create(s_Data.MaxVertices * sizeof(LineVertex));
+	s_Data.m_LineVertexBuffer->SetLayout({
+		{ ShaderDataType::Float3, "a_position" },
+		{ ShaderDataType::Float4, "a_color"    },
+		{ ShaderDataType::Int,    "a_entityID" }
 		});
-	s_data.line_vertex_arr->add_vertex_buffer(s_data.line_vertex_buffer);
-	s_data.line_vertex_buffer_base = new line_vertex[s_data.max_vertices];
+	s_Data.m_LineVertexArray->AddVertexBuffer(s_Data.m_LineVertexBuffer);
+	s_Data.m_LineVertexBufferBase = new LineVertex[s_Data.MaxVertices];
 
 	// texts
-	s_data.text_vertex_arr = vertex_array::create();
+	s_Data.m_TextVertexArray = VertexArray::Create();
 
-	s_data.text_vertex_buffer = vertex_buffer::create(s_data.max_vertices * sizeof(text_vertex));
-	s_data.text_vertex_buffer->set_layout({
-		{ shader_data_type::Float3, "a_position"     },
-		{ shader_data_type::Float4, "a_color"        },
-		{ shader_data_type::Float2, "a_texture_coord"},
-		{ shader_data_type::Int,    "a_entityID"     }
+	s_Data.m_TextVertexBuffer = VertexBuffer::Create(s_Data.MaxVertices * sizeof(TextVertex));
+	s_Data.m_TextVertexBuffer->SetLayout({
+		{ ShaderDataType::Float3, "a_position"     },
+		{ ShaderDataType::Float4, "a_color"        },
+		{ ShaderDataType::Float2, "a_texture_coord"},
+		{ ShaderDataType::Int,    "a_entityID"     }
 		});
-	s_data.text_vertex_arr->add_vertex_buffer(s_data.text_vertex_buffer);
-	s_data.text_vertex_arr->set_index_buffer(quad_index_buffer);
-	s_data.text_vertex_buffer_base = new text_vertex[s_data.max_vertices];
+	s_Data.m_TextVertexArray->AddVertexBuffer(s_Data.m_TextVertexBuffer);
+	s_Data.m_TextVertexArray->SetIndexBuffer(quadIndexBuffer);
+	s_Data.m_TextVertexBufferBase = new TextVertex[s_Data.MaxVertices];
 
-	s_data.white_texture = texture2D::create(texture_specification{});
-	uint32_t white_texture_data = 0xffffffff;
-	s_data.white_texture->set_data(raw_buffer(&white_texture_data, sizeof(white_texture_data)));
+	s_Data.m_WhiteTexture = Texture2D::Create(TextureSpecification{});
+	uint32_t whiteTextureData = 0xffffffff;
+	s_Data.m_WhiteTexture->SetData(RawBuffer(&whiteTextureData, sizeof(whiteTextureData)));
 
-	s_data.quad_shader		= shader::create("assets\\shaders\\renderer2D_quad.glsl");
-	s_data.circle_shader	= shader::create("assets\\shaders\\renderer2D_circle.glsl");
-	s_data.line_shader		= shader::create("assets\\shaders\\renderer2D_line.glsl");
-	s_data.text_shader		= shader::create("assets\\shaders\\renderer2D_text.glsl");
+	s_Data.m_QuadShader		= Shader::Create("assets\\shaders\\renderer2D_quad.glsl");
+	s_Data.m_CircleShader	= Shader::Create("assets\\shaders\\renderer2D_circle.glsl");
+	s_Data.m_LineShader		= Shader::Create("assets\\shaders\\renderer2D_line.glsl");
+	s_Data.m_TextShader		= Shader::Create("assets\\shaders\\renderer2D_text.glsl");
 
-	s_data.texture_slots[0] = s_data.white_texture;
+	s_Data.m_TextureSlots[0] = s_Data.m_WhiteTexture;
 
-	s_data.quad_vertex_positions[0] = { -0.5f, -0.5f, 0.0f, 1.0f };
-	s_data.quad_vertex_positions[1] = {  0.5f, -0.5f, 0.0f, 1.0f };
-	s_data.quad_vertex_positions[2] = {  0.5f,	0.5f, 0.0f, 1.0f };
-	s_data.quad_vertex_positions[3] = { -0.5f,  0.5f, 0.0f, 1.0f };
+	s_Data.m_QuadVertexPositions[0] = { -0.5f, -0.5f, 0.0f, 1.0f };
+	s_Data.m_QuadVertexPositions[1] = {  0.5f, -0.5f, 0.0f, 1.0f };
+	s_Data.m_QuadVertexPositions[2] = {  0.5f,	0.5f, 0.0f, 1.0f };
+	s_Data.m_QuadVertexPositions[3] = { -0.5f,  0.5f, 0.0f, 1.0f };
 
-	s_data.camera_uniform_buffer = uniform_buffer::create(sizeof(renderer2D_data::camera_data), 0);
+	s_Data.m_CameraUniformBuffer = UniformBuffer::Create(sizeof(Renderer2DData::CameraData), 0);
 
-	set_line_width(2);
+	SetLineWidth(2);
 }
 
-void renderer2D::shutdown()
+void Renderer2D::Shutdown()
 {
 	WHP_PROFILE_FUNCTION();
 
-	release_vertex_buffer(s_data.quad_vertex_buffer_base);
-	release_vertex_buffer(s_data.circle_vertex_buffer_base);
-	release_vertex_buffer(s_data.line_vertex_buffer_base);
-	release_vertex_buffer(s_data.text_vertex_buffer_base);
+	ReleaseVertexBuffer(s_Data.m_QuadVertexBufferBase);
+	ReleaseVertexBuffer(s_Data.m_CircleVertexBufferBase);
+	ReleaseVertexBuffer(s_Data.m_LineVertexBufferBase);
+	ReleaseVertexBuffer(s_Data.m_TextVertexBufferBase);
 
-	s_data.quad_vertex_buffer_ptr = nullptr;
-	s_data.circle_vertex_buffer_ptr = nullptr;
-	s_data.line_vertex_buffer_ptr = nullptr;
-	s_data.text_vertex_buffer_ptr = nullptr;
+	s_Data.m_QuadVertexBufferPtr = nullptr;
+	s_Data.m_CircleVertexBufferPtr = nullptr;
+	s_Data.m_LineVertexBufferPtr = nullptr;
+	s_Data.m_TextVertexBufferPtr = nullptr;
 
-	for (ref<texture2D>& texture_slot : s_data.texture_slots)
-		texture_slot.reset();
+	for (Ref<Texture2D>& textureSlot : s_Data.m_TextureSlots)
+		textureSlot.reset();
 
-	s_data.font_atlas_texture.reset();
-	s_data.white_texture.reset();
+	s_Data.m_FontAtlasTexture.reset();
+	s_Data.m_WhiteTexture.reset();
 
-	s_data.quad_shader.reset();
-	s_data.circle_shader.reset();
-	s_data.line_shader.reset();
-	s_data.text_shader.reset();
+	s_Data.m_QuadShader.reset();
+	s_Data.m_CircleShader.reset();
+	s_Data.m_LineShader.reset();
+	s_Data.m_TextShader.reset();
 
-	s_data.quad_vertex_buffer.reset();
-	s_data.circle_vertex_buffer.reset();
-	s_data.line_vertex_buffer.reset();
-	s_data.text_vertex_buffer.reset();
+	s_Data.m_QuadVertexBuffer.reset();
+	s_Data.m_CircleVertexBuffer.reset();
+	s_Data.m_LineVertexBuffer.reset();
+	s_Data.m_TextVertexBuffer.reset();
 
-	s_data.quad_vertex_arr.reset();
-	s_data.circle_vertex_arr.reset();
-	s_data.line_vertex_arr.reset();
-	s_data.text_vertex_arr.reset();
+	s_Data.m_QuadVertexArray.reset();
+	s_Data.m_CircleVertexArray.reset();
+	s_Data.m_LineVertexArray.reset();
+	s_Data.m_TextVertexArray.reset();
 
-	s_data.camera_uniform_buffer.reset();
+	s_Data.m_CameraUniformBuffer.reset();
 
-	s_data.quad_index_count = 0;
-	s_data.circle_index_count = 0;
-	s_data.line_vertex_count = 0;
-	s_data.text_index_count = 0;
-	s_data.texture_slot_index = 1;
+	s_Data.m_QuadIndexCount = 0;
+	s_Data.m_CircleIndexCount = 0;
+	s_Data.m_LineVertexCount = 0;
+	s_Data.m_TextIndexCount = 0;
+	s_Data.m_TextureSlotIndex = 1;
 }
 
-void renderer2D::begin_scene(const orthographic_camera& camera)
+void Renderer2D::BeginScene(const OrthographicCamera& camera)
 {
 	WHP_PROFILE_FUNCTION();
 
-	s_data.quad_shader->bind();
-	s_data.quad_shader->set_mat4("u_view_projection", camera.get_view_projection_matrix());
+	s_Data.m_QuadShader->Bind();
+	s_Data.m_QuadShader->SetMat4("u_view_projection", camera.GetViewProjectionMatrix());
 
-	start_batch();
+	StartBatch();
 }
 
-void renderer2D::begin_scene(const camera& cam, const glm::mat4& transform)
+void Renderer2D::BeginScene(const Camera& cam, const glm::mat4& transform)
 {
 	WHP_PROFILE_FUNCTION();
 
-	s_data.camera_buffer.view_projection = cam.get_projection() * glm::inverse(transform);
-	s_data.camera_uniform_buffer->set_data(&s_data.camera_buffer, sizeof(renderer2D_data::camera_data));
+	s_Data.m_CameraBuffer.m_ViewProjection = cam.GetProjection() * glm::inverse(transform);
+	s_Data.m_CameraUniformBuffer->SetData(&s_Data.m_CameraBuffer, sizeof(Renderer2DData::CameraData));
 
-	start_batch();
+	StartBatch();
 }
 
-void renderer2D::begin_scene(const editor_camera& cam)
+void Renderer2D::BeginScene(const EditorCamera& cam)
 {
 	WHP_PROFILE_FUNCTION();
 
-	s_data.camera_buffer.view_projection = cam.get_view_projection();
-	s_data.camera_uniform_buffer->set_data(&s_data.camera_buffer, sizeof(renderer2D_data::camera_data));
+	s_Data.m_CameraBuffer.m_ViewProjection = cam.GetViewProjection();
+	s_Data.m_CameraUniformBuffer->SetData(&s_Data.m_CameraBuffer, sizeof(Renderer2DData::CameraData));
 
-	start_batch();
+	StartBatch();
 }
 
-void renderer2D::end_scene()
+void Renderer2D::EndScene()
 {
 	WHP_PROFILE_FUNCTION();
-	flush();
+	Flush();
 }
 
-void renderer2D::flush()
+void Renderer2D::Flush()
 {
-	if (s_data.quad_index_count)
+	if (s_Data.m_QuadIndexCount)
 	{
-		uint32_t data_size = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_data.quad_vertex_buffer_ptr) - reinterpret_cast<uint8_t*>(s_data.quad_vertex_buffer_base));
-		s_data.quad_vertex_buffer->set_data(s_data.quad_vertex_buffer_base, data_size);
+		uint32_t dataSize = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_Data.m_QuadVertexBufferPtr) - reinterpret_cast<uint8_t*>(s_Data.m_QuadVertexBufferBase));
+		s_Data.m_QuadVertexBuffer->SetData(s_Data.m_QuadVertexBufferBase, dataSize);
 		// Bind textures
-		for (uint32_t i = 0; i < s_data.texture_slot_index; i++)
-			s_data.texture_slots[i]->bind(i);
+		for (uint32_t i = 0; i < s_Data.m_TextureSlotIndex; i++)
+			s_Data.m_TextureSlots[i]->Bind(i);
 
-		s_data.quad_shader->bind();
-		render_command::draw_indexed(s_data.quad_vertex_arr, s_data.quad_index_count);
-		s_data.stats.draw_calls++;
+		s_Data.m_QuadShader->Bind();
+		RenderCommand::DrawIndexed(s_Data.m_QuadVertexArray, s_Data.m_QuadIndexCount);
+	s_Data.m_Stats.m_DrawCalls++;
 	}
 
-	if (s_data.circle_index_count)
+	if (s_Data.m_CircleIndexCount)
 	{
-		uint32_t data_size = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_data.circle_vertex_buffer_ptr) - reinterpret_cast<uint8_t*>(s_data.circle_vertex_buffer_base));
-		s_data.circle_vertex_buffer->set_data(s_data.circle_vertex_buffer_base, data_size);
+		uint32_t dataSize = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_Data.m_CircleVertexBufferPtr) - reinterpret_cast<uint8_t*>(s_Data.m_CircleVertexBufferBase));
+		s_Data.m_CircleVertexBuffer->SetData(s_Data.m_CircleVertexBufferBase, dataSize);
 
-		s_data.circle_shader->bind();
-		render_command::draw_indexed(s_data.circle_vertex_arr, s_data.circle_index_count);
-		s_data.stats.draw_calls++;
+		s_Data.m_CircleShader->Bind();
+		RenderCommand::DrawIndexed(s_Data.m_CircleVertexArray, s_Data.m_CircleIndexCount);
+	s_Data.m_Stats.m_DrawCalls++;
 	}
 
-	if (s_data.line_vertex_count)
+	if (s_Data.m_LineVertexCount)
 	{
-		uint32_t data_size = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_data.line_vertex_buffer_ptr) - reinterpret_cast<uint8_t*>(s_data.line_vertex_buffer_base));
-		s_data.line_vertex_buffer->set_data(s_data.line_vertex_buffer_base, data_size);
+		uint32_t dataSize = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_Data.m_LineVertexBufferPtr) - reinterpret_cast<uint8_t*>(s_Data.m_LineVertexBufferBase));
+		s_Data.m_LineVertexBuffer->SetData(s_Data.m_LineVertexBufferBase, dataSize);
 
-		s_data.line_shader->bind();
-		render_command::draw_lines(s_data.line_vertex_arr, s_data.line_vertex_count);
-		s_data.stats.draw_calls++;
+		s_Data.m_LineShader->Bind();
+		RenderCommand::DrawLines(s_Data.m_LineVertexArray, s_Data.m_LineVertexCount);
+	s_Data.m_Stats.m_DrawCalls++;
 	}
 
-	if (s_data.text_index_count)
+	if (s_Data.m_TextIndexCount)
 	{
-		uint32_t data_size = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_data.text_vertex_buffer_ptr) - reinterpret_cast<uint8_t*>(s_data.text_vertex_buffer_base));
-		s_data.text_vertex_buffer->set_data(s_data.text_vertex_buffer_base, data_size);
+		uint32_t dataSize = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(s_Data.m_TextVertexBufferPtr) - reinterpret_cast<uint8_t*>(s_Data.m_TextVertexBufferBase));
+		s_Data.m_TextVertexBuffer->SetData(s_Data.m_TextVertexBufferBase, dataSize);
 
-		s_data.font_atlas_texture->bind(0);
+		s_Data.m_FontAtlasTexture->Bind(0);
 
-		s_data.text_shader->bind();
-		render_command::draw_indexed(s_data.text_vertex_arr, s_data.text_index_count);
-		s_data.stats.draw_calls++;
+		s_Data.m_TextShader->Bind();
+		RenderCommand::DrawIndexed(s_Data.m_TextVertexArray, s_Data.m_TextIndexCount);
+	s_Data.m_Stats.m_DrawCalls++;
 	}
 }
 
 
-void renderer2D::draw_quad(const glm::mat4& transform, const glm::vec4& color, int entityID)
+void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color, int entityId)
 {
 	WHP_PROFILE_FUNCTION();
 
-	if (s_data.quad_index_count >= renderer2D_data::max_indices)
-		next_batch();
+	if (s_Data.m_QuadIndexCount >= Renderer2DData::MaxIndices)
+		NextBatch();
 
-	constexpr size_t quad_vertex_count = 4u;
-	constexpr float texture_index = 0.0f; // white color
-	constexpr float tiling_factor = 1.0f;
-	constexpr glm::vec2 texture_coords[] = { {0.0f,0.0f},{1.0f,0.0f},{1.0f,1.0f},{0.0f,1.0f} };
+	constexpr size_t QuadVertexCount = 4u;
+	constexpr float textureIndex = 0.0f; // white color
+	constexpr float tilingFactor = 1.0f;
+	constexpr glm::vec2 textureCoords[] = { {0.0f,0.0f},{1.0f,0.0f},{1.0f,1.0f},{0.0f,1.0f} };
 
-	for (size_t i = 0; i < quad_vertex_count; ++i)
-		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], color, texture_coords[i], texture_index, tiling_factor, entityID);
-	s_data.quad_index_count += 6;
-	s_data.stats.quad_counts++;
+	for (size_t i = 0; i < QuadVertexCount; ++i)
+		SetAndIncrementQuadVertexBufferPtr(transform * s_Data.m_QuadVertexPositions[i], color, textureCoords[i], textureIndex, tilingFactor, entityId);
+	s_Data.m_QuadIndexCount += 6;
+	s_Data.m_Stats.m_QuadCounts++;
 }
 
-void renderer2D::draw_quad(const glm::mat4& transform, const ref<texture2D>& tex, float tiling_factor, const glm::vec4& tint_color, int entityID)
+void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<Texture2D>& tex, float tilingFactor, const glm::vec4& tintColor, int entityId)
 {
 	WHP_PROFILE_FUNCTION();
 	WHP_CORE_VERIFY(tex)
 
-	if (s_data.quad_index_count >= renderer2D_data::max_indices)
-		next_batch();
+	if (s_Data.m_QuadIndexCount >= Renderer2DData::MaxIndices)
+		NextBatch();
 
-	constexpr size_t quad_vertex_count = 4u;
-	constexpr glm::vec2 texture_coords[] = { {0.0f,0.0f},{1.0f,0.0f},{1.0f,1.0f},{0.0f,1.0f} };
+	constexpr size_t QuadVertexCount = 4u;
+	constexpr glm::vec2 textureCoords[] = { {0.0f,0.0f},{1.0f,0.0f},{1.0f,1.0f},{0.0f,1.0f} };
 
-	float texture_index = 0.0f;
+	float textureIndex = 0.0f;
 
-	for (uint32_t i = 1; i < s_data.texture_slot_index; ++i)
-		if (DREF(s_data.texture_slots[i]) == DREF(tex))
+	for (uint32_t i = 1; i < s_Data.m_TextureSlotIndex; ++i)
+		if (DREF(s_Data.m_TextureSlots[i]) == DREF(tex))
 		{
-			texture_index = static_cast<float>(i);
+			textureIndex = static_cast<float>(i);
 			break;
 		}
 
 _WHP_PRAGMA_WARNING(push)
 _WHP_PRAGMA_WARNING_DISABLE(28020)
-	if (texture_index == 0.0f)
+	if (textureIndex == 0.0f)
 	{
-		if (s_data.texture_slot_index >= renderer2D_data::max_texture_slots)
-			next_batch();
-		texture_index = static_cast<float>(s_data.texture_slot_index);
-		s_data.texture_slots[s_data.texture_slot_index] = tex;
-		s_data.texture_slot_index++;
+		if (s_Data.m_TextureSlotIndex >= Renderer2DData::MaxTextureSlots)
+			NextBatch();
+		textureIndex = static_cast<float>(s_Data.m_TextureSlotIndex);
+		s_Data.m_TextureSlots[s_Data.m_TextureSlotIndex] = tex;
+		s_Data.m_TextureSlotIndex++;
 	}
 _WHP_PRAGMA_WARNING(pop)
 
-	for (size_t i = 0; i < quad_vertex_count; ++i)
-		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], tint_color, texture_coords[i], texture_index, tiling_factor, entityID);
+	for (size_t i = 0; i < QuadVertexCount; ++i)
+		SetAndIncrementQuadVertexBufferPtr(transform * s_Data.m_QuadVertexPositions[i], tintColor, textureCoords[i], textureIndex, tilingFactor, entityId);
 
-	s_data.quad_index_count += 6;
-	s_data.stats.quad_counts++;
+	s_Data.m_QuadIndexCount += 6;
+	s_Data.m_Stats.m_QuadCounts++;
 }
 
-void renderer2D::draw_quad(const glm::mat4& transform, const ref<sub_texture2D>& sub_tex, float tiling_factor, const glm::vec4& tint_color, int entityID)
+void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<SubTexture2D>& subTexture, float tilingFactor, const glm::vec4& tintColor, int entityId)
 {
 	WHP_PROFILE_FUNCTION();
 
-	if (s_data.quad_index_count >= renderer2D_data::max_indices)
-		next_batch();
+	if (s_Data.m_QuadIndexCount >= Renderer2DData::MaxIndices)
+		NextBatch();
 
-	constexpr size_t quad_vertex_count = 4u;
-	const glm::vec2* texture_coords = sub_tex->get_texture_coords();
-	auto tex = sub_tex->get_texture();
+	constexpr size_t QuadVertexCount = 4u;
+	const glm::vec2* textureCoords = subTexture->GetTextureCoords();
+	auto tex = subTexture->GetTexture();
 
-	float texture_index = 0.0f;
+	float textureIndex = 0.0f;
 
-	for (uint32_t i = 1; i < s_data.texture_slot_index; ++i)
-		if (DREF(s_data.texture_slots[i].get()) == DREF(tex.get()))
-			texture_index = static_cast<float>(i);
+	for (uint32_t i = 1; i < s_Data.m_TextureSlotIndex; ++i)
+		if (DREF(s_Data.m_TextureSlots[i].get()) == DREF(tex.get()))
+			textureIndex = static_cast<float>(i);
 
-	if (texture_index == 0.0f)
+	if (textureIndex == 0.0f)
 	{
-		if (s_data.texture_slot_index >= renderer2D_data::max_texture_slots)
-			next_batch();
-		texture_index = static_cast<float>(s_data.texture_slot_index);
-		s_data.texture_slots[s_data.texture_slot_index++] = tex;
+		if (s_Data.m_TextureSlotIndex >= Renderer2DData::MaxTextureSlots)
+			NextBatch();
+		textureIndex = static_cast<float>(s_Data.m_TextureSlotIndex);
+		s_Data.m_TextureSlots[s_Data.m_TextureSlotIndex++] = tex;
 	}
 
-	for (size_t i = 0; i < quad_vertex_count; ++i)
-		set_and_increment_quad_vertex_buffer_ptr(transform * s_data.quad_vertex_positions[i], tint_color, texture_coords[i], texture_index, tiling_factor, entityID);
+	for (size_t i = 0; i < QuadVertexCount; ++i)
+		SetAndIncrementQuadVertexBufferPtr(transform * s_Data.m_QuadVertexPositions[i], tintColor, textureCoords[i], textureIndex, tilingFactor, entityId);
 
-	s_data.quad_index_count += 6;
-	s_data.stats.quad_counts++;
+	s_Data.m_QuadIndexCount += 6;
+	s_Data.m_Stats.m_QuadCounts++;
 }
 
 
-void renderer2D::draw_quad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color)
+void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color)
 {
-	draw_quad({ position.x, position.y, 0.0f }, size, color);
+	DrawQuad({ position.x, position.y, 0.0f }, size, color);
 }
 
-void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color)
+void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color)
 {
 	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
 		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
-	draw_quad(transform, color);
+	DrawQuad(transform, color);
 }
 
-void renderer2D::draw_quad(const glm::vec2& position, const glm::vec2& size, const ref<texture2D>& tex, float tiling_factor, const glm::vec4& tint_color)
+void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const Ref<Texture2D>& tex, float tilingFactor, const glm::vec4& tintColor)
 {
-	draw_quad({ position.x, position.y, 0.0f }, size, tex, tiling_factor, tint_color);
+	DrawQuad({ position.x, position.y, 0.0f }, size, tex, tilingFactor, tintColor);
 }
 
-void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, const ref<texture2D>& tex, float tiling_factor, const glm::vec4& tint_color)
+void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const Ref<Texture2D>& tex, float tilingFactor, const glm::vec4& tintColor)
 {
 	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
-	draw_quad(transform, tex, tiling_factor, tint_color);
+	DrawQuad(transform, tex, tilingFactor, tintColor);
 }
 
-void renderer2D::draw_quad(const glm::vec2& position, const glm::vec2& size, const ref<sub_texture2D>& sub_tex, float tiling_factor, const glm::vec4& tint_color)
+void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const Ref<SubTexture2D>& subTexture, float tilingFactor, const glm::vec4& tintColor)
 {
-	draw_quad({ position.x, position.y, 0.0f }, size, sub_tex, tiling_factor, tint_color);
+	DrawQuad({ position.x, position.y, 0.0f }, size, subTexture, tilingFactor, tintColor);
 }
 
-void renderer2D::draw_quad(const glm::vec3& position, const glm::vec2& size, const ref<sub_texture2D>& sub_tex, float tiling_factor, const glm::vec4& tint_color)
+void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const Ref<SubTexture2D>& subTexture, float tilingFactor, const glm::vec4& tintColor)
 {
 	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
-	draw_quad(transform, sub_tex, tiling_factor, tint_color);
+	DrawQuad(transform, subTexture, tilingFactor, tintColor);
 }
 
-void renderer2D::draw_rotated_quad(const glm::vec2& position, const glm::vec2& size, float rotation, const glm::vec4& color)
+void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const glm::vec4& color)
 {
-	draw_rotated_quad({ position.x, position.y, 0.0f }, size, rotation, color);
+	DrawRotatedQuad({ position.x, position.y, 0.0f }, size, rotation, color);
 }
 
-void renderer2D::draw_rotated_quad(const glm::vec3& position, const glm::vec2& size, float rotation, const glm::vec4& color)
-{
-	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
-		* glm::rotate(glm::mat4(1.0f), rotation, { 0.0f, 0.0f, 1.0f })
-		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
-	draw_quad(transform, color);
-}
-
-void renderer2D::draw_rotated_quad(const glm::vec2& position, const glm::vec2& size, float rotation, const ref<texture2D>& tex, float tiling_factor, const glm::vec4& tint_color)
-{
-	draw_rotated_quad({ position.x, position.y, 0.0f }, size, rotation, tex, tiling_factor, tint_color);
-}
-
-void renderer2D::draw_rotated_quad(const glm::vec3& position, const glm::vec2& size, float rotation, const ref<texture2D>& tex, float tiling_factor, const glm::vec4& tint_color)
+void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const glm::vec4& color)
 {
 	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
 		* glm::rotate(glm::mat4(1.0f), rotation, { 0.0f, 0.0f, 1.0f })
 		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
-
-	draw_quad(transform, tex, tiling_factor, tint_color);
+	DrawQuad(transform, color);
 }
 
-void renderer2D::draw_rotated_quad(const glm::vec2& position, const glm::vec2& size, float rotation, const ref<sub_texture2D>& sub_tex, float tiling_factor, const glm::vec4& tint_color)
+void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const Ref<Texture2D>& tex, float tilingFactor, const glm::vec4& tintColor)
 {
-	draw_rotated_quad({ position.x, position.y, 0.0f }, size, rotation, sub_tex, tiling_factor, tint_color);
+	DrawRotatedQuad({ position.x, position.y, 0.0f }, size, rotation, tex, tilingFactor, tintColor);
 }
 
-void renderer2D::draw_rotated_quad(const glm::vec3& position, const glm::vec2& size, float rotation, const ref<sub_texture2D>& sub_tex, float tiling_factor, const glm::vec4& tint_color)
+void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const Ref<Texture2D>& tex, float tilingFactor, const glm::vec4& tintColor)
 {
 	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
 		* glm::rotate(glm::mat4(1.0f), rotation, { 0.0f, 0.0f, 1.0f })
 		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
-	draw_quad(transform, sub_tex, tiling_factor, tint_color);
+	DrawQuad(transform, tex, tilingFactor, tintColor);
 }
 
-void renderer2D::draw_circle(const glm::mat4& transform, const glm::vec4& color, float thickness, float fade, int entityID)
+void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const Ref<SubTexture2D>& subTexture, float tilingFactor, const glm::vec4& tintColor)
+{
+	DrawRotatedQuad({ position.x, position.y, 0.0f }, size, rotation, subTexture, tilingFactor, tintColor);
+}
+
+void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const Ref<SubTexture2D>& subTexture, float tilingFactor, const glm::vec4& tintColor)
+{
+	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
+		* glm::rotate(glm::mat4(1.0f), rotation, { 0.0f, 0.0f, 1.0f })
+		* glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
+
+	DrawQuad(transform, subTexture, tilingFactor, tintColor);
+}
+
+void Renderer2D::DrawCircle(const glm::mat4& transform, const glm::vec4& color, float thickness, float fade, int entityId)
 {
 	WHP_PROFILE_FUNCTION();
 
-	for (auto quad_vertex_position : s_data.quad_vertex_positions)
+	for (auto quadVertexPosition : s_Data.m_QuadVertexPositions)
 	{
-		s_data.circle_vertex_buffer_ptr->world_position = transform * quad_vertex_position;
-		s_data.circle_vertex_buffer_ptr->local_position = quad_vertex_position * 2.0f;
-		s_data.circle_vertex_buffer_ptr->color = color;
-		s_data.circle_vertex_buffer_ptr->thickness = thickness;
-		s_data.circle_vertex_buffer_ptr->fade = fade;
-		s_data.circle_vertex_buffer_ptr->entityID = entityID;
-		s_data.circle_vertex_buffer_ptr++;
+		s_Data.m_CircleVertexBufferPtr->m_WorldPosition = transform * quadVertexPosition;
+		s_Data.m_CircleVertexBufferPtr->m_LocalPosition = quadVertexPosition * 2.0f;
+		s_Data.m_CircleVertexBufferPtr->m_Color = color;
+		s_Data.m_CircleVertexBufferPtr->m_Thickness = thickness;
+		s_Data.m_CircleVertexBufferPtr->m_Fade = fade;
+		s_Data.m_CircleVertexBufferPtr->m_EntityId = entityId;
+		s_Data.m_CircleVertexBufferPtr++;
 	}
 
-	s_data.circle_index_count += 6;
+	s_Data.m_CircleIndexCount += 6;
 
-	s_data.stats.quad_counts++;
+	s_Data.m_Stats.m_QuadCounts++;
 }
 
-void renderer2D::draw_line(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, int entityID)
+void Renderer2D::DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, int entityId)
 {
-	s_data.line_vertex_buffer_ptr->position = p0;
-	s_data.line_vertex_buffer_ptr->color = color;
-	s_data.line_vertex_buffer_ptr->entityID = entityID;
-	s_data.line_vertex_buffer_ptr++;
+	s_Data.m_LineVertexBufferPtr->m_Position = p0;
+	s_Data.m_LineVertexBufferPtr->m_Color = color;
+	s_Data.m_LineVertexBufferPtr->m_EntityId = entityId;
+	s_Data.m_LineVertexBufferPtr++;
 
-	s_data.line_vertex_buffer_ptr->position = p1;
-	s_data.line_vertex_buffer_ptr->color = color;
-	s_data.line_vertex_buffer_ptr->entityID = entityID;
-	s_data.line_vertex_buffer_ptr++;
+	s_Data.m_LineVertexBufferPtr->m_Position = p1;
+	s_Data.m_LineVertexBufferPtr->m_Color = color;
+	s_Data.m_LineVertexBufferPtr->m_EntityId = entityId;
+	s_Data.m_LineVertexBufferPtr++;
 
-	s_data.line_vertex_count += 2;
+	s_Data.m_LineVertexCount += 2;
 }
 
-void renderer2D::draw_rect(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, int entityID)
+void Renderer2D::DrawRect(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, int entityId)
 {
 	glm::vec3 p0 = glm::vec3(position.x - size.x * 0.5f, position.y - size.y * 0.5f, position.z);
 	glm::vec3 p1 = glm::vec3(position.x + size.x * 0.5f, position.y - size.y * 0.5f, position.z);
 	glm::vec3 p2 = glm::vec3(position.x + size.x * 0.5f, position.y + size.y * 0.5f, position.z);
 	glm::vec3 p3 = glm::vec3(position.x - size.x * 0.5f, position.y + size.y * 0.5f, position.z);
 
-	draw_line(p0, p1, color, entityID);
-	draw_line(p1, p2, color, entityID);
-	draw_line(p2, p3, color, entityID);
-	draw_line(p3, p0, color, entityID);
+	DrawLine(p0, p1, color, entityId);
+	DrawLine(p1, p2, color, entityId);
+	DrawLine(p2, p3, color, entityId);
+	DrawLine(p3, p0, color, entityId);
 }
 
-void renderer2D::draw_rect(const glm::mat4& transform, const glm::vec4& color, int entityID)
+void Renderer2D::DrawRect(const glm::mat4& transform, const glm::vec4& color, int entityId)
 {
-	glm::vec3 line_vertices[4];
+	glm::vec3 lineVertices[4];
 	for (size_t i = 0; i < 4; i++)
-		line_vertices[i] = transform * s_data.quad_vertex_positions[i];
+		lineVertices[i] = transform * s_Data.m_QuadVertexPositions[i];
 
-	draw_line(line_vertices[0], line_vertices[1], color, entityID);
-	draw_line(line_vertices[1], line_vertices[2], color, entityID);
-	draw_line(line_vertices[2], line_vertices[3], color, entityID);
-	draw_line(line_vertices[3], line_vertices[0], color, entityID);
+	DrawLine(lineVertices[0], lineVertices[1], color, entityId);
+	DrawLine(lineVertices[1], lineVertices[2], color, entityId);
+	DrawLine(lineVertices[2], lineVertices[3], color, entityId);
+	DrawLine(lineVertices[3], lineVertices[0], color, entityId);
 }
 
-void renderer2D::draw_sprite(const glm::mat4& transform, const sprite_renderer_component& src, int entityID)
+void Renderer2D::DrawSprite(const glm::mat4& transform, const SpriteRendererComponent& src, int entityId)
 {
-	if (src.texture)
+	if (src.m_Texture)
 	{
-		ref<texture2D> texture = asset_manager::get_asset<texture2D>(src.texture);
-		draw_quad(transform, texture, src.tiling_factor, src.color, entityID);
+		Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(src.m_Texture);
+		DrawQuad(transform, texture, src.m_TilingFactor, src.m_Color, entityId);
 	}
 	else
 	{
-		draw_quad(transform, src.color, entityID);
+		DrawQuad(transform, src.m_Color, entityId);
 	}
 }
 
-void renderer2D::draw_string(const std::string& string, ref<font> fnt, const glm::mat4& transform, const text_params& params, int entityID)
+void Renderer2D::DrawString(const std::string& text, Ref<Font> font, const glm::mat4& transform, const TextParams& params, int entityId)
 {
 	WHP_PROFILE_FUNCTION();
-	if (!fnt)
+	if (!font)
 	{
-		WHP_CORE_ERROR("[Renderer2D] Null font!");
+		WHP_CORE_ERROR("[Renderer2D] Null Font!");
 		return;
 	}
-	const auto& font_geometry = fnt->get_msdf_data()->font_geometry;
-	const auto& metrics = font_geometry.getMetrics();
-	ref<texture2D> font_atlas = fnt->get_atlas_texture();
-	if (!font_atlas)
+	const auto& fontGeometry = font->GetMsdfData()->m_FontGeometry;
+	const auto& metrics = fontGeometry.getMetrics();
+	Ref<Texture2D> fontAtlas = font->GetAtlasTexture();
+	if (!fontAtlas)
 	{
-		WHP_CORE_ERROR("[Renderer2D] Font has no atlas texture!");
+		WHP_CORE_ERROR("[Renderer2D] Font has no atlas Texture!");
 		return;
 	}
 
-	if (s_data.text_index_count && s_data.font_atlas_texture && s_data.font_atlas_texture != font_atlas)
-		next_batch();
-	s_data.font_atlas_texture = font_atlas;
+	if (s_Data.m_TextIndexCount && s_Data.m_FontAtlasTexture && s_Data.m_FontAtlasTexture != fontAtlas)
+		NextBatch();
+	s_Data.m_FontAtlasTexture = fontAtlas;
 
 	double x = 0.0;
-	double fs_scale = 1.0 / (metrics.ascenderY - metrics.descenderY);
+	double fsScale = 1.0 / (metrics.ascenderY - metrics.descenderY);
 	double y = 0.0;
 
-	const auto space_glyph = font_geometry.getGlyph(' ');
-	const float space_glyph_advance = space_glyph ? static_cast<float>(space_glyph->getAdvance()) : 1.0f;
+	const auto spaceGlyph = fontGeometry.getGlyph(' ');
+	const float spaceGlyphAdvance = spaceGlyph ? static_cast<float>(spaceGlyph->getAdvance()) : 1.0f;
 
-	for (size_t i = 0; i < string.size(); i++)
+	for (size_t i = 0; i < text.size(); i++)
 	{
-		char character = string[i];
+		char character = text[i];
 		if (character == '\r')
 			continue;
 
 		if (character == '\n')
 		{
 			x = 0;
-			y -= fs_scale * metrics.lineHeight + params.line_spacing;
+			y -= fsScale * metrics.lineHeight + params.m_LineSpacing;
 			continue;
 		}
 
 		if (character == ' ')
 		{
-			float advance = space_glyph_advance;
-			if (i < string.size() - 1)
+			float advance = spaceGlyphAdvance;
+			if (i < text.size() - 1)
 			{
-				char next_character = string[i + 1];
-				double d_advance;
-				font_geometry.getAdvance(d_advance, character, next_character);
-				advance = static_cast<float>(d_advance);
+				char nextCharacter = text[i + 1];
+				double glyphAdvance;
+				fontGeometry.getAdvance(glyphAdvance, character, nextCharacter);
+				advance = static_cast<float>(glyphAdvance);
 			}
 
-			x += fs_scale * advance + params.kerning;
+			x += fsScale * advance + params.m_Kerning;
 			continue;
 		}
 
 		if (character == '\t')
 		{
 			// is this right?
-			x += 4.0f * (fs_scale * space_glyph_advance + params.kerning);
+			x += 4.0f * (fsScale * spaceGlyphAdvance + params.m_Kerning);
 			continue;
 		}
-		auto glyph = font_geometry.getGlyph(character);
+		auto glyph = fontGeometry.getGlyph(character);
 		if (!glyph)
-			glyph = font_geometry.getGlyph('?');
+			glyph = fontGeometry.getGlyph('?');
 		if (!glyph)
 			continue;
 
-		if (s_data.text_index_count >= renderer2D_data::max_indices)
-			next_batch();
+		if (s_Data.m_TextIndexCount >= Renderer2DData::MaxIndices)
+			NextBatch();
 
 		double al, ab, ar, at;
 		glyph->getQuadAtlasBounds(al, ab, ar, at);
-		glm::vec2 texture_coord_min(static_cast<float>(al), static_cast<float>(ab));
-		glm::vec2 texture_coord_max(static_cast<float>(ar), static_cast<float>(at));
+		glm::vec2 textureCoordMin(static_cast<float>(al), static_cast<float>(ab));
+		glm::vec2 textureCoordMax(static_cast<float>(ar), static_cast<float>(at));
 
 		double pl, pb, pr, pt;
 		glyph->getQuadPlaneBounds(pl, pb, pr, pt);
-		glm::vec2 quad_min(static_cast<float>(pl), static_cast<float>(pb));
-		glm::vec2 quad_max(static_cast<float>(pr), static_cast<float>(pt));
+		glm::vec2 quadMin(static_cast<float>(pl), static_cast<float>(pb));
+		glm::vec2 quadMax(static_cast<float>(pr), static_cast<float>(pt));
 
-		quad_min *= fs_scale;
-		quad_max *= fs_scale;
-		quad_min += glm::vec2(x, y);
-		quad_max += glm::vec2(x, y);
+		quadMin *= fsScale;
+		quadMax *= fsScale;
+		quadMin += glm::vec2(x, y);
+		quadMax += glm::vec2(x, y);
 
-		float texel_width = 1.0f / static_cast<float>(font_atlas->get_width());
-		float texel_height = 1.0f / static_cast<float>(font_atlas->get_height());
-		texture_coord_min *= glm::vec2(texel_width, texel_height);
-		texture_coord_max *= glm::vec2(texel_width, texel_height);
+		float texelWidth = 1.0f / static_cast<float>(fontAtlas->GetWidth());
+		float texelHeight = 1.0f / static_cast<float>(fontAtlas->GetHeight());
+		textureCoordMin *= glm::vec2(texelWidth, texelHeight);
+		textureCoordMax *= glm::vec2(texelWidth, texelHeight);
 
-		s_data.text_vertex_buffer_ptr->position = transform * glm::vec4(quad_min, 0.0f, 1.0f);
-		s_data.text_vertex_buffer_ptr->color = params.color;
-		s_data.text_vertex_buffer_ptr->texture_coord = texture_coord_min;
-		s_data.text_vertex_buffer_ptr->entityID = entityID;
-		s_data.text_vertex_buffer_ptr++;
+		s_Data.m_TextVertexBufferPtr->m_Position = transform * glm::vec4(quadMin, 0.0f, 1.0f);
+		s_Data.m_TextVertexBufferPtr->m_Color = params.m_Color;
+		s_Data.m_TextVertexBufferPtr->m_TextureCoord = textureCoordMin;
+		s_Data.m_TextVertexBufferPtr->m_EntityId = entityId;
+		s_Data.m_TextVertexBufferPtr++;
 
-		s_data.text_vertex_buffer_ptr->position = transform * glm::vec4(quad_min.x, quad_max.y, 0.0f, 1.0f);
-		s_data.text_vertex_buffer_ptr->color = params.color;
-		s_data.text_vertex_buffer_ptr->texture_coord = { texture_coord_min.x, texture_coord_max.y };
-		s_data.text_vertex_buffer_ptr->entityID = entityID;
-		s_data.text_vertex_buffer_ptr++;
+		s_Data.m_TextVertexBufferPtr->m_Position = transform * glm::vec4(quadMin.x, quadMax.y, 0.0f, 1.0f);
+		s_Data.m_TextVertexBufferPtr->m_Color = params.m_Color;
+		s_Data.m_TextVertexBufferPtr->m_TextureCoord = { textureCoordMin.x, textureCoordMax.y };
+		s_Data.m_TextVertexBufferPtr->m_EntityId = entityId;
+		s_Data.m_TextVertexBufferPtr++;
 
-		s_data.text_vertex_buffer_ptr->position = transform * glm::vec4(quad_max, 0.0f, 1.0f);
-		s_data.text_vertex_buffer_ptr->color = params.color;
-		s_data.text_vertex_buffer_ptr->texture_coord = texture_coord_max;
-		s_data.text_vertex_buffer_ptr->entityID = entityID;
-		s_data.text_vertex_buffer_ptr++;
+		s_Data.m_TextVertexBufferPtr->m_Position = transform * glm::vec4(quadMax, 0.0f, 1.0f);
+		s_Data.m_TextVertexBufferPtr->m_Color = params.m_Color;
+		s_Data.m_TextVertexBufferPtr->m_TextureCoord = textureCoordMax;
+		s_Data.m_TextVertexBufferPtr->m_EntityId = entityId;
+		s_Data.m_TextVertexBufferPtr++;
 
-		s_data.text_vertex_buffer_ptr->position = transform * glm::vec4(quad_max.x, quad_min.y, 0.0f, 1.0f);
-		s_data.text_vertex_buffer_ptr->color = params.color;
-		s_data.text_vertex_buffer_ptr->texture_coord = { texture_coord_max.x, texture_coord_min.y };
-		s_data.text_vertex_buffer_ptr->entityID = entityID;
-		s_data.text_vertex_buffer_ptr++;
+		s_Data.m_TextVertexBufferPtr->m_Position = transform * glm::vec4(quadMax.x, quadMin.y, 0.0f, 1.0f);
+		s_Data.m_TextVertexBufferPtr->m_Color = params.m_Color;
+		s_Data.m_TextVertexBufferPtr->m_TextureCoord = { textureCoordMax.x, textureCoordMin.y };
+		s_Data.m_TextVertexBufferPtr->m_EntityId = entityId;
+		s_Data.m_TextVertexBufferPtr++;
 
-		s_data.text_index_count += 6;
-		s_data.stats.quad_counts++;
+		s_Data.m_TextIndexCount += 6;
+		s_Data.m_Stats.m_QuadCounts++;
 
-		if (i < string.size() - 1)
+		if (i < text.size() - 1)
 		{
 			double advance = glyph->getAdvance();
-			char next_character = string[i + 1];
-			font_geometry.getAdvance(advance, character, next_character);
+			char nextCharacter = text[i + 1];
+			fontGeometry.getAdvance(advance, character, nextCharacter);
 
-			x += fs_scale * advance + params.kerning;
+			x += fsScale * advance + params.m_Kerning;
 		}
 	}
 }
 
-void renderer2D::draw_string(const std::string& string, const glm::mat4& transform, const text_component& component, int entityID)
+void Renderer2D::DrawString(const std::string& text, const glm::mat4& transform, const TextComponent& component, int entityId)
 {
-	draw_string(string,
-		component.font ? std::static_pointer_cast<font>(project::get_active()->get_asset_manager()->get_asset(component.font)) : font::get_default(),
+	DrawString(text,
+		component.m_Font ? std::static_pointer_cast<Font>(Project::GetActive()->GetAssetManager()->GetAsset(component.m_Font)) : Font::GetDefault(),
 		transform,
 		{
-			.color = component.color,
-			.kerning = component.kerning,
-			.line_spacing = component.line_spacing
+			.m_Color = component.m_Color,
+			.m_Kerning = component.m_Kerning,
+			.m_LineSpacing = component.m_LineSpacing
 		},
-		entityID);
+		entityId);
 }
 
-void renderer2D::set_line_width(float width)
+void Renderer2D::SetLineWidth(float width)
 {
-	render_command::set_line_width(width);
+	RenderCommand::SetLineWidth(width);
 }
 
-void renderer2D::reset_stats()
+void Renderer2D::ResetStats()
 {
-	memset(&s_data.stats, 0, sizeof(renderer2D::statistics));
+	memset(&s_Data.m_Stats, 0, sizeof(Renderer2D::Statistics));
 }
 
-renderer2D::statistics renderer2D::get_stats()
+Renderer2D::Statistics Renderer2D::GetStats()
 {
-	return s_data.stats;
+	return s_Data.m_Stats;
 }
 
-void renderer2D::start_batch()
+void Renderer2D::StartBatch()
 {
-	s_data.quad_index_count = 0;
-	s_data.quad_vertex_buffer_ptr = s_data.quad_vertex_buffer_base;
+	s_Data.m_QuadIndexCount = 0;
+	s_Data.m_QuadVertexBufferPtr = s_Data.m_QuadVertexBufferBase;
 
-	s_data.circle_index_count = 0;
-	s_data.circle_vertex_buffer_ptr = s_data.circle_vertex_buffer_base;
+	s_Data.m_CircleIndexCount = 0;
+	s_Data.m_CircleVertexBufferPtr = s_Data.m_CircleVertexBufferBase;
 
-	s_data.line_vertex_count = 0;
-	s_data.line_vertex_buffer_ptr = s_data.line_vertex_buffer_base;
+	s_Data.m_LineVertexCount = 0;
+	s_Data.m_LineVertexBufferPtr = s_Data.m_LineVertexBufferBase;
 
-	s_data.text_index_count = 0;
-	s_data.text_vertex_buffer_ptr = s_data.text_vertex_buffer_base;
+	s_Data.m_TextIndexCount = 0;
+	s_Data.m_TextVertexBufferPtr = s_Data.m_TextVertexBufferBase;
 
-	s_data.texture_slot_index = 1;
+	s_Data.m_TextureSlotIndex = 1;
 }
 
-void renderer2D::next_batch()
+void Renderer2D::NextBatch()
 {
-	flush();
-	start_batch();
+	Flush();
+	StartBatch();
 }
 
 _WHIP_END

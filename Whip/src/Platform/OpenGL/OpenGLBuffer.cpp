@@ -1,4 +1,4 @@
-#include "whippch.h"
+#include "WhipPch.h"
 #include "OpenGLBuffer.h"
 
 #include <glad/glad.h>
@@ -7,76 +7,76 @@ _WHIP_START
 
 // VERTEX BUFFER
 
-opengl_vertex_buffer::opengl_vertex_buffer(float* vertices, uint32_t size)
+OpenGLVertexBuffer::OpenGLVertexBuffer(float* vertices, uint32_t size)
 {
 	WHP_PROFILE_FUNCTION();
 
-	glCreateBuffers(1, &m_rendererID);
-	glBindBuffer(GL_ARRAY_BUFFER, m_rendererID);
+	glCreateBuffers(1, &m_RendererID);
+	glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
 	glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
 }
 
-opengl_vertex_buffer::opengl_vertex_buffer(uint32_t size)
+OpenGLVertexBuffer::OpenGLVertexBuffer(uint32_t size)
 {
 	WHP_PROFILE_FUNCTION();
 
-	glCreateBuffers(1, &m_rendererID);
-	glBindBuffer(GL_ARRAY_BUFFER, m_rendererID);
+	glCreateBuffers(1, &m_RendererID);
+	glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
 	glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
 }
 
-opengl_vertex_buffer::~opengl_vertex_buffer()
+OpenGLVertexBuffer::~OpenGLVertexBuffer()
 {
-	glDeleteBuffers(1, &m_rendererID);
+	glDeleteBuffers(1, &m_RendererID);
 }
 
-void opengl_vertex_buffer::bind() const
+void OpenGLVertexBuffer::Bind() const
 {
 	WHP_PROFILE_FUNCTION();
 
-	glBindBuffer(GL_ARRAY_BUFFER, m_rendererID);
+	glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
 }
 
-void opengl_vertex_buffer::unbind() const
+void OpenGLVertexBuffer::Unbind() const
 {
 	WHP_PROFILE_FUNCTION();
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void opengl_vertex_buffer::set_data(const void* data, uint32_t size)
+void OpenGLVertexBuffer::SetData(const void* data, uint32_t size)
 {
 	WHP_PROFILE_FUNCTION();
 
-	glBindBuffer(GL_ARRAY_BUFFER, m_rendererID);
+	glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, size, data);
 }
 
 // INDEX BUFFER
 
-opengl_index_buffer::opengl_index_buffer(uint32_t* indices, uint32_t count)
-	: m_count(count)
+OpenGLIndexBuffer::OpenGLIndexBuffer(uint32_t* indices, uint32_t count)
+	: m_Count(count)
 {
 	WHP_PROFILE_FUNCTION();
 
-	glCreateBuffers(1, &m_rendererID);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_rendererID);
+	glCreateBuffers(1, &m_RendererID);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_RendererID);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(uint32_t), indices, GL_STATIC_DRAW);
 }
 
-opengl_index_buffer::~opengl_index_buffer()
+OpenGLIndexBuffer::~OpenGLIndexBuffer()
 {
-	glDeleteBuffers(1, &m_rendererID);
+	glDeleteBuffers(1, &m_RendererID);
 }
 
-void opengl_index_buffer::bind() const
+void OpenGLIndexBuffer::Bind() const
 {
 	WHP_PROFILE_FUNCTION();
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_rendererID);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_RendererID);
 }
 
-void opengl_index_buffer::unbind() const
+void OpenGLIndexBuffer::Unbind() const
 {
 	WHP_PROFILE_FUNCTION();
 

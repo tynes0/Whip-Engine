@@ -8,33 +8,33 @@
 
 _WHIP_START
 
-class windows_window : public window
+class WindowsWindow : public Window
 {
 public:
-	windows_window(const window_props& props);
-	virtual ~windows_window();
+	WindowsWindow(const WindowProps& props);
+	virtual ~WindowsWindow();
 
-	void on_update() override;
+	void OnUpdate() override;
 
-	WHP_NODISCARD inline unsigned int get_width() const override { return m_data.win_props.width; }
-	WHP_NODISCARD inline unsigned int get_height() const override { return m_data.win_props.height; }
-	WHP_NODISCARD virtual float get_scroll_delta() const override;
+	WHP_NODISCARD inline unsigned int GetWidth() const override { return m_Data.m_Properties.m_Width; }
+	WHP_NODISCARD inline unsigned int GetHeight() const override { return m_Data.m_Properties.m_Height; }
+	WHP_NODISCARD virtual float GetScrollDelta() const override;
 
-	WHP_NODISCARD std::pair<int, int> get_position() const override;
+	WHP_NODISCARD std::pair<int, int> GetPosition() const override;
 
-	WHP_NODISCARD inline virtual void* get_native_window() const override { return m_window; }
+	WHP_NODISCARD inline virtual void* GetNativeWindow() const override { return m_Window; }
 
 	// Window attributes
-	inline void set_event_callback(const event_callback_fn& callback) override { m_data.event_callback = callback; }
-	void set_vsync(bool enabled) override;
-	WHP_NODISCARD bool is_vsync() const override;
+	inline void SetEventCallback(const EventCallbackFn& callback) override { m_Data.m_EventCallback = callback; }
+	void SetVsync(bool enabled) override;
+	WHP_NODISCARD bool IsVsync() const override;
 private:
-	virtual void init(const window_props& props);
-	virtual void shutdown();
+	virtual void Init(const WindowProps& props);
+	virtual void Shutdown();
 private:
-	GLFWwindow* m_window;
-	graphic_context* m_context;
-	window_data m_data;
+	GLFWwindow* m_Window;
+	GraphicContext* m_Context;
+	WindowData m_Data;
 };
 
 _WHIP_END

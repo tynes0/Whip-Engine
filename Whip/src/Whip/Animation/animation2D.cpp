@@ -1,8 +1,7 @@
-#include <whippch.h>
-#include <Whip/Scene/components.h>
-
-#include "animation2D.h"
-#include "animation_manager.h"
+#include <WhipPch.h>
+#include <Whip/Animation/Animation2D.h>
+#include <Whip/Animation/AnimationManager.h>
+#include <Whip/Scene/Components.h>
 
 #ifndef YAML_CPP_STATIC_DEFINE
 #define YAML_CPP_STATIC_DEFINE
@@ -12,16 +11,16 @@
 namespace YAML
 {
 	template<>
-	struct convert<whip::asset_handle>
+	struct convert<whip::AssetHandle>
 	{
-		static Node encode(const whip::asset_handle& handle)
+		static Node encode(const whip::AssetHandle& handle)
 		{
 			Node node;
 			node.push_back((uint64_t)handle);
 			return node;
 		}
 
-		static bool decode(const Node& node, whip::asset_handle& handle)
+		static bool decode(const Node& node, whip::AssetHandle& handle)
 		{
 			handle = node.as<uint64_t>();
 			return true;
@@ -31,139 +30,139 @@ namespace YAML
 
 _WHIP_START
 
-animation2D::animation2D(asset_handle handle_in) : asset(handle_in), m_frames() { }
+Animation2D::Animation2D(AssetHandle handleIn) : Asset(handleIn), m_Frames() { }
 
-animation2D::~animation2D() 
+Animation2D::~Animation2D()
 {
-	//animation_manager::get_animation_name_manager().remove_name(m_name);
+	//AnimationManager::GetAnimationNameManager().RemoveName(m_Name);
 }
 
-ref<animation2D> animation2D::copy(ref<animation2D> anim)
+Ref<Animation2D> Animation2D::Copy(Ref<Animation2D> anim)
 {
-	auto new_animation = make_ref<animation2D>();
-	new_animation->m_frames = anim->m_frames;
-	new_animation->m_loop = anim->m_loop;
-	new_animation->m_name = anim->m_name;
-	return new_animation;
+	auto newAnimation = MakeRef<Animation2D>();
+	newAnimation->m_Frames = anim->m_Frames;
+	newAnimation->m_Loop = anim->m_Loop;
+	newAnimation->m_Name = anim->m_Name;
+	return newAnimation;
 }
 
-void animation2D::set_frames(const std::vector<animation_frame>& frames, bool loop)
+void Animation2D::SetFrames(const std::vector<AnimationFrame>& frames, bool loop)
 {
-	m_frames = frames;
-	m_loop = loop;
+	m_Frames = frames;
+	m_Loop = loop;
 }
 
-void animation2D::add_frame(const animation_frame& frame)
+void Animation2D::AddFrame(const AnimationFrame& frame)
 {
-	m_frames.push_back(frame);
+	m_Frames.push_back(frame);
 }
 
-void animation2D::remove_frame(size_t index)
+void Animation2D::RemoveFrame(size_t index)
 {
-	if (index < m_frames.size())
-		m_frames.erase(m_frames.begin() + index);
+	if (index < m_Frames.size())
+		m_Frames.erase(m_Frames.begin() + index);
 }
 
-void animation2D::bound_with_entity(entity target_entity)
+void Animation2D::BindWithEntity(Entity targetEntity)
 {
-	if (!target_entity.has_component<sprite_renderer_component>())
+	if (!targetEntity.HasComponent<SpriteRendererComponent>())
 	{
-		WHP_CORE_ERROR("[animation2D] Target entity does not have a sprite_renderer_component!");
+		WHP_CORE_ERROR("[Animation2D] Target entity does not have a SpriteRendererComponent!");
 		return;
 	}
 
-	auto& sprite_renderer = target_entity.get_component<sprite_renderer_component>();
-	m_original_texture = sprite_renderer.texture;
+	auto& spriteRenderer = targetEntity.GetComponent<SpriteRendererComponent>();
+	m_OriginalTexture = spriteRenderer.m_Texture;
 
-	m_target_entity = target_entity;
+	m_TargetEntity = targetEntity;
 }
 
-void animation2D::unbound_from_entity()
+void Animation2D::UnbindFromEntity()
 {
-	m_target_entity = {};
-	m_original_texture = {};
+	m_TargetEntity = {};
+	m_OriginalTexture = {};
 }
 
-void animation2D::apply_frame(asset_handle texture)
+void Animation2D::ApplyFrame(AssetHandle texture)
 {
-	if (!m_target_entity)
+	if (!m_TargetEntity)
 	{
-		WHP_CORE_ERROR("[animation2D] No entity bound!");
+		WHP_CORE_ERROR("[Animation2D] No entity bound!");
 		return;
 	}
 
-	auto& sprite_renderer = m_target_entity.get_component<sprite_renderer_component>();
-	sprite_renderer.texture = texture;
+	auto& spriteRenderer = m_TargetEntity.GetComponent<SpriteRendererComponent>();
+	spriteRenderer.m_Texture = texture;
 }
 
-void animation2D::play()
+void Animation2D::Play()
 {
-	if (m_is_playing)
+	if (m_IsPlaying)
 		return;
 
-	if (!m_target_entity)
+	if (!m_TargetEntity)
 	{
-		WHP_CORE_ERROR("[animation2D] No entity bound to this animation!");
+		WHP_CORE_ERROR("[Animation2D] No entity bound to this animation!");
 		return;
 	}
 
-	m_is_playing = true;
-	m_is_paused = false;
-	m_current_frame = 0;
-	m_elapsed_time = 0.0f;
+	m_IsPlaying = true;
+	m_IsPaused = false;
+	m_CurrentFrame = 0;
+	m_ElapsedTime = 0.0f;
 
-	if (!m_frames.empty())
-		apply_frame(m_frames[m_current_frame].texture);
+	if (!m_Frames.empty())
+		ApplyFrame(m_Frames[m_CurrentFrame].m_Texture);
 }
 
-void animation2D::stop()
+void Animation2D::Stop()
 {
-	if (!m_is_playing)
+	if (!m_IsPlaying)
 		return;
 
-	m_is_playing = false;
-	m_is_paused = false;
-	m_current_frame = 0;
-	m_elapsed_time = 0.0f;
+	m_IsPlaying = false;
+	m_IsPaused = false;
+	m_CurrentFrame = 0;
+	m_ElapsedTime = 0.0f;
 
-	apply_frame(m_original_texture);
+	ApplyFrame(m_OriginalTexture);
 }
 
-void animation2D::pause()
+void Animation2D::Pause()
 {
-	if (!m_is_playing || m_is_paused)
+	if (!m_IsPlaying || m_IsPaused)
 		return;
 
-	m_is_paused = true;
+	m_IsPaused = true;
 }
 
-void animation2D::resume()
+void Animation2D::Resume()
 {
-	if (!m_is_playing || !m_is_paused)
+	if (!m_IsPlaying || !m_IsPaused)
 		return;
 
-	m_is_paused = false;
+	m_IsPaused = false;
 }
 
-void animation2D::set_name(const std::string& new_name)
+void Animation2D::SetName(const std::string& newName)
 {
-	animation_manager::get_animation_name_manager().remove_name(m_name);
-	m_name = animation_manager::get_animation_name_manager().add_name(new_name);
+	AnimationManager::GetAnimationNameManager().RemoveName(m_Name);
+	m_Name = AnimationManager::GetAnimationNameManager().AddName(newName);
 }
 
-void animation2D::serialize(const std::filesystem::path& filepath)
+void Animation2D::Serialize(const std::filesystem::path& filepath)
 {
 	YAML::Emitter out;
 	out << YAML::BeginMap;
-	out << YAML::Key << "name" << YAML::Value << m_name;
-	out << YAML::Key << "loop" << YAML::Value << m_loop;
+	out << YAML::Key << "name" << YAML::Value << m_Name;
+	out << YAML::Key << "loop" << YAML::Value << m_Loop;
 	out << YAML::Key << "frames" << YAML::Value << YAML::BeginSeq;
 
-	for (const auto& frame : m_frames)
+	for (const auto& frame : m_Frames)
 	{
 		out << YAML::BeginMap;
-		out << YAML::Key << "handle" << YAML::Value << frame.texture;
-		out << YAML::Key << "duration" << YAML::Value << frame.duration;
+		out << YAML::Key << "handle" << YAML::Value << frame.m_Texture;
+		out << YAML::Key << "duration" << YAML::Value << frame.m_Duration;
 		out << YAML::EndMap;
 	}
 
@@ -174,7 +173,7 @@ void animation2D::serialize(const std::filesystem::path& filepath)
 	fout << out.c_str();
 }
 
-bool animation2D::deserialize(const std::filesystem::path& filepath)
+bool Animation2D::Deserialize(const std::filesystem::path& filepath)
 {
 	YAML::Node data;
 	try
@@ -183,21 +182,21 @@ bool animation2D::deserialize(const std::filesystem::path& filepath)
 	}
 	catch (YAML::Exception& e)
 	{
-		WHP_CORE_ERROR("[animation2D] Failed to load .wanim file '{0}' -> {1}", filepath.string(), e.what());
+		WHP_CORE_ERROR("[Animation2D] Failed to load .wanim file '{0}' -> {1}", filepath.string(), e.what());
 		return false;
 	}
 
-	m_name = animation_manager::get_animation_name_manager().add_name(data["name"].as<std::string>());
-	m_loop = data["loop"].as<bool>();
-	m_frames.clear();
+	m_Name = AnimationManager::GetAnimationNameManager().AddName(data["name"].as<std::string>());
+	m_Loop = data["loop"].as<bool>();
+	m_Frames.clear();
 
-	const auto& frames_node = data["frames"];
-	for (const auto& frame_node : frames_node)
+	const auto& framesNode = data["frames"];
+	for (const auto& frameNode : framesNode)
 	{
-		animation_frame frame;
-		frame.texture = frame_node["handle"].as<uint64_t>();
-		frame.duration = frame_node["duration"].as<float>();
-		m_frames.push_back(frame);
+		AnimationFrame frame;
+		frame.m_Texture = frameNode["handle"].as<uint64_t>();
+		frame.m_Duration = frameNode["duration"].as<float>();
+		m_Frames.push_back(frame);
 	}
 	return true;
 }

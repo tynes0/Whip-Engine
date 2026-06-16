@@ -1,5 +1,5 @@
-project:
+﻿project:
   name: ""
-  start_scene: assets\scenes\empty_scene.whip
+  start_scene: assets\scenes\empty_scene.wscene
   asset_directory: ""
   script_module_path: ""

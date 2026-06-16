@@ -1,4 +1,4 @@
-#include <whippch.h>
+#include <WhipPch.h>
 #include <Whip/Core/Input.h>
 #include <Whip/Core/Application.h>
 
@@ -6,134 +6,134 @@
 
 _WHIP_START
 
-struct input_data
+struct InputData
 {
-	static constexpr size_t MAX_KEYS = 512;
-	static constexpr size_t MAX_BUTTONS = 8;
-	std::bitset<MAX_KEYS> previous_key_states;
-	std::bitset<MAX_BUTTONS> previous_mouse_button_states;
+	static constexpr size_t MaxKeys = 512;
+	static constexpr size_t MaxButtons = 8;
+	std::bitset<MaxKeys> m_PreviousKeyStates;
+	std::bitset<MaxButtons> m_PreviousMouseButtonStates;
 };
 
-static input_data s_input_data;
+static InputData s_InputData;
 
-WHP_NODISCARD bool input::is_key_pressed(int keycode)
+WHP_NODISCARD bool Input::IsKeyPressed(int keyCode)
 {
-	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
-	int state = glfwGetKey(window, keycode);
-	bool is_pressed = (state == GLFW_PRESS);
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+	int state = glfwGetKey(window, keyCode);
+	bool isPressed = (state == GLFW_PRESS);
 
 	// Return true only on the first frame the key is pressed
-	if (is_pressed && !s_input_data.previous_key_states[keycode])
+	if (isPressed && !s_InputData.m_PreviousKeyStates[keyCode])
 	{
-		s_input_data.previous_key_states[keycode] = true;
+		s_InputData.m_PreviousKeyStates[keyCode] = true;
 		return true;
 	}
 
 	// Keep the current key state while suppressing repeated pressed checks
-	s_input_data.previous_key_states[keycode] = is_pressed;
+	s_InputData.m_PreviousKeyStates[keyCode] = isPressed;
 	return false;
 }
 
-WHP_NODISCARD bool input::is_key_released(int keycode)
+WHP_NODISCARD bool Input::IsKeyReleased(int keyCode)
 {
-	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
-	int state = glfwGetKey(window, keycode);
-	bool is_released = (state == GLFW_RELEASE);
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+	int state = glfwGetKey(window, keyCode);
+	bool isReleased = (state == GLFW_RELEASE);
 
 	// Return true only on the first frame the key is released
-	if (is_released && s_input_data.previous_key_states[keycode])
+	if (isReleased && s_InputData.m_PreviousKeyStates[keyCode])
 	{
-		s_input_data.previous_key_states[keycode] = false;
+		s_InputData.m_PreviousKeyStates[keyCode] = false;
 		return true;
 	}
 
 	// Keep the current key state while suppressing repeated released checks
-	s_input_data.previous_key_states[keycode] = !is_released;
+	s_InputData.m_PreviousKeyStates[keyCode] = !isReleased;
 	return false;
 }
 
 
-WHP_NODISCARD bool input::is_key_down(int keycode)
+WHP_NODISCARD bool Input::IsKeyDown(int keyCode)
 {
-	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
-	int state = glfwGetKey(window, keycode);
-	bool is_pressed = (state == GLFW_PRESS);
-	return is_pressed;
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+	int state = glfwGetKey(window, keyCode);
+	bool isPressed = (state == GLFW_PRESS);
+	return isPressed;
 }
 
-bool input::is_key_up(int keycode)
+bool Input::IsKeyUp(int keyCode)
 {
-	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
-	int state = glfwGetKey(window, keycode);
-	bool is_released = (state == GLFW_RELEASE);
-	return is_released;
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+	int state = glfwGetKey(window, keyCode);
+	bool isReleased = (state == GLFW_RELEASE);
+	return isReleased;
 }
 
-WHP_NODISCARD bool input::is_mouse_button_pressed(int button)
+WHP_NODISCARD bool Input::IsMouseButtonPressed(int button)
 {
-	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
 	int state = glfwGetMouseButton(window, button);
-	bool is_pressed = (state == GLFW_PRESS);
-	if (is_pressed && !s_input_data.previous_mouse_button_states[button])
+	bool isPressed = (state == GLFW_PRESS);
+	if (isPressed && !s_InputData.m_PreviousMouseButtonStates[button])
 	{
-		s_input_data.previous_mouse_button_states[button] = true;
+		s_InputData.m_PreviousMouseButtonStates[button] = true;
 		return true;
 	}
 	return false;
 }
 
-WHP_NODISCARD bool input::is_mouse_button_released(int button)
+WHP_NODISCARD bool Input::IsMouseButtonReleased(int button)
 {
-	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
 	int state = glfwGetMouseButton(window, button);
-	bool is_released = (state == GLFW_RELEASE);
-	if (is_released && s_input_data.previous_mouse_button_states[button])
+	bool isReleased = (state == GLFW_RELEASE);
+	if (isReleased && s_InputData.m_PreviousMouseButtonStates[button])
 	{
-		s_input_data.previous_mouse_button_states[button] = false;
+		s_InputData.m_PreviousMouseButtonStates[button] = false;
 		return true;
 	}
 	return false;
 }
 
-WHP_NODISCARD bool input::is_mouse_button_down(int button)
+WHP_NODISCARD bool Input::IsMouseButtonDown(int button)
 {
-	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
 	int state = glfwGetMouseButton(window, button);
-	bool is_pressed = (state == GLFW_PRESS);
-	return is_pressed;
+	bool isPressed = (state == GLFW_PRESS);
+	return isPressed;
 }
 
-WHP_NODISCARD bool input::is_mouse_button_up(int button)
+WHP_NODISCARD bool Input::IsMouseButtonUp(int button)
 {
-	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
 	int state = glfwGetMouseButton(window, button);
-	bool is_released = (state == GLFW_RELEASE);
-	return is_released;
+	bool isReleased = (state == GLFW_RELEASE);
+	return isReleased;
 }
 
-WHP_NODISCARD float input::get_mouse_X()
+WHP_NODISCARD float Input::GetMouseX()
 {
-	auto posX = get_mouse_position().first;
+	auto posX = GetMousePosition().first;
 	return posX;
 }
 
-WHP_NODISCARD float input::get_mouse_Y()
+WHP_NODISCARD float Input::GetMouseY()
 {
-	auto posY = get_mouse_position().second;
+	auto posY = GetMousePosition().second;
 	return posY;
 }
 
-WHP_NODISCARD std::pair<float, float> input::get_mouse_position()
+WHP_NODISCARD std::pair<float, float> Input::GetMousePosition()
 {
-	auto window = static_cast<GLFWwindow*>(application::get().get_window().get_native_window());
+	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
 	double posX, posY;
 	glfwGetCursorPos(window, &posX, &posY);
 	return { (float)posX, (float)posY };
 }
 
-WHP_NODISCARD float input::get_scroll_delta()
+WHP_NODISCARD float Input::GetScrollDelta()
 {
-	return application::get().get_window().get_scroll_delta();
+	return Application::Get().GetWindow().GetScrollDelta();
 }
 
 

@@ -1,183 +1,228 @@
-#include <whippch.h>
-#include "Application.h"
+#include <WhipPch.h>
+#include <Whip/Core/Application.h>
 
 #include <Whip/Render/Renderer.h>
-#include <Whip/Utils/platform_utils.h>
-#include <Whip/Scripting/script_engine.h>
-#include <Whip/Audio/audio_engine.h>
-#include <Whip/Core/timer_manager.h>
-#include <Whip/Project/project.h>
+#include <Whip/Utils/PlatformUtils.h>
+#include <Whip/Scripting/ScriptEngine.h>
+#include <Whip/Audio/AudioEngine.h>
+#include <Whip/Helper/TimerManager.h>
+#include <Whip/Project/Project.h>
 
 _WHIP_START
 
-application* application::s_instance = nullptr;
+Application* Application::s_Instance = nullptr;
 
-application::application(const application_specification& spec)
-	:m_specification(spec), m_main_thread_id(std::this_thread::get_id())
+Application::Application(ApplicationSpecification spec)
+	:m_Specification(std::move(spec)), m_MainThreadId(std::this_thread::get_id())
 {
 	WHP_PROFILE_FUNCTION();
 
-	WHP_CORE_ASSERT(!s_instance, "Application already exist!");
-	s_instance = this;
+	WHP_CORE_ASSERT(!s_Instance, "Application already exist!");
+	s_Instance = this;
 
-	if (!m_specification.working_directory.empty())
-		std::filesystem::current_path(m_specification.working_directory);
+	if (!m_Specification.m_WorkingDirectory.empty())
+		std::filesystem::current_path(m_Specification.m_WorkingDirectory);
 
-	m_window = scope<window>(window::create(m_specification.properties));
-	m_window->set_event_callback([this](auto&&... args) -> decltype(auto) { return this->on_event(std::forward<decltype(args)>(args)...); });
+	m_Window = Scope<Window>(Window::Create(m_Specification.m_Properties));
+	m_Window->SetEventCallback([this]<typename... T>(T&&... args) -> decltype(auto) { return this->OnEvent(std::forward<T>(args)...); });
 
-	m_window->set_vsync(false);
-	renderer::init();
-	audio_engine::init();
+	m_Window->SetVsync(false);
+	Renderer::Init();
+	AudioEngine::Init();
 
-	m_imgui_layer = new imgui_layer();
-	push_overlay(m_imgui_layer);
+	m_ImGuiLayer = new ImGuiLayer();
+	PushOverlay(m_ImGuiLayer);
 }
 
-application::~application()
+Application::~Application()
 {
 	WHP_PROFILE_FUNCTION();
 	WHP_CORE_INFO("[Application] Shutdown started.");
 
-	for (layerptr item : m_layer_stack)
-		item->on_detach();
-	m_layer_stack.clear();
+	for (LayerPtr item : m_LayerStack)
+		item->OnDetach();
+	m_LayerStack.Clear();
 
-	script_engine::shutdown();
-	project::set_active(nullptr);
-	renderer::shutdown();
-	audio_engine::shutdown();
+	ScriptEngine::Shutdown();
+	Project::SetActive(nullptr);
+	Renderer::Shutdown();
+	AudioEngine::Shutdown();
 
 	WHP_CORE_INFO("[Application] Shutdown complete.");
 }
 
-void application::run()
+void Application::Run()
 {
 	WHP_PROFILE_FUNCTION();
 
-	while (m_running)
+	while (m_Running)
 	{
-		m_tick_count++;
-		execute_next_tick_queue();
+		m_TickCount++;
+		ExecuteNextTickQueue();
 
-		float l_time = time::get_time();
-		timestep ts = l_time - m_last_frame_time;
-		m_last_frame_time = l_time;
-		execute_main_thread_queue();
-		timer_manager::get().tick(ts);
+		float time = Time::GetTime();
+		Timestep ts = time - m_LastFrameTime;
+		m_LastFrameTime = time;
+		ExecuteMainThreadQueue();
+		TimerManager::Get().Tick(ts);
 
-		if (!m_minimized)
+		if (!m_Minimized)
 		{
-			for (layerptr item : m_layer_stack)
+			for (LayerPtr item : m_LayerStack)
 			{
-				item->on_update(ts);
+				item->OnUpdate(ts);
 			}
 		}
 
-		m_imgui_layer->begin();
+		m_ImGuiLayer->Begin();
 		{
-			for (layerptr item : m_layer_stack)
+			for (LayerPtr item : m_LayerStack)
 			{
-				item->on_imgui_render();
+				item->OnImGuiRender();
 			}
 		}
-		m_imgui_layer->end();
-		m_window->on_update();
+		m_ImGuiLayer->End();
+		m_Window->OnUpdate();
 	}
 }
 
-void application::close()
+void Application::Close()
 {
-	m_running = false;
+	m_Running = false;
 }
 
-void application::restart()
+void Application::Restart()
 {
-	if (utils::restart_program())
-		close();
+	if (Utils::RestartProgram())
+		Close();
 }
 
-void application::on_event(event& e)
+void Application::OnEvent(Event& event)
 {
 	WHP_PROFILE_FUNCTION();
 
-	event_dispatcher dispatcher(e);
-	dispatcher.dispatch<window_close_event>([this](auto&&... args) -> decltype(auto) { return this->on_window_close(std::forward<decltype(args)>(args)...); });
-	dispatcher.dispatch<window_resize_event>([this](auto&&... args) -> decltype(auto) { return this->on_window_resize(std::forward<decltype(args)>(args)...); });
+	EventDispatcher dispatcher(event);
+	dispatcher.Dispatch<WindowCloseEvent>([this]<typename... T>(T&&... args) -> decltype(auto) { return this->OnWindowClose(std::forward<T>(args)...); });
+	dispatcher.Dispatch<WindowResizeEvent>([this]<typename... T>(T&&... args) -> decltype(auto) { return this->OnWindowResize(std::forward<T>(args)...); });
 
-	for (auto iter = m_layer_stack.end(); iter != m_layer_stack.begin(); )
+	for (auto iter = m_LayerStack.end(); iter != m_LayerStack.begin(); )
 	{
-		if (e.handled)
+		if (event.m_Handled)
 			break;
-		(DREF(--iter))->on_event(e);
+		(DREF(--iter))->OnEvent(event);
 	}
 }
 
-void application::push_layer(layerptr layer)
+void Application::PushLayer(LayerPtr layer)
 {
 	WHP_PROFILE_FUNCTION();
 
-	m_layer_stack.push_layer(layer);
-	layer->on_attach();
+	m_LayerStack.PushLayer(layer);
+	layer->OnAttach();
 }
 
-void application::push_overlay(layerptr overlay)
+void Application::PushOverlay(LayerPtr overlay)
 {
 	WHP_PROFILE_FUNCTION();
 
-	m_layer_stack.push_overlay(overlay);
-	overlay->on_attach();
+	m_LayerStack.PushOverlay(overlay);
+	overlay->OnAttach();
 }
 
-void application::submit_to_main_thread(const std::function<void()>& function)
+Application& Application::Get()
 {
-	std::scoped_lock<std::mutex> lock(m_main_thread_queue_mutex);
-
-	m_main_thread_queue.emplace_back(function);
+	return DREF(s_Instance);
 }
 
-void application::submit_to_next_tick(const std::function<void()>& function)
+Window& Application::GetWindow()
 {
-	m_next_tick_queue.emplace_back(function);
+	return DREF(m_Window);
 }
 
-bool application::on_window_close(window_close_event& evnt)
+const Window& Application::GetWindow() const
 {
-	this->close();
+	return DREF(m_Window);
+}
+
+ImGuiLayer* Application::GetImGuiLayer()
+{
+	return m_ImGuiLayer;
+}
+
+const ImGuiLayer* Application::GetImGuiLayer() const
+{
+	return m_ImGuiLayer;
+}
+
+ApplicationSpecification Application::GetSpecification() const
+{
+	return m_Specification;
+}
+
+uint64_t Application::GetTickCount() const
+{
+	return m_TickCount;
+}
+
+std::thread::id Application::GetMainThreadId() const
+{
+	return m_MainThreadId;
+}
+
+bool Application::IsMainThread() const
+{
+	return std::this_thread::get_id() == m_MainThreadId;
+}
+
+void Application::SubmitToMainThread(const std::function<void()>& function)
+{
+	std::scoped_lock<std::mutex> lock(m_MainThreadQueueMutex);
+
+	m_MainThreadQueue.emplace_back(function);
+}
+
+void Application::SubmitToNextTick(const std::function<void()>& function)
+{
+	m_NextTickQueue.emplace_back(function);
+}
+
+bool Application::OnWindowClose(WindowCloseEvent& event)
+{
+	this->Close();
 	WHP_CORE_INFO("[Application] Window destroyed!");
 	return true;
 }
 
-bool application::on_window_resize(window_resize_event& evnt)
+bool Application::OnWindowResize(WindowResizeEvent& event)
 {
 	WHP_PROFILE_FUNCTION();
 
-	if (evnt.get_width() == 0 || evnt.get_height() == 0)
+	if (event.GetWidth() == 0 || event.GetHeight() == 0)
 	{
-		m_minimized = true;
+		m_Minimized = true;
 		return false;
 	}
-	m_minimized = false;
-	renderer::on_window_resize(evnt.get_width(), evnt.get_height());
+	m_Minimized = false;
+	Renderer::OnWindowResize(event.GetWidth(), event.GetHeight());
 
 	return false;
 }
 
-void application::execute_main_thread_queue()
+void Application::ExecuteMainThreadQueue()
 {
-	std::scoped_lock<std::mutex> lock(m_main_thread_queue_mutex);
+	std::scoped_lock<std::mutex> lock(m_MainThreadQueueMutex);
 
-	for (auto& func : m_main_thread_queue)
+	for (auto& func : m_MainThreadQueue)
 		func();
 
-	m_main_thread_queue.clear();
+	m_MainThreadQueue.clear();
 }
 
-void application::execute_next_tick_queue()
+void Application::ExecuteNextTickQueue()
 {
-	for (auto& func : m_next_tick_queue)
+	for (auto& func : m_NextTickQueue)
 		func();
-	m_next_tick_queue.clear();
+	m_NextTickQueue.clear();
 }
 
 _WHIP_END

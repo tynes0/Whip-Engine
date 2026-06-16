@@ -1,17 +1,17 @@
-#include <whippch.h>
-#include "VertexArray.h"
+#include <WhipPch.h>
+#include <Whip/Render/VertexArray.h>
 
 #include <Platform/OpenGL/OpenGLVertexArray.h>
-#include "Renderer.h"
+#include <Whip/Render/Renderer.h>
 
 _WHIP_START
 
-ref<vertex_array> vertex_array::create()
+Ref<VertexArray> VertexArray::Create()
 {
-	switch (renderer::get_API())
+	switch (Renderer::GetAPI())
 	{
-	case render_API::API::none:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
-	case render_API::API::opengl:	return make_ref<opengl_vertex_array>();
+	case RenderAPI::API::None:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
+	case RenderAPI::API::OpenGL:	return MakeRef<OpenGLVertexArray>();
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI");

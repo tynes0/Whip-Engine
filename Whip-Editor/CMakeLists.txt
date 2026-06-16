@@ -11,6 +11,7 @@ whip_configure_native_target(Whip-Editor)
 target_compile_definitions(Whip-Editor PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 target_include_directories(Whip-Editor PRIVATE
+    "${CMAKE_SOURCE_DIR}/Whip/include"
     "${CMAKE_SOURCE_DIR}/Whip/src"
     "${CMAKE_SOURCE_DIR}/Whip/vendor"
     "${CMAKE_CURRENT_SOURCE_DIR}/src")

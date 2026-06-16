@@ -1,99 +1,99 @@
-#include "whippch.h"
-#include "Texture.h"
+#include "WhipPch.h"
+#include <Whip/Render/Texture.h>
 
 #include <Whip/Render/Renderer.h>
 #include <Platform/OpenGL/OpenGLTexture.h>
 
 _WHIP_START
 
-ref<texture2D> texture2D::create(const texture_specification& specification, raw_buffer data)
+Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification, RawBuffer data)
 {
-	switch (renderer::get_API())
+	switch (Renderer::GetAPI())
 	{
-	case render_API::API::none:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
-	case render_API::API::opengl:	return make_ref<opengl_texture2D>(specification, data);
+	case RenderAPI::API::None:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
+	case RenderAPI::API::OpenGL:	return MakeRef<OpenGLTexture2D>(specification, data);
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI");
 	return nullptr;
 }
 
-ref<texture2D> texture2D::create_from_coords(const ref<texture2D>& atlas, const glm::vec2& coords, const glm::vec2& cell_size, const glm::vec2& pixel_size_between_sprites, const glm::vec2& sprite_size)
+Ref<Texture2D> Texture2D::CreateFromCoords(const Ref<Texture2D>& atlas, const glm::vec2& coords, const glm::vec2& cellSize, const glm::vec2& pixelSizeBetweenSprites, const glm::vec2& spriteSize)
 {
 	if (!atlas)
 		return nullptr;
-	// Koordinatlar� hesapla
-	glm::vec2 empty_pixel_size = { pixel_size_between_sprites.x * coords.x, pixel_size_between_sprites.y * coords.y };
-	uint32_t atlas_width = atlas->get_width();
-	uint32_t atlas_height = atlas->get_height();
+	// KoordinatlarÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ hesapla
+	glm::vec2 emptyPixelSize = { pixelSizeBetweenSprites.x * coords.x, pixelSizeBetweenSprites.y * coords.y };
+	uint32_t atlasWidth = atlas->GetWidth();
+	uint32_t atlasHeight = atlas->GetHeight();
 
-	glm::vec2 min = { ((coords.x * cell_size.x) + empty_pixel_size.x),
-					  ((coords.y * cell_size.y) + empty_pixel_size.y) };
-	glm::vec2 max = { (((coords.x + sprite_size.x) * cell_size.x) + empty_pixel_size.x),
-					  (((coords.y + sprite_size.y) * cell_size.y) + empty_pixel_size.y) };
+	glm::vec2 min = { ((coords.x * cellSize.x) + emptyPixelSize.x),
+					  ((coords.y * cellSize.y) + emptyPixelSize.y) };
+	glm::vec2 max = { (((coords.x + spriteSize.x) * cellSize.x) + emptyPixelSize.x),
+					  (((coords.y + spriteSize.y) * cellSize.y) + emptyPixelSize.y) };
 
-	uint32_t sprite_width = static_cast<uint32_t>(max.x - min.x);
-	uint32_t sprite_height = static_cast<uint32_t>(max.y - min.y);
+	uint32_t spriteWidth = static_cast<uint32_t>(max.x - min.x);
+	uint32_t spriteHeight = static_cast<uint32_t>(max.y - min.y);
 
-	// Atlas�n ham verisini al
-	raw_buffer atlas_data = atlas->get_data();
+	// AtlasÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n ham verisini al
+	RawBuffer atlasData = atlas->GetData();
 
-	// Yeni sprite i�in buffer olu�tur
-	raw_buffer sprite_data(sprite_width * sprite_height * 4); // RGBA8 format�n� varsay�yoruz
+	// Yeni sprite iÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½in buffer oluÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tur
+	RawBuffer spriteData(spriteWidth * spriteHeight * 4); // RGBA8 formatÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½nÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ varsayÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½yoruz
 
 	// Veriyi atlas'tan yeni sprite'a kopyala
-	for (uint32_t y = 0; y < sprite_height; y++)
+	for (uint32_t y = 0; y < spriteHeight; y++)
 	{
-		uint32_t atlas_row_start = (static_cast<uint32_t>(min.y) + y) * atlas_width * 4 + static_cast<uint32_t>(min.x) * 4;
-		uint32_t sprite_row_start = y * sprite_width * 4;
+		uint32_t atlasRowStart = (static_cast<uint32_t>(min.y) + y) * atlasWidth * 4 + static_cast<uint32_t>(min.x) * 4;
+		uint32_t spriteRowStart = y * spriteWidth * 4;
 
-		memcpy(sprite_data.data + sprite_row_start, atlas_data.data + atlas_row_start, sprite_width * 4);
+		memcpy(spriteData.m_Data + spriteRowStart, atlasData.m_Data + atlasRowStart, spriteWidth * 4);
 	}
 
-	// Yeni texture olu�tur
-	texture_specification spec;
-	spec.width = sprite_width;
-	spec.height = sprite_height;
-	spec.format = image_format::RGBA8;
+	// Yeni Texture oluÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tur
+	TextureSpecification spec;
+	spec.m_Width = spriteWidth;
+	spec.m_Height = spriteHeight;
+	spec.m_Format = ImageFormat::Rgba8;
 
-	auto result = texture2D::create(spec, sprite_data);
-	atlas_data.release();
-	sprite_data.release();
+	auto result = Texture2D::Create(spec, spriteData);
+	atlasData.Release();
+	spriteData.Release();
 	return result;
 }
 
-void texture2D::flip_texture_buffer(raw_buffer& buffer, int width, int height, int channels, flip_direction_t direction)
+void Texture2D::FlipTextureBuffer(RawBuffer& buffer, int width, int height, int channels, FlipDirection direction)
 {
-	if (!buffer || buffer.size < uint64_t(width * height * channels))
+	if (!buffer || buffer.m_Size < uint64_t(width * height * channels))
 	{
 		WHP_CORE_ERROR("[Texture 2D] Invalid buffer size or data!");
 		return;
 	}
 
-	uint8_t* data = buffer.data;
+	uint8_t* data = buffer.m_Data;
 
-	if (direction & flip_direction_horizontal)
+	if (direction & FlipDirectionHorizontal)
 	{
-		size_t bytes_per_row = (size_t)width * channels;
-		stack_buffer<2048> temp{};
-		raw_buffer bytes = buffer;
+		size_t bytesPerRow = (size_t)width * channels;
+		StackBuffer<2048> temp{};
+		RawBuffer bytes = buffer;
 
 		for (int row = 0; row < height; row++) 
 		{
-			raw_buffer row_data(bytes.data + row * bytes_per_row, 1);
+			RawBuffer rowData(bytes.m_Data + row * bytesPerRow, 1);
 			size_t left = 0;
 			size_t right = size_t(width - 1);
 
 			while (left < right)
 			{
-				uint8_t* left_pixel = row_data.data + left * channels;
-				uint8_t* right_pixel = row_data.data + right * channels;
+				uint8_t* leftPixel = rowData.m_Data + left * channels;
+				uint8_t* rightPixel = rowData.m_Data + right * channels;
 
-				size_t bytes_copy = (channels < temp.size) ? channels : sizeof(temp);
+				size_t bytesCopy = (channels < temp.m_Size) ? channels : sizeof(temp);
 
-				memcpy(temp.data, left_pixel, bytes_copy);
-				memcpy(left_pixel, right_pixel, bytes_copy);
-				memcpy(right_pixel, temp.data, bytes_copy);
+				memcpy(temp.m_Data, leftPixel, bytesCopy);
+				memcpy(leftPixel, rightPixel, bytesCopy);
+				memcpy(rightPixel, temp.m_Data, bytesCopy);
 
 				left++;
 				right--;
@@ -101,27 +101,27 @@ void texture2D::flip_texture_buffer(raw_buffer& buffer, int width, int height, i
 		}
 	}
 
-	if (direction & flip_direction_vertical)
+	if (direction & FlipDirectionVertical)
 	{
 		int row;
-		size_t bytes_per_row = (size_t)width * channels;
-		stack_buffer<2048> temp{};
-		raw_buffer bytes = buffer;
+		size_t bytesPerRow = (size_t)width * channels;
+		StackBuffer<2048> temp{};
+		RawBuffer bytes = buffer;
 
 		for (row = 0; row < (height >> 1); row++)
 		{
-			raw_buffer row0(bytes.data + row * bytes_per_row, 1);
-			raw_buffer row1(bytes.data + (height - row - 1) * bytes_per_row, 1);
-			size_t bytes_left = bytes_per_row;
-			while (bytes_left) 
+			RawBuffer row0(bytes.m_Data + row * bytesPerRow, 1);
+			RawBuffer row1(bytes.m_Data + (height - row - 1) * bytesPerRow, 1);
+			size_t bytesLeft = bytesPerRow;
+			while (bytesLeft) 
 			{
-				size_t bytes_copy = (bytes_left < temp.size) ? bytes_left : sizeof(temp);
-				memcpy(temp.data, row0.data, bytes_copy);
-				memcpy(row0.data, row1.data, bytes_copy);
-				memcpy(row1.data, temp.data, bytes_copy);
-				row0.data += bytes_copy;
-				row1.data += bytes_copy;
-				bytes_left -= bytes_copy;
+				size_t bytesCopy = (bytesLeft < temp.m_Size) ? bytesLeft : sizeof(temp);
+				memcpy(temp.m_Data, row0.m_Data, bytesCopy);
+				memcpy(row0.m_Data, row1.m_Data, bytesCopy);
+				memcpy(row1.m_Data, temp.m_Data, bytesCopy);
+				row0.m_Data += bytesCopy;
+				row1.m_Data += bytesCopy;
+				bytesLeft -= bytesCopy;
 			}
 		}
 	}

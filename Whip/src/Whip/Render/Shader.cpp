@@ -1,89 +1,89 @@
-#include "whippch.h"
-#include "Shader.h"
+#include "WhipPch.h"
+#include <Whip/Render/Shader.h>
 
-#include "Renderer.h"
+#include <Whip/Render/Renderer.h>
 #include <Platform/OpenGL/OpenGLShader.h>
 
 _WHIP_START
 
-ref<shader> shader::create(const std::string& filepath)
+Ref<Shader> Shader::Create(const std::string& filepath)
 {
-	switch (renderer::get_API())
+	switch (Renderer::GetAPI())
 	{
-	case render_API::API::none:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
-	case render_API::API::opengl:	return make_ref<opengl_shader>(filepath);
+	case RenderAPI::API::None:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
+	case RenderAPI::API::OpenGL:	return MakeRef<OpenGLShader>(filepath);
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI");
 	return nullptr;
 }
 
-ref<shader> shader::create(const std::string& name, const std::string& filepath)
+Ref<Shader> Shader::Create(const std::string& name, const std::string& filepath)
 {
-	switch (renderer::get_API())
+	switch (Renderer::GetAPI())
 	{
-	case render_API::API::none:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
-	case render_API::API::opengl:	return make_ref<opengl_shader>(name, filepath);
+	case RenderAPI::API::None:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
+	case RenderAPI::API::OpenGL:	return MakeRef<OpenGLShader>(name, filepath);
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI");
 	return nullptr;
 }
 
-ref<shader> shader::create(const std::string& name, const std::string& vertex_filepath, const std::string& fragment_filepath)
+Ref<Shader> Shader::Create(const std::string& name, const std::string& vertexFilepath, const std::string& fragmentFilepath)
 {
-	switch (renderer::get_API())
+	switch (Renderer::GetAPI())
 	{
-	case render_API::API::none:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
-	case render_API::API::opengl:	return make_ref<opengl_shader>(name, vertex_filepath, fragment_filepath);
+	case RenderAPI::API::None:		WHP_CORE_ASSERT(false, "RandererAPI is none!"); return nullptr;
+	case RenderAPI::API::OpenGL:	return MakeRef<OpenGLShader>(name, vertexFilepath, fragmentFilepath);
 	}
 
 	WHP_CORE_ASSERT(false, "Unknown RendererAPI");
 	return nullptr;
 }
 
-void shader_library::add(const std::string& name, const ref<shader>& shader)
+void ShaderLibrary::Add(const std::string& name, const Ref<Shader>& shader)
 {
-	WHP_CORE_ASSERT(!exist(name), "Shader already exist!");
-	m_shaders[name] = shader;
+	WHP_CORE_ASSERT(!Exist(name), "Shader already exist!");
+	m_Shaders[name] = shader;
 }
 
-void shader_library::add(const ref<shader>& shader)
+void ShaderLibrary::Add(const Ref<Shader>& shader)
 {
-	auto& name = shader->get_name();
-	add(name, shader);
+	auto& name = shader->GetName();
+	Add(name, shader);
 }
 
-ref<shader> shader_library::load(const std::string& filepath)
+Ref<Shader> ShaderLibrary::Load(const std::string& filepath)
 {
-	auto shad = shader::create(filepath);
-	add(shad);
+	auto shad = Shader::Create(filepath);
+	Add(shad);
 	return shad;
 }
 
-ref<shader> shader_library::load(const std::string& name, const std::string& filepath)
+Ref<Shader> ShaderLibrary::Load(const std::string& name, const std::string& filepath)
 {
-	auto shad = shader::create(name, filepath);
-	add(name, shad);
+	auto shad = Shader::Create(name, filepath);
+	Add(name, shad);
 	return shad;
 }
 
-ref<shader> shader_library::load(const std::string& name, const std::string& vertex_filepath, const std::string& fragment_filepath)
+Ref<Shader> ShaderLibrary::Load(const std::string& name, const std::string& vertexFilepath, const std::string& fragmentFilepath)
 {
-	auto shad = shader::create(name, vertex_filepath, fragment_filepath);
-	add(name, shad);
+	auto shad = Shader::Create(name, vertexFilepath, fragmentFilepath);
+	Add(name, shad);
 	return shad;
 }
 
-ref<shader> shader_library::get(const std::string& name)
+Ref<Shader> ShaderLibrary::Get(const std::string& name)
 {
-	WHP_CORE_ASSERT(exist(name), "Shader is doesn't exist!");
-	return m_shaders[name];
+	WHP_CORE_ASSERT(Exist(name), "Shader is doesn't exist!");
+	return m_Shaders[name];
 }
 
-bool shader_library::exist(const std::string& name) const
+bool ShaderLibrary::Exist(const std::string& name) const
 {
-	return m_shaders.find(name) != m_shaders.end();
+	return m_Shaders.find(name) != m_Shaders.end();
 }
 
 _WHIP_END
