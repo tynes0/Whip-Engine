@@ -17,6 +17,7 @@ _WHIP_START
 
 class Entity;
 class SceneHierarchyPanel;
+struct AnimatorComponent;
 
 class Scene : public Asset
 {
@@ -58,6 +59,8 @@ public:
 	void DestroyEntity(Entity entityIn);
 	Entity FindEntityByUUID(UUID id);
 	Entity FindEntityByName(std::string_view name);
+	AnimatorRuntime* GetAnimatorRuntime(UUID entityId);
+	AnimatorRuntime* GetOrCreateAnimatorRuntime(Entity entityIn);
 
 	void OnRuntimeStart();
 	void OnRuntimeStop();
@@ -65,6 +68,7 @@ private:
 
 	void OnAudiosStop();
 	void CreateAnimatorRuntimes();
+	AnimatorRuntime* CreateAnimatorRuntime(Entity entityIn, AnimatorComponent& component);
 	void ClearAnimatorRuntimes();
 	void UpdateAnimators(Timestep ts);
 

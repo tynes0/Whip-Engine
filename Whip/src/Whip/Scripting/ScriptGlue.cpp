@@ -782,6 +782,107 @@ namespace Utils
 		anim->SetLoop(loop);
 	}
 
+	static AnimatorRuntime* AnimatorComponentGetRuntime(UUID entityId, bool createIfMissing = true)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		if (!ent.HasComponent<AnimatorComponent>())
+		{
+			WHP_CORE_WARN("[C# Method] Entity does not have AnimatorComponent!");
+			return nullptr;
+		}
+
+		return createIfMissing ? ent.GetScene()->GetOrCreateAnimatorRuntime(ent) : ent.GetScene()->GetAnimatorRuntime(entityId);
+	}
+
+	static uint64_t AnimatorComponentGetController(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.HasComponent<AnimatorComponent>() ? static_cast<uint64_t>(ent.GetComponent<AnimatorComponent>().m_Controller) : 0;
+	}
+
+	static void AnimatorComponentSetController(UUID entityId, AssetHandle controllerHandle)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		if (!ent.HasComponent<AnimatorComponent>())
+			return;
+
+		ent.GetComponent<AnimatorComponent>().m_Controller = controllerHandle;
+		ent.GetScene()->GetOrCreateAnimatorRuntime(ent);
+	}
+
+	static float AnimatorComponentGetSpeed(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.HasComponent<AnimatorComponent>() ? ent.GetComponent<AnimatorComponent>().m_Speed : 0.0f;
+	}
+
+	static void AnimatorComponentSetSpeed(UUID entityId, float speed)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		if (ent.HasComponent<AnimatorComponent>())
+			ent.GetComponent<AnimatorComponent>().m_Speed = speed;
+	}
+
+	static void AnimatorComponentPlay(UUID entityId, MonoString* stateName)
+	{
+		AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId);
+		if (!runtime)
+			return;
+
+		const std::string state = stateName ? detail::MonoStringToString(stateName) : std::string{};
+		runtime->Play(state);
+	}
+
+	static void AnimatorComponentStop(UUID entityId)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId, false))
+			runtime->Stop();
+	}
+
+	static bool AnimatorComponentIsPlaying(UUID entityId)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId, false))
+			return runtime->IsPlaying();
+		return false;
+	}
+
+	static MonoString* AnimatorComponentGetCurrentState(UUID entityId)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId, false))
+			return CreateString(runtime->GetCurrentStateName().c_str());
+		return CreateString("");
+	}
+
+	static void AnimatorComponentSetBool(UUID entityId, MonoString* name, bool value)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId))
+			runtime->SetBool(detail::MonoStringToString(name), value);
+	}
+
+	static void AnimatorComponentSetInt(UUID entityId, MonoString* name, int32_t value)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId))
+			runtime->SetInt(detail::MonoStringToString(name), value);
+	}
+
+	static void AnimatorComponentSetFloat(UUID entityId, MonoString* name, float value)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId))
+			runtime->SetFloat(detail::MonoStringToString(name), value);
+	}
+
+	static void AnimatorComponentSetTrigger(UUID entityId, MonoString* name)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId))
+			runtime->SetTrigger(detail::MonoStringToString(name));
+	}
+
+	static void AnimatorComponentResetTrigger(UUID entityId, MonoString* name)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId))
+			runtime->ResetTrigger(detail::MonoStringToString(name));
+	}
+
 	static void CameraComponentSetPrimary(UUID entityId, bool primary)
 	{
 		Entity ent = detail::GetEntity(entityId);
@@ -1591,6 +1692,21 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(Animation_IsPaused, Utils::AnimationIsPaused);
 	ADD_INTERNAL_CALL(Animation_IsLooping, Utils::AnimationIsLooping);
 	ADD_INTERNAL_CALL(Animation_SetLoop, Utils::AnimationSetLoop);
+
+	// Animator component
+	ADD_INTERNAL_CALL(AnimatorComponent_GetController, Utils::AnimatorComponentGetController);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetController, Utils::AnimatorComponentSetController);
+	ADD_INTERNAL_CALL(AnimatorComponent_GetSpeed, Utils::AnimatorComponentGetSpeed);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetSpeed, Utils::AnimatorComponentSetSpeed);
+	ADD_INTERNAL_CALL(AnimatorComponent_Play, Utils::AnimatorComponentPlay);
+	ADD_INTERNAL_CALL(AnimatorComponent_Stop, Utils::AnimatorComponentStop);
+	ADD_INTERNAL_CALL(AnimatorComponent_IsPlaying, Utils::AnimatorComponentIsPlaying);
+	ADD_INTERNAL_CALL(AnimatorComponent_GetCurrentState, Utils::AnimatorComponentGetCurrentState);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetBool, Utils::AnimatorComponentSetBool);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetInt, Utils::AnimatorComponentSetInt);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetFloat, Utils::AnimatorComponentSetFloat);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetTrigger, Utils::AnimatorComponentSetTrigger);
+	ADD_INTERNAL_CALL(AnimatorComponent_ResetTrigger, Utils::AnimatorComponentResetTrigger);
 
 	// Camera component
 	ADD_INTERNAL_CALL(CameraComponent_IsPrimary, Utils::CameraComponentIsPrimary);

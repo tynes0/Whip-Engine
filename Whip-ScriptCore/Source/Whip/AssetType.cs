@@ -7,7 +7,8 @@
 		Texture2D,
 		Audio,
 		Font,
-		Animation
+		Animation,
+		AnimationController
 	};
 
 }

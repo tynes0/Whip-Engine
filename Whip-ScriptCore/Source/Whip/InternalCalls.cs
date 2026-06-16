@@ -193,6 +193,36 @@ namespace Whip
 
 		#endregion
 
+		#region AnimatorComponent
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static ulong AnimatorComponent_GetController(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void AnimatorComponent_SetController(ulong entityID, ulong controllerHandle);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float AnimatorComponent_GetSpeed(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void AnimatorComponent_SetSpeed(ulong entityID, float speed);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void AnimatorComponent_Play(ulong entityID, string stateName);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void AnimatorComponent_Stop(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool AnimatorComponent_IsPlaying(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static string AnimatorComponent_GetCurrentState(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void AnimatorComponent_SetBool(ulong entityID, string name, bool value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void AnimatorComponent_SetInt(ulong entityID, string name, int value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void AnimatorComponent_SetFloat(ulong entityID, string name, float value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void AnimatorComponent_SetTrigger(ulong entityID, string name);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void AnimatorComponent_ResetTrigger(ulong entityID, string name);
+
+		#endregion
+
 		#region CameraComponent
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool CameraComponent_IsPrimary(ulong entityID);

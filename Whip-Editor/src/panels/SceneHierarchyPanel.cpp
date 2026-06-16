@@ -1929,6 +1929,24 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 					else
 						ImGui::TextDisabled("Not playing");
 					END_COMPONENT_TABLE_ROW();
+
+					if (runtimeIt != sceneIn->m_AnimatorRuntimes.end())
+					{
+						BEGIN_COMPONENT_TABLE_ROW("Parameters");
+						if (ImGui::TreeNode("Live Values"))
+						{
+							for (const auto& [name, value] : runtimeIt->second.GetBoolParameters())
+								ImGui::TextDisabled("%s = %s", name.c_str(), value ? "true" : "false");
+							for (const auto& [name, value] : runtimeIt->second.GetIntParameters())
+								ImGui::TextDisabled("%s = %d", name.c_str(), value);
+							for (const auto& [name, value] : runtimeIt->second.GetFloatParameters())
+								ImGui::TextDisabled("%s = %.3f", name.c_str(), value);
+							for (const auto& name : runtimeIt->second.GetTriggerParameters())
+								ImGui::TextDisabled("%s = trigger", name.c_str());
+							ImGui::TreePop();
+						}
+						END_COMPONENT_TABLE_ROW();
+					}
 				}
 
 				ImGui::EndTable();

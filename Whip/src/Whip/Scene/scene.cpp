@@ -177,6 +177,24 @@ Entity Scene::FindEntityByName(std::string_view name)
 	return Entity{};
 }
 
+AnimatorRuntime* Scene::GetAnimatorRuntime(UUID entityId)
+{
+	auto it = m_AnimatorRuntimes.find(entityId);
+	return it == m_AnimatorRuntimes.end() ? nullptr : &it->second;
+}
+
+AnimatorRuntime* Scene::GetOrCreateAnimatorRuntime(Entity entityIn)
+{
+	if (!entityIn || !entityIn.HasComponent<AnimatorComponent>())
+		return nullptr;
+
+	auto& component = entityIn.GetComponent<AnimatorComponent>();
+	if (AnimatorRuntime* runtime = GetAnimatorRuntime(entityIn.GetUUID()); runtime && runtime->GetControllerHandle() == component.m_Controller)
+		return runtime;
+
+	return CreateAnimatorRuntime(entityIn, component);
+}
+
 void Scene::OnRuntimeStart()
 {
 	WHP_PROFILE_FUNCTION();
@@ -497,19 +515,24 @@ void Scene::CreateAnimatorRuntimes()
 	for (auto e : view)
 	{
 		Entity entity{ e, this };
-		auto& component = entity.GetComponent<AnimatorComponent>();
-		if (component.m_Controller == 0 || !AssetManager::IsAssetHandleValid(component.m_Controller) || AssetManager::GetAssetType(component.m_Controller) != AssetType::AnimationController)
-			continue;
-
-		Ref<AnimationController> controller = AssetManager::GetAsset<AnimationController>(component.m_Controller);
-		if (!controller)
-			continue;
-
-		AnimatorRuntime& runtime = m_AnimatorRuntimes[entity.GetUUID()];
-		runtime.Bind(this, entity.GetUUID(), controller, component.m_InitialState);
-		if (component.m_PlayOnStart)
-			runtime.Play(component.m_InitialState);
+		CreateAnimatorRuntime(entity, entity.GetComponent<AnimatorComponent>());
 	}
+}
+
+AnimatorRuntime* Scene::CreateAnimatorRuntime(Entity entityIn, AnimatorComponent& component)
+{
+	if (!entityIn || component.m_Controller == 0 || !AssetManager::IsAssetHandleValid(component.m_Controller) || AssetManager::GetAssetType(component.m_Controller) != AssetType::AnimationController)
+		return nullptr;
+
+	Ref<AnimationController> controller = AssetManager::GetAsset<AnimationController>(component.m_Controller);
+	if (!controller)
+		return nullptr;
+
+	AnimatorRuntime& runtime = m_AnimatorRuntimes[entityIn.GetUUID()];
+	runtime.Bind(this, entityIn.GetUUID(), controller, component.m_InitialState);
+	if (component.m_PlayOnStart)
+		runtime.Play(component.m_InitialState);
+	return &runtime;
 }
 
 void Scene::ClearAnimatorRuntimes()
@@ -537,18 +560,18 @@ void Scene::UpdateAnimators(Timestep ts)
 
 		if (!runtime || runtime->GetControllerHandle() != component.m_Controller)
 		{
-			Ref<AnimationController> controller = AssetManager::GetAsset<AnimationController>(component.m_Controller);
-			if (!controller)
+			runtime = CreateAnimatorRuntime(entity, component);
+			if (!runtime)
 				continue;
-
-			AnimatorRuntime& reboundRuntime = m_AnimatorRuntimes[entity.GetUUID()];
-			reboundRuntime.Bind(this, entity.GetUUID(), controller, component.m_InitialState);
-			if (component.m_PlayOnStart)
-				reboundRuntime.Play(component.m_InitialState);
-			runtime = &reboundRuntime;
 		}
 
 		runtime->Update(ts, component.m_Speed);
+		for (const std::string& eventName : runtime->GetFiredEvents())
+		{
+			std::string_view eventView(eventName);
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnAnimationEvent, entity, Payload::Ref(eventView));
+		}
+		runtime->ClearFiredEvents();
 	}
 }
 

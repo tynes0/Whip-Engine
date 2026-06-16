@@ -291,7 +291,7 @@ struct ComponentGroup {};
 
 using AllComponentsNoIDNoTagNoScript = ComponentGroup<TransformComponent,
 	SpriteRendererComponent, CircleRendererComponent, TextComponent, CameraComponent,
-	Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent>;
+	AnimatorComponent, Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent>;
 
 using AllComponentsNoIDNoTag = ComponentGroup<TransformComponent, SpriteRendererComponent,
 	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, AnimatorComponent, NativeScriptComponent,

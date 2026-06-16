@@ -10,6 +10,9 @@
 #include <string>
 #include <vector>
 
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+
 _WHIP_START
 
 struct AnimationFrame
@@ -30,6 +33,18 @@ struct AnimationEventKey
 {
 	float m_Time = 0.0f;
 	std::string m_Name;
+};
+
+struct AnimationVec3Key
+{
+	float m_Time = 0.0f;
+	glm::vec3 m_Value{ 0.0f };
+};
+
+struct AnimationVec4Key
+{
+	float m_Time = 0.0f;
+	glm::vec4 m_Value{ 1.0f };
 };
 
 class Animation2D : public Asset
@@ -63,6 +78,14 @@ public:
 	const std::vector<AnimationFrame>& GetFrames() const { return m_Frames; }
 	std::vector<AnimationEventKey>& GetEvents() { return m_Events; }
 	const std::vector<AnimationEventKey>& GetEvents() const { return m_Events; }
+	std::vector<AnimationVec3Key>& GetTranslationKeys() { return m_TranslationKeys; }
+	const std::vector<AnimationVec3Key>& GetTranslationKeys() const { return m_TranslationKeys; }
+	std::vector<AnimationVec3Key>& GetRotationKeys() { return m_RotationKeys; }
+	const std::vector<AnimationVec3Key>& GetRotationKeys() const { return m_RotationKeys; }
+	std::vector<AnimationVec3Key>& GetScaleKeys() { return m_ScaleKeys; }
+	const std::vector<AnimationVec3Key>& GetScaleKeys() const { return m_ScaleKeys; }
+	std::vector<AnimationVec4Key>& GetColorKeys() { return m_ColorKeys; }
+	const std::vector<AnimationVec4Key>& GetColorKeys() const { return m_ColorKeys; }
 	float GetDuration() const;
 	float GetFrameStartTime(size_t index) const;
 	size_t GetFrameIndexAtTime(float time) const;
@@ -80,6 +103,10 @@ private:
 
 	std::vector<AnimationFrame> m_Frames;
 	std::vector<AnimationEventKey> m_Events;
+	std::vector<AnimationVec3Key> m_TranslationKeys;
+	std::vector<AnimationVec3Key> m_RotationKeys;
+	std::vector<AnimationVec3Key> m_ScaleKeys;
+	std::vector<AnimationVec4Key> m_ColorKeys;
 
 	Entity m_TargetEntity;
 	AssetHandle m_OriginalTexture = AssetHandle(0);

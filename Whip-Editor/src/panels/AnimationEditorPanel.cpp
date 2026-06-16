@@ -627,7 +627,9 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	{
 		const int row = (int)i / columns;
 		const int column = (int)i % columns;
-		nodePositions[i] = ImVec2(canvasMin.x + 22.0f + column * (nodeWidth + gapX), canvasMin.y + 24.0f + row * (nodeHeight + gapY));
+		if (states[i].m_GraphPosition.x == 0.0f && states[i].m_GraphPosition.y == 0.0f && i > 0)
+			states[i].m_GraphPosition = { column * (nodeWidth + gapX), row * (nodeHeight + gapY) };
+		nodePositions[i] = ImVec2(canvasMin.x + 22.0f + states[i].m_GraphPosition.x, canvasMin.y + 24.0f + states[i].m_GraphPosition.y);
 	}
 
 	for (size_t i = 0; i < states.size(); ++i)
@@ -677,6 +679,12 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		ImGui::InvisibleButton("##ControllerStateNode", ImVec2(nodeWidth, nodeHeight));
 		if (ImGui::IsItemClicked())
 			m_SelectedControllerStateIndex = (int)i;
+		if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+		{
+			const ImVec2 delta = ImGui::GetIO().MouseDelta;
+			m_CurrentController->GetStates()[i].m_GraphPosition.x = std::max(0.0f, m_CurrentController->GetStates()[i].m_GraphPosition.x + delta.x);
+			m_CurrentController->GetStates()[i].m_GraphPosition.y = std::max(0.0f, m_CurrentController->GetStates()[i].m_GraphPosition.y + delta.y);
+		}
 		ImGui::PopID();
 	}
 
@@ -720,29 +728,98 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		}
 	}
 
-	std::string clipLabel = "Drop Animation";
-	bool isClipValid = false;
-	if (state.m_Clip != 0)
+	const std::array<AnimationMotionType, 2> motionTypes =
 	{
-		if (AssetManager::IsAssetHandleValid(state.m_Clip) && AssetManager::GetAssetType(state.m_Clip) == AssetType::Animation)
+		AnimationMotionType::Clip,
+		AnimationMotionType::BlendTree1D
+	};
+	std::string motionPreview = frenum::to_string(state.m_MotionType).data();
+	if (ImGui::BeginCombo("Motion", motionPreview.c_str()))
+	{
+		for (AnimationMotionType motionType : motionTypes)
 		{
-			clipLabel = AssetManager::GetAssetMetadata(state.m_Clip).m_Filepath.filename().string();
-			isClipValid = true;
+			std::string label = frenum::to_string(motionType).data();
+			const bool selected = state.m_MotionType == motionType;
+			if (ImGui::Selectable(label.c_str(), selected))
+				state.m_MotionType = motionType;
+			if (selected)
+				ImGui::SetItemDefaultFocus();
 		}
-		else
-			clipLabel = "Invalid";
+		ImGui::EndCombo();
 	}
 
-	const auto clipDropCallback = [&state](AssetHandle handle)
-		{
-			state.m_Clip = handle;
-		};
-	UI::DragDropTarget(AssetType::Animation, clipDropCallback, clipLabel.c_str(), true, std::max(140.0f, width - 42.0f), 0.0f);
-	if (isClipValid)
+	if (state.m_MotionType == AnimationMotionType::Clip)
 	{
-		ImGui::SameLine();
-		if (ImGui::Button("X##ClearStateClip"))
-			state.m_Clip = 0;
+		std::string clipLabel = "Drop Animation";
+		bool isClipValid = false;
+		if (state.m_Clip != 0)
+		{
+			if (AssetManager::IsAssetHandleValid(state.m_Clip) && AssetManager::GetAssetType(state.m_Clip) == AssetType::Animation)
+			{
+				clipLabel = AssetManager::GetAssetMetadata(state.m_Clip).m_Filepath.filename().string();
+				isClipValid = true;
+			}
+			else
+				clipLabel = "Invalid";
+		}
+
+		const auto clipDropCallback = [&state](AssetHandle handle)
+			{
+				state.m_Clip = handle;
+			};
+		UI::DragDropTarget(AssetType::Animation, clipDropCallback, clipLabel.c_str(), true, std::max(140.0f, width - 42.0f), 0.0f);
+		if (isClipValid)
+		{
+			ImGui::SameLine();
+			if (ImGui::Button("X##ClearStateClip"))
+				state.m_Clip = 0;
+		}
+	}
+	else
+	{
+		if (ImGui::BeginCombo("Blend Parameter", state.m_BlendParameter.empty() ? "None" : state.m_BlendParameter.c_str()))
+		{
+			for (const AnimationControllerParameter& parameter : m_CurrentController->GetParameters())
+			{
+				if (parameter.m_Type != AnimationParameterType::Float && parameter.m_Type != AnimationParameterType::Int && parameter.m_Type != AnimationParameterType::Bool)
+					continue;
+
+				const bool selected = state.m_BlendParameter == parameter.m_Name;
+				if (ImGui::Selectable(parameter.m_Name.c_str(), selected))
+					state.m_BlendParameter = parameter.m_Name;
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+
+		if (ImGui::Button("+ Blend Child", ImVec2(-1.0f, 0.0f)))
+			state.m_BlendChildren.push_back({});
+
+		for (size_t childIndex = 0; childIndex < state.m_BlendChildren.size(); ++childIndex)
+		{
+			ImGui::PushID((int)childIndex);
+			AnimationBlendChild& child = state.m_BlendChildren[childIndex];
+			std::string childClipLabel = "Drop Animation";
+			if (child.m_Clip != 0 && AssetManager::IsAssetHandleValid(child.m_Clip) && AssetManager::GetAssetType(child.m_Clip) == AssetType::Animation)
+				childClipLabel = AssetManager::GetAssetMetadata(child.m_Clip).m_Filepath.filename().string();
+
+			const auto childDropCallback = [&child](AssetHandle handle)
+				{
+					child.m_Clip = handle;
+				};
+			UI::DragDropTarget(AssetType::Animation, childDropCallback, childClipLabel.c_str(), true, std::max(120.0f, width - 42.0f), 0.0f);
+			ImGui::DragFloat("Threshold", &child.m_Threshold, 0.01f);
+			ImGui::DragFloat("Child Speed", &child.m_Speed, 0.01f, 0.0f, 20.0f, "%.2f");
+			if (ImGui::Button("Remove Child", ImVec2(-1.0f, 0.0f)))
+			{
+				state.m_BlendChildren.erase(state.m_BlendChildren.begin() + childIndex);
+				ImGui::PopID();
+				break;
+			}
+			ImGui::Separator();
+			ImGui::PopID();
+		}
 	}
 	ImGui::DragFloat("Speed", &state.m_Speed, 0.01f, 0.0f, 20.0f, "%.2f");
 	ImGui::Checkbox("Loop", &state.m_Loop);
@@ -1017,6 +1094,87 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 
 		ImGui::EndTable();
 	}
+
+	const float keyTime = m_CurrentAnimation->GetFrameStartTime((size_t)m_SelectedFrameIndex);
+	ImGui::Separator();
+	ImGui::TextDisabled("Events");
+	if (ImGui::Button("+ Event"))
+		m_CurrentAnimation->GetEvents().push_back({ keyTime, "Event" });
+
+	auto& events = m_CurrentAnimation->GetEvents();
+	for (size_t eventIndex = 0; eventIndex < events.size(); ++eventIndex)
+	{
+		ImGui::PushID((int)eventIndex);
+		ImGui::DragFloat("Time", &events[eventIndex].m_Time, 0.01f, 0.0f);
+		ImGui::InputText("Name", &events[eventIndex].m_Name);
+		if (ImGui::Button("Remove Event", ImVec2(-1.0f, 0.0f)))
+		{
+			events.erase(events.begin() + eventIndex);
+			ImGui::PopID();
+			break;
+		}
+		ImGui::Separator();
+		ImGui::PopID();
+	}
+
+	ImGui::TextDisabled("Property Tracks");
+	if (ImGui::Button("+ Translation"))
+		m_CurrentAnimation->GetTranslationKeys().push_back({ keyTime, glm::vec3{ 0.0f } });
+	ImGui::SameLine();
+	if (ImGui::Button("+ Rotation"))
+		m_CurrentAnimation->GetRotationKeys().push_back({ keyTime, glm::vec3{ 0.0f } });
+	if (ImGui::Button("+ Scale"))
+		m_CurrentAnimation->GetScaleKeys().push_back({ keyTime, glm::vec3{ 1.0f } });
+	ImGui::SameLine();
+	if (ImGui::Button("+ Color"))
+		m_CurrentAnimation->GetColorKeys().push_back({ keyTime, glm::vec4{ 1.0f } });
+
+	auto drawVec3Keys = [](const char* label, std::vector<AnimationVec3Key>& keys)
+		{
+			if (!ImGui::TreeNode(label))
+				return;
+			for (size_t keyIndex = 0; keyIndex < keys.size(); ++keyIndex)
+			{
+				ImGui::PushID((int)keyIndex);
+				ImGui::DragFloat("Time", &keys[keyIndex].m_Time, 0.01f, 0.0f);
+				ImGui::DragFloat3("Value", &keys[keyIndex].m_Value.x, 0.01f);
+				if (ImGui::Button("Remove Key", ImVec2(-1.0f, 0.0f)))
+				{
+					keys.erase(keys.begin() + keyIndex);
+					ImGui::PopID();
+					break;
+				}
+				ImGui::Separator();
+				ImGui::PopID();
+			}
+			ImGui::TreePop();
+		};
+
+	auto drawVec4Keys = [](const char* label, std::vector<AnimationVec4Key>& keys)
+		{
+			if (!ImGui::TreeNode(label))
+				return;
+			for (size_t keyIndex = 0; keyIndex < keys.size(); ++keyIndex)
+			{
+				ImGui::PushID((int)keyIndex);
+				ImGui::DragFloat("Time", &keys[keyIndex].m_Time, 0.01f, 0.0f);
+				ImGui::ColorEdit4("Value", &keys[keyIndex].m_Value.x);
+				if (ImGui::Button("Remove Key", ImVec2(-1.0f, 0.0f)))
+				{
+					keys.erase(keys.begin() + keyIndex);
+					ImGui::PopID();
+					break;
+				}
+				ImGui::Separator();
+				ImGui::PopID();
+			}
+			ImGui::TreePop();
+		};
+
+	drawVec3Keys("Translation Keys", m_CurrentAnimation->GetTranslationKeys());
+	drawVec3Keys("Rotation Keys", m_CurrentAnimation->GetRotationKeys());
+	drawVec3Keys("Scale Keys", m_CurrentAnimation->GetScaleKeys());
+	drawVec4Keys("Color Keys", m_CurrentAnimation->GetColorKeys());
 }
 
 void AnimationEditorPanel::UpdatePreview()

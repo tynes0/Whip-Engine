@@ -10,6 +10,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 _WHIP_START
 
@@ -35,11 +36,21 @@ public:
 	AssetHandle GetControllerHandle() const { return m_Controller ? m_Controller->m_Handle : AssetHandle{}; }
 	const std::string& GetCurrentStateName() const { return m_CurrentStateName; }
 	float GetStateTime() const { return m_StateTime; }
+	const std::vector<std::string>& GetFiredEvents() const { return m_FiredEvents; }
+	void ClearFiredEvents() { m_FiredEvents.clear(); }
+
+	const std::unordered_map<std::string, bool>& GetBoolParameters() const { return m_BoolParameters; }
+	const std::unordered_map<std::string, int32_t>& GetIntParameters() const { return m_IntParameters; }
+	const std::unordered_map<std::string, float>& GetFloatParameters() const { return m_FloatParameters; }
+	const std::unordered_set<std::string>& GetTriggerParameters() const { return m_TriggerParameters; }
 
 private:
 	const AnimationControllerState* GetCurrentState() const;
 	const AnimationControllerParameter* FindParameter(std::string_view name) const;
 	Ref<Animation2D> GetStateClip(const AnimationControllerState& state) const;
+	AssetHandle ResolveStateClipHandle(const AnimationControllerState& state) const;
+	float ResolveStateMotionSpeed(const AnimationControllerState& state) const;
+	float GetFloatParameterValue(std::string_view name) const;
 	float GetStateDuration(const AnimationControllerState& state) const;
 
 	bool TryTransition(const AnimationControllerState& state, float stateDuration);
@@ -50,6 +61,8 @@ private:
 
 	void SwitchState(std::string_view stateName);
 	void ApplyCurrentFrame();
+	void QueueEvents(const AnimationControllerState& state, float startTime, float endTime);
+	void ApplyPropertyTracks(const Animation2D& clip, float sampleTime);
 
 	Scene* m_Scene = nullptr;
 	UUID m_EntityId = 0;
@@ -58,6 +71,7 @@ private:
 	std::string m_CurrentStateName;
 	float m_StateTime = 0.0f;
 	bool m_Playing = false;
+	std::vector<std::string> m_FiredEvents;
 
 	std::unordered_map<std::string, bool> m_BoolParameters;
 	std::unordered_map<std::string, int32_t> m_IntParameters;

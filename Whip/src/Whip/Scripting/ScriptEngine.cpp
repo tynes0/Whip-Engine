@@ -477,6 +477,7 @@ ScriptInstance::ScriptInstance(const Ref<ScriptClass>& scriptClass, Entity entit
 	m_Methods[EntityMethodType::OnDestroy] = scriptClass->GetMethod("OnDestroy", 0);
 	m_Methods[EntityMethodType::OnColliderEnter] = scriptClass->GetMethod("OnColliderEnter", 1);
 	m_Methods[EntityMethodType::OnColliderExit] = scriptClass->GetMethod("OnColliderExit", 1);
+	m_Methods[EntityMethodType::OnAnimationEvent] = scriptClass->GetMethod("OnAnimationEvent", 1);
 	if (!m_Instance)
 		return;
 
@@ -530,6 +531,17 @@ void ScriptInstance::InvokeOnColliderExit(std::string_view tag)
 	}
 }
 
+void ScriptInstance::InvokeOnAnimationEvent(std::string_view eventName)
+{
+	if (m_Instance && m_Methods[EntityMethodType::OnAnimationEvent])
+	{
+		const std::string eventString(eventName);
+		MonoString* monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, eventString.c_str());
+		void* param = monoString;
+		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnAnimationEvent], &param, MakeMethodContext("OnAnimationEvent"));
+	}
+}
+
 void ScriptInstance::InvokeMethod(EntityMethodType methodType, const Payload& payload)
 {
 	if (!m_Instance || !m_Methods[methodType])
@@ -541,7 +553,7 @@ void ScriptInstance::InvokeMethod(EntityMethodType methodType, const Payload& pa
 	{
 		param = const_cast<float*>(&payload.Get<float>());
 	}
-	else if (methodType == EntityMethodType::OnColliderEnter || methodType == EntityMethodType::OnColliderExit)
+	else if (methodType == EntityMethodType::OnColliderEnter || methodType == EntityMethodType::OnColliderExit || methodType == EntityMethodType::OnAnimationEvent)
 	{
 		const std::string tagString(payload.Get<std::string_view>());
 		MonoString* monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, tagString.c_str());

@@ -40,6 +40,16 @@ namespace
 			return mode.value();
 		return AnimationConditionMode::If;
 	}
+
+	AnimationMotionType ParseMotionType(const YAML::Node& node)
+	{
+		if (!node)
+			return AnimationMotionType::Clip;
+		const std::string value = node.as<std::string>();
+		if (auto motionType = frenum::cast<AnimationMotionType>(value))
+			return motionType.value();
+		return AnimationMotionType::Clip;
+	}
 }
 
 AnimationController::AnimationController(AssetHandle handle)
@@ -171,9 +181,22 @@ void AnimationController::Serialize(const std::filesystem::path& filepath) const
 	{
 		out << YAML::BeginMap;
 		out << YAML::Key << "name" << YAML::Value << state.m_Name;
+		out << YAML::Key << "motion_type" << YAML::Value << frenum::to_string(state.m_MotionType);
 		out << YAML::Key << "clip" << YAML::Value << static_cast<uint64_t>(state.m_Clip);
+		out << YAML::Key << "blend_parameter" << YAML::Value << state.m_BlendParameter;
+		out << YAML::Key << "blend_children" << YAML::Value << YAML::BeginSeq;
+		for (const AnimationBlendChild& child : state.m_BlendChildren)
+		{
+			out << YAML::BeginMap;
+			out << YAML::Key << "clip" << YAML::Value << static_cast<uint64_t>(child.m_Clip);
+			out << YAML::Key << "threshold" << YAML::Value << child.m_Threshold;
+			out << YAML::Key << "speed" << YAML::Value << child.m_Speed;
+			out << YAML::EndMap;
+		}
+		out << YAML::EndSeq;
 		out << YAML::Key << "speed" << YAML::Value << state.m_Speed;
 		out << YAML::Key << "loop" << YAML::Value << state.m_Loop;
+		out << YAML::Key << "graph_position" << YAML::Value << YAML::Flow << YAML::BeginSeq << state.m_GraphPosition.x << state.m_GraphPosition.y << YAML::EndSeq;
 
 		out << YAML::Key << "transitions" << YAML::Value << YAML::BeginSeq;
 		for (const AnimationControllerTransition& transition : state.m_Transitions)
@@ -247,9 +270,25 @@ bool AnimationController::Deserialize(const std::filesystem::path& filepath)
 		{
 			AnimationControllerState state;
 			state.m_Name = ReadYamlValue<std::string>(stateNode, "name", "State");
+			state.m_MotionType = ParseMotionType(stateNode["motion_type"]);
 			state.m_Clip = ReadYamlValue<uint64_t>(stateNode, "clip", 0);
+			state.m_BlendParameter = ReadYamlValue<std::string>(stateNode, "blend_parameter", {});
 			state.m_Speed = ReadYamlValue<float>(stateNode, "speed", 1.0f);
 			state.m_Loop = ReadYamlValue<bool>(stateNode, "loop", true);
+			if (const YAML::Node graphPosition = stateNode["graph_position"]; graphPosition && graphPosition.IsSequence() && graphPosition.size() >= 2)
+				state.m_GraphPosition = { graphPosition[0].as<float>(0.0f), graphPosition[1].as<float>(0.0f) };
+
+			if (const YAML::Node blendChildren = stateNode["blend_children"])
+			{
+				for (const YAML::Node& childNode : blendChildren)
+				{
+					AnimationBlendChild child;
+					child.m_Clip = ReadYamlValue<uint64_t>(childNode, "clip", 0);
+					child.m_Threshold = ReadYamlValue<float>(childNode, "threshold", 0.0f);
+					child.m_Speed = ReadYamlValue<float>(childNode, "speed", 1.0f);
+					state.m_BlendChildren.push_back(child);
+				}
+			}
 
 			if (const YAML::Node transitions = stateNode["transitions"])
 			{

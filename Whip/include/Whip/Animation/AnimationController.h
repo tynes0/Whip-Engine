@@ -10,6 +10,8 @@
 #include <string_view>
 #include <vector>
 
+#include <glm/vec2.hpp>
+
 _WHIP_START
 
 enum class AnimationParameterType : uint8_t
@@ -33,6 +35,14 @@ enum class AnimationConditionMode : uint8_t
 };
 
 MakeFrenumInNamespace(whip, AnimationConditionMode, If, IfNot, Greater, Less, Equals, NotEquals)
+
+enum class AnimationMotionType : uint8_t
+{
+	Clip,
+	BlendTree1D
+};
+
+MakeFrenumInNamespace(whip, AnimationMotionType, Clip, BlendTree1D)
 
 struct AnimationControllerParameter
 {
@@ -61,12 +71,23 @@ struct AnimationControllerTransition
 	std::vector<AnimationControllerCondition> m_Conditions;
 };
 
+struct AnimationBlendChild
+{
+	AssetHandle m_Clip = 0;
+	float m_Threshold = 0.0f;
+	float m_Speed = 1.0f;
+};
+
 struct AnimationControllerState
 {
 	std::string m_Name = "State";
+	AnimationMotionType m_MotionType = AnimationMotionType::Clip;
 	AssetHandle m_Clip = 0;
+	std::string m_BlendParameter;
+	std::vector<AnimationBlendChild> m_BlendChildren;
 	float m_Speed = 1.0f;
 	bool m_Loop = true;
+	glm::vec2 m_GraphPosition{ 0.0f, 0.0f };
 	std::vector<AnimationControllerTransition> m_Transitions;
 };
 

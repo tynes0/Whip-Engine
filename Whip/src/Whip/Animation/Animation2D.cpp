@@ -30,6 +30,89 @@ namespace YAML
 
 _WHIP_START
 
+namespace
+{
+	YAML::Emitter& operator<<(YAML::Emitter& out, const glm::vec3& value)
+	{
+		out << YAML::Flow << YAML::BeginSeq << value.x << value.y << value.z << YAML::EndSeq;
+		return out;
+	}
+
+	YAML::Emitter& operator<<(YAML::Emitter& out, const glm::vec4& value)
+	{
+		out << YAML::Flow << YAML::BeginSeq << value.x << value.y << value.z << value.w << YAML::EndSeq;
+		return out;
+	}
+
+	glm::vec3 ReadVec3(const YAML::Node& node, const glm::vec3& fallback = glm::vec3{ 0.0f })
+	{
+		if (!node || !node.IsSequence() || node.size() < 3)
+			return fallback;
+		return { node[0].as<float>(fallback.x), node[1].as<float>(fallback.y), node[2].as<float>(fallback.z) };
+	}
+
+	glm::vec4 ReadVec4(const YAML::Node& node, const glm::vec4& fallback = glm::vec4{ 1.0f })
+	{
+		if (!node || !node.IsSequence() || node.size() < 4)
+			return fallback;
+		return { node[0].as<float>(fallback.x), node[1].as<float>(fallback.y), node[2].as<float>(fallback.z), node[3].as<float>(fallback.w) };
+	}
+
+	void WriteVec3Track(YAML::Emitter& out, const char* key, const std::vector<AnimationVec3Key>& keys)
+	{
+		out << YAML::Key << key << YAML::Value << YAML::BeginSeq;
+		for (const AnimationVec3Key& frame : keys)
+		{
+			out << YAML::BeginMap;
+			out << YAML::Key << "time" << YAML::Value << frame.m_Time;
+			out << YAML::Key << "value" << YAML::Value << frame.m_Value;
+			out << YAML::EndMap;
+		}
+		out << YAML::EndSeq;
+	}
+
+	void WriteVec4Track(YAML::Emitter& out, const char* key, const std::vector<AnimationVec4Key>& keys)
+	{
+		out << YAML::Key << key << YAML::Value << YAML::BeginSeq;
+		for (const AnimationVec4Key& frame : keys)
+		{
+			out << YAML::BeginMap;
+			out << YAML::Key << "time" << YAML::Value << frame.m_Time;
+			out << YAML::Key << "value" << YAML::Value << frame.m_Value;
+			out << YAML::EndMap;
+		}
+		out << YAML::EndSeq;
+	}
+
+	void ReadVec3Track(const YAML::Node& node, std::vector<AnimationVec3Key>& keys)
+	{
+		keys.clear();
+		if (!node)
+			return;
+		for (const YAML::Node& keyNode : node)
+		{
+			AnimationVec3Key key;
+			key.m_Time = keyNode["time"].as<float>(0.0f);
+			key.m_Value = ReadVec3(keyNode["value"]);
+			keys.push_back(key);
+		}
+	}
+
+	void ReadVec4Track(const YAML::Node& node, std::vector<AnimationVec4Key>& keys)
+	{
+		keys.clear();
+		if (!node)
+			return;
+		for (const YAML::Node& keyNode : node)
+		{
+			AnimationVec4Key key;
+			key.m_Time = keyNode["time"].as<float>(0.0f);
+			key.m_Value = ReadVec4(keyNode["value"]);
+			keys.push_back(key);
+		}
+	}
+}
+
 Animation2D::Animation2D(AssetHandle handleIn) : Asset(handleIn), m_Frames() { }
 
 Animation2D::~Animation2D()
@@ -42,6 +125,10 @@ Ref<Animation2D> Animation2D::Copy(Ref<Animation2D> anim)
 	auto newAnimation = MakeRef<Animation2D>();
 	newAnimation->m_Frames = anim->m_Frames;
 	newAnimation->m_Events = anim->m_Events;
+	newAnimation->m_TranslationKeys = anim->m_TranslationKeys;
+	newAnimation->m_RotationKeys = anim->m_RotationKeys;
+	newAnimation->m_ScaleKeys = anim->m_ScaleKeys;
+	newAnimation->m_ColorKeys = anim->m_ColorKeys;
 	newAnimation->m_Loop = anim->m_Loop;
 	newAnimation->m_Name = anim->m_Name;
 	return newAnimation;
@@ -156,6 +243,17 @@ float Animation2D::GetDuration() const
 	float duration = 0.0f;
 	for (const AnimationFrame& frame : m_Frames)
 		duration += std::max(frame.m_Duration, 0.0f);
+
+	for (const AnimationEventKey& eventKey : m_Events)
+		duration = std::max(duration, eventKey.m_Time);
+	for (const AnimationVec3Key& key : m_TranslationKeys)
+		duration = std::max(duration, key.m_Time);
+	for (const AnimationVec3Key& key : m_RotationKeys)
+		duration = std::max(duration, key.m_Time);
+	for (const AnimationVec3Key& key : m_ScaleKeys)
+		duration = std::max(duration, key.m_Time);
+	for (const AnimationVec4Key& key : m_ColorKeys)
+		duration = std::max(duration, key.m_Time);
 	return duration;
 }
 
@@ -212,6 +310,14 @@ void Animation2D::Serialize(const std::filesystem::path& filepath)
 		out << YAML::EndMap;
 	}
 	out << YAML::EndSeq;
+
+	out << YAML::Key << "property_tracks" << YAML::Value << YAML::BeginMap;
+	WriteVec3Track(out, "translation", m_TranslationKeys);
+	WriteVec3Track(out, "rotation", m_RotationKeys);
+	WriteVec3Track(out, "scale", m_ScaleKeys);
+	WriteVec4Track(out, "color", m_ColorKeys);
+	out << YAML::EndMap;
+
 	out << YAML::EndMap;
 
 	std::ofstream fout(filepath);
@@ -235,6 +341,10 @@ bool Animation2D::Deserialize(const std::filesystem::path& filepath)
 	m_Loop = data["loop"].as<bool>();
 	m_Frames.clear();
 	m_Events.clear();
+	m_TranslationKeys.clear();
+	m_RotationKeys.clear();
+	m_ScaleKeys.clear();
+	m_ColorKeys.clear();
 
 	const auto& framesNode = data["frames"];
 	for (const auto& frameNode : framesNode)
@@ -255,6 +365,14 @@ bool Animation2D::Deserialize(const std::filesystem::path& filepath)
 			if (!eventKey.m_Name.empty())
 				m_Events.push_back(eventKey);
 		}
+	}
+
+	if (const YAML::Node propertyTracks = data["property_tracks"])
+	{
+		ReadVec3Track(propertyTracks["translation"], m_TranslationKeys);
+		ReadVec3Track(propertyTracks["rotation"], m_RotationKeys);
+		ReadVec3Track(propertyTracks["scale"], m_ScaleKeys);
+		ReadVec4Track(propertyTracks["color"], m_ColorKeys);
 	}
 
 	return true;
