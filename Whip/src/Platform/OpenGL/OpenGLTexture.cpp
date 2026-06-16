@@ -65,6 +65,7 @@ void OpenGLTexture2D::SetData(RawBuffer data)
 	WHP_CORE_ASSERT(data.m_Size == m_Specification.m_Width * m_Specification.m_Height * bytesPerPixel, "Data must be entire Texture!");
 
 	glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Specification.m_Width, m_Specification.m_Height, m_DataFormat, GL_UNSIGNED_BYTE, data.m_Data);
+	m_IsLoaded = true;
 }
 
 RawBuffer OpenGLTexture2D::GetData() const

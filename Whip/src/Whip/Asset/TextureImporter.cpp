@@ -11,6 +11,9 @@ _WHIP_START
 Ref<Texture2D> TextureImporter::ImportTexture2D(AssetHandle handle, const AssetMetadata& metadata)
 {
 	Ref<Texture2D> result = LoadTexture2D(Project::GetActiveAssetDirectory() / metadata.m_Filepath);
+	if (!result)
+		return nullptr;
+
 	result->m_Handle = handle;
 	return result;
 }
