@@ -43,6 +43,9 @@ public:
 	const std::string& GetName() const { return m_Name; }
 
 	std::vector<AnimationFrame>& GetFrames() { return m_Frames; }
+	const std::vector<AnimationFrame>& GetFrames() const { return m_Frames; }
+	float GetDuration() const;
+	float GetFrameStartTime(size_t index) const;
 
 	bool IsPlaying() const { return m_IsPlaying; }
 	bool IsPaused() const { return m_IsPaused; }

@@ -9,6 +9,9 @@ void ContactListener::BeginContact(b2Contact* contact)
 	entt::entity dataB = (entt::entity)contact->GetFixtureB()->GetBody()->GetUserData().pointer;
 
 	Scene* sceneContext = ScriptEngine::GetSceneContext();
+	if (!sceneContext)
+		return;
+
 	Entity entityA{ dataA, sceneContext };
 	Entity entityB{ dataB, sceneContext };
 
@@ -50,6 +53,9 @@ void ContactListener::EndContact(b2Contact* contact)
 	entt::entity dataB = (entt::entity)contact->GetFixtureB()->GetBody()->GetUserData().pointer;
 
 	Scene* sceneContext = ScriptEngine::GetSceneContext();
+	if (!sceneContext)
+		return;
+
 	Entity entityA{ dataA, sceneContext };
 	Entity entityB{ dataB, sceneContext };
 

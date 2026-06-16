@@ -150,6 +150,23 @@ void Animation2D::SetName(const std::string& newName)
 	m_Name = AnimationManager::GetAnimationNameManager().AddName(newName);
 }
 
+float Animation2D::GetDuration() const
+{
+	float duration = 0.0f;
+	for (const AnimationFrame& frame : m_Frames)
+		duration += std::max(frame.m_Duration, 0.0f);
+	return duration;
+}
+
+float Animation2D::GetFrameStartTime(size_t index) const
+{
+	float time = 0.0f;
+	const size_t end = std::min(index, m_Frames.size());
+	for (size_t i = 0; i < end; ++i)
+		time += std::max(m_Frames[i].m_Duration, 0.0f);
+	return time;
+}
+
 void Animation2D::Serialize(const std::filesystem::path& filepath)
 {
 	YAML::Emitter out;

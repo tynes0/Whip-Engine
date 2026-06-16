@@ -26,13 +26,14 @@ void AnimationManager::Update(Timestep ts)
 
 		anim->m_ElapsedTime += ts.GetSeconds();
 
-		if (anim->m_ElapsedTime >= anim->m_Frames[anim->m_CurrentFrame].m_Duration)
+		static constexpr float MinFrameDuration = 1.0f / 240.0f;
+		while (anim->m_IsPlaying && anim->m_ElapsedTime >= std::max(anim->m_Frames[anim->m_CurrentFrame].m_Duration, MinFrameDuration))
 		{
+			anim->m_ElapsedTime -= std::max(anim->m_Frames[anim->m_CurrentFrame].m_Duration, MinFrameDuration);
 			anim->m_CurrentFrame++;
 
 			if (anim->m_CurrentFrame >= anim->m_Frames.size())
 			{
-				anim->m_ElapsedTime = 0.0f;
 				if (anim->IsLooping())
 					anim->m_CurrentFrame = 0;
 				else

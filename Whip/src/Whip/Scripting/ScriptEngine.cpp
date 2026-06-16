@@ -1137,14 +1137,20 @@ bool ScriptEngine::EntityClassExists(const std::string& fullClassName)
 
 void ScriptEngine::InvokeEntityMethod(EntityMethodType methodType, const Entity& entity, const Payload& payload)
 {
+	if (!s_ScriptEngineData || !entity || !entity.GetScene() || !entity.HasComponent<ScriptComponent>())
+		return;
+
 	const UUID uuid = entity.GetUUID();
+	const auto& sc = entity.GetComponent<ScriptComponent>();
+	if (sc.m_ClassName.empty() || !EntityClassExists(sc.m_ClassName))
+	{
+		if (methodType == EntityMethodType::OnCreate && !sc.m_ClassName.empty())
+			WHP_CORE_WARN("[Script Engine] Script class '{0}' was not found for entity {1}.", sc.m_ClassName, static_cast<uint64_t>(uuid));
+		return;
+	}
 
 	if (methodType == EntityMethodType::OnCreate)
 	{
-		const auto& sc = entity.GetComponent<ScriptComponent>();
-		if (!EntityClassExists(sc.m_ClassName))
-			return;
-
 		Ref<ScriptInstance> instance = MakeRef<ScriptInstance>(s_ScriptEngineData->m_EntityClasses[sc.m_ClassName], entity);
 		s_ScriptEngineData->m_EntityInstances[uuid] = instance;
 
@@ -1175,7 +1181,7 @@ void ScriptEngine::InvokeEntityMethod(EntityMethodType methodType, const Entity&
 	auto instanceIt = s_ScriptEngineData->m_EntityInstances.find(uuid);
 	if (instanceIt == s_ScriptEngineData->m_EntityInstances.end())
 	{
-		WHP_CORE_ERROR("[Script Engine] Could not find Script Instance for entity {0}", static_cast<uint64_t>(uuid));
+		WHP_CORE_ERROR("[Script Engine] Could not find Script Instance for entity {0} while invoking {1}.", static_cast<uint64_t>(uuid), std::string(frenum::to_string_view(methodType)));
 		return;
 	}
 

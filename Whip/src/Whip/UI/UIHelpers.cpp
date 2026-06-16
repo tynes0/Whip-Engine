@@ -388,11 +388,17 @@ namespace UI
 				drawList->AddLine(ImVec2(x, cursorY), ImVec2(x, cursorY + timelineHeight * 0.2f), MiniLineColor);
 			};
 
-		static const auto dragDropCallback = [anim](AssetHandle handle)
+		const auto dragDropCallback = [anim, selectedIndex](AssetHandle handle)
 			{
+				if (!anim)
+					return;
+
 				AnimationFrame newFrame = {};
 				newFrame.m_Texture = handle;
+				newFrame.m_Duration = 0.1f;
 				anim->AddFrame(newFrame);
+				if (selectedIndex)
+					*selectedIndex = static_cast<int>(anim->GetFrames().size() - 1);
 			};
 
 		if (timelineWidth == 0.0f)
@@ -402,8 +408,8 @@ namespace UI
 		if (totalHeight == 0.0f)
 			totalHeight = timelineHeight + 50.0f;
 
-		if (initialDrawRange > MaxInitialRange)
-			initialDrawRange = MaxInitialRange;
+		const float animationDuration = anim ? anim->GetDuration() : 0.0f;
+		const float drawRange = std::min(MaxInitialRange, std::max(initialDrawRange, animationDuration + 0.5f));
 
 		ImGui::BeginChild("TimelineRegion", ImVec2(0, totalHeight), true);
 
@@ -434,10 +440,11 @@ namespace UI
 			if (scrollDelta != 0.0f)
 			{
 				float mouseX = Input::GetMouseX() - cursorStart.x;
-				float zoomCenter = offsetTime + (mouseX / timelineWidth) * (initialDrawRange / zoomLevel);
+				float zoomCenter = offsetTime + (mouseX / timelineWidth) * (drawRange / zoomLevel);
 
 				float newZoomLevel = std::clamp(zoomLevel * (1.0f + scrollDelta * ZoomSpeed), ZoomMin, ZoomMax);
-				offsetTime = std::clamp(zoomCenter - (zoomCenter - offsetTime) * (zoomLevel / newZoomLevel), 0.0f, initialDrawRange);
+				const float newScaledMaxTime = drawRange / newZoomLevel;
+				offsetTime = std::clamp(zoomCenter - (zoomCenter - offsetTime) * (zoomLevel / newZoomLevel), 0.0f, std::max(0.0f, drawRange - newScaledMaxTime));
 				zoomLevel = newZoomLevel;
 			}
 			if (ImGui::IsMouseDragging(0))
@@ -445,12 +452,13 @@ namespace UI
 				float deltaX = ImGui::GetMouseDragDelta().x;
 				ImGui::ResetMouseDragDelta();
 
-				float deltaTime = (deltaX / timelineWidth) * (initialDrawRange / zoomLevel);
+				float deltaTime = (deltaX / timelineWidth) * (drawRange / zoomLevel);
 				offsetTime = std::max(0.0f, offsetTime - deltaTime);
 			}
 		}
 
-		float scaledMaxTime = initialDrawRange / zoomLevel;
+		float scaledMaxTime = drawRange / zoomLevel;
+		offsetTime = std::clamp(offsetTime, 0.0f, std::max(0.0f, drawRange - scaledMaxTime));
 		float startTime = std::floor(offsetTime / MinorInterval) * MinorInterval;
 		float endTime = std::ceil((offsetTime + scaledMaxTime) / MinorInterval) * MinorInterval;
 		float interval = zoomLevel < zoomThreshold ? MinorInterval : MiniInterval;
@@ -487,15 +495,42 @@ namespace UI
 
 			for (size_t i = 0; i < frames.size(); ++i)
 			{
-				float scaledTime = (frames[i].m_Duration - offsetTime) / scaledMaxTime;
+				const float frameStart = anim->GetFrameStartTime(i);
+				const float frameDuration = std::max(frames[i].m_Duration, 0.0f);
+				const float frameEnd = frameStart + frameDuration;
+				const float startScaled = (frameStart - offsetTime) / scaledMaxTime;
+				const float endScaled = (frameEnd - offsetTime) / scaledMaxTime;
+				const bool selected = selectedIndex && *selectedIndex == static_cast<int>(i);
 
+				const float startX = cursorStart.x + std::clamp(startScaled, 0.0f, 1.0f) * timelineWidth;
+				const float endX = cursorStart.x + std::clamp(endScaled, 0.0f, 1.0f) * timelineWidth;
+				const float minVisibleX = cursorStart.x;
+				const float maxVisibleX = cursorStart.x + timelineWidth;
+				if (endX >= minVisibleX && startX <= maxVisibleX)
+				{
+					const ImVec2 segmentMin(startX, cursorStart.y + 32.0f);
+					const ImVec2 segmentMax(std::max(startX + 3.0f, endX), cursorStart.y + timelineHeight - 24.0f);
+					const ImU32 segmentColor = selected ? IM_COL32(178, 118, 70, 210) : (i % 2 == 0 ? IM_COL32(88, 72, 54, 190) : IM_COL32(74, 62, 48, 190));
+					drawList->AddRectFilled(segmentMin, segmentMax, segmentColor, 4.0f);
+					drawList->AddRect(segmentMin, segmentMax, selected ? IM_COL32(245, 216, 176, 230) : IM_COL32(118, 102, 78, 170), 4.0f);
+
+					ImGui::SetCursorScreenPos(segmentMin);
+					ImGui::InvisibleButton(("frame_segment" + std::to_string(i)).c_str(), ImVec2(std::max(8.0f, segmentMax.x - segmentMin.x), segmentMax.y - segmentMin.y));
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::SetTooltip("Frame %zu: %.3fs - %.3fs", i, frameStart, frameEnd);
+						if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && selectedIndex)
+							*selectedIndex = static_cast<int>(i);
+					}
+				}
+
+				float scaledTime = (frameStart - offsetTime) / scaledMaxTime;
 				if (scaledTime < 0.0f || scaledTime > 1.0f)
 					continue;
 
 				float xPos = cursorStart.x + scaledTime * timelineWidth;
 				ImVec2 nodePos = ImVec2(xPos, cursorStart.y + timelineHeight / 2);
 
-				const bool selected = selectedIndex && *selectedIndex == static_cast<int>(i);
 				drawList->AddCircleFilled(nodePos, NodeRadius, selected ? SelectedNodeColor : NodeColor);
 				drawList->AddCircle(nodePos, NodeRadius + 1.5f, selected ? IM_COL32(245, 216, 176, 210) : IM_COL32(38, 34, 28, 220), 16, 1.5f);
 				ImGui::SetCursorScreenPos(ImVec2(nodePos.x - NodeRadius, nodePos.y - NodeRadius));
@@ -509,13 +544,13 @@ namespace UI
 					float deltaTime = (deltaX / timelineWidth) * scaledMaxTime;
 
 					frames[i].m_Duration = std::clamp(frames[i].m_Duration + deltaTime, 0.0f, maxValue);
-					ImGui::SetTooltip("Frame %zu: %.3fs", i, frames[i].m_Duration);
+					ImGui::SetTooltip("Frame %zu duration: %.3fs", i, frames[i].m_Duration);
 				}
 				else
 				{
 					if (ImGui::IsItemHovered())
 					{
-						ImGui::SetTooltip("Frame %zu: %.3fs", i, frames[i].m_Duration);
+						ImGui::SetTooltip("Frame %zu start: %.3fs, duration: %.3fs", i, frameStart, frames[i].m_Duration);
 						if (Input::IsMouseButtonDown(Mouse::Button0))
 							if (selectedIndex)
 								*selectedIndex = static_cast<int>(i);

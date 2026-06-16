@@ -132,7 +132,14 @@ void AnimationEditorPanel::OnImGuiRender()
 	}
 
 	ImGui::BeginChild("##AnimationEditorTimelineShell", ImVec2(0.0f, 168.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-	ImGui::TextDisabled("%zu frame(s)", m_CurrentAnimation->GetFrames().size());
+	const auto& frames = m_CurrentAnimation->GetFrames();
+	const float totalDuration = m_CurrentAnimation->GetDuration();
+	const float effectiveFps = totalDuration > 0.0f ? static_cast<float>(frames.size()) / totalDuration : 0.0f;
+	ImGui::TextDisabled("%zu frame(s)  |  %.3fs  |  %.1f FPS", frames.size(), totalDuration, effectiveFps);
+	ImGui::SameLine();
+	bool loop = m_CurrentAnimation->IsLooping();
+	if (ImGui::Checkbox("Loop", &loop))
+		m_CurrentAnimation->SetLoop(loop);
 	DrawTimeline(ImGui::GetContentRegionAvail().x, 104.0f, 132.0f);
 	ImGui::EndChild();
 
@@ -440,6 +447,28 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 		ImGui::SetNextItemWidth(-1.0f);
 		static constexpr float minValue = 0.0f;
 		ImGui::DragScalar("##DurationSeconds", ImGuiDataType_Float, &frame.m_Duration, 0.01f, &minValue, nullptr, "%.3f s");
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::TextUnformatted("Preview");
+		ImGui::TableNextColumn();
+		if (frame.m_Texture)
+		{
+			Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(frame.m_Texture);
+			if (texture)
+			{
+				const float previewSize = std::min(96.0f, std::max(48.0f, width - 140.0f));
+				UI::Image(UI::ToImGuiTextureId(texture->GetRendererId()), ImVec2(previewSize, previewSize), ImVec2(0, 1), ImVec2(1, 0));
+			}
+			else
+			{
+				ImGui::TextDisabled("Texture is not loaded.");
+			}
+		}
+		else
+		{
+			ImGui::TextDisabled("No texture assigned.");
+		}
 
 		ImGui::EndTable();
 	}
