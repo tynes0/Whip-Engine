@@ -33,7 +33,14 @@ public:
 	//void LoadIcon(Icon iconType, Ref<Texture2D> iconTexture);
 	void SetRefreshAssetTreeCallback(const std::function<void()>& func) { m_RefreshAssetTreeCallback = func; }
 private:
+	enum class AnimationEditorMode
+	{
+		Clip,
+		Controller
+	};
+
 	void DrawAnimationDragDropArea(float width, float height);
+	void DrawControllerDragDropArea(float width, float height);
 	void DrawPlaybackControls(float width, float height);
 	void DrawNewButton(float width, float leftPadding);
 	void DrawCloseButton(float width, float leftPadding);
@@ -68,6 +75,7 @@ private:
 
 	Ref<Animation2D> m_CurrentAnimation = nullptr;
 	Ref<AnimationController> m_CurrentController = nullptr;
+	AnimationEditorMode m_EditorMode = AnimationEditorMode::Clip;
 	int m_SelectedFrameIndex = -1;
 	int m_SelectedControllerStateIndex = 0;
 	int m_SelectedControllerParameterIndex = -1;

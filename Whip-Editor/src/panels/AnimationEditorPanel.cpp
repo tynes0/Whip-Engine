@@ -142,130 +142,183 @@ void AnimationEditorPanel::OnImGuiRender()
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 7.0f));
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_ChildBg));
 
-	ImGui::BeginChild("##AnimationEditorToolbar", ImVec2(0.0f, 58.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-	ImGui::AlignTextToFramePadding();
-	DrawPlaybackControls(32.0f, 32.0f);
-	ImGui::SameLine(0.0f, 16.0f);
-
-	if (ImGui::Button("New", ImVec2(82.0f, 32.0f)))
-	{
-		m_CurrentAnimation.reset();
-		Ref<Animation2D> newAnim = MakeRef<Animation2D>();
-		newAnim->SetName("New Animation");
-		m_CurrentAnimation = newAnim;
-		m_SelectedFrameIndex = -1;
-		StopPreview(false);
-		std::string filepath = FileDialogs::SaveFile("Whip Animation (*.wanim)\0*.wanim\0", Project::GetActiveAssetDirectory().string().c_str());
-		if (!filepath.empty())
+	ImGui::BeginChild("##AnimationEditorToolbar", ImVec2(0.0f, 96.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	auto drawModeButton = [&](AnimationEditorMode mode, const char* label)
 		{
-			std::filesystem::path animationPath(filepath);
-			if (!FileExtensions::ExtensionEquals(animationPath, FileExtensions::Animation))
-				animationPath.replace_extension(FileExtensions::Animation);
-			m_CurrentAnimation->Serialize(animationPath);
-			AssetMetadata metadata;
-			metadata.m_Type = AssetType::Animation;
-			metadata.m_Filepath = std::filesystem::relative(animationPath, Project::GetActiveAssetDirectory());
-			Project::GetActive()->GetEditorAssetManager()->AddRegistry(m_CurrentAnimation->m_Handle, metadata);
-			Project::GetActive()->GetEditorAssetManager()->SerializeAssetRegistry();
-			if (m_RefreshAssetTreeCallback)
-				m_RefreshAssetTreeCallback();
+			const bool selected = m_EditorMode == mode;
+			if (selected)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.28f, 0.43f, 0.55f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.34f, 0.50f, 0.64f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.24f, 0.38f, 0.50f, 1.0f));
+			}
+			const bool clicked = ImGui::Button(label, ImVec2(132.0f, 30.0f));
+			if (selected)
+				ImGui::PopStyleColor(3);
+			return clicked;
+		};
+
+	if (drawModeButton(AnimationEditorMode::Clip, "Animation Clip"))
+		m_EditorMode = AnimationEditorMode::Clip;
+	ImGui::SameLine();
+	if (drawModeButton(AnimationEditorMode::Controller, "Controller"))
+	{
+		m_EditorMode = AnimationEditorMode::Controller;
+		StopPreview(false);
+	}
+	ImGui::SameLine(0.0f, 16.0f);
+	std::string controllerStatus = "No controller";
+	if (m_CurrentController)
+	{
+		const AssetMetadata& metadata = AssetManager::GetAssetMetadata(m_CurrentController->m_Handle);
+		controllerStatus = metadata ? metadata.m_Filepath.filename().string() : "Memory controller";
+	}
+	ImGui::TextDisabled("Clip: %s  |  Controller: %s", m_CurrentAnimation ? m_CurrentAnimation->GetName().c_str() : "None", controllerStatus.c_str());
+	ImGui::Separator();
+
+	if (m_EditorMode == AnimationEditorMode::Clip)
+	{
+		ImGui::AlignTextToFramePadding();
+		DrawPlaybackControls(30.0f, 30.0f);
+		ImGui::SameLine(0.0f, 14.0f);
+
+		if (ImGui::Button("New Clip", ImVec2(92.0f, 30.0f)))
+		{
+			m_EditorMode = AnimationEditorMode::Clip;
+			m_CurrentAnimation.reset();
+			Ref<Animation2D> newAnim = MakeRef<Animation2D>();
+			newAnim->SetName("New Animation");
+			m_CurrentAnimation = newAnim;
+			m_SelectedFrameIndex = -1;
+			StopPreview(false);
+			std::string filepath = FileDialogs::SaveFile("Whip Animation (*.wanim)\0*.wanim\0", Project::GetActiveAssetDirectory().string().c_str());
+			if (!filepath.empty())
+			{
+				std::filesystem::path animationPath(filepath);
+				if (!FileExtensions::ExtensionEquals(animationPath, FileExtensions::Animation))
+					animationPath.replace_extension(FileExtensions::Animation);
+				m_CurrentAnimation->Serialize(animationPath);
+				AssetMetadata metadata;
+				metadata.m_Type = AssetType::Animation;
+				metadata.m_Filepath = std::filesystem::relative(animationPath, Project::GetActiveAssetDirectory());
+				Project::GetActive()->GetEditorAssetManager()->AddRegistry(m_CurrentAnimation->m_Handle, metadata);
+				Project::GetActive()->GetEditorAssetManager()->SerializeAssetRegistry();
+				if (m_RefreshAssetTreeCallback)
+					m_RefreshAssetTreeCallback();
+			}
+		}
+
+		ImGui::SameLine();
+		ImGui::BeginDisabled(!m_CurrentAnimation);
+		if (ImGui::Button("Save Clip", ImVec2(86.0f, 30.0f)))
+		{
+			const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentAnimation->m_Handle);
+			if (metadata)
+				m_CurrentAnimation->Serialize(Project::GetActiveAssetDirectory() / metadata.m_Filepath);
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Close Clip", ImVec2(88.0f, 30.0f)))
+		{
+			m_CurrentAnimation = nullptr;
+			m_SelectedFrameIndex = -1;
+			StopPreview(false);
+		}
+
+		if (m_CurrentAnimation)
+		{
+			ImGui::SameLine(0.0f, 12.0f);
+			char buffer[256];
+			memset(buffer, 0, sizeof(buffer));
+			strncpy_s(buffer, sizeof(buffer), m_CurrentAnimation->GetName().c_str(), sizeof(buffer));
+			ImGui::SetNextItemWidth(std::min(190.0f, std::max(96.0f, ImGui::GetContentRegionAvail().x * 0.34f)));
+			if (ImGui::InputText("##AnimationName", buffer, sizeof(buffer)))
+				m_CurrentAnimation->SetName(buffer);
+		}
+		ImGui::EndDisabled();
+
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(std::min(240.0f, std::max(120.0f, ImGui::GetContentRegionAvail().x)));
+		if (ImGui::BeginCombo("##AnimationSelector", m_CurrentAnimation ? m_CurrentAnimation->GetName().data() : "Select Animation"))
+		{
+			const auto& reg = Project::GetActive()->GetEditorAssetManager()->GetAssetRegistry();
+			reg.Foreach(AssetType::Animation, [&](const AssetRegistry::ValueType& value)
+				{
+					auto anim = AssetManager::GetAsset<Animation2D>(value.first);
+					if (ImGui::Selectable(anim->GetName().c_str(), m_CurrentAnimation ? m_CurrentAnimation->m_Handle == value.first : false))
+					{
+						m_EditorMode = AnimationEditorMode::Clip;
+						m_CurrentAnimation = anim;
+						m_SelectedFrameIndex = -1;
+						StopPreview(false);
+					}
+				});
+			ImGui::EndCombo();
 		}
 	}
-
-	ImGui::SameLine();
-	if (ImGui::Button("Controller", ImVec2(96.0f, 32.0f)))
+	else
 	{
-		Ref<AnimationController> controller = MakeRef<AnimationController>();
-		std::filesystem::path startDirectory = Project::GetActiveAssetDirectory() / "Animations";
-		std::string filepath = FileDialogs::SaveFile("Whip Animation Controller (*.wac)\0*.wac\0", startDirectory.string().c_str());
-		if (!filepath.empty())
+		if (ImGui::Button("New Controller", ImVec2(122.0f, 30.0f)))
 		{
-			std::filesystem::path controllerPath(filepath);
-			if (!FileExtensions::ExtensionEquals(controllerPath, FileExtensions::AnimationController))
-				controllerPath.replace_extension(FileExtensions::AnimationController);
-			controller->Serialize(controllerPath);
+			m_EditorMode = AnimationEditorMode::Controller;
+			StopPreview(false);
+			Ref<AnimationController> controller = MakeRef<AnimationController>();
+			std::filesystem::path startDirectory = Project::GetActiveAssetDirectory() / "Animations";
+			std::string filepath = FileDialogs::SaveFile("Whip Animation Controller (*.wac)\0*.wac\0", startDirectory.string().c_str());
+			if (!filepath.empty())
+			{
+				std::filesystem::path controllerPath(filepath);
+				if (!FileExtensions::ExtensionEquals(controllerPath, FileExtensions::AnimationController))
+					controllerPath.replace_extension(FileExtensions::AnimationController);
+				controller->Serialize(controllerPath);
 
-			AssetMetadata metadata;
-			metadata.m_Type = AssetType::AnimationController;
-			metadata.m_Filepath = std::filesystem::relative(controllerPath, Project::GetActiveAssetDirectory());
-			Project::GetActive()->GetEditorAssetManager()->AddRegistry(controller->m_Handle, metadata);
-			Project::GetActive()->GetEditorAssetManager()->SerializeAssetRegistry();
-			m_CurrentController = controller;
+				AssetMetadata metadata;
+				metadata.m_Type = AssetType::AnimationController;
+				metadata.m_Filepath = std::filesystem::relative(controllerPath, Project::GetActiveAssetDirectory());
+				Project::GetActive()->GetEditorAssetManager()->AddRegistry(controller->m_Handle, metadata);
+				Project::GetActive()->GetEditorAssetManager()->SerializeAssetRegistry();
+				m_CurrentController = controller;
+				m_SelectedControllerStateIndex = 0;
+				m_SelectedControllerParameterIndex = -1;
+				ClearSelectedControllerTransition();
+				if (m_RefreshAssetTreeCallback)
+					m_RefreshAssetTreeCallback();
+			}
+		}
+
+		ImGui::SameLine();
+		ImGui::BeginDisabled(!m_CurrentController);
+		if (ImGui::Button("Save Controller", ImVec2(122.0f, 30.0f)))
+			SaveCurrentController();
+		ImGui::SameLine();
+		if (ImGui::Button("Close Controller", ImVec2(126.0f, 30.0f)))
+		{
+			m_CurrentController = nullptr;
 			m_SelectedControllerStateIndex = 0;
 			m_SelectedControllerParameterIndex = -1;
 			ClearSelectedControllerTransition();
-			if (m_RefreshAssetTreeCallback)
-				m_RefreshAssetTreeCallback();
 		}
-	}
+		ImGui::EndDisabled();
 
-	ImGui::SameLine();
-	ImGui::BeginDisabled(!m_CurrentController);
-	if (ImGui::Button("Save Ctrl", ImVec2(86.0f, 32.0f)))
-		SaveCurrentController();
-	ImGui::SameLine();
-	if (ImGui::Button("Close Ctrl", ImVec2(90.0f, 32.0f)))
-	{
-		m_CurrentController = nullptr;
-		m_SelectedControllerStateIndex = 0;
-		m_SelectedControllerParameterIndex = -1;
-		ClearSelectedControllerTransition();
+		ImGui::SameLine(0.0f, 12.0f);
+		DrawControllerSelector(std::min(280.0f, std::max(140.0f, ImGui::GetContentRegionAvail().x)));
 	}
-	ImGui::EndDisabled();
-
-	ImGui::SameLine();
-	ImGui::BeginDisabled(!m_CurrentAnimation);
-	if (ImGui::Button("Close", ImVec2(82.0f, 32.0f)))
-	{
-		m_CurrentAnimation = nullptr;
-		m_SelectedFrameIndex = -1;
-		StopPreview(false);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Save", ImVec2(82.0f, 32.0f)))
-	{
-		const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentAnimation->m_Handle);
-		if (metadata)
-			m_CurrentAnimation->Serialize(Project::GetActiveAssetDirectory() / metadata.m_Filepath);
-	}
-
-	ImGui::SameLine(0.0f, 14.0f);
-	if (m_CurrentAnimation)
-	{
-		char buffer[256];
-		memset(buffer, 0, sizeof(buffer));
-		strncpy_s(buffer, sizeof(buffer), m_CurrentAnimation->GetName().c_str(), sizeof(buffer));
-		ImGui::SetNextItemWidth(190.0f);
-		if (ImGui::InputText("##AnimationName", buffer, sizeof(buffer)))
-			m_CurrentAnimation->SetName(buffer);
-		ImGui::SameLine();
-	}
-	ImGui::EndDisabled();
-
-	ImGui::SetNextItemWidth(std::min(220.0f, ImGui::GetContentRegionAvail().x));
-	if (ImGui::BeginCombo("##AnimationSelector", m_CurrentAnimation ? m_CurrentAnimation->GetName().data() : "Select Animation"))
-	{
-		const auto& reg = Project::GetActive()->GetEditorAssetManager()->GetAssetRegistry();
-		reg.Foreach(AssetType::Animation, [&](const AssetRegistry::ValueType& value)
-			{
-				auto anim = AssetManager::GetAsset<Animation2D>(value.first);
-				if (ImGui::Selectable(anim->GetName().c_str(), m_CurrentAnimation ? m_CurrentAnimation->m_Handle == value.first : false))
-				{
-					m_CurrentAnimation = anim;
-					m_SelectedFrameIndex = -1;
-					StopPreview(false);
-				}
-		});
-		ImGui::EndCombo();
-	}
-	ImGui::SameLine();
-	DrawControllerSelector(std::min(220.0f, ImGui::GetContentRegionAvail().x));
 	ImGui::EndChild();
 
 	ImGui::Spacing();
-	if (m_CurrentController)
+	if (m_EditorMode == AnimationEditorMode::Controller)
 	{
-		DrawControllerEditor(std::max(260.0f, ImGui::GetContentRegionAvail().y));
+		if (m_CurrentController)
+			DrawControllerEditor(std::max(260.0f, ImGui::GetContentRegionAvail().y));
+		else
+		{
+			ImGui::BeginChild("##ControllerEditorEmpty", ImVec2(0.0f, 0.0f), true);
+			ImVec2 available = ImGui::GetContentRegionAvail();
+			ImGui::SetCursorPos(ImVec2(16.0f, 16.0f));
+			ImGui::TextDisabled("No animation controller selected");
+			ImGui::SetCursorPos(ImVec2(16.0f, 48.0f));
+			DrawControllerDragDropArea(std::max(120.0f, available.x - 32.0f), std::max(80.0f, available.y - 64.0f));
+			ImGui::EndChild();
+		}
 		ImGui::PopStyleColor();
 		ImGui::PopStyleVar(3);
 		ImGui::End();
@@ -342,12 +395,28 @@ void AnimationEditorPanel::DrawAnimationDragDropArea(float width, float height)
 {
 	const auto dragDropCallback = [this](AssetHandle handle)
 		{
+			m_EditorMode = AnimationEditorMode::Clip;
 			m_CurrentAnimation = AssetManager::GetAsset<Animation2D>(handle);
 			m_SelectedFrameIndex = -1;
 			StopPreview(false);
 		};
 
 	UI::DragDropTarget(AssetType::Animation, dragDropCallback, "Select Animation", true, width, height, true);
+}
+
+void AnimationEditorPanel::DrawControllerDragDropArea(float width, float height)
+{
+	const auto dragDropCallback = [this](AssetHandle handle)
+		{
+			m_EditorMode = AnimationEditorMode::Controller;
+			m_CurrentController = AssetManager::GetAsset<AnimationController>(handle);
+			m_SelectedControllerStateIndex = 0;
+			m_SelectedControllerParameterIndex = -1;
+			ClearSelectedControllerTransition();
+			StopPreview(false);
+		};
+
+	UI::DragDropTarget(AssetType::AnimationController, dragDropCallback, "Select Controller", true, width, height, true);
 }
 
 void AnimationEditorPanel::DrawPlaybackControls(float width, float height)
@@ -541,10 +610,12 @@ void AnimationEditorPanel::DrawControllerSelector(float width)
 				const bool selected = m_CurrentController && m_CurrentController->m_Handle == value.first;
 				if (ImGui::Selectable(label.c_str(), selected))
 				{
+					m_EditorMode = AnimationEditorMode::Controller;
 					m_CurrentController = AssetManager::GetAsset<AnimationController>(value.first);
 					m_SelectedControllerStateIndex = 0;
 					m_SelectedControllerParameterIndex = -1;
 					ClearSelectedControllerTransition();
+					StopPreview(false);
 				}
 				if (selected)
 					ImGui::SetItemDefaultFocus();
