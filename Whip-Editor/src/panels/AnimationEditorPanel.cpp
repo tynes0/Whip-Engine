@@ -4,6 +4,7 @@
 #include <Whip/Utils/Utility.h>
 #include <Whip/Project/Project.h>
 #include <Whip/Asset/AssetManager.h>
+#include <Whip/Asset/AssetUtils.h>
 #include <Whip/Asset/AnimationImporter.h>
 #include <Whip/UI/UIHelpers.h>
 #include <Whip/Animation/AnimationManager.h>
@@ -88,6 +89,34 @@ namespace
 		char buffer[32]{};
 		std::snprintf(buffer, sizeof(buffer), "%.2f", value);
 		return buffer;
+	}
+
+	bool IsTextureSourceFile(const std::filesystem::path& filepath)
+	{
+		return Utils::TryGetAssetTypeFromFileExtension(filepath.extension()) == AssetType::Texture2D;
+	}
+
+	bool IsRelativePathInsideRoot(const std::filesystem::path& relativePath)
+	{
+		if (relativePath.empty())
+			return false;
+
+		for (const std::filesystem::path& part : relativePath)
+		{
+			if (part == "..")
+				return false;
+		}
+
+		return true;
+	}
+
+	template<typename TKey>
+	void SortKeysByTime(std::vector<TKey>& keys)
+	{
+		std::sort(keys.begin(), keys.end(), [](const TKey& left, const TKey& right)
+			{
+				return left.m_Time < right.m_Time;
+			});
 	}
 
 }
@@ -276,6 +305,8 @@ void AnimationEditorPanel::OnImGuiRender()
 	DrawAddFrameButton(112.0f);
 	ImGui::SameLine();
 	DrawRemoveFrameButton(128.0f);
+	ImGui::SameLine();
+	DrawImportFramesButton(136.0f);
 	ImGui::EndChild();
 
 	const float lowerHeight = std::max(220.0f, ImGui::GetContentRegionAvail().y);
@@ -833,6 +864,14 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		{
 			return { canvasMin.x + m_ControllerGraphPan.x + world.x * zoom, canvasMin.y + m_ControllerGraphPan.y + world.y * zoom };
 		};
+	auto screenToWorld = [&](const ImVec2& screen) -> glm::vec2
+		{
+			return
+			{
+				(screen.x - canvasMin.x - m_ControllerGraphPan.x) / zoom,
+				(screen.y - canvasMin.y - m_ControllerGraphPan.y) / zoom
+			};
+		};
 
 	const float gridStep = 32.0f * zoom;
 	const ImU32 gridColor = IM_COL32(72, 66, 54, 80);
@@ -1188,6 +1227,29 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		ClearSelectedControllerTransition();
 	if (canvasHovered && ImGui::IsKeyPressed(ImGuiKey_Delete) && GetSelectedControllerTransition())
 		RemoveSelectedControllerTransition();
+	if (canvasHovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && !ImGui::IsAnyItemHovered() && Length(ImGui::GetMouseDragDelta(ImGuiMouseButton_Right)) < 2.0f)
+		ImGui::OpenPopup("##ControllerGraphCanvasContext");
+	if (ImGui::BeginPopup("##ControllerGraphCanvasContext"))
+	{
+		if (ImGui::MenuItem("Add State Here"))
+		{
+			AnimationControllerState& state = m_CurrentController->AddState("State");
+			state.m_GraphPosition = screenToWorld(mousePos);
+			snapPosition(state.m_GraphPosition);
+			m_SelectedControllerStateIndex = (int)m_CurrentController->GetStates().size() - 1;
+			ClearSelectedControllerTransition();
+		}
+		if (ImGui::MenuItem("Frame Graph"))
+			m_FrameControllerGraphRequested = true;
+		if (ImGui::MenuItem("Auto Layout"))
+			AutoLayoutControllerGraph();
+		if (ImGui::MenuItem("Reset View"))
+		{
+			m_ControllerGraphZoom = 1.0f;
+			m_ControllerGraphPan = { 28.0f, 28.0f };
+		}
+		ImGui::EndPopup();
+	}
 
 	drawList->PopClipRect();
 	ImGui::SetCursorScreenPos(canvasMin);
@@ -1308,6 +1370,24 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 	ImGui::DragFloat("Exit Time", &transition.m_ExitTime, 0.01f, 0.0f, 10.0f, "%.2f");
 	ImGui::EndDisabled();
 	ImGui::DragFloat("Duration", &transition.m_Duration, 0.01f, 0.0f, 10.0f, "%.2f");
+	if (ImGui::Button("Instant"))
+	{
+		transition.m_Duration = 0.0f;
+		transition.m_HasExitTime = false;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Quick Blend"))
+	{
+		transition.m_Duration = 0.15f;
+		transition.m_HasExitTime = false;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Exit Blend"))
+	{
+		transition.m_Duration = 0.15f;
+		transition.m_HasExitTime = true;
+		transition.m_ExitTime = 0.85f;
+	}
 
 	ImGui::Separator();
 	ImGui::TextDisabled("Conditions");
@@ -1317,7 +1397,14 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 		condition.m_Parameter = m_CurrentController->GetParameters().front().m_Name;
 		transition.m_Conditions.push_back(condition);
 	}
+	ImGui::BeginDisabled(transition.m_Conditions.empty());
+	if (ImGui::Button("Clear Conditions", ImVec2(-1.0f, 0.0f)))
+		transition.m_Conditions.clear();
+	ImGui::EndDisabled();
 
+	int conditionToDuplicate = -1;
+	int conditionToMoveUp = -1;
+	int conditionToMoveDown = -1;
 	for (size_t conditionIndex = 0; conditionIndex < transition.m_Conditions.size(); ++conditionIndex)
 	{
 		ImGui::PushID((int)conditionIndex);
@@ -1373,6 +1460,17 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 				ImGui::Checkbox("Value", &condition.m_BoolValue);
 		}
 
+		ImGui::BeginDisabled(conditionIndex == 0);
+		if (ImGui::Button("Move Up"))
+			conditionToMoveUp = (int)conditionIndex;
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		ImGui::BeginDisabled(conditionIndex + 1 >= transition.m_Conditions.size());
+		if (ImGui::Button("Move Down"))
+			conditionToMoveDown = (int)conditionIndex;
+		ImGui::EndDisabled();
+		if (ImGui::Button("Duplicate Condition", ImVec2(-1.0f, 0.0f)))
+			conditionToDuplicate = (int)conditionIndex;
 		if (ImGui::Button("Remove Condition", ImVec2(-1.0f, 0.0f)))
 		{
 			transition.m_Conditions.erase(transition.m_Conditions.begin() + conditionIndex);
@@ -1382,6 +1480,12 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 		ImGui::Separator();
 		ImGui::PopID();
 	}
+	if (conditionToMoveUp > 0 && conditionToMoveUp < (int)transition.m_Conditions.size())
+		std::swap(transition.m_Conditions[conditionToMoveUp], transition.m_Conditions[conditionToMoveUp - 1]);
+	if (conditionToMoveDown >= 0 && conditionToMoveDown + 1 < (int)transition.m_Conditions.size())
+		std::swap(transition.m_Conditions[conditionToMoveDown], transition.m_Conditions[conditionToMoveDown + 1]);
+	if (conditionToDuplicate >= 0 && conditionToDuplicate < (int)transition.m_Conditions.size())
+		transition.m_Conditions.insert(transition.m_Conditions.begin() + conditionToDuplicate + 1, transition.m_Conditions[conditionToDuplicate]);
 }
 
 void AnimationEditorPanel::DrawControllerValidation()
@@ -1515,6 +1619,24 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		else if (m_SelectedTransitionSourceStateIndex >= 0 && m_SelectedTransitionSourceStateIndex < (int)states.size())
 			ImGui::TextDisabled("Source: %s", states[m_SelectedTransitionSourceStateIndex].m_Name.c_str());
 
+		if (ImGui::Button("Duplicate Transition", ImVec2(-1.0f, 0.0f)))
+		{
+			const AnimationControllerTransition duplicate = *selectedTransition;
+			if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
+			{
+				auto& transitions = m_CurrentController->GetAnyStateTransitions();
+				transitions.push_back(duplicate);
+				m_SelectedTransitionIndex = (int)transitions.size() - 1;
+			}
+			else if (m_SelectedTransitionSourceStateIndex >= 0 && m_SelectedTransitionSourceStateIndex < (int)states.size())
+			{
+				auto& transitions = states[m_SelectedTransitionSourceStateIndex].m_Transitions;
+				transitions.push_back(duplicate);
+				m_SelectedTransitionIndex = (int)transitions.size() - 1;
+			}
+			ImGui::EndChild();
+			return;
+		}
 		DrawControllerTransitionInspector(*selectedTransition, true);
 		if (ImGui::Button("Remove Transition", ImVec2(-1.0f, 0.0f)))
 			RemoveSelectedControllerTransition();
@@ -1676,6 +1798,8 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		m_SelectedTransitionIndex = (int)state.m_Transitions.size() - 1;
 	}
 
+	int transitionToMoveUp = -1;
+	int transitionToMoveDown = -1;
 	for (size_t transitionIndex = 0; transitionIndex < state.m_Transitions.size(); ++transitionIndex)
 	{
 		ImGui::PushID((int)transitionIndex);
@@ -1688,6 +1812,15 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 				m_SelectedTransitionSourceStateIndex = m_SelectedControllerStateIndex;
 				m_SelectedTransitionIndex = (int)transitionIndex;
 			}
+			ImGui::BeginDisabled(transitionIndex == 0);
+			if (ImGui::Button("Move Up"))
+				transitionToMoveUp = (int)transitionIndex;
+			ImGui::EndDisabled();
+			ImGui::SameLine();
+			ImGui::BeginDisabled(transitionIndex + 1 >= state.m_Transitions.size());
+			if (ImGui::Button("Move Down"))
+				transitionToMoveDown = (int)transitionIndex;
+			ImGui::EndDisabled();
 			DrawControllerTransitionInspector(transition, true);
 
 			if (ImGui::Button("Remove Transition", ImVec2(-1.0f, 0.0f)))
@@ -1702,6 +1835,18 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		}
 		ImGui::PopID();
 	}
+	if (transitionToMoveUp > 0 && transitionToMoveUp < (int)state.m_Transitions.size())
+	{
+		std::swap(state.m_Transitions[transitionToMoveUp], state.m_Transitions[transitionToMoveUp - 1]);
+		m_SelectedTransitionSourceStateIndex = m_SelectedControllerStateIndex;
+		m_SelectedTransitionIndex = transitionToMoveUp - 1;
+	}
+	if (transitionToMoveDown >= 0 && transitionToMoveDown + 1 < (int)state.m_Transitions.size())
+	{
+		std::swap(state.m_Transitions[transitionToMoveDown], state.m_Transitions[transitionToMoveDown + 1]);
+		m_SelectedTransitionSourceStateIndex = m_SelectedControllerStateIndex;
+		m_SelectedTransitionIndex = transitionToMoveDown + 1;
+	}
 
 	ImGui::Separator();
 	ImGui::TextDisabled("Any State");
@@ -1715,16 +1860,42 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		m_SelectedTransitionSourceStateIndex = AnyStateTransitionSource;
 		m_SelectedTransitionIndex = (int)transitions.size() - 1;
 	}
-	const auto& anyTransitions = m_CurrentController->GetAnyStateTransitions();
+	auto& anyTransitions = m_CurrentController->GetAnyStateTransitions();
+	int anyTransitionToMoveUp = -1;
+	int anyTransitionToMoveDown = -1;
 	for (size_t transitionIndex = 0; transitionIndex < anyTransitions.size(); ++transitionIndex)
 	{
+		ImGui::PushID((int)transitionIndex);
 		const AnimationControllerTransition& transition = anyTransitions[transitionIndex];
 		std::string label = "Any -> " + (transition.m_TargetState.empty() ? std::string("None") : transition.m_TargetState);
-		if (ImGui::Selectable(label.c_str(), m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource && m_SelectedTransitionIndex == (int)transitionIndex))
+		if (ImGui::Selectable(label.c_str(), m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource && m_SelectedTransitionIndex == (int)transitionIndex, 0, ImVec2(std::max(80.0f, width - 112.0f), 0.0f)))
 		{
 			m_SelectedTransitionSourceStateIndex = AnyStateTransitionSource;
 			m_SelectedTransitionIndex = (int)transitionIndex;
 		}
+		ImGui::SameLine();
+		ImGui::BeginDisabled(transitionIndex == 0);
+		if (ImGui::SmallButton("Up"))
+			anyTransitionToMoveUp = (int)transitionIndex;
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		ImGui::BeginDisabled(transitionIndex + 1 >= anyTransitions.size());
+		if (ImGui::SmallButton("Down"))
+			anyTransitionToMoveDown = (int)transitionIndex;
+		ImGui::EndDisabled();
+		ImGui::PopID();
+	}
+	if (anyTransitionToMoveUp > 0 && anyTransitionToMoveUp < (int)anyTransitions.size())
+	{
+		std::swap(anyTransitions[anyTransitionToMoveUp], anyTransitions[anyTransitionToMoveUp - 1]);
+		m_SelectedTransitionSourceStateIndex = AnyStateTransitionSource;
+		m_SelectedTransitionIndex = anyTransitionToMoveUp - 1;
+	}
+	if (anyTransitionToMoveDown >= 0 && anyTransitionToMoveDown + 1 < (int)anyTransitions.size())
+	{
+		std::swap(anyTransitions[anyTransitionToMoveDown], anyTransitions[anyTransitionToMoveDown + 1]);
+		m_SelectedTransitionSourceStateIndex = AnyStateTransitionSource;
+		m_SelectedTransitionIndex = anyTransitionToMoveDown + 1;
 	}
 
 	ImGui::EndChild();
@@ -1795,9 +1966,22 @@ void AnimationEditorPanel::DrawRemoveFrameButton(float width)
 	}
 }
 
+void AnimationEditorPanel::DrawImportFramesButton(float width)
+{
+	if (!m_CurrentAnimation)
+		return;
+
+	if (ImGui::Button("Import Folder", ImVec2(width, 0.0f)))
+		ImportTextureFolderFrames();
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Import supported texture files from an asset folder as animation frames.");
+}
+
 void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 {
 	ImGui::TextDisabled("Preview");
+	ImGui::SameLine();
+	ImGui::Checkbox("Onion", &m_ShowOnionSkin);
 	ImGui::Separator();
 
 	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
@@ -1821,6 +2005,8 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 			texturePath = AssetManager::GetAssetMetadata(frame.m_Texture).m_Filepath.generic_string();
 		ImGui::TextColored(ImVec4(1.0f, 0.42f, 0.28f, 1.0f), "Texture is not loaded.");
 		ImGui::TextWrapped("%s", texturePath.c_str());
+		if (ImGui::Button("Reload Texture", ImVec2(-1.0f, 0.0f)))
+			Project::GetActive()->GetEditorAssetManager()->UnloadAsset(frame.m_Texture);
 		return;
 	}
 
@@ -1834,7 +2020,38 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 
 	const float centerOffset = std::max(0.0f, (width - previewSize.x) * 0.5f);
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + centerOffset);
-	UI::Image(UI::ToImGuiTextureId(texture->GetRendererId()), previewSize, ImVec2(0, 1), ImVec2(1, 0));
+	const ImVec2 imageMin = ImGui::GetCursorScreenPos();
+	const ImVec2 imageMax(imageMin.x + previewSize.x, imageMin.y + previewSize.y);
+	ImGui::InvisibleButton("##AnimationPreviewImage", previewSize);
+
+	auto drawFrameTexture = [&](int frameIndex, const ImVec2& offset, ImU32 tint)
+		{
+			if (frameIndex < 0 || frameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+				return;
+
+			const AssetHandle textureHandle = m_CurrentAnimation->GetFrames()[frameIndex].m_Texture;
+			if (!textureHandle || !AssetManager::IsAssetHandleValid(textureHandle) || AssetManager::GetAssetType(textureHandle) != AssetType::Texture2D)
+				return;
+
+			Ref<Texture2D> onionTexture = AssetManager::GetAsset<Texture2D>(textureHandle);
+			if (!onionTexture || !onionTexture->IsLoaded())
+				return;
+
+			ImGui::GetWindowDrawList()->AddImage(
+				UI::ToImGuiTextureId(onionTexture->GetRendererId()),
+				Add(imageMin, offset),
+				Add(imageMax, offset),
+				ImVec2(0, 1),
+				ImVec2(1, 0),
+				tint);
+		};
+
+	if (m_ShowOnionSkin)
+	{
+		drawFrameTexture(m_SelectedFrameIndex - 1, ImVec2(-7.0f, 0.0f), IM_COL32(120, 172, 255, 76));
+		drawFrameTexture(m_SelectedFrameIndex + 1, ImVec2(7.0f, 0.0f), IM_COL32(255, 186, 104, 76));
+	}
+	drawFrameTexture(m_SelectedFrameIndex, ImVec2(0.0f, 0.0f), IM_COL32(255, 255, 255, 255));
 	ImGui::TextDisabled("%ux%u", texture->GetWidth(), texture->GetHeight());
 }
 
@@ -1842,6 +2059,8 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 {
 	if (!m_CurrentAnimation)
 		return;
+
+	DrawFrameBatchTools(width);
 
 	if (m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
 	{
@@ -1892,7 +2111,14 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 		ImGui::TableNextColumn();
 		ImGui::TextUnformatted("Texture");
 		ImGui::TableNextColumn();
-		const std::string textureLabel = frame.m_Texture ? AssetManager::GetAssetMetadata(frame.m_Texture).m_Filepath.generic_string() : "Drop texture";
+		std::string textureLabel = "Drop texture";
+		if (frame.m_Texture != 0)
+		{
+			if (AssetManager::IsAssetHandleValid(frame.m_Texture) && AssetManager::GetAssetType(frame.m_Texture) == AssetType::Texture2D)
+				textureLabel = AssetManager::GetAssetMetadata(frame.m_Texture).m_Filepath.generic_string();
+			else
+				textureLabel = "Invalid texture handle";
+		}
 		UI::DragDropTarget(AssetType::Texture2D, dragDropCallback, textureLabel.c_str(), true, std::max(160.0f, width - 140.0f), 0.0f);
 
 		ImGui::TableNextRow();
@@ -1947,24 +2173,11 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 
 	if (ImGui::Button("Sort Keys By Time", ImVec2(-1.0f, 0.0f)))
 	{
-		auto sortVec3Keys = [](std::vector<AnimationVec3Key>& keys)
-			{
-				std::sort(keys.begin(), keys.end(), [](const AnimationVec3Key& left, const AnimationVec3Key& right)
-					{
-						return left.m_Time < right.m_Time;
-					});
-			};
-		auto sortVec4Keys = [](std::vector<AnimationVec4Key>& keys)
-			{
-				std::sort(keys.begin(), keys.end(), [](const AnimationVec4Key& left, const AnimationVec4Key& right)
-					{
-						return left.m_Time < right.m_Time;
-					});
-			};
-		sortVec3Keys(m_CurrentAnimation->GetTranslationKeys());
-		sortVec3Keys(m_CurrentAnimation->GetRotationKeys());
-		sortVec3Keys(m_CurrentAnimation->GetScaleKeys());
-		sortVec4Keys(m_CurrentAnimation->GetColorKeys());
+		SortKeysByTime(m_CurrentAnimation->GetEvents());
+		SortKeysByTime(m_CurrentAnimation->GetTranslationKeys());
+		SortKeysByTime(m_CurrentAnimation->GetRotationKeys());
+		SortKeysByTime(m_CurrentAnimation->GetScaleKeys());
+		SortKeysByTime(m_CurrentAnimation->GetColorKeys());
 	}
 
 	auto drawVec3Keys = [](const char* label, std::vector<AnimationVec3Key>& keys)
@@ -2013,6 +2226,184 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 	drawVec3Keys("Rotation Keys", m_CurrentAnimation->GetRotationKeys());
 	drawVec3Keys("Scale Keys", m_CurrentAnimation->GetScaleKeys());
 	drawVec4Keys("Color Keys", m_CurrentAnimation->GetColorKeys());
+}
+
+void AnimationEditorPanel::DrawFrameBatchTools(float width)
+{
+	if (!m_CurrentAnimation)
+		return;
+
+	auto& frames = m_CurrentAnimation->GetFrames();
+	int emptyFrameCount = 0;
+	int invalidTextureCount = 0;
+	int zeroDurationCount = 0;
+	for (const AnimationFrame& frame : frames)
+	{
+		if (frame.m_Texture == 0)
+			++emptyFrameCount;
+		else if (!AssetManager::IsAssetHandleValid(frame.m_Texture) || AssetManager::GetAssetType(frame.m_Texture) != AssetType::Texture2D)
+			++invalidTextureCount;
+		if (frame.m_Duration <= 0.0f)
+			++zeroDurationCount;
+	}
+
+	ImGui::TextDisabled("Clip Tools");
+	ImGui::SetNextItemWidth(std::min(140.0f, std::max(80.0f, width * 0.34f)));
+	ImGui::DragFloat("Default Duration", &m_DefaultFrameDuration, 0.005f, 0.001f, 10.0f, "%.3f s");
+
+	if (emptyFrameCount > 0 || invalidTextureCount > 0 || zeroDurationCount > 0)
+	{
+		ImGui::TextColored(
+			ImVec4(1.0f, 0.42f, 0.28f, 1.0f),
+			"%d empty, %d invalid texture, %d zero duration",
+			emptyFrameCount,
+			invalidTextureCount,
+			zeroDurationCount);
+	}
+
+	ImGui::BeginDisabled(frames.empty());
+	if (ImGui::Button("Reverse Frames"))
+	{
+		const int oldSelectedFrame = m_SelectedFrameIndex;
+		std::reverse(frames.begin(), frames.end());
+		if (oldSelectedFrame >= 0 && oldSelectedFrame < (int)frames.size())
+			m_SelectedFrameIndex = (int)frames.size() - 1 - oldSelectedFrame;
+		StopPreview(false);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Remove Empty Frames"))
+	{
+		const AssetHandle selectedTexture =
+			m_SelectedFrameIndex >= 0 && m_SelectedFrameIndex < (int)frames.size() ? frames[m_SelectedFrameIndex].m_Texture : AssetHandle(0);
+		std::erase_if(frames, [](const AnimationFrame& frame)
+			{
+				return frame.m_Texture == 0 || !AssetManager::IsAssetHandleValid(frame.m_Texture) || AssetManager::GetAssetType(frame.m_Texture) != AssetType::Texture2D;
+			});
+
+		m_SelectedFrameIndex = -1;
+		if (!frames.empty())
+		{
+			if (selectedTexture != 0)
+			{
+				for (size_t frameIndex = 0; frameIndex < frames.size(); ++frameIndex)
+				{
+					if (frames[frameIndex].m_Texture == selectedTexture)
+					{
+						m_SelectedFrameIndex = (int)frameIndex;
+						break;
+					}
+				}
+			}
+			if (m_SelectedFrameIndex < 0)
+				m_SelectedFrameIndex = 0;
+		}
+		StopPreview(false);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Fix Zero Durations"))
+	{
+		for (AnimationFrame& frame : frames)
+		{
+			if (frame.m_Duration <= 0.0f)
+				frame.m_Duration = std::max(0.001f, m_DefaultFrameDuration);
+		}
+		StopPreview(false);
+	}
+
+	if (ImGui::Button("12 FPS"))
+		NormalizeFrameDurations(1.0f / 12.0f);
+	ImGui::SameLine();
+	if (ImGui::Button("24 FPS"))
+		NormalizeFrameDurations(1.0f / 24.0f);
+	ImGui::SameLine();
+	if (ImGui::Button("60 FPS"))
+		NormalizeFrameDurations(1.0f / 60.0f);
+	ImGui::SameLine();
+	if (ImGui::Button("Use Default Duration"))
+		NormalizeFrameDurations(m_DefaultFrameDuration);
+	ImGui::EndDisabled();
+
+	ImGui::Separator();
+}
+
+void AnimationEditorPanel::ImportTextureFolderFrames()
+{
+	if (!m_CurrentAnimation)
+		return;
+
+	const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
+	const std::string folder = FileDialogs::OpenFolderUnderASpesificDirectory(assetDirectory);
+	if (folder.empty())
+		return;
+
+	std::error_code error;
+	if (!std::filesystem::is_directory(folder, error) || error)
+		return;
+
+	std::vector<std::filesystem::path> textureFiles;
+	for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(folder, error))
+	{
+		if (error)
+			break;
+
+		if (!entry.is_regular_file(error) || error)
+		{
+			error.clear();
+			continue;
+		}
+
+		const std::filesystem::path& filepath = entry.path();
+		if (IsTextureSourceFile(filepath))
+			textureFiles.push_back(filepath);
+	}
+
+	std::sort(textureFiles.begin(), textureFiles.end(), [](const std::filesystem::path& left, const std::filesystem::path& right)
+		{
+			return left.filename().string() < right.filename().string();
+		});
+
+	auto editorAssetManager = Project::GetActive()->GetEditorAssetManager();
+	auto& frames = m_CurrentAnimation->GetFrames();
+	const int firstImportedFrame = (int)frames.size();
+	int importedFrameCount = 0;
+
+	for (const std::filesystem::path& textureFile : textureFiles)
+	{
+		std::error_code relativeError;
+		std::filesystem::path relativePath = std::filesystem::relative(textureFile, assetDirectory, relativeError);
+		if (relativeError || !IsRelativePathInsideRoot(relativePath))
+			continue;
+
+		AssetHandle textureHandle = editorAssetManager->ImportAsset(relativePath.lexically_normal());
+		if (textureHandle == 0)
+			continue;
+
+		AnimationFrame frame;
+		frame.m_Texture = textureHandle;
+		frame.m_Duration = std::max(0.001f, m_DefaultFrameDuration);
+		m_CurrentAnimation->AddFrame(frame);
+		++importedFrameCount;
+	}
+
+	if (importedFrameCount > 0)
+	{
+		m_SelectedFrameIndex = firstImportedFrame;
+		StopPreview(false);
+		if (m_RefreshAssetTreeCallback)
+			m_RefreshAssetTreeCallback();
+	}
+}
+
+void AnimationEditorPanel::NormalizeFrameDurations(float frameDuration)
+{
+	if (!m_CurrentAnimation)
+		return;
+
+	const float safeDuration = std::clamp(frameDuration, 0.001f, 10.0f);
+	for (AnimationFrame& frame : m_CurrentAnimation->GetFrames())
+		frame.m_Duration = safeDuration;
+	m_DefaultFrameDuration = safeDuration;
+	StopPreview(false);
 }
 
 void AnimationEditorPanel::UpdatePreview()

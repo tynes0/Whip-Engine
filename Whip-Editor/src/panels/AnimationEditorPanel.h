@@ -45,8 +45,10 @@ private:
 	void DrawFrameList(float width);
 	void DrawAddFrameButton(float width);
 	void DrawRemoveFrameButton(float width);
+	void DrawImportFramesButton(float width);
 	void DrawPreviewPane(float width, float height);
 	void DrawFrameEditor(float width);
+	void DrawFrameBatchTools(float width);
 	void DrawControllerEditor(float height);
 	void DrawControllerParameters(float width, float height);
 	void DrawControllerGraph(float width, float height);
@@ -58,6 +60,8 @@ private:
 	void RemoveSelectedControllerTransition();
 	void AutoLayoutControllerGraph();
 	void SaveCurrentController();
+	void ImportTextureFolderFrames();
+	void NormalizeFrameDurations(float frameDuration);
 	void UpdatePreview();
 	void StepPreview(int direction);
 	void StopPreview(bool resetSelection);
@@ -74,9 +78,11 @@ private:
 	glm::vec2 m_ControllerGraphPan{ 28.0f, 28.0f };
 	bool m_ControllerGraphSnapToGrid = true;
 	bool m_FrameControllerGraphRequested = false;
+	bool m_ShowOnionSkin = true;
 	bool m_PreviewPlaying = false;
 	bool m_PreviewPaused = false;
 	float m_PreviewElapsed = 0.0f;
+	float m_DefaultFrameDuration = 0.1f;
 	bool m_Open = true;
 	bool m_OpenDirty = false;
 
