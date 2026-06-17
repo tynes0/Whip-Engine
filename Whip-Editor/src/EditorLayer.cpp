@@ -1321,6 +1321,7 @@ void EditorLayer::OnImGuiRender()
 	m_UIStatistics.OnImGuiRender(m_Ts);
     m_SceneHierarchyPanel.OnImGuiRender();
     m_AnimationEditorPanel.OnImGuiRender();
+	m_AnimationEditorPanel.HandleShortcutInput(m_UISettings);
 	ConsolePanel::OnImGuiRender();
 	if (m_ContentBrowserPanel)
 		m_ContentBrowserPanel->OnImGuiRender();
@@ -1365,7 +1366,7 @@ bool EditorLayer::OnKeyPressed(KeyPressedEvent& event)
 		UI::EditorShortcutAction action = static_cast<UI::EditorShortcutAction>(i);
 		if (m_UISettings.ShortcutMatches(action, event.GetKeyCode(), control, shift, alt))
 		{
-			if (m_AnimationEditorPanel.WantsShortcutCapture() && m_AnimationEditorPanel.ExecuteShortcutAction(action))
+			if (m_AnimationEditorPanel.WantsShortcutCapture() && m_AnimationEditorPanel.ShouldConsumeShortcutAction(action))
 				return true;
 			return ExecuteEditorAction(action);
 		}

@@ -31,7 +31,9 @@ public:
 
 	void OnImGuiRender();
 	bool WantsShortcutCapture() const { return m_Open && m_ShortcutContextActive; }
+	bool ShouldConsumeShortcutAction(UI::EditorShortcutAction action) const;
 	bool ExecuteShortcutAction(UI::EditorShortcutAction action);
+	void HandleShortcutInput(const UI::UISettings& settings);
 
 	//void LoadIcon(Icon iconType, Ref<Texture2D> iconTexture);
 	void SetRefreshAssetTreeCallback(const std::function<void()>& func) { m_RefreshAssetTreeCallback = func; }

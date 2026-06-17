@@ -119,6 +119,64 @@ namespace
 			});
 	}
 
+	ImGuiKey ToImGuiKey(KeyCode key)
+	{
+		switch (key)
+		{
+		case Key::A: return ImGuiKey_A;
+		case Key::B: return ImGuiKey_B;
+		case Key::C: return ImGuiKey_C;
+		case Key::D: return ImGuiKey_D;
+		case Key::E: return ImGuiKey_E;
+		case Key::F: return ImGuiKey_F;
+		case Key::G: return ImGuiKey_G;
+		case Key::H: return ImGuiKey_H;
+		case Key::I: return ImGuiKey_I;
+		case Key::J: return ImGuiKey_J;
+		case Key::K: return ImGuiKey_K;
+		case Key::L: return ImGuiKey_L;
+		case Key::M: return ImGuiKey_M;
+		case Key::N: return ImGuiKey_N;
+		case Key::O: return ImGuiKey_O;
+		case Key::P: return ImGuiKey_P;
+		case Key::Q: return ImGuiKey_Q;
+		case Key::R: return ImGuiKey_R;
+		case Key::S: return ImGuiKey_S;
+		case Key::T: return ImGuiKey_T;
+		case Key::U: return ImGuiKey_U;
+		case Key::V: return ImGuiKey_V;
+		case Key::W: return ImGuiKey_W;
+		case Key::X: return ImGuiKey_X;
+		case Key::Y: return ImGuiKey_Y;
+		case Key::Z: return ImGuiKey_Z;
+		case Key::Delete: return ImGuiKey_Delete;
+		case Key::Backspace: return ImGuiKey_Backspace;
+		case Key::Insert: return ImGuiKey_Insert;
+		case Key::Enter: return ImGuiKey_Enter;
+		case Key::Tab: return ImGuiKey_Tab;
+		case Key::Space: return ImGuiKey_Space;
+		case Key::Escape: return ImGuiKey_Escape;
+		default: return ImGuiKey_None;
+		}
+	}
+
+	bool ShortcutPressed(const UI::UISettings& settings, UI::EditorShortcutAction action)
+	{
+		if (settings.HasShortcutConflict(action))
+			return false;
+
+		const UI::ShortcutBinding binding = settings.GetShortcutBinding(action);
+		const ImGuiKey imguiKey = ToImGuiKey(binding.m_Key);
+		if (imguiKey == ImGuiKey_None)
+			return false;
+
+		const ImGuiIO& io = ImGui::GetIO();
+		if (binding.m_Ctrl != io.KeyCtrl || binding.m_Shift != io.KeyShift || binding.m_Alt != io.KeyAlt)
+			return false;
+
+		return ImGui::IsKeyPressed(imguiKey, false);
+	}
+
 }
 
 AnimationEditorPanel::AnimationEditorPanel()
@@ -136,7 +194,7 @@ void AnimationEditorPanel::OnImGuiRender()
 	}
 	bool open = m_Open;
 	ImGui::Begin("Animation Editor", &open);
-	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
 	if (open != m_Open)
 		SetOpen(open);
 	UpdatePreview();
@@ -2637,6 +2695,23 @@ bool AnimationEditorPanel::Redo()
 	return true;
 }
 
+bool AnimationEditorPanel::ShouldConsumeShortcutAction(UI::EditorShortcutAction action) const
+{
+	switch (action)
+	{
+	case UI::EditorShortcutAction::Undo:
+	case UI::EditorShortcutAction::Redo:
+	case UI::EditorShortcutAction::Copy:
+	case UI::EditorShortcutAction::Paste:
+	case UI::EditorShortcutAction::Cut:
+	case UI::EditorShortcutAction::DuplicateEntity:
+	case UI::EditorShortcutAction::DeleteEntity:
+		return true;
+	default:
+		return false;
+	}
+}
+
 bool AnimationEditorPanel::ExecuteShortcutAction(UI::EditorShortcutAction action)
 {
 	if (ImGui::GetIO().WantTextInput)
@@ -2660,6 +2735,32 @@ bool AnimationEditorPanel::ExecuteShortcutAction(UI::EditorShortcutAction action
 		return DeleteSelection();
 	default:
 		return false;
+	}
+}
+
+void AnimationEditorPanel::HandleShortcutInput(const UI::UISettings& settings)
+{
+	if (!WantsShortcutCapture() || ImGui::GetIO().WantTextInput)
+		return;
+
+	static constexpr UI::EditorShortcutAction Actions[] =
+	{
+		UI::EditorShortcutAction::Undo,
+		UI::EditorShortcutAction::Redo,
+		UI::EditorShortcutAction::Copy,
+		UI::EditorShortcutAction::Paste,
+		UI::EditorShortcutAction::Cut,
+		UI::EditorShortcutAction::DuplicateEntity,
+		UI::EditorShortcutAction::DeleteEntity
+	};
+
+	for (UI::EditorShortcutAction action : Actions)
+	{
+		if (ShortcutPressed(settings, action))
+		{
+			ExecuteShortcutAction(action);
+			return;
+		}
 	}
 }
 
