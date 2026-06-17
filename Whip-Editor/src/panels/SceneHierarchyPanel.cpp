@@ -1925,7 +1925,18 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 					const auto runtimeIt = sceneIn->m_AnimatorRuntimes.find(entityIn.GetUUID());
 					BEGIN_COMPONENT_TABLE_ROW("Runtime");
 					if (runtimeIt != sceneIn->m_AnimatorRuntimes.end())
-						ImGui::TextDisabled("%s  %.2fs", runtimeIt->second.GetCurrentStateName().c_str(), runtimeIt->second.GetStateTime());
+					{
+						if (runtimeIt->second.IsTransitioning())
+						{
+							ImGui::TextDisabled(
+								"%s -> %s  %.0f%%",
+								runtimeIt->second.GetCurrentStateName().c_str(),
+								runtimeIt->second.GetTransitionTargetStateName().c_str(),
+								runtimeIt->second.GetTransitionProgress() * 100.0f);
+						}
+						else
+							ImGui::TextDisabled("%s  %.2fs", runtimeIt->second.GetCurrentStateName().c_str(), runtimeIt->second.GetStateTime());
+					}
 					else
 						ImGui::TextDisabled("Not playing");
 					END_COMPONENT_TABLE_ROW();

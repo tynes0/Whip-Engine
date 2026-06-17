@@ -38,6 +38,9 @@ public:
 	const std::string& GetLastTransitionSourceName() const { return m_LastTransitionSourceName; }
 	const std::string& GetLastTransitionTargetName() const { return m_LastTransitionTargetName; }
 	float GetTransitionDebugTime() const { return m_TransitionDebugTime; }
+	bool IsTransitioning() const { return m_Transitioning; }
+	const std::string& GetTransitionTargetStateName() const { return m_TransitionTargetStateName; }
+	float GetTransitionProgress() const;
 	float GetStateTime() const { return m_StateTime; }
 	const std::vector<std::string>& GetFiredEvents() const { return m_FiredEvents; }
 	void ClearFiredEvents() { m_FiredEvents.clear(); }
@@ -65,7 +68,10 @@ private:
 	void ConsumeTransitionTriggers(const AnimationControllerTransition& transition);
 
 	void SwitchState(std::string_view stateName);
+	float NormalizeStateTime(const AnimationControllerState& state, float stateTime) const;
 	void ApplyCurrentFrame();
+	void ApplyStateFrame(const AnimationControllerState& state, float stateTime);
+	void ApplyBlendedFrame(const AnimationControllerState& sourceState, float sourceTime, const AnimationControllerState& targetState, float targetTime, float factor);
 	void QueueEvents(const AnimationControllerState& state, float startTime, float endTime);
 	void ApplyPropertyTracks(const Animation2D& clip, float sampleTime);
 
@@ -76,8 +82,13 @@ private:
 	std::string m_CurrentStateName;
 	std::string m_LastTransitionSourceName;
 	std::string m_LastTransitionTargetName;
+	std::string m_TransitionTargetStateName;
 	float m_StateTime = 0.0f;
 	float m_TransitionDebugTime = 999.0f;
+	float m_TransitionElapsed = 0.0f;
+	float m_TransitionDuration = 0.0f;
+	float m_TransitionTargetStateTime = 0.0f;
+	bool m_Transitioning = false;
 	bool m_Playing = false;
 	std::vector<std::string> m_FiredEvents;
 

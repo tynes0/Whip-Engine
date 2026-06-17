@@ -52,6 +52,7 @@ private:
 	void DrawControllerGraph(float width, float height);
 	void DrawControllerStateInspector(float width, float height);
 	void DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget);
+	void DrawControllerValidation();
 	AnimationControllerTransition* GetSelectedControllerTransition();
 	void ClearSelectedControllerTransition();
 	void RemoveSelectedControllerTransition();
@@ -71,6 +72,7 @@ private:
 	int m_PendingTransitionSourceStateIndex = -1;
 	float m_ControllerGraphZoom = 1.0f;
 	glm::vec2 m_ControllerGraphPan{ 28.0f, 28.0f };
+	bool m_ControllerGraphSnapToGrid = true;
 	bool m_FrameControllerGraphRequested = false;
 	bool m_PreviewPlaying = false;
 	bool m_PreviewPaused = false;

@@ -100,8 +100,13 @@ void AnimatorRuntime::Bind(Scene* scene, UUID entityId, const Ref<AnimationContr
 	m_CurrentStateName.clear();
 	m_LastTransitionSourceName.clear();
 	m_LastTransitionTargetName.clear();
+	m_TransitionTargetStateName.clear();
 	m_StateTime = 0.0f;
 	m_TransitionDebugTime = 999.0f;
+	m_TransitionElapsed = 0.0f;
+	m_TransitionDuration = 0.0f;
+	m_TransitionTargetStateTime = 0.0f;
+	m_Transitioning = false;
 	m_Playing = false;
 	m_FiredEvents.clear();
 	m_BoolParameters.clear();
@@ -157,6 +162,11 @@ void AnimatorRuntime::Play(std::string_view stateName)
 
 	m_StateTime = 0.0f;
 	m_TransitionDebugTime = 999.0f;
+	m_TransitionElapsed = 0.0f;
+	m_TransitionDuration = 0.0f;
+	m_TransitionTargetStateTime = 0.0f;
+	m_TransitionTargetStateName.clear();
+	m_Transitioning = false;
 	m_Playing = !m_CurrentStateName.empty();
 	ApplyCurrentFrame();
 }
@@ -165,6 +175,11 @@ void AnimatorRuntime::Stop()
 {
 	m_Playing = false;
 	m_StateTime = 0.0f;
+	m_TransitionElapsed = 0.0f;
+	m_TransitionDuration = 0.0f;
+	m_TransitionTargetStateTime = 0.0f;
+	m_TransitionTargetStateName.clear();
+	m_Transitioning = false;
 }
 
 void AnimatorRuntime::Update(Timestep ts, float speed)
@@ -184,6 +199,41 @@ void AnimatorRuntime::Update(Timestep ts, float speed)
 	const float previousTime = m_StateTime;
 	const float deltaTime = std::max(static_cast<float>(ts), 0.0f);
 	m_TransitionDebugTime += deltaTime;
+
+	if (m_Transitioning)
+	{
+		const AnimationControllerState* targetState = m_Controller->FindState(m_TransitionTargetStateName);
+		if (!targetState)
+		{
+			m_Transitioning = false;
+			ApplyCurrentFrame();
+			return;
+		}
+
+		m_StateTime += deltaTime * stateSpeed * animatorSpeed;
+		const float targetSpeed = std::max(targetState->m_Speed, 0.0f) * ResolveStateMotionSpeed(*targetState);
+		m_TransitionTargetStateTime += deltaTime * targetSpeed * animatorSpeed;
+		m_TransitionElapsed += deltaTime * animatorSpeed;
+
+		if (m_TransitionDuration <= 0.0f || m_TransitionElapsed >= m_TransitionDuration)
+		{
+			m_CurrentStateName = m_TransitionTargetStateName;
+			m_StateTime = NormalizeStateTime(*targetState, m_TransitionTargetStateTime);
+			m_TransitionTargetStateName.clear();
+			m_TransitionElapsed = 0.0f;
+			m_TransitionDuration = 0.0f;
+			m_TransitionTargetStateTime = 0.0f;
+			m_Transitioning = false;
+			ApplyCurrentFrame();
+			return;
+		}
+
+		m_StateTime = NormalizeStateTime(*state, m_StateTime);
+		m_TransitionTargetStateTime = NormalizeStateTime(*targetState, m_TransitionTargetStateTime);
+		ApplyCurrentFrame();
+		return;
+	}
+
 	m_StateTime += deltaTime * stateSpeed * animatorSpeed;
 
 	const float stateDuration = GetStateDuration(*state);
@@ -258,6 +308,13 @@ void AnimatorRuntime::ResetTrigger(std::string_view name)
 const AnimationControllerState* AnimatorRuntime::GetCurrentState() const
 {
 	return m_Controller ? m_Controller->FindState(m_CurrentStateName) : nullptr;
+}
+
+float AnimatorRuntime::GetTransitionProgress() const
+{
+	if (!m_Transitioning || m_TransitionDuration <= 0.0f)
+		return 0.0f;
+	return std::clamp(m_TransitionElapsed / m_TransitionDuration, 0.0f, 1.0f);
 }
 
 const AnimationControllerParameter* AnimatorRuntime::FindParameter(std::string_view name) const
@@ -356,7 +413,7 @@ bool AnimatorRuntime::TryTransitionList(std::string_view sourceName, const std::
 		if (transition.m_TargetState != AnimationController::ExitStateName && !m_Controller->FindState(transition.m_TargetState))
 			continue;
 
-		if (transition.m_TargetState == m_CurrentStateName && sourceName == "Any State")
+		if (transition.m_TargetState == m_CurrentStateName)
 			continue;
 
 		if ((useExitTime && !IsExitTimeReady(transition, stateDuration)) || !ConditionsPass(transition))
@@ -378,6 +435,17 @@ bool AnimatorRuntime::ApplyTransition(std::string_view sourceName, const Animati
 	if (transition.m_TargetState == AnimationController::ExitStateName)
 	{
 		Stop();
+		return true;
+	}
+
+	const float duration = std::max(transition.m_Duration, 0.0f);
+	if (duration > 0.0f)
+	{
+		m_Transitioning = true;
+		m_TransitionTargetStateName = transition.m_TargetState;
+		m_TransitionElapsed = 0.0f;
+		m_TransitionDuration = duration;
+		m_TransitionTargetStateTime = 0.0f;
 		return true;
 	}
 
@@ -487,6 +555,19 @@ void AnimatorRuntime::SwitchState(std::string_view stateName)
 
 	m_CurrentStateName = std::string(stateName);
 	m_StateTime = 0.0f;
+	m_TransitionTargetStateName.clear();
+	m_TransitionElapsed = 0.0f;
+	m_TransitionDuration = 0.0f;
+	m_TransitionTargetStateTime = 0.0f;
+	m_Transitioning = false;
+}
+
+float AnimatorRuntime::NormalizeStateTime(const AnimationControllerState& state, float stateTime) const
+{
+	const float duration = GetStateDuration(state);
+	if (duration <= 0.0f)
+		return stateTime;
+	return state.m_Loop ? std::fmod(std::max(stateTime, 0.0f), duration) : std::min(std::max(stateTime, 0.0f), duration);
 }
 
 void AnimatorRuntime::ApplyCurrentFrame()
@@ -498,7 +579,22 @@ void AnimatorRuntime::ApplyCurrentFrame()
 	if (!state)
 		return;
 
-	Ref<Animation2D> clip = GetStateClip(*state);
+	if (m_Transitioning)
+	{
+		const AnimationControllerState* targetState = m_Controller->FindState(m_TransitionTargetStateName);
+		if (targetState)
+		{
+			ApplyBlendedFrame(*state, m_StateTime, *targetState, m_TransitionTargetStateTime, GetTransitionProgress());
+			return;
+		}
+	}
+
+	ApplyStateFrame(*state, m_StateTime);
+}
+
+void AnimatorRuntime::ApplyStateFrame(const AnimationControllerState& state, float stateTime)
+{
+	Ref<Animation2D> clip = GetStateClip(state);
 	if (!clip)
 		return;
 
@@ -507,9 +603,9 @@ void AnimatorRuntime::ApplyCurrentFrame()
 		return;
 
 	const float duration = clip->GetDuration();
-	float sampleTime = m_StateTime;
+	float sampleTime = stateTime;
 	if (duration > 0.0f)
-		sampleTime = state->m_Loop ? std::fmod(sampleTime, duration) : std::min(sampleTime, duration);
+		sampleTime = state.m_Loop ? std::fmod(sampleTime, duration) : std::min(sampleTime, duration);
 
 	if (!clip->GetFrames().empty() && entity.HasComponent<SpriteRendererComponent>())
 	{
@@ -517,6 +613,103 @@ void AnimatorRuntime::ApplyCurrentFrame()
 		entity.GetComponent<SpriteRendererComponent>().m_Texture = clip->GetFrames()[frameIndex].m_Texture;
 	}
 	ApplyPropertyTracks(*clip, sampleTime);
+}
+
+void AnimatorRuntime::ApplyBlendedFrame(const AnimationControllerState& sourceState, float sourceTime, const AnimationControllerState& targetState, float targetTime, float factor)
+{
+	if (!m_Scene)
+		return;
+
+	Ref<Animation2D> sourceClip = GetStateClip(sourceState);
+	Ref<Animation2D> targetClip = GetStateClip(targetState);
+	if (!sourceClip && !targetClip)
+		return;
+
+	Entity entity = m_Scene->FindEntityByUUID(m_EntityId);
+	if (!entity)
+		return;
+
+	const float clampedFactor = std::clamp(factor, 0.0f, 1.0f);
+	const auto resolveSampleTime = [](const AnimationControllerState& state, const Ref<Animation2D>& clip, float time)
+		{
+			if (!clip)
+				return 0.0f;
+			const float duration = clip->GetDuration();
+			if (duration <= 0.0f)
+				return time;
+			return state.m_Loop ? std::fmod(std::max(time, 0.0f), duration) : std::min(std::max(time, 0.0f), duration);
+		};
+
+	const float sourceSampleTime = resolveSampleTime(sourceState, sourceClip, sourceTime);
+	const float targetSampleTime = resolveSampleTime(targetState, targetClip, targetTime);
+
+	if (entity.HasComponent<SpriteRendererComponent>())
+	{
+		auto& spriteRenderer = entity.GetComponent<SpriteRendererComponent>();
+		const Ref<Animation2D>& spriteClip = clampedFactor >= 0.5f && targetClip ? targetClip : sourceClip;
+		const float spriteTime = clampedFactor >= 0.5f ? targetSampleTime : sourceSampleTime;
+		if (spriteClip && !spriteClip->GetFrames().empty())
+		{
+			const size_t frameIndex = spriteClip->GetFrameIndexAtTime(spriteTime);
+			spriteRenderer.m_Texture = spriteClip->GetFrames()[frameIndex].m_Texture;
+		}
+	}
+
+	if (entity.HasComponent<TransformComponent>())
+	{
+		auto& transform = entity.GetComponent<TransformComponent>();
+		auto blendVec3Track = [clampedFactor](const std::vector<AnimationVec3Key>& sourceKeys, float sourceSample, const std::vector<AnimationVec3Key>& targetKeys, float targetSample, glm::vec3 fallback)
+			{
+				glm::vec3 sourceValue = fallback;
+				glm::vec3 targetValue = fallback;
+				const bool hasSource = SampleTrack(sourceKeys, sourceSample, sourceValue);
+				const bool hasTarget = SampleTrack(targetKeys, targetSample, targetValue);
+				if (hasSource && hasTarget)
+					return Lerp(sourceValue, targetValue, clampedFactor);
+				if (hasTarget)
+					return clampedFactor >= 0.5f ? targetValue : fallback;
+				if (hasSource)
+					return clampedFactor < 0.5f ? sourceValue : fallback;
+				return fallback;
+			};
+
+		if (sourceClip || targetClip)
+		{
+			transform.m_Translation = blendVec3Track(
+				sourceClip ? sourceClip->GetTranslationKeys() : std::vector<AnimationVec3Key>{},
+				sourceSampleTime,
+				targetClip ? targetClip->GetTranslationKeys() : std::vector<AnimationVec3Key>{},
+				targetSampleTime,
+				transform.m_Translation);
+			transform.m_Rotation = blendVec3Track(
+				sourceClip ? sourceClip->GetRotationKeys() : std::vector<AnimationVec3Key>{},
+				sourceSampleTime,
+				targetClip ? targetClip->GetRotationKeys() : std::vector<AnimationVec3Key>{},
+				targetSampleTime,
+				transform.m_Rotation);
+			transform.m_Scale = blendVec3Track(
+				sourceClip ? sourceClip->GetScaleKeys() : std::vector<AnimationVec3Key>{},
+				sourceSampleTime,
+				targetClip ? targetClip->GetScaleKeys() : std::vector<AnimationVec3Key>{},
+				targetSampleTime,
+				transform.m_Scale);
+		}
+	}
+
+	if (entity.HasComponent<SpriteRendererComponent>())
+	{
+		auto& spriteRenderer = entity.GetComponent<SpriteRendererComponent>();
+		glm::vec4 sourceColor = spriteRenderer.m_Color;
+		glm::vec4 targetColor = spriteRenderer.m_Color;
+		const bool hasSourceColor = sourceClip && SampleTrack(sourceClip->GetColorKeys(), sourceSampleTime, sourceColor);
+		const bool hasTargetColor = targetClip && SampleTrack(targetClip->GetColorKeys(), targetSampleTime, targetColor);
+		if (hasSourceColor && hasTargetColor)
+			spriteRenderer.m_Color = Lerp(sourceColor, targetColor, clampedFactor);
+		else if (hasTargetColor && clampedFactor >= 0.5f)
+			spriteRenderer.m_Color = targetColor;
+		else if (hasSourceColor && clampedFactor < 0.5f)
+			spriteRenderer.m_Color = sourceColor;
+	}
 }
 
 void AnimatorRuntime::QueueEvents(const AnimationControllerState& state, float startTime, float endTime)

@@ -17,7 +17,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <limits>
+#include <unordered_set>
 
 _WHIP_START
 
@@ -61,6 +63,31 @@ namespace
 		const ImVec2 closest = Add(start, Scale(segment, t));
 		const ImVec2 delta = Subtract(point, closest);
 		return std::sqrt(Dot(delta, delta));
+	}
+
+	float Length(const ImVec2& value)
+	{
+		return std::sqrt(Dot(value, value));
+	}
+
+	ImVec2 Normalize(const ImVec2& value)
+	{
+		const float length = Length(value);
+		if (length <= 0.0001f)
+			return { 1.0f, 0.0f };
+		return { value.x / length, value.y / length };
+	}
+
+	ImVec2 Perpendicular(const ImVec2& value)
+	{
+		return { -value.y, value.x };
+	}
+
+	std::string FormatCompactFloat(float value)
+	{
+		char buffer[32]{};
+		std::snprintf(buffer, sizeof(buffer), "%.2f", value);
+		return buffer;
 	}
 
 }
@@ -698,6 +725,8 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	if (ImGui::Button("Frame Graph"))
 		m_FrameControllerGraphRequested = true;
 	ImGui::SameLine();
+	ImGui::Checkbox("Snap", &m_ControllerGraphSnapToGrid);
+	ImGui::SameLine();
 	if (ImGui::Button("Zoom -"))
 		m_ControllerGraphZoom = std::max(0.45f, m_ControllerGraphZoom - 0.1f);
 	ImGui::SameLine();
@@ -737,6 +766,14 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	const float specialWidth = 136.0f;
 	const float specialHeight = 58.0f;
 	float zoom = m_ControllerGraphZoom;
+	auto snapPosition = [&](glm::vec2& position)
+		{
+			if (!m_ControllerGraphSnapToGrid)
+				return;
+			constexpr float grid = 16.0f;
+			position.x = std::round(position.x / grid) * grid;
+			position.y = std::round(position.y / grid) * grid;
+		};
 
 	const int columns = std::max(1, (int)((canvasSize.x / std::max(zoom, 0.1f) - 280.0f) / 230.0f));
 	for (size_t i = 0; i < states.size(); ++i)
@@ -796,6 +833,13 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		{
 			return { canvasMin.x + m_ControllerGraphPan.x + world.x * zoom, canvasMin.y + m_ControllerGraphPan.y + world.y * zoom };
 		};
+
+	const float gridStep = 32.0f * zoom;
+	const ImU32 gridColor = IM_COL32(72, 66, 54, 80);
+	for (float x = std::fmod(m_ControllerGraphPan.x, gridStep); x < canvasSize.x; x += gridStep)
+		drawList->AddLine(ImVec2(canvasMin.x + x, canvasMin.y), ImVec2(canvasMin.x + x, canvasMax.y), gridColor);
+	for (float y = std::fmod(m_ControllerGraphPan.y, gridStep); y < canvasSize.y; y += gridStep)
+		drawList->AddLine(ImVec2(canvasMin.x, canvasMin.y + y), ImVec2(canvasMax.x, canvasMin.y + y), gridColor);
 
 	auto stateInputPin = [&](size_t index) -> ImVec2
 		{
@@ -928,6 +972,33 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			drawList->AddBezierCubic(sourcePin, ImVec2(sourcePin.x + tangent, sourcePin.y), ImVec2(targetPin.x - tangent, targetPin.y), targetPin, color, selected ? 3.2f : 2.0f);
 			drawList->AddCircleFilled(targetPin, selected ? pinRadius + 1.0f : pinRadius, color);
 
+			const ImVec2 midpoint = Scale(Add(sourcePin, targetPin), 0.5f);
+			const ImVec2 direction = Normalize(Subtract(targetPin, sourcePin));
+			const ImVec2 normal = Perpendicular(direction);
+			const float arrowSize = 7.0f * zoom;
+			drawList->AddTriangleFilled(
+				Add(midpoint, Scale(direction, arrowSize)),
+				Add(Add(midpoint, Scale(direction, -arrowSize)), Scale(normal, arrowSize * 0.58f)),
+				Add(Add(midpoint, Scale(direction, -arrowSize)), Scale(normal, -arrowSize * 0.58f)),
+				color);
+
+			std::string badge;
+			if (!transition.m_Conditions.empty())
+				badge += std::to_string(transition.m_Conditions.size()) + " cond";
+			if (transition.m_HasExitTime)
+				badge += (badge.empty() ? "" : " | ") + std::string("exit ") + FormatCompactFloat(transition.m_ExitTime);
+			if (transition.m_Duration > 0.0f)
+				badge += (badge.empty() ? "" : " | ") + FormatCompactFloat(transition.m_Duration) + "s";
+			if (!badge.empty())
+			{
+				const ImVec2 textSize = ImGui::CalcTextSize(badge.c_str());
+				const ImVec2 badgeMin(midpoint.x - textSize.x * 0.5f - 6.0f, midpoint.y - textSize.y - 18.0f);
+				const ImVec2 badgeMax(badgeMin.x + textSize.x + 12.0f, badgeMin.y + textSize.y + 6.0f);
+				drawList->AddRectFilled(badgeMin, badgeMax, IM_COL32(30, 27, 22, 235), 4.0f);
+				drawList->AddRect(badgeMin, badgeMax, color, 4.0f);
+				drawList->AddText(ImVec2(badgeMin.x + 6.0f, badgeMin.y + 3.0f), IM_COL32(238, 230, 214, 255), badge.c_str());
+			}
+
 			if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 				selectTransition(sourceStateIndex, transitionIndex);
 		};
@@ -974,6 +1045,8 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 				worldPosition.x += delta.x / zoom;
 				worldPosition.y += delta.y / zoom;
 			}
+			if (ImGui::IsItemDeactivated())
+				snapPosition(worldPosition);
 			ImGui::PopID();
 
 			if (sourceIndex != NoTransitionSource)
@@ -1043,6 +1116,8 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			state.m_GraphPosition.x += delta.x / zoom;
 			state.m_GraphPosition.y += delta.y / zoom;
 		}
+		if (ImGui::IsItemDeactivated())
+			snapPosition(state.m_GraphPosition);
 		if (ImGui::BeginPopupContextItem("##StateNodeContext"))
 		{
 			if (ImGui::MenuItem("Set Default"))
@@ -1309,6 +1384,114 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 	}
 }
 
+void AnimationEditorPanel::DrawControllerValidation()
+{
+	if (!m_CurrentController)
+		return;
+
+	std::vector<std::string> issues;
+	const auto& states = m_CurrentController->GetStates();
+	const auto& parameters = m_CurrentController->GetParameters();
+
+	auto stateExists = [&](std::string_view name)
+		{
+			return std::any_of(states.begin(), states.end(), [name](const AnimationControllerState& state)
+				{
+					return state.m_Name == name;
+				});
+		};
+
+	auto parameterExists = [&](std::string_view name)
+		{
+			return std::any_of(parameters.begin(), parameters.end(), [name](const AnimationControllerParameter& parameter)
+				{
+					return parameter.m_Name == name;
+				});
+		};
+
+	auto isAnimationClipValid = [](AssetHandle handle)
+		{
+			return handle != 0 && AssetManager::IsAssetHandleValid(handle) && AssetManager::GetAssetType(handle) == AssetType::Animation;
+		};
+
+	if (states.empty())
+		issues.emplace_back("Controller has no states.");
+	if (m_CurrentController->GetDefaultState().empty() || !stateExists(m_CurrentController->GetDefaultState()))
+		issues.emplace_back("Default state is missing or invalid.");
+
+	std::unordered_set<std::string> stateNames;
+	for (const AnimationControllerState& state : states)
+	{
+		if (state.m_Name.empty())
+			issues.emplace_back("A state has an empty name.");
+		else if (!stateNames.insert(state.m_Name).second)
+			issues.emplace_back("Duplicate state name: " + state.m_Name);
+
+		if (state.m_MotionType == AnimationMotionType::Clip)
+		{
+			if (!isAnimationClipValid(state.m_Clip))
+				issues.emplace_back("State '" + state.m_Name + "' has no valid animation clip.");
+		}
+		else
+		{
+			if (state.m_BlendParameter.empty() || !parameterExists(state.m_BlendParameter))
+				issues.emplace_back("Blend state '" + state.m_Name + "' has an invalid blend parameter.");
+			if (state.m_BlendChildren.empty())
+				issues.emplace_back("Blend state '" + state.m_Name + "' has no child clips.");
+			for (const AnimationBlendChild& child : state.m_BlendChildren)
+			{
+				if (!isAnimationClipValid(child.m_Clip))
+					issues.emplace_back("Blend state '" + state.m_Name + "' has an invalid child clip.");
+			}
+		}
+
+		std::unordered_set<std::string> transitionTargets;
+		for (const AnimationControllerTransition& transition : state.m_Transitions)
+		{
+			if (transition.m_TargetState.empty())
+				issues.emplace_back("State '" + state.m_Name + "' has a transition with no target.");
+			else if (transition.m_TargetState != AnimationController::ExitStateName && !stateExists(transition.m_TargetState))
+				issues.emplace_back("State '" + state.m_Name + "' targets missing state '" + transition.m_TargetState + "'.");
+			if (!transition.m_TargetState.empty() && !transitionTargets.insert(transition.m_TargetState).second)
+				issues.emplace_back("State '" + state.m_Name + "' has duplicate transitions to '" + transition.m_TargetState + "'.");
+			for (const AnimationControllerCondition& condition : transition.m_Conditions)
+			{
+				if (condition.m_Parameter.empty() || !parameterExists(condition.m_Parameter))
+					issues.emplace_back("Transition from '" + state.m_Name + "' has an invalid condition parameter.");
+			}
+		}
+	}
+
+	for (const AnimationControllerTransition& transition : m_CurrentController->GetAnyStateTransitions())
+	{
+		if (transition.m_TargetState.empty())
+			issues.emplace_back("Any State has a transition with no target.");
+		else if (transition.m_TargetState != AnimationController::ExitStateName && !stateExists(transition.m_TargetState))
+			issues.emplace_back("Any State targets missing state '" + transition.m_TargetState + "'.");
+		if (transition.m_Conditions.empty())
+			issues.emplace_back("Any State transition to '" + transition.m_TargetState + "' has no conditions and may fire immediately.");
+		for (const AnimationControllerCondition& condition : transition.m_Conditions)
+		{
+			if (condition.m_Parameter.empty() || !parameterExists(condition.m_Parameter))
+				issues.emplace_back("Any State transition has an invalid condition parameter.");
+		}
+	}
+
+	const ImGuiTreeNodeFlags flags = issues.empty() ? 0 : ImGuiTreeNodeFlags_DefaultOpen;
+	if (ImGui::TreeNodeEx("Validation", flags))
+	{
+		if (issues.empty())
+			ImGui::TextDisabled("No issues found.");
+		else
+		{
+			for (const std::string& issue : issues)
+				ImGui::TextColored(ImVec4(1.0f, 0.42f, 0.28f, 1.0f), "%s", issue.c_str());
+		}
+		ImGui::TreePop();
+	}
+	ImGui::Separator();
+}
+
 void AnimationEditorPanel::DrawControllerStateInspector(float width, float height)
 {
 	ImGui::BeginChild("##ControllerStateInspector", ImVec2(width, height), true);
@@ -1321,6 +1504,7 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 	}
 
 	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)states.size() - 1);
+	DrawControllerValidation();
 
 	if (AnimationControllerTransition* selectedTransition = GetSelectedControllerTransition())
 	{
@@ -1436,6 +1620,13 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 
 		if (ImGui::Button("+ Blend Child", ImVec2(-1.0f, 0.0f)))
 			state.m_BlendChildren.push_back({});
+		if (ImGui::Button("Sort Blend Children", ImVec2(-1.0f, 0.0f)))
+		{
+			std::sort(state.m_BlendChildren.begin(), state.m_BlendChildren.end(), [](const AnimationBlendChild& left, const AnimationBlendChild& right)
+				{
+					return left.m_Threshold < right.m_Threshold;
+				});
+		}
 
 		for (size_t childIndex = 0; childIndex < state.m_BlendChildren.size(); ++childIndex)
 		{
@@ -1625,7 +1816,11 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 	Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(frame.m_Texture);
 	if (!texture || !texture->IsLoaded())
 	{
-		ImGui::TextDisabled("Texture is not loaded.");
+		std::string texturePath = "Unknown texture";
+		if (AssetManager::IsAssetHandleValid(frame.m_Texture))
+			texturePath = AssetManager::GetAssetMetadata(frame.m_Texture).m_Filepath.generic_string();
+		ImGui::TextColored(ImVec4(1.0f, 0.42f, 0.28f, 1.0f), "Texture is not loaded.");
+		ImGui::TextWrapped("%s", texturePath.c_str());
 		return;
 	}
 
@@ -1654,6 +1849,34 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 		return;
 	}
 
+	if (ImGui::Button("Duplicate Frame"))
+	{
+		auto& frames = m_CurrentAnimation->GetFrames();
+		frames.insert(frames.begin() + m_SelectedFrameIndex + 1, frames[m_SelectedFrameIndex]);
+		m_SelectedFrameIndex++;
+		StopPreview(false);
+	}
+	ImGui::SameLine();
+	ImGui::BeginDisabled(m_SelectedFrameIndex <= 0);
+	if (ImGui::Button("Move Left"))
+	{
+		auto& frames = m_CurrentAnimation->GetFrames();
+		std::swap(frames[m_SelectedFrameIndex], frames[m_SelectedFrameIndex - 1]);
+		m_SelectedFrameIndex--;
+		StopPreview(false);
+	}
+	ImGui::EndDisabled();
+	ImGui::SameLine();
+	ImGui::BeginDisabled(m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size() - 1);
+	if (ImGui::Button("Move Right"))
+	{
+		auto& frames = m_CurrentAnimation->GetFrames();
+		std::swap(frames[m_SelectedFrameIndex], frames[m_SelectedFrameIndex + 1]);
+		m_SelectedFrameIndex++;
+		StopPreview(false);
+	}
+	ImGui::EndDisabled();
+
 	auto& frame = m_CurrentAnimation->GetFrames()[m_SelectedFrameIndex];
 	const auto dragDropCallback = [&frame](AssetHandle handle)
 		{
@@ -1679,6 +1902,11 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 		ImGui::SetNextItemWidth(-1.0f);
 		static constexpr float minValue = 0.0f;
 		ImGui::DragScalar("##DurationSeconds", ImGuiDataType_Float, &frame.m_Duration, 0.01f, &minValue, nullptr, "%.3f s");
+		if (ImGui::Button("Apply To All Frames", ImVec2(-1.0f, 0.0f)))
+		{
+			for (AnimationFrame& targetFrame : m_CurrentAnimation->GetFrames())
+				targetFrame.m_Duration = frame.m_Duration;
+		}
 
 		ImGui::EndTable();
 	}
@@ -1716,6 +1944,28 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 	ImGui::SameLine();
 	if (ImGui::Button("+ Color"))
 		m_CurrentAnimation->GetColorKeys().push_back({ keyTime, glm::vec4{ 1.0f } });
+
+	if (ImGui::Button("Sort Keys By Time", ImVec2(-1.0f, 0.0f)))
+	{
+		auto sortVec3Keys = [](std::vector<AnimationVec3Key>& keys)
+			{
+				std::sort(keys.begin(), keys.end(), [](const AnimationVec3Key& left, const AnimationVec3Key& right)
+					{
+						return left.m_Time < right.m_Time;
+					});
+			};
+		auto sortVec4Keys = [](std::vector<AnimationVec4Key>& keys)
+			{
+				std::sort(keys.begin(), keys.end(), [](const AnimationVec4Key& left, const AnimationVec4Key& right)
+					{
+						return left.m_Time < right.m_Time;
+					});
+			};
+		sortVec3Keys(m_CurrentAnimation->GetTranslationKeys());
+		sortVec3Keys(m_CurrentAnimation->GetRotationKeys());
+		sortVec3Keys(m_CurrentAnimation->GetScaleKeys());
+		sortVec4Keys(m_CurrentAnimation->GetColorKeys());
+	}
 
 	auto drawVec3Keys = [](const char* label, std::vector<AnimationVec3Key>& keys)
 		{
