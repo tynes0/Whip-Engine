@@ -670,11 +670,33 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	}
 	ImGui::EndDisabled();
 	ImGui::SameLine();
+	ImGui::BeginDisabled(m_CurrentController->GetStates().empty());
+	if (ImGui::Button("Duplicate"))
+	{
+		auto& states = m_CurrentController->GetStates();
+		const AnimationControllerState sourceState = states[m_SelectedControllerStateIndex];
+		AnimationControllerState& duplicate = m_CurrentController->AddState(sourceState.m_Name + " Copy", sourceState.m_Clip);
+		const std::string uniqueName = duplicate.m_Name;
+		duplicate = sourceState;
+		duplicate.m_Name = uniqueName;
+		duplicate.m_GraphPosition += glm::vec2{ 44.0f, 44.0f };
+		duplicate.m_Transitions.clear();
+		m_SelectedControllerStateIndex = (int)m_CurrentController->GetStates().size() - 1;
+		ClearSelectedControllerTransition();
+	}
+	ImGui::EndDisabled();
+	ImGui::SameLine();
 	if (ImGui::Button("Set Default"))
 	{
 		m_CurrentController->SetDefaultState(m_CurrentController->GetStates()[m_SelectedControllerStateIndex].m_Name);
 		ClearSelectedControllerTransition();
 	}
+	ImGui::SameLine();
+	if (ImGui::Button("Auto Layout"))
+		AutoLayoutControllerGraph();
+	ImGui::SameLine();
+	if (ImGui::Button("Frame Graph"))
+		m_FrameControllerGraphRequested = true;
 	ImGui::SameLine();
 	if (ImGui::Button("Zoom -"))
 		m_ControllerGraphZoom = std::max(0.45f, m_ControllerGraphZoom - 0.1f);
@@ -697,9 +719,10 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	drawList->AddRectFilled(canvasMin, canvasMax, IM_COL32(18, 17, 15, 255), 4.0f);
 	drawList->AddRect(canvasMin, canvasMax, IM_COL32(76, 68, 54, 170), 4.0f);
 
-	ImGui::InvisibleButton("##ControllerGraphCanvas", canvasSize, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
-	const bool canvasHovered = ImGui::IsItemHovered();
 	const ImVec2 mousePos = ImGui::GetIO().MousePos;
+	const bool canvasHovered =
+		ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
+		ImGui::IsMouseHoveringRect(canvasMin, canvasMax, true);
 	if (canvasHovered && (ImGui::IsMouseDragging(ImGuiMouseButton_Right) || ImGui::IsMouseDragging(ImGuiMouseButton_Middle)))
 	{
 		const ImVec2 delta = ImGui::GetIO().MouseDelta;
@@ -709,11 +732,62 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	if (canvasHovered && ImGui::GetIO().KeyCtrl && ImGui::GetIO().MouseWheel != 0.0f)
 		m_ControllerGraphZoom = std::clamp(m_ControllerGraphZoom + ImGui::GetIO().MouseWheel * 0.08f, 0.45f, 2.0f);
 
-	const float zoom = m_ControllerGraphZoom;
 	const float nodeWidth = 174.0f;
 	const float nodeHeight = 82.0f;
 	const float specialWidth = 136.0f;
 	const float specialHeight = 58.0f;
+	float zoom = m_ControllerGraphZoom;
+
+	const int columns = std::max(1, (int)((canvasSize.x / std::max(zoom, 0.1f) - 280.0f) / 230.0f));
+	for (size_t i = 0; i < states.size(); ++i)
+	{
+		const int row = (int)i / columns;
+		const int column = (int)i % columns;
+		if (states[i].m_GraphPosition.x == 0.0f && states[i].m_GraphPosition.y == 0.0f)
+			states[i].m_GraphPosition = { 240.0f + column * 230.0f, 42.0f + row * 126.0f };
+	}
+
+	float exitColumn = 540.0f;
+	for (const AnimationControllerState& state : states)
+		exitColumn = std::max(exitColumn, state.m_GraphPosition.x + nodeWidth + 190.0f);
+
+	glm::vec2& entryPosition = m_CurrentController->GetEntryGraphPosition();
+	glm::vec2& anyStatePosition = m_CurrentController->GetAnyStateGraphPosition();
+	glm::vec2& exitPosition = m_CurrentController->GetExitGraphPosition();
+	if (exitPosition.x <= 0.0f && exitPosition.y <= 0.0f)
+		exitPosition = { exitColumn, 108.0f };
+
+	if (m_FrameControllerGraphRequested)
+	{
+		glm::vec2 minBounds{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+		glm::vec2 maxBounds{ -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+		auto includeNode = [&](const glm::vec2& position, float nodeW, float nodeH)
+			{
+				minBounds.x = std::min(minBounds.x, position.x);
+				minBounds.y = std::min(minBounds.y, position.y);
+				maxBounds.x = std::max(maxBounds.x, position.x + nodeW);
+				maxBounds.y = std::max(maxBounds.y, position.y + nodeH);
+			};
+
+		includeNode(entryPosition, specialWidth, specialHeight);
+		includeNode(anyStatePosition, specialWidth, specialHeight);
+		includeNode(exitPosition, specialWidth, specialHeight);
+		for (const AnimationControllerState& state : states)
+			includeNode(state.m_GraphPosition, nodeWidth, nodeHeight);
+
+		const float boundsWidth = std::max(1.0f, maxBounds.x - minBounds.x);
+		const float boundsHeight = std::max(1.0f, maxBounds.y - minBounds.y);
+		const float fitZoom = std::min((canvasSize.x - 80.0f) / boundsWidth, (canvasSize.y - 80.0f) / boundsHeight);
+		m_ControllerGraphZoom = std::clamp(fitZoom, 0.45f, 2.0f);
+		zoom = m_ControllerGraphZoom;
+		m_ControllerGraphPan =
+		{
+			(canvasSize.x - boundsWidth * zoom) * 0.5f - minBounds.x * zoom,
+			(canvasSize.y - boundsHeight * zoom) * 0.5f - minBounds.y * zoom
+		};
+		m_FrameControllerGraphRequested = false;
+	}
+
 	const float pinRadius = std::max(3.5f, 5.5f * zoom);
 	const ImVec2 nodeSize(nodeWidth * zoom, nodeHeight * zoom);
 	const ImVec2 specialSize(specialWidth * zoom, specialHeight * zoom);
@@ -735,22 +809,6 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			return worldToScreen({ position.x + nodeWidth, position.y + nodeHeight * 0.5f });
 		};
 
-	const int columns = std::max(1, (int)((canvasSize.x / std::max(zoom, 0.1f) - 280.0f) / 230.0f));
-	for (size_t i = 0; i < states.size(); ++i)
-	{
-		const int row = (int)i / columns;
-		const int column = (int)i % columns;
-		if (states[i].m_GraphPosition.x == 0.0f && states[i].m_GraphPosition.y == 0.0f)
-			states[i].m_GraphPosition = { 240.0f + column * 230.0f, 42.0f + row * 126.0f };
-	}
-
-	float exitColumn = 540.0f;
-	for (const AnimationControllerState& state : states)
-		exitColumn = std::max(exitColumn, state.m_GraphPosition.x + nodeWidth + 190.0f);
-
-	const glm::vec2 entryPosition{ 22.0f, 58.0f };
-	const glm::vec2 anyStatePosition{ 22.0f, 160.0f };
-	const glm::vec2 exitPosition{ exitColumn, 108.0f };
 	const ImVec2 entryOutput = worldToScreen({ entryPosition.x + specialWidth, entryPosition.y + specialHeight * 0.5f });
 	const ImVec2 anyStateOutput = worldToScreen({ anyStatePosition.x + specialWidth, anyStatePosition.y + specialHeight * 0.5f });
 	const ImVec2 exitInput = worldToScreen({ exitPosition.x, exitPosition.y + specialHeight * 0.5f });
@@ -802,6 +860,15 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			{
 				transition.m_HasExitTime = false;
 				auto& transitions = m_CurrentController->GetAnyStateTransitions();
+				const bool alreadyExists = std::any_of(transitions.begin(), transitions.end(), [&target](const AnimationControllerTransition& existingTransition)
+					{
+						return existingTransition.m_TargetState == target;
+					});
+				if (alreadyExists)
+				{
+					clearPendingConnection();
+					return;
+				}
 				transitions.push_back(transition);
 				selectTransition(AnyStateTransitionSource, (int)transitions.size() - 1);
 				clearPendingConnection();
@@ -810,7 +877,21 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 
 			if (m_PendingTransitionSourceStateIndex >= 0 && m_PendingTransitionSourceStateIndex < (int)states.size())
 			{
+				if (!targetExit && m_PendingTransitionSourceStateIndex == targetStateIndex)
+				{
+					clearPendingConnection();
+					return;
+				}
 				auto& transitions = states[m_PendingTransitionSourceStateIndex].m_Transitions;
+				const bool alreadyExists = std::any_of(transitions.begin(), transitions.end(), [&target](const AnimationControllerTransition& existingTransition)
+					{
+						return existingTransition.m_TargetState == target;
+					});
+				if (alreadyExists)
+				{
+					clearPendingConnection();
+					return;
+				}
 				transitions.push_back(transition);
 				selectTransition(m_PendingTransitionSourceStateIndex, (int)transitions.size() - 1);
 			}
@@ -832,6 +913,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			return true;
 		};
 
+	bool edgeHovered = false;
 	auto drawTransition = [&](int sourceStateIndex, int transitionIndex, const ImVec2& sourcePin, const AnimationControllerTransition& transition)
 		{
 			ImVec2 targetPin;
@@ -840,6 +922,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 
 			const bool selected = m_SelectedTransitionSourceStateIndex == sourceStateIndex && m_SelectedTransitionIndex == transitionIndex;
 			const bool hovered = canvasHovered && DistanceToSegment(mousePos, sourcePin, targetPin) <= 9.0f;
+			edgeHovered |= hovered;
 			const ImU32 color = selected ? IM_COL32(122, 196, 255, 255) : hovered ? IM_COL32(235, 196, 118, 255) : IM_COL32(184, 132, 72, 220);
 			const float tangent = std::max(58.0f * zoom, std::abs(targetPin.x - sourcePin.x) * 0.42f);
 			drawList->AddBezierCubic(sourcePin, ImVec2(sourcePin.x + tangent, sourcePin.y), ImVec2(targetPin.x - tangent, targetPin.y), targetPin, color, selected ? 3.2f : 2.0f);
@@ -870,7 +953,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			drawTransition((int)stateIndex, (int)transitionIndex, sourcePin, states[stateIndex].m_Transitions[transitionIndex]);
 	}
 
-	auto drawSpecialNode = [&](const char* label, const glm::vec2& worldPosition, ImU32 fill, ImU32 border, int sourceIndex, bool hasInput)
+	auto drawSpecialNode = [&](const char* label, glm::vec2& worldPosition, ImU32 fill, ImU32 border, int sourceIndex, bool hasInput)
 		{
 			const ImVec2 nodeMin = worldToScreen(worldPosition);
 			const ImVec2 nodeMax(nodeMin.x + specialSize.x, nodeMin.y + specialSize.y);
@@ -878,13 +961,28 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			drawList->AddRect(nodeMin, nodeMax, border, 6.0f, 0, 1.6f);
 			drawList->AddText(ImVec2(nodeMin.x + 12.0f * zoom, nodeMin.y + 18.0f * zoom), IM_COL32(238, 230, 214, 255), label);
 
+			const float leftPinGutter = hasInput ? 16.0f * zoom : 0.0f;
+			const float rightPinGutter = sourceIndex != NoTransitionSource ? 16.0f * zoom : 0.0f;
+			ImGui::SetCursorScreenPos(ImVec2(nodeMin.x + leftPinGutter, nodeMin.y));
+			ImGui::PushID(label);
+			ImGui::InvisibleButton("##SpecialNodeBody", ImVec2(std::max(24.0f, specialSize.x - leftPinGutter - rightPinGutter), specialSize.y));
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+				ClearSelectedControllerTransition();
+			if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left) && m_PendingTransitionSourceStateIndex == NoTransitionSource)
+			{
+				const ImVec2 delta = ImGui::GetIO().MouseDelta;
+				worldPosition.x += delta.x / zoom;
+				worldPosition.y += delta.y / zoom;
+			}
+			ImGui::PopID();
+
 			if (sourceIndex != NoTransitionSource)
 			{
 				const ImVec2 outPin(nodeMax.x, nodeMin.y + specialSize.y * 0.5f);
 				drawList->AddCircleFilled(outPin, pinRadius, IM_COL32(228, 184, 104, 255));
 				ImGui::SetCursorScreenPos(ImVec2(outPin.x - 9.0f, outPin.y - 9.0f));
 				ImGui::PushID(sourceIndex);
-				ImGui::InvisibleButton("##SpecialOutPin", ImVec2(18.0f, 18.0f));
+				ImGui::InvisibleButton("##SpecialOutPin", ImVec2(18.0f, 18.0f), ImGuiButtonFlags_AllowOverlap);
 				if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
 					m_PendingTransitionSourceStateIndex = sourceIndex;
 				ImGui::PopID();
@@ -896,7 +994,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 				drawList->AddCircleFilled(inPin, pinRadius, IM_COL32(116, 190, 138, 255));
 				ImGui::SetCursorScreenPos(ImVec2(inPin.x - 9.0f, inPin.y - 9.0f));
 				ImGui::PushID("ExitInput");
-				ImGui::InvisibleButton("##SpecialInPin", ImVec2(18.0f, 18.0f));
+				ImGui::InvisibleButton("##SpecialInPin", ImVec2(18.0f, 18.0f), ImGuiButtonFlags_AllowOverlap);
 				if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
 					createConnection(-1, true);
 				ImGui::PopID();
@@ -907,6 +1005,8 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	drawSpecialNode("Any State", anyStatePosition, IM_COL32(58, 42, 31, 255), IM_COL32(232, 166, 85, 235), AnyStateTransitionSource, false);
 	drawSpecialNode("Exit", exitPosition, IM_COL32(47, 38, 42, 255), IM_COL32(204, 116, 128, 235), NoTransitionSource, true);
 
+	int stateToRemove = -1;
+	int stateToDuplicate = -1;
 	for (size_t i = 0; i < states.size(); ++i)
 	{
 		AnimationControllerState& state = states[i];
@@ -928,9 +1028,10 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		if (isDefault)
 			drawList->AddText(ImVec2(nodeMin.x + 12.0f * zoom, nodeMin.y + 58.0f * zoom), IM_COL32(106, 182, 248, 255), "Default");
 
-		ImGui::SetCursorScreenPos(nodeMin);
+		const float pinGutter = 16.0f * zoom;
+		ImGui::SetCursorScreenPos(ImVec2(nodeMin.x + pinGutter, nodeMin.y));
 		ImGui::PushID((int)i);
-		ImGui::InvisibleButton("##ControllerStateNode", nodeSize);
+		ImGui::InvisibleButton("##ControllerStateNode", ImVec2(std::max(24.0f, nodeSize.x - pinGutter * 2.0f), nodeSize.y));
 		if (ImGui::IsItemClicked())
 		{
 			m_SelectedControllerStateIndex = (int)i;
@@ -942,21 +1043,56 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			state.m_GraphPosition.x += delta.x / zoom;
 			state.m_GraphPosition.y += delta.y / zoom;
 		}
+		if (ImGui::BeginPopupContextItem("##StateNodeContext"))
+		{
+			if (ImGui::MenuItem("Set Default"))
+			{
+				m_CurrentController->SetDefaultState(state.m_Name);
+				ClearSelectedControllerTransition();
+			}
+			if (ImGui::MenuItem("Duplicate"))
+				stateToDuplicate = (int)i;
+			ImGui::BeginDisabled(states.size() <= 1);
+			if (ImGui::MenuItem("Remove"))
+				stateToRemove = (int)i;
+			ImGui::EndDisabled();
+			ImGui::EndPopup();
+		}
 
 		const ImVec2 inputPin = stateInputPin(i);
 		drawList->AddCircleFilled(inputPin, pinRadius, IM_COL32(116, 190, 138, 255));
 		ImGui::SetCursorScreenPos(ImVec2(inputPin.x - 9.0f, inputPin.y - 9.0f));
-		ImGui::InvisibleButton("##StateInPin", ImVec2(18.0f, 18.0f));
+		ImGui::InvisibleButton("##StateInPin", ImVec2(18.0f, 18.0f), ImGuiButtonFlags_AllowOverlap);
 		if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
 			createConnection((int)i, false);
 
 		const ImVec2 outputPin = stateOutputPin(i);
 		drawList->AddCircleFilled(outputPin, pinRadius, IM_COL32(228, 184, 104, 255));
 		ImGui::SetCursorScreenPos(ImVec2(outputPin.x - 9.0f, outputPin.y - 9.0f));
-		ImGui::InvisibleButton("##StateOutPin", ImVec2(18.0f, 18.0f));
+		ImGui::InvisibleButton("##StateOutPin", ImVec2(18.0f, 18.0f), ImGuiButtonFlags_AllowOverlap);
 		if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
 			m_PendingTransitionSourceStateIndex = (int)i;
 		ImGui::PopID();
+	}
+
+	if (stateToDuplicate >= 0 && stateToDuplicate < (int)states.size())
+	{
+		const AnimationControllerState sourceState = states[stateToDuplicate];
+		AnimationControllerState& duplicate = m_CurrentController->AddState(sourceState.m_Name + " Copy", sourceState.m_Clip);
+		const std::string uniqueName = duplicate.m_Name;
+		duplicate = sourceState;
+		duplicate.m_Name = uniqueName;
+		duplicate.m_GraphPosition += glm::vec2{ 44.0f, 44.0f };
+		duplicate.m_Transitions.clear();
+		m_SelectedControllerStateIndex = (int)m_CurrentController->GetStates().size() - 1;
+		ClearSelectedControllerTransition();
+	}
+	if (stateToRemove >= 0 && stateToRemove < (int)m_CurrentController->GetStates().size() && m_CurrentController->GetStates().size() > 1)
+	{
+		const std::string removedName = m_CurrentController->GetStates()[stateToRemove].m_Name;
+		m_CurrentController->RemoveState(removedName);
+		m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)m_CurrentController->GetStates().size() - 1);
+		ClearSelectedControllerTransition();
 	}
 
 	if (m_PendingTransitionSourceStateIndex != NoTransitionSource)
@@ -973,8 +1109,14 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			clearPendingConnection();
 	}
 
+	if (canvasHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !edgeHovered && !ImGui::IsAnyItemHovered())
+		ClearSelectedControllerTransition();
+	if (canvasHovered && ImGui::IsKeyPressed(ImGuiKey_Delete) && GetSelectedControllerTransition())
+		RemoveSelectedControllerTransition();
+
 	drawList->PopClipRect();
-	ImGui::SetCursorScreenPos(canvasMax);
+	ImGui::SetCursorScreenPos(canvasMin);
+	ImGui::Dummy(canvasSize);
 	ImGui::EndChild();
 }
 
@@ -1007,6 +1149,60 @@ void AnimationEditorPanel::ClearSelectedControllerTransition()
 	m_SelectedTransitionIndex = -1;
 }
 
+void AnimationEditorPanel::RemoveSelectedControllerTransition()
+{
+	if (!m_CurrentController || m_SelectedTransitionIndex < 0)
+		return;
+
+	if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
+	{
+		auto& transitions = m_CurrentController->GetAnyStateTransitions();
+		if (m_SelectedTransitionIndex >= 0 && m_SelectedTransitionIndex < (int)transitions.size())
+			transitions.erase(transitions.begin() + m_SelectedTransitionIndex);
+		ClearSelectedControllerTransition();
+		return;
+	}
+
+	auto& states = m_CurrentController->GetStates();
+	if (m_SelectedTransitionSourceStateIndex < 0 || m_SelectedTransitionSourceStateIndex >= (int)states.size())
+	{
+		ClearSelectedControllerTransition();
+		return;
+	}
+
+	auto& transitions = states[m_SelectedTransitionSourceStateIndex].m_Transitions;
+	if (m_SelectedTransitionIndex >= 0 && m_SelectedTransitionIndex < (int)transitions.size())
+		transitions.erase(transitions.begin() + m_SelectedTransitionIndex);
+	ClearSelectedControllerTransition();
+}
+
+void AnimationEditorPanel::AutoLayoutControllerGraph()
+{
+	if (!m_CurrentController)
+		return;
+
+	m_CurrentController->GetEntryGraphPosition() = { 22.0f, 58.0f };
+	m_CurrentController->GetAnyStateGraphPosition() = { 22.0f, 160.0f };
+
+	auto& states = m_CurrentController->GetStates();
+	constexpr float nodeWidth = 174.0f;
+	constexpr float columnGap = 96.0f;
+	constexpr float rowGap = 50.0f;
+	const int columns = std::max(1, (int)std::ceil(std::sqrt((float)states.size())));
+	for (size_t i = 0; i < states.size(); ++i)
+	{
+		const int row = (int)i / columns;
+		const int column = (int)i % columns;
+		states[i].m_GraphPosition = { 250.0f + column * (nodeWidth + columnGap), 42.0f + row * (82.0f + rowGap) };
+	}
+
+	float exitColumn = 620.0f;
+	for (const AnimationControllerState& state : states)
+		exitColumn = std::max(exitColumn, state.m_GraphPosition.x + nodeWidth + 190.0f);
+	m_CurrentController->GetExitGraphPosition() = { exitColumn, 108.0f };
+	m_FrameControllerGraphRequested = true;
+}
+
 void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget)
 {
 	auto& states = m_CurrentController->GetStates();
@@ -1024,7 +1220,7 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 		if (allowExitTarget)
 		{
 			const bool selected = transition.m_TargetState == AnimationController::ExitStateName;
-			if (ImGui::Selectable(AnimationController::ExitStateName.data(), selected))
+			if (ImGui::Selectable("Exit", selected))
 				transition.m_TargetState = std::string(AnimationController::ExitStateName);
 			if (selected)
 				ImGui::SetItemDefaultFocus();
@@ -1137,21 +1333,7 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 
 		DrawControllerTransitionInspector(*selectedTransition, true);
 		if (ImGui::Button("Remove Transition", ImVec2(-1.0f, 0.0f)))
-		{
-			if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
-			{
-				auto& transitions = m_CurrentController->GetAnyStateTransitions();
-				if (m_SelectedTransitionIndex >= 0 && m_SelectedTransitionIndex < (int)transitions.size())
-					transitions.erase(transitions.begin() + m_SelectedTransitionIndex);
-			}
-			else if (m_SelectedTransitionSourceStateIndex >= 0 && m_SelectedTransitionSourceStateIndex < (int)states.size())
-			{
-				auto& transitions = states[m_SelectedTransitionSourceStateIndex].m_Transitions;
-				if (m_SelectedTransitionIndex >= 0 && m_SelectedTransitionIndex < (int)transitions.size())
-					transitions.erase(transitions.begin() + m_SelectedTransitionIndex);
-			}
-			ClearSelectedControllerTransition();
-		}
+			RemoveSelectedControllerTransition();
 		ImGui::EndChild();
 		return;
 	}

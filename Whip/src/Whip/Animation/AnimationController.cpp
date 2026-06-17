@@ -51,6 +51,14 @@ namespace
 		return AnimationMotionType::Clip;
 	}
 
+	glm::vec2 ReadGraphPosition(const YAML::Node& node, const char* key, const glm::vec2& fallback)
+	{
+		const YAML::Node position = node[key];
+		if (!position || !position.IsSequence() || position.size() < 2)
+			return fallback;
+		return { position[0].as<float>(fallback.x), position[1].as<float>(fallback.y) };
+	}
+
 	void SerializeTransition(YAML::Emitter& out, const AnimationControllerTransition& transition)
 	{
 		out << YAML::BeginMap;
@@ -103,8 +111,8 @@ namespace
 AnimationController::AnimationController(AssetHandle handle)
 	: Asset(handle)
 {
-	AddState("Entry");
-	SetDefaultState("Entry");
+	AddState("State");
+	SetDefaultState("State");
 }
 
 AnimationControllerState& AnimationController::AddState(std::string name, AssetHandle clip)
@@ -221,6 +229,9 @@ void AnimationController::Serialize(const std::filesystem::path& filepath) const
 	out << YAML::Key << "animation_controller" << YAML::Value << YAML::BeginMap;
 	out << YAML::Key << "version" << YAML::Value << FormatVersion;
 	out << YAML::Key << "default_state" << YAML::Value << m_DefaultState;
+	out << YAML::Key << "entry_graph_position" << YAML::Value << YAML::Flow << YAML::BeginSeq << m_EntryGraphPosition.x << m_EntryGraphPosition.y << YAML::EndSeq;
+	out << YAML::Key << "any_state_graph_position" << YAML::Value << YAML::Flow << YAML::BeginSeq << m_AnyStateGraphPosition.x << m_AnyStateGraphPosition.y << YAML::EndSeq;
+	out << YAML::Key << "exit_graph_position" << YAML::Value << YAML::Flow << YAML::BeginSeq << m_ExitGraphPosition.x << m_ExitGraphPosition.y << YAML::EndSeq;
 
 	out << YAML::Key << "parameters" << YAML::Value << YAML::BeginSeq;
 	for (const AnimationControllerParameter& parameter : m_Parameters)
@@ -326,8 +337,7 @@ bool AnimationController::Deserialize(const std::filesystem::path& filepath)
 			state.m_BlendParameter = ReadYamlValue<std::string>(stateNode, "blend_parameter", {});
 			state.m_Speed = ReadYamlValue<float>(stateNode, "speed", 1.0f);
 			state.m_Loop = ReadYamlValue<bool>(stateNode, "loop", true);
-			if (const YAML::Node graphPosition = stateNode["graph_position"]; graphPosition && graphPosition.IsSequence() && graphPosition.size() >= 2)
-				state.m_GraphPosition = { graphPosition[0].as<float>(0.0f), graphPosition[1].as<float>(0.0f) };
+			state.m_GraphPosition = ReadGraphPosition(stateNode, "graph_position", state.m_GraphPosition);
 
 			if (const YAML::Node blendChildren = stateNode["blend_children"])
 			{
@@ -352,9 +362,13 @@ bool AnimationController::Deserialize(const std::filesystem::path& filepath)
 	}
 
 	if (m_States.empty())
-		AddState("Entry");
+		AddState("State");
 	if (m_DefaultState.empty() || !FindState(m_DefaultState))
 		m_DefaultState = m_States.front().m_Name;
+
+	m_EntryGraphPosition = ReadGraphPosition(root, "entry_graph_position", m_EntryGraphPosition);
+	m_AnyStateGraphPosition = ReadGraphPosition(root, "any_state_graph_position", m_AnyStateGraphPosition);
+	m_ExitGraphPosition = ReadGraphPosition(root, "exit_graph_position", m_ExitGraphPosition);
 
 	return true;
 }

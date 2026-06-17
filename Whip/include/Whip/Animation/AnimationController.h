@@ -94,7 +94,7 @@ struct AnimationControllerState
 class AnimationController : public Asset
 {
 public:
-	static constexpr uint32_t FormatVersion = 1;
+	static constexpr uint32_t FormatVersion = 2;
 	static constexpr std::string_view ExitStateName = "Exit";
 
 	AnimationController(AssetHandle handle = AssetHandle{});
@@ -118,6 +118,12 @@ public:
 	const std::vector<AnimationControllerParameter>& GetParameters() const { return m_Parameters; }
 	std::vector<AnimationControllerTransition>& GetAnyStateTransitions() { return m_AnyStateTransitions; }
 	const std::vector<AnimationControllerTransition>& GetAnyStateTransitions() const { return m_AnyStateTransitions; }
+	glm::vec2& GetEntryGraphPosition() { return m_EntryGraphPosition; }
+	const glm::vec2& GetEntryGraphPosition() const { return m_EntryGraphPosition; }
+	glm::vec2& GetAnyStateGraphPosition() { return m_AnyStateGraphPosition; }
+	const glm::vec2& GetAnyStateGraphPosition() const { return m_AnyStateGraphPosition; }
+	glm::vec2& GetExitGraphPosition() { return m_ExitGraphPosition; }
+	const glm::vec2& GetExitGraphPosition() const { return m_ExitGraphPosition; }
 
 	void Serialize(const std::filesystem::path& filepath) const;
 	bool Deserialize(const std::filesystem::path& filepath);
@@ -130,6 +136,9 @@ private:
 	std::vector<AnimationControllerState> m_States;
 	std::vector<AnimationControllerParameter> m_Parameters;
 	std::vector<AnimationControllerTransition> m_AnyStateTransitions;
+	glm::vec2 m_EntryGraphPosition{ 22.0f, 58.0f };
+	glm::vec2 m_AnyStateGraphPosition{ 22.0f, 160.0f };
+	glm::vec2 m_ExitGraphPosition{ 620.0f, 108.0f };
 };
 
 _WHIP_END
