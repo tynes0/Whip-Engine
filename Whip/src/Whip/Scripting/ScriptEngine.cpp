@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <unordered_set>
 #include <vector>
 
 #ifndef WHP_MONO_FIELD_ATTRIBUTE_FIELD_ACCESS_MASK
@@ -275,6 +276,7 @@ struct ScriptEngineData
 	std::unordered_map<UUID, Ref<ScriptInstance>> m_EntityInstances;
 	std::unordered_map<UUID, ScriptFieldMap> m_EntityScriptFields;
 	std::unordered_map<std::string, ScriptFieldMap> m_BaseEntityScriptFields;
+	std::unordered_set<uint64_t> m_MissingInstanceWarnings;
 
 	Scope<filewatch::FileWatch<std::string>> m_AppAssemblyWatcher;
 	bool m_AssemblyReloadingPending = false;
@@ -1041,6 +1043,7 @@ void ScriptEngine::Init()
 
 		s_ScriptEngineData->m_EntityInstances.clear();
 		s_ScriptEngineData->m_EntityScriptFields.clear();
+		s_ScriptEngineData->m_MissingInstanceWarnings.clear();
 		AssemblyManager::ReloadAssembly(true);
 		return;
 	}
@@ -1105,6 +1108,7 @@ void ScriptEngine::SetFilewatcherState(bool run)
 void ScriptEngine::OnRuntimeStart(Scene* sceneIn)
 {
 	s_ScriptEngineData->m_SceneContext = sceneIn;
+	s_ScriptEngineData->m_MissingInstanceWarnings.clear();
 	ScriptGlue::OnRuntimeStart();
 }
 
@@ -1114,6 +1118,7 @@ void ScriptEngine::OnRuntimeStop()
 	s_ScriptEngineData->m_RuntimeActiveSceneHandle = 0;
 	s_ScriptEngineData->m_RuntimeSceneTransition = {};
 	s_ScriptEngineData->m_EntityInstances.clear();
+	s_ScriptEngineData->m_MissingInstanceWarnings.clear();
 	ScriptGlue::OnRuntimeStop();
 }
 
@@ -1165,6 +1170,7 @@ void ScriptEngine::InvokeEntityMethod(EntityMethodType methodType, const Entity&
 	{
 		Ref<ScriptInstance> instance = MakeRef<ScriptInstance>(s_ScriptEngineData->m_EntityClasses[sc.m_ClassName], entity);
 		s_ScriptEngineData->m_EntityInstances[uuid] = instance;
+		s_ScriptEngineData->m_MissingInstanceWarnings.erase(static_cast<uint64_t>(uuid));
 
 		auto fieldMapIt = s_ScriptEngineData->m_EntityScriptFields.find(uuid);
 		if (fieldMapIt != s_ScriptEngineData->m_EntityScriptFields.end())
@@ -1193,14 +1199,22 @@ void ScriptEngine::InvokeEntityMethod(EntityMethodType methodType, const Entity&
 	auto instanceIt = s_ScriptEngineData->m_EntityInstances.find(uuid);
 	if (instanceIt == s_ScriptEngineData->m_EntityInstances.end())
 	{
-		WHP_CORE_ERROR("[Script Engine] Could not find Script Instance for entity {0} while invoking {1}.", static_cast<uint64_t>(uuid), std::string(frenum::to_string_view(methodType)));
+		if (methodType == EntityMethodType::OnDestroy)
+			return;
+
+		const uint64_t warningKey = static_cast<uint64_t>(uuid) ^ (static_cast<uint64_t>(methodType) << 56);
+		if (s_ScriptEngineData->m_MissingInstanceWarnings.insert(warningKey).second)
+			WHP_CORE_WARN("[Script Engine] Skipping {0} for entity {1}; no script instance is active. Check the Script component class name and the latest script build result.", std::string(frenum::to_string_view(methodType)), static_cast<uint64_t>(uuid));
 		return;
 	}
 
 	instanceIt->second->InvokeMethod(methodType, payload);
 
 	if (methodType == EntityMethodType::OnDestroy)
+	{
 		s_ScriptEngineData->m_EntityInstances.erase(instanceIt);
+		s_ScriptEngineData->m_MissingInstanceWarnings.erase(static_cast<uint64_t>(uuid));
+	}
 }
 
 Scene* ScriptEngine::GetSceneContext()

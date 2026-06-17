@@ -69,6 +69,7 @@ private:
 
 	bool OpenProject();
 	bool OpenProject(const std::filesystem::path& path);
+	void ResetEditorProjectState();
 	bool HasProjectLoaded() const;
 	void SetupProjectLoader();
 	void LoadRecentProjects();
@@ -88,6 +89,10 @@ private:
 	void CloseScene();
 	void SaveScene();
 	void SaveSceneAs();
+	void MarkSceneDirty();
+	void MarkSceneClean();
+	void WriteSceneRecoverySnapshot(const char* reason);
+	std::filesystem::path GetSceneRecoveryPath() const;
 	void SaveEntityTemplate(Entity entityIn);
 	void ApplyEntityTemplate(Entity entityIn);
 	void RevertEntityTemplate(Entity entityIn);
@@ -218,6 +223,8 @@ private:
 	std::vector<SceneHistoryEntry> m_RedoStack;
 	std::vector<UUID> m_EntityClipboard;
 	bool m_GizmoHistoryActive = false;
+	bool m_SceneDirty = false;
+	std::chrono::steady_clock::time_point m_LastSceneRecoverySnapshot{};
 
 	// framebuffer
 	Ref<Framebuffer> m_Framebuffer;

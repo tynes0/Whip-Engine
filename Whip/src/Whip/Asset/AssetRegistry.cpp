@@ -71,22 +71,60 @@ static AssetType ParseAssetType(std::string_view typeName)
 	return AssetType::None;
 }
 
+static std::filesystem::path NormalizeRegistryPath(std::filesystem::path filepath)
+{
+	if (filepath.empty())
+		return {};
+	filepath = filepath.lexically_normal();
+	if (filepath == ".")
+		return {};
+	return filepath;
+}
+
+static std::string NormalizeRegistryPathString(const std::filesystem::path& filepath)
+{
+	std::string value = NormalizeRegistryPath(filepath).generic_string();
+	std::transform(value.begin(), value.end(), value.begin(),
+		[](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+	return value;
+}
+
+static bool RegistryPathsEqual(const std::filesystem::path& left, const std::filesystem::path& right)
+{
+	return NormalizeRegistryPathString(left) == NormalizeRegistryPathString(right);
+}
+
 
 bool AssetRegistry::Add(AssetHandle handle, const AssetMetadata& metadata)
 {
-	if (Exist(metadata.m_Type, handle))
-		return false; // already exists
-	if (PathExist(metadata.m_Type, metadata.m_Filepath))
+	AssetMetadata normalizedMetadata = metadata;
+	normalizedMetadata.m_Filepath = NormalizeRegistryPath(metadata.m_Filepath);
+	if (normalizedMetadata.m_Filepath.empty() || normalizedMetadata.m_Type == AssetType::None)
 		return false;
-	m_Registries[*frenum::index(metadata.m_Type)][handle] = metadata;
+	if (Exist(normalizedMetadata.m_Type, handle))
+		return false; // already exists
+	if (PathExist(normalizedMetadata.m_Type, normalizedMetadata.m_Filepath))
+		return false;
+	m_Registries[*frenum::index(normalizedMetadata.m_Type)][handle] = normalizedMetadata;
 	return true;
 }
 
 bool AssetRegistry::AddOrReset(AssetHandle handle, const AssetMetadata& metadata)
 {
-	if (PathExist(metadata.m_Type, metadata.m_Filepath))
+	AssetMetadata normalizedMetadata = metadata;
+	normalizedMetadata.m_Filepath = NormalizeRegistryPath(metadata.m_Filepath);
+	if (normalizedMetadata.m_Filepath.empty() || normalizedMetadata.m_Type == AssetType::None)
 		return false;
-	m_Registries[*frenum::index(metadata.m_Type)][handle] = metadata;
+	const auto& filteredAssetRegistry = m_Registries[*frenum::index(normalizedMetadata.m_Type)];
+	for (const auto& data : filteredAssetRegistry)
+		if (data.first != handle && RegistryPathsEqual(data.second.m_Filepath, normalizedMetadata.m_Filepath))
+			return false;
+
+	const AssetType existingType = TypeOf(handle);
+	if (existingType != AssetType::None && existingType != normalizedMetadata.m_Type)
+		Remove(existingType, handle);
+
+	m_Registries[*frenum::index(normalizedMetadata.m_Type)][handle] = normalizedMetadata;
 	return true;
 }
 
@@ -297,7 +335,7 @@ bool AssetRegistry::Deserialize()
 
 			AssetHandle handle = handleNode.as<uint64_t>();
 			AssetMetadata metadata;
-			metadata.m_Filepath = filepathNode.as<std::string>();
+			metadata.m_Filepath = NormalizeRegistryPath(filepathNode.as<std::string>());
 			metadata.m_Type = ParseAssetType(typeNode.as<std::string>());
 			AddOrReset(handle, metadata);
 		}
@@ -432,7 +470,7 @@ bool AssetRegistry::PathExist(const std::filesystem::path& filepath) const
 {
 	for(const auto& filteredAssetRegistry : m_Registries)
 		for (const auto& data : filteredAssetRegistry)
-			if (data.second.m_Filepath == filepath)
+			if (RegistryPathsEqual(data.second.m_Filepath, filepath))
 				return true;
 	return false;
 }
@@ -441,7 +479,7 @@ bool AssetRegistry::PathExist(AssetType type, const std::filesystem::path& filep
 {
 	const auto& filteredAssetRegistry = m_Registries[*frenum::index(type)];
 	for (const auto& data : filteredAssetRegistry)
-		if (data.second.m_Filepath == filepath)
+		if (RegistryPathsEqual(data.second.m_Filepath, filepath))
 			return true;
 	return false;
 }

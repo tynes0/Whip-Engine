@@ -928,6 +928,18 @@ bool ContentBrowserPanel::RenamePendingItem()
 	}
 
 	std::filesystem::path source = m_BaseDirectory / m_PendingOperationPath;
+	if (!IsInsideBaseDirectory(source))
+	{
+		m_OperationError = "Source must stay inside Assets.";
+		return false;
+	}
+
+	if (!std::filesystem::exists(source))
+	{
+		m_OperationError = "Source item is missing.";
+		return false;
+	}
+
 	std::filesystem::path newName = m_OperationText;
 	if (!m_PendingOperationIsDirectory && newName.extension().empty())
 		newName.replace_extension(m_PendingOperationPath.extension());
@@ -980,6 +992,12 @@ bool ContentBrowserPanel::DeletePendingItem()
 	}
 
 	const std::filesystem::path absolutePath = m_BaseDirectory / m_PendingOperationPath;
+	if (!IsInsideBaseDirectory(absolutePath))
+	{
+		m_OperationError = "Target must stay inside Assets.";
+		return false;
+	}
+
 	std::error_code error;
 	const bool pathExists = std::filesystem::exists(absolutePath, error);
 	if (error)
@@ -1105,6 +1123,13 @@ bool ContentBrowserPanel::DuplicateItem(const BrowserItem& item)
 bool ContentBrowserPanel::MovePathToDirectory(const std::filesystem::path& sourceRelativePath, const std::filesystem::path& destinationDirectory)
 {
 	const std::filesystem::path source = m_BaseDirectory / sourceRelativePath;
+	if (!IsInsideBaseDirectory(source))
+	{
+		m_OperationError = "Source must stay inside Assets.";
+		SetStatus("Move failed: source must stay inside Assets.", true);
+		return false;
+	}
+
 	if (!std::filesystem::exists(source))
 	{
 		m_OperationError = "Source item is missing.";

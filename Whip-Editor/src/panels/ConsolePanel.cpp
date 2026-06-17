@@ -168,6 +168,32 @@ namespace
 		return true;
 	}
 
+	void SetAllLevelFilters(bool enabled)
+	{
+		for (bool& levelEnabled : ConsoleState.m_LevelFilter)
+			levelEnabled = enabled;
+	}
+
+	void SetWarningsAndErrorsFilter()
+	{
+		SetAllLevelFilters(false);
+		ConsoleState.m_LevelFilter[LevelIndex(Log::Level::Warning)] = true;
+		ConsoleState.m_LevelFilter[LevelIndex(Log::Level::Error)] = true;
+		ConsoleState.m_LevelFilter[LevelIndex(Log::Level::Critical)] = true;
+	}
+
+	void SetErrorsFilter()
+	{
+		SetAllLevelFilters(false);
+		ConsoleState.m_LevelFilter[LevelIndex(Log::Level::Error)] = true;
+		ConsoleState.m_LevelFilter[LevelIndex(Log::Level::Critical)] = true;
+	}
+
+	std::string FormatEntryForClipboard(const ConsoleEntry& entry)
+	{
+		return "[" + entry.m_Timestamp + "] " + LevelName(entry.m_Level) + " " + entry.m_Category + ": " + entry.m_Message + "\n";
+	}
+
 	std::uintmax_t LogFileSize()
 	{
 		std::error_code error;
@@ -373,6 +399,37 @@ void ConsolePanel::OnImGuiRender()
 	ImGui::Checkbox("Auto-scroll", &ConsoleState.m_AutoScroll);
 	ImGui::SameLine();
 	ImGui::TextDisabled("%zu logs", ConsoleState.m_Buffer.size());
+	ImGui::SameLine();
+	if (ImGui::SmallButton("All"))
+	{
+		SetAllLevelFilters(true);
+		ConsoleState.m_TextFilter.clear();
+		ConsoleState.m_CategoryFilter.clear();
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Warn+"))
+		SetWarningsAndErrorsFilter();
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Errors"))
+		SetErrorsFilter();
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Scripts"))
+		ConsoleState.m_CategoryFilter = "Script";
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Assets"))
+		ConsoleState.m_CategoryFilter = "Asset";
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Project"))
+		ConsoleState.m_CategoryFilter = "Project";
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Copy visible"))
+	{
+		std::string clipboard;
+		for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
+			if (EntryVisible(entry))
+				clipboard += FormatEntryForClipboard(entry);
+		ImGui::SetClipboardText(clipboard.c_str());
+	}
 
 	ImGui::SetNextItemWidth(std::max(180.0f, ImGui::GetContentRegionAvail().x * 0.58f));
 	ImGui::InputTextWithHint("##ConsoleTextFilter", "Filter message, level, time", &ConsoleState.m_TextFilter);
@@ -386,6 +443,9 @@ void ConsolePanel::OnImGuiRender()
 			ImGui::SameLine();
 		ImGui::Checkbox(LevelName(static_cast<Log::Level>(i)), &ConsoleState.m_LevelFilter[i]);
 	}
+	const size_t visibleCount = std::ranges::count_if(ConsoleState.m_Buffer, [](const ConsoleEntry& entry) { return EntryVisible(entry); });
+	ImGui::SameLine();
+	ImGui::TextDisabled("%zu visible", visibleCount);
 
 	ImGui::Separator();
 	ImGui::BeginChild("##ConsoleScroll", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_HorizontalScrollbar);

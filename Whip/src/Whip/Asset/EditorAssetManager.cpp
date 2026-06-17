@@ -6,13 +6,49 @@
 
 #include <Whip/Project/Project.h>
 
+#include <algorithm>
+#include <cctype>
 #include <fstream>
+#include <string>
 #include <vector>
 
 _WHIP_START
 
 namespace
 {
+	std::string LowerCopy(std::string value)
+	{
+		std::ranges::transform(value, value.begin(),
+			[](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+		return value;
+	}
+
+	std::filesystem::path NormalizeAssetPath(std::filesystem::path filepath)
+	{
+		if (filepath.empty())
+			return {};
+
+		if (filepath.is_absolute())
+		{
+			std::error_code error;
+			filepath = std::filesystem::relative(filepath, Project::GetActiveAssetDirectory(), error);
+			if (error)
+				return {};
+		}
+
+		filepath = filepath.lexically_normal();
+		if (filepath == ".")
+			return {};
+		return filepath;
+	}
+
+	bool AssetPathsEqual(const std::filesystem::path& left, const std::filesystem::path& right)
+	{
+		const std::string normalizedLeft = LowerCopy(left.lexically_normal().generic_string());
+		const std::string normalizedRight = LowerCopy(right.lexically_normal().generic_string());
+		return normalizedLeft == normalizedRight;
+	}
+
 	bool PathIsUnderDirectory(const std::filesystem::path& path, const std::filesystem::path& directory)
 	{
 		std::filesystem::path normalizedPath = path.lexically_normal();
@@ -81,26 +117,30 @@ void EditorAssetManager::AddRegistry(AssetHandle handle, const AssetMetadata& me
 
 AssetHandle EditorAssetManager::ImportAsset(const std::filesystem::path& filepath)
 {
-	if (AssetHandle existingHandle = GetHandleFromFilepath(filepath); existingHandle != 0)
+	const std::filesystem::path normalizedFilepath = NormalizeAssetPath(filepath);
+	if (normalizedFilepath.empty())
+		return 0;
+
+	if (AssetHandle existingHandle = GetHandleFromFilepath(normalizedFilepath); existingHandle != 0)
 		return existingHandle;
 
-	std::filesystem::path absolutePath = Project::GetActiveAssetDirectory() / filepath;
+	std::filesystem::path absolutePath = Project::GetActiveAssetDirectory() / normalizedFilepath;
 	if (!std::filesystem::exists(absolutePath))
 	{
 		WHP_CORE_WARN("[Asset Manager] Asset file does not exist: {0}", absolutePath.string());
 		return 0;
 	}
 
-	AssetType type = Utils::TryGetAssetTypeFromFileExtension(filepath.extension());
+	AssetType type = Utils::TryGetAssetTypeFromFileExtension(normalizedFilepath.extension());
 	if (type == AssetType::None)
 	{
-		WHP_CORE_WARN("[Asset Manager] Unsupported Asset extension '{0}' for '{1}'", filepath.extension().string(), filepath.string());
+		WHP_CORE_WARN("[Asset Manager] Unsupported Asset extension '{0}' for '{1}'", normalizedFilepath.extension().string(), normalizedFilepath.string());
 		return 0;
 	}
 
 	AssetHandle handle; // generate new handle
 	AssetMetadata metadata;
-	metadata.m_Filepath = filepath;
+	metadata.m_Filepath = normalizedFilepath;
 	metadata.m_Type = type;
 	Ref<Asset> asset = AssetImporter::ImportAsset(handle, metadata);
 	if (asset)
@@ -119,6 +159,9 @@ AssetHandle EditorAssetManager::ImportAsset(const std::filesystem::path& filepat
 
 void EditorAssetManager::DeleteAsset(AssetHandle handle)
 {
+	if (!IsAssetHandleValid(handle))
+		return;
+
 	auto it = m_LoadedAssets.find(handle);
 	if (it != m_LoadedAssets.end())
 		m_LoadedAssets.erase(it);
@@ -148,7 +191,11 @@ bool EditorAssetManager::UpdateAssetFilepath(AssetHandle handle, const std::file
 	if (!IsAssetHandleValid(handle))
 		return false;
 
-	m_AssetRegistry.Get(handle).m_Filepath = filepath.lexically_normal();
+	const std::filesystem::path normalizedFilepath = NormalizeAssetPath(filepath);
+	if (normalizedFilepath.empty())
+		return false;
+
+	m_AssetRegistry.Get(handle).m_Filepath = normalizedFilepath;
 	m_AssetRegistry.Serialize();
 	return true;
 }
@@ -203,10 +250,14 @@ size_t EditorAssetManager::DeleteAssetsUnderDirectory(const std::filesystem::pat
 
 AssetHandle EditorAssetManager::GetHandleFromFilepath(const std::filesystem::path& filepath) const
 {
+	const std::filesystem::path normalizedFilepath = NormalizeAssetPath(filepath);
+	if (normalizedFilepath.empty())
+		return 0;
+
 	AssetHandle handle = 0;
 	m_AssetRegistry.ForeachChecked([&](const AssetRegistry::ValueType& value)
 		{
-			if (value.second.m_Filepath == filepath)
+			if (AssetPathsEqual(value.second.m_Filepath, normalizedFilepath))
 			{
 				handle = value.first;
 				return AssetRegistry::LoopStop;
