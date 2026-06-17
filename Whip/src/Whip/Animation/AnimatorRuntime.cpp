@@ -98,7 +98,10 @@ void AnimatorRuntime::Bind(Scene* scene, UUID entityId, const Ref<AnimationContr
 	m_EntityId = entityId;
 	m_Controller = controller;
 	m_CurrentStateName.clear();
+	m_LastTransitionSourceName.clear();
+	m_LastTransitionTargetName.clear();
 	m_StateTime = 0.0f;
+	m_TransitionDebugTime = 999.0f;
 	m_Playing = false;
 	m_FiredEvents.clear();
 	m_BoolParameters.clear();
@@ -153,6 +156,7 @@ void AnimatorRuntime::Play(std::string_view stateName)
 	}
 
 	m_StateTime = 0.0f;
+	m_TransitionDebugTime = 999.0f;
 	m_Playing = !m_CurrentStateName.empty();
 	ApplyCurrentFrame();
 }
@@ -178,9 +182,17 @@ void AnimatorRuntime::Update(Timestep ts, float speed)
 	const float stateSpeed = std::max(state->m_Speed, 0.0f) * ResolveStateMotionSpeed(*state);
 	const float animatorSpeed = std::max(speed, 0.0f);
 	const float previousTime = m_StateTime;
-	m_StateTime += std::max(static_cast<float>(ts), 0.0f) * stateSpeed * animatorSpeed;
+	const float deltaTime = std::max(static_cast<float>(ts), 0.0f);
+	m_TransitionDebugTime += deltaTime;
+	m_StateTime += deltaTime * stateSpeed * animatorSpeed;
 
 	const float stateDuration = GetStateDuration(*state);
+	if (TryTransitionList("Any State", m_Controller->GetAnyStateTransitions(), stateDuration, false))
+	{
+		ApplyCurrentFrame();
+		return;
+	}
+
 	if (TryTransition(*state, stateDuration))
 	{
 		ApplyCurrentFrame();
@@ -331,20 +343,46 @@ float AnimatorRuntime::GetStateDuration(const AnimationControllerState& state) c
 
 bool AnimatorRuntime::TryTransition(const AnimationControllerState& state, float stateDuration)
 {
-	for (const AnimationControllerTransition& transition : state.m_Transitions)
+	return TryTransitionList(state.m_Name, state.m_Transitions, stateDuration, true);
+}
+
+bool AnimatorRuntime::TryTransitionList(std::string_view sourceName, const std::vector<AnimationControllerTransition>& transitions, float stateDuration, bool useExitTime)
+{
+	for (const AnimationControllerTransition& transition : transitions)
 	{
-		if (transition.m_TargetState.empty() || !m_Controller->FindState(transition.m_TargetState))
+		if (transition.m_TargetState.empty())
 			continue;
 
-		if (!IsExitTimeReady(transition, stateDuration) || !ConditionsPass(transition))
+		if (transition.m_TargetState != AnimationController::ExitStateName && !m_Controller->FindState(transition.m_TargetState))
 			continue;
 
-		ConsumeTransitionTriggers(transition);
-		SwitchState(transition.m_TargetState);
-		return true;
+		if (transition.m_TargetState == m_CurrentStateName && sourceName == "Any State")
+			continue;
+
+		if ((useExitTime && !IsExitTimeReady(transition, stateDuration)) || !ConditionsPass(transition))
+			continue;
+
+		return ApplyTransition(sourceName, transition);
 	}
 
 	return false;
+}
+
+bool AnimatorRuntime::ApplyTransition(std::string_view sourceName, const AnimationControllerTransition& transition)
+{
+	ConsumeTransitionTriggers(transition);
+	m_LastTransitionSourceName = std::string(sourceName);
+	m_LastTransitionTargetName = transition.m_TargetState;
+	m_TransitionDebugTime = 0.0f;
+
+	if (transition.m_TargetState == AnimationController::ExitStateName)
+	{
+		Stop();
+		return true;
+	}
+
+	SwitchState(transition.m_TargetState);
+	return true;
 }
 
 bool AnimatorRuntime::IsExitTimeReady(const AnimationControllerTransition& transition, float stateDuration) const

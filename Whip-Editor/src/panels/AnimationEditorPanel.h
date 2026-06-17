@@ -12,6 +12,8 @@
 #include <functional>
 #include <array>
 
+#include <glm/vec2.hpp>
+
 _WHIP_START
 
 class AnimationEditorPanel
@@ -49,6 +51,9 @@ private:
 	void DrawControllerParameters(float width, float height);
 	void DrawControllerGraph(float width, float height);
 	void DrawControllerStateInspector(float width, float height);
+	void DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget);
+	AnimationControllerTransition* GetSelectedControllerTransition();
+	void ClearSelectedControllerTransition();
 	void SaveCurrentController();
 	void UpdatePreview();
 	void StepPreview(int direction);
@@ -59,6 +64,11 @@ private:
 	int m_SelectedFrameIndex = -1;
 	int m_SelectedControllerStateIndex = 0;
 	int m_SelectedControllerParameterIndex = -1;
+	int m_SelectedTransitionSourceStateIndex = -1;
+	int m_SelectedTransitionIndex = -1;
+	int m_PendingTransitionSourceStateIndex = -1;
+	float m_ControllerGraphZoom = 1.0f;
+	glm::vec2 m_ControllerGraphPan{ 28.0f, 28.0f };
 	bool m_PreviewPlaying = false;
 	bool m_PreviewPaused = false;
 	float m_PreviewElapsed = 0.0f;

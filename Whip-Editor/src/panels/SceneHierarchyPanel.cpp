@@ -1932,6 +1932,19 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 
 					if (runtimeIt != sceneIn->m_AnimatorRuntimes.end())
 					{
+						BEGIN_COMPONENT_TABLE_ROW("Last Transition");
+						if (!runtimeIt->second.GetLastTransitionTargetName().empty())
+						{
+							ImGui::TextDisabled(
+								"%s -> %s  %.2fs ago",
+								runtimeIt->second.GetLastTransitionSourceName().c_str(),
+								runtimeIt->second.GetLastTransitionTargetName().c_str(),
+								runtimeIt->second.GetTransitionDebugTime());
+						}
+						else
+							ImGui::TextDisabled("None");
+						END_COMPONENT_TABLE_ROW();
+
 						BEGIN_COMPONENT_TABLE_ROW("Parameters");
 						if (ImGui::TreeNode("Live Values"))
 						{

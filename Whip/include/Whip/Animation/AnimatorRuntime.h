@@ -35,6 +35,9 @@ public:
 	bool IsPlaying() const { return m_Playing; }
 	AssetHandle GetControllerHandle() const { return m_Controller ? m_Controller->m_Handle : AssetHandle{}; }
 	const std::string& GetCurrentStateName() const { return m_CurrentStateName; }
+	const std::string& GetLastTransitionSourceName() const { return m_LastTransitionSourceName; }
+	const std::string& GetLastTransitionTargetName() const { return m_LastTransitionTargetName; }
+	float GetTransitionDebugTime() const { return m_TransitionDebugTime; }
 	float GetStateTime() const { return m_StateTime; }
 	const std::vector<std::string>& GetFiredEvents() const { return m_FiredEvents; }
 	void ClearFiredEvents() { m_FiredEvents.clear(); }
@@ -54,6 +57,8 @@ private:
 	float GetStateDuration(const AnimationControllerState& state) const;
 
 	bool TryTransition(const AnimationControllerState& state, float stateDuration);
+	bool TryTransitionList(std::string_view sourceName, const std::vector<AnimationControllerTransition>& transitions, float stateDuration, bool useExitTime);
+	bool ApplyTransition(std::string_view sourceName, const AnimationControllerTransition& transition);
 	bool IsExitTimeReady(const AnimationControllerTransition& transition, float stateDuration) const;
 	bool ConditionsPass(const AnimationControllerTransition& transition) const;
 	bool ConditionPasses(const AnimationControllerCondition& condition) const;
@@ -69,7 +74,10 @@ private:
 	Ref<AnimationController> m_Controller = nullptr;
 
 	std::string m_CurrentStateName;
+	std::string m_LastTransitionSourceName;
+	std::string m_LastTransitionTargetName;
 	float m_StateTime = 0.0f;
+	float m_TransitionDebugTime = 999.0f;
 	bool m_Playing = false;
 	std::vector<std::string> m_FiredEvents;
 

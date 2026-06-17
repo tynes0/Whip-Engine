@@ -50,6 +50,54 @@ namespace
 			return motionType.value();
 		return AnimationMotionType::Clip;
 	}
+
+	void SerializeTransition(YAML::Emitter& out, const AnimationControllerTransition& transition)
+	{
+		out << YAML::BeginMap;
+		out << YAML::Key << "target_state" << YAML::Value << transition.m_TargetState;
+		out << YAML::Key << "duration" << YAML::Value << transition.m_Duration;
+		out << YAML::Key << "exit_time" << YAML::Value << transition.m_ExitTime;
+		out << YAML::Key << "has_exit_time" << YAML::Value << transition.m_HasExitTime;
+
+		out << YAML::Key << "conditions" << YAML::Value << YAML::BeginSeq;
+		for (const AnimationControllerCondition& condition : transition.m_Conditions)
+		{
+			out << YAML::BeginMap;
+			out << YAML::Key << "parameter" << YAML::Value << condition.m_Parameter;
+			out << YAML::Key << "mode" << YAML::Value << frenum::to_string(condition.m_Mode);
+			out << YAML::Key << "threshold" << YAML::Value << condition.m_Threshold;
+			out << YAML::Key << "int_value" << YAML::Value << condition.m_IntValue;
+			out << YAML::Key << "bool_value" << YAML::Value << condition.m_BoolValue;
+			out << YAML::EndMap;
+		}
+		out << YAML::EndSeq;
+		out << YAML::EndMap;
+	}
+
+	AnimationControllerTransition DeserializeTransition(const YAML::Node& transitionNode)
+	{
+		AnimationControllerTransition transition;
+		transition.m_TargetState = ReadYamlValue<std::string>(transitionNode, "target_state", {});
+		transition.m_Duration = ReadYamlValue<float>(transitionNode, "duration", 0.1f);
+		transition.m_ExitTime = ReadYamlValue<float>(transitionNode, "exit_time", 1.0f);
+		transition.m_HasExitTime = ReadYamlValue<bool>(transitionNode, "has_exit_time", true);
+
+		if (const YAML::Node conditions = transitionNode["conditions"])
+		{
+			for (const YAML::Node& conditionNode : conditions)
+			{
+				AnimationControllerCondition condition;
+				condition.m_Parameter = ReadYamlValue<std::string>(conditionNode, "parameter", {});
+				condition.m_Mode = ParseConditionMode(conditionNode["mode"]);
+				condition.m_Threshold = ReadYamlValue<float>(conditionNode, "threshold", 0.0f);
+				condition.m_IntValue = ReadYamlValue<int32_t>(conditionNode, "int_value", 0);
+				condition.m_BoolValue = ReadYamlValue<bool>(conditionNode, "bool_value", true);
+				transition.m_Conditions.push_back(condition);
+			}
+		}
+
+		return transition;
+	}
 }
 
 AnimationController::AnimationController(AssetHandle handle)
@@ -90,6 +138,10 @@ bool AnimationController::RemoveState(std::string_view name)
 				return transition.m_TargetState == name;
 			});
 	}
+	std::erase_if(m_AnyStateTransitions, [name](const AnimationControllerTransition& transition)
+		{
+			return transition.m_TargetState == name;
+		});
 
 	if (m_DefaultState == name)
 		m_DefaultState = m_States.empty() ? std::string{} : m_States.front().m_Name;
@@ -145,6 +197,13 @@ bool AnimationController::RemoveParameter(std::string_view name)
 				});
 		}
 	}
+	for (AnimationControllerTransition& transition : m_AnyStateTransitions)
+	{
+		std::erase_if(transition.m_Conditions, [name](const AnimationControllerCondition& condition)
+			{
+				return condition.m_Parameter == name;
+			});
+	}
 
 	return true;
 }
@@ -176,6 +235,11 @@ void AnimationController::Serialize(const std::filesystem::path& filepath) const
 	}
 	out << YAML::EndSeq;
 
+	out << YAML::Key << "any_state_transitions" << YAML::Value << YAML::BeginSeq;
+	for (const AnimationControllerTransition& transition : m_AnyStateTransitions)
+		SerializeTransition(out, transition);
+	out << YAML::EndSeq;
+
 	out << YAML::Key << "states" << YAML::Value << YAML::BeginSeq;
 	for (const AnimationControllerState& state : m_States)
 	{
@@ -200,27 +264,7 @@ void AnimationController::Serialize(const std::filesystem::path& filepath) const
 
 		out << YAML::Key << "transitions" << YAML::Value << YAML::BeginSeq;
 		for (const AnimationControllerTransition& transition : state.m_Transitions)
-		{
-			out << YAML::BeginMap;
-			out << YAML::Key << "target_state" << YAML::Value << transition.m_TargetState;
-			out << YAML::Key << "duration" << YAML::Value << transition.m_Duration;
-			out << YAML::Key << "exit_time" << YAML::Value << transition.m_ExitTime;
-			out << YAML::Key << "has_exit_time" << YAML::Value << transition.m_HasExitTime;
-
-			out << YAML::Key << "conditions" << YAML::Value << YAML::BeginSeq;
-			for (const AnimationControllerCondition& condition : transition.m_Conditions)
-			{
-				out << YAML::BeginMap;
-				out << YAML::Key << "parameter" << YAML::Value << condition.m_Parameter;
-				out << YAML::Key << "mode" << YAML::Value << frenum::to_string(condition.m_Mode);
-				out << YAML::Key << "threshold" << YAML::Value << condition.m_Threshold;
-				out << YAML::Key << "int_value" << YAML::Value << condition.m_IntValue;
-				out << YAML::Key << "bool_value" << YAML::Value << condition.m_BoolValue;
-				out << YAML::EndMap;
-			}
-			out << YAML::EndSeq;
-			out << YAML::EndMap;
-		}
+			SerializeTransition(out, transition);
 		out << YAML::EndSeq;
 		out << YAML::EndMap;
 	}
@@ -249,6 +293,7 @@ bool AnimationController::Deserialize(const std::filesystem::path& filepath)
 	m_DefaultState = ReadYamlValue<std::string>(root, "default_state", {});
 	m_States.clear();
 	m_Parameters.clear();
+	m_AnyStateTransitions.clear();
 
 	if (const YAML::Node parameters = root["parameters"])
 	{
@@ -262,6 +307,12 @@ bool AnimationController::Deserialize(const std::filesystem::path& filepath)
 			parameter.m_DefaultBool = ReadYamlValue<bool>(parameterNode, "default_bool", false);
 			m_Parameters.push_back(parameter);
 		}
+	}
+
+	if (const YAML::Node transitions = root["any_state_transitions"])
+	{
+		for (const YAML::Node& transitionNode : transitions)
+			m_AnyStateTransitions.push_back(DeserializeTransition(transitionNode));
 	}
 
 	if (const YAML::Node states = root["states"])
@@ -293,29 +344,7 @@ bool AnimationController::Deserialize(const std::filesystem::path& filepath)
 			if (const YAML::Node transitions = stateNode["transitions"])
 			{
 				for (const YAML::Node& transitionNode : transitions)
-				{
-					AnimationControllerTransition transition;
-					transition.m_TargetState = ReadYamlValue<std::string>(transitionNode, "target_state", {});
-					transition.m_Duration = ReadYamlValue<float>(transitionNode, "duration", 0.1f);
-					transition.m_ExitTime = ReadYamlValue<float>(transitionNode, "exit_time", 1.0f);
-					transition.m_HasExitTime = ReadYamlValue<bool>(transitionNode, "has_exit_time", true);
-
-					if (const YAML::Node conditions = transitionNode["conditions"])
-					{
-						for (const YAML::Node& conditionNode : conditions)
-						{
-							AnimationControllerCondition condition;
-							condition.m_Parameter = ReadYamlValue<std::string>(conditionNode, "parameter", {});
-							condition.m_Mode = ParseConditionMode(conditionNode["mode"]);
-							condition.m_Threshold = ReadYamlValue<float>(conditionNode, "threshold", 0.0f);
-							condition.m_IntValue = ReadYamlValue<int32_t>(conditionNode, "int_value", 0);
-							condition.m_BoolValue = ReadYamlValue<bool>(conditionNode, "bool_value", true);
-							transition.m_Conditions.push_back(condition);
-						}
-					}
-
-					state.m_Transitions.push_back(transition);
-				}
+					state.m_Transitions.push_back(DeserializeTransition(transitionNode));
 			}
 
 			m_States.push_back(state);

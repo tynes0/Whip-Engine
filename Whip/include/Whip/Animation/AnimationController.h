@@ -95,6 +95,7 @@ class AnimationController : public Asset
 {
 public:
 	static constexpr uint32_t FormatVersion = 1;
+	static constexpr std::string_view ExitStateName = "Exit";
 
 	AnimationController(AssetHandle handle = AssetHandle{});
 
@@ -115,6 +116,8 @@ public:
 	const std::vector<AnimationControllerState>& GetStates() const { return m_States; }
 	std::vector<AnimationControllerParameter>& GetParameters() { return m_Parameters; }
 	const std::vector<AnimationControllerParameter>& GetParameters() const { return m_Parameters; }
+	std::vector<AnimationControllerTransition>& GetAnyStateTransitions() { return m_AnyStateTransitions; }
+	const std::vector<AnimationControllerTransition>& GetAnyStateTransitions() const { return m_AnyStateTransitions; }
 
 	void Serialize(const std::filesystem::path& filepath) const;
 	bool Deserialize(const std::filesystem::path& filepath);
@@ -126,6 +129,7 @@ private:
 	std::string m_DefaultState;
 	std::vector<AnimationControllerState> m_States;
 	std::vector<AnimationControllerParameter> m_Parameters;
+	std::vector<AnimationControllerTransition> m_AnyStateTransitions;
 };
 
 _WHIP_END
