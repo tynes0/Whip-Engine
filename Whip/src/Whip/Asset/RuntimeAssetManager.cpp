@@ -1,10 +1,7 @@
-#include <WhipPch.h>
-#include <Whip/Asset/RuntimeAssetManager.h> 
-
-#include <Whip/Asset/AssetImporter.h>
-#include <Whip/Asset/AssetUtils.h>
-
-#include <fstream>
+#include "WhipPch.h"
+#include "Whip/Asset/RuntimeAssetManager.h"
+#include "Whip/Asset/AssetImporter.h"
+#include "Whip/Asset/AssetUtils.h"
 
 _WHIP_START
 
@@ -32,7 +29,7 @@ bool RuntimeAssetManager::IsAssetHandleValid(AssetHandle handle) const
 
 bool RuntimeAssetManager::IsAssetLoaded(AssetHandle handle) const
 {
-	if (m_LoadedAssets.find(handle) != m_LoadedAssets.end())
+	if (m_LoadedAssets.contains(handle))
 		return true;
 	return m_EditorAssetManager->IsAssetLoaded(handle);
 }
@@ -55,8 +52,7 @@ AssetHandle RuntimeAssetManager::ImportAsset(const std::filesystem::path& filepa
 	AssetMetadata metadata;
 	metadata.m_Filepath = filepath;
 	metadata.m_Type = Utils::GetAssetTypeFromFileExtension(filepath.extension());
-	Ref<Asset> asset = AssetImporter::ImportAsset(handle, metadata);
-	if (asset)
+	if (Ref<Asset> asset = AssetImporter::ImportAsset(handle, metadata))
 	{
 		asset->m_Handle = handle;
 		m_LoadedAssets[handle] = asset;
@@ -92,12 +88,12 @@ void RuntimeAssetManager::RuntimeStop()
 	m_LoadedAssets.clear();
 }
 
-void RuntimeAssetManager::SetEditorAssetManager(Ref<EditorAssetManager> manager)
+void RuntimeAssetManager::SetEditorAssetManager(const Ref<EditorAssetManager>& manager)
 {
 	m_EditorAssetManager = manager;
 }
 
-void RuntimeAssetManager::AddAssetCopy(AssetHandle handle, Ref<Asset> assetCopy)
+void RuntimeAssetManager::AddAssetCopy(AssetHandle handle, const Ref<Asset>& assetCopy)
 {
 	if (IsAssetHandleValid(handle))
 	{

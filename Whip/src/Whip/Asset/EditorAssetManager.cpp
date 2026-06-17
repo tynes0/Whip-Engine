@@ -1,16 +1,8 @@
 #include "WhipPch.h"
-#include <Whip/Asset/EditorAssetManager.h>
-
-#include <Whip/Asset/AssetImporter.h>
-#include <Whip/Asset/AssetUtils.h>
-
-#include <Whip/Project/Project.h>
-
-#include <algorithm>
-#include <cctype>
-#include <fstream>
-#include <string>
-#include <vector>
+#include "Whip/Asset/EditorAssetManager.h"
+#include "Whip/Asset/AssetImporter.h"
+#include "Whip/Asset/AssetUtils.h"
+#include "Whip/Project/Project.h"
 
 _WHIP_START
 
@@ -97,7 +89,7 @@ bool EditorAssetManager::IsAssetHandleValid(AssetHandle handle) const
 
 bool EditorAssetManager::IsAssetLoaded(AssetHandle handle) const
 {
-	return m_LoadedAssets.find(handle) != m_LoadedAssets.end();
+	return m_LoadedAssets.contains(handle);
 }
 
 AssetType EditorAssetManager::GetAssetType(AssetHandle handle) const
@@ -142,19 +134,17 @@ AssetHandle EditorAssetManager::ImportAsset(const std::filesystem::path& filepat
 	AssetMetadata metadata;
 	metadata.m_Filepath = normalizedFilepath;
 	metadata.m_Type = type;
-	Ref<Asset> asset = AssetImporter::ImportAsset(handle, metadata);
-	if (asset)
+	if (Ref<Asset> asset = AssetImporter::ImportAsset(handle, metadata))
 	{
 		asset->m_Handle = handle;
 		m_LoadedAssets[handle] = asset;
 		m_AssetRegistry.AddOrReset(handle, metadata);
-		m_AssetRegistry.Serialize();
+		SerializeAssetRegistry();
 		return handle;
 	}
-	else
-		WHP_CORE_ERROR("[Asset Manager] Asset import failed!");
 
-	return 0;
+	WHP_CORE_ERROR("[Asset Manager] Asset import failed!");
+	return {0};
 }
 
 void EditorAssetManager::DeleteAsset(AssetHandle handle)
@@ -167,7 +157,7 @@ void EditorAssetManager::DeleteAsset(AssetHandle handle)
 		m_LoadedAssets.erase(it);
 
 	m_AssetRegistry.Remove(handle);
-	m_AssetRegistry.Serialize();
+	SerializeAssetRegistry();
 }
 
 void EditorAssetManager::SetLoadedAsset(AssetHandle handle, const Ref<Asset>& asset)
@@ -196,8 +186,9 @@ bool EditorAssetManager::UpdateAssetFilepath(AssetHandle handle, const std::file
 		return false;
 
 	m_AssetRegistry.Get(handle).m_Filepath = normalizedFilepath;
-	m_AssetRegistry.Serialize();
-	return true;
+	bool result = false;
+	SerializeAssetRegistry(&result);
+	return result;
 }
 
 size_t EditorAssetManager::UpdateAssetDirectoryPaths(const std::filesystem::path& oldDirectory, const std::filesystem::path& newDirectory)
@@ -221,7 +212,7 @@ size_t EditorAssetManager::UpdateAssetDirectoryPaths(const std::filesystem::path
 		});
 
 	if (updatedCount > 0)
-		m_AssetRegistry.Serialize();
+		SerializeAssetRegistry();
 	return updatedCount;
 }
 
@@ -244,7 +235,7 @@ size_t EditorAssetManager::DeleteAssetsUnderDirectory(const std::filesystem::pat
 	}
 
 	if (!handles.empty())
-		m_AssetRegistry.Serialize();
+		SerializeAssetRegistry();
 	return handles.size();
 }
 
@@ -273,9 +264,24 @@ const std::filesystem::path& EditorAssetManager::GetFilepath(AssetHandle handle)
 	return GetMetadata(handle).m_Filepath;
 }
 
-void EditorAssetManager::SerializeAssetRegistry()
+const AssetRegistry& EditorAssetManager::GetAssetRegistry() const
 {
-	m_AssetRegistry.Serialize();
+	return m_AssetRegistry;
+}
+
+void EditorAssetManager::SerializeAssetRegistry(bool* result)
+{
+	if (!m_AssetRegistry.Serialize())
+	{
+		WHP_CORE_ERROR("[Asset Manager] Asset serializing failed!");
+		if (result)
+			*result = false;
+	}
+	else
+	{
+		if (result)
+			*result = true;
+	}
 }
 
 bool EditorAssetManager::DeserializeAssetRegistry()

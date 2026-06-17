@@ -17,7 +17,6 @@
 
 #include <Whip/Project/Project.h>
 
-#include <Whip/Asset/AssetImporter.h>
 #include <Whip/Asset/AssetManager.h>
 
 #include <Whip/Audio/AudioEngine.h>
@@ -30,9 +29,6 @@
 #include <mono/metadata/object.h>
 #include <mono/metadata/assembly.h>
 #include <mono/metadata/reflection.h>
-#include <mono/metadata/mono-config.h>
-#include <mono/metadata/mono-debug.h>
-#include <mono/metadata/threads.h>
 
 #include <box2d/b2_body.h>
 
@@ -40,22 +36,22 @@ _WHIP_START
 
 #define ADD_INTERNAL_CALL(name, func) mono_add_internal_call(WHP_CONCATENATE("Whip.InternalCalls::", WHP_STRINGIZE(name)), func)
 
-static constexpr const char* RuntimeTimersGroupId = "0177f1a8-04e5-4340-a771-52fc1aac9440";
-static std::unordered_map<MonoType*, std::function<bool(Entity)>> s_EntityHasComponentFuncs;
-static Logger s_Logger;
-
-namespace Utils
+namespace
 {
+	constexpr const char* RuntimeTimersGroupId = "0177f1a8-04e5-4340-a771-52fc1aac9440";
+	std::unordered_map<MonoType*, std::function<bool(Entity)>> s_EntityHasComponentFuncs;
+	Logger s_Logger;
+
 	namespace detail
 	{
-		static Scene* GetScene()
+		Scene* GetScene()
 		{
-			Scene* scne = ScriptEngine::GetSceneContext(); 
+			Scene* scne = ScriptEngine::GetSceneContext();
 			WHP_CORE_ASSERT(scne);
 			return scne;
 		}
 
-		static Entity GetEntity(UUID id)
+		Entity GetEntity(UUID id)
 		{
 			Scene* scne = GetScene();
 			Entity ent = scne->FindEntityByUUID(id);
@@ -63,7 +59,7 @@ namespace Utils
 			return ent;
 		}
 
-		static std::string MonoStringToString(MonoString* string)
+		std::string MonoStringToString(MonoString* string)
 		{
 			char* cstr = mono_string_to_utf8(string);
 			std::string str(cstr);
@@ -71,7 +67,7 @@ namespace Utils
 			return str;
 		}
 
-		static std::wstring MonoStringToWstring(MonoString* string)
+		std::wstring MonoStringToWstring(MonoString* string)
 		{
 			wchar_t* cstr = (wchar_t*)mono_string_to_utf16(string);
 			std::wstring wstr(cstr);
@@ -79,7 +75,7 @@ namespace Utils
 			return wstr;
 		}
 
-		static AudioComponent::AudioData* FindAcAD(std::vector<AudioComponent::AudioData>& handleList, UUID32 id)
+		AudioComponent::AudioData* FindAcAD(std::vector<AudioComponent::AudioData>& handleList, UUID32 id)
 		{
 			for (AudioComponent::AudioData& handle : handleList)
 				if (handle.m_ID == id)
@@ -87,24 +83,16 @@ namespace Utils
 			return nullptr;
 		}
 
-		static AudioComponent::AudioData* FindAcAD(std::vector<AudioComponent::AudioData>& handleList, const std::string& tag)
-		{
-			for (AudioComponent::AudioData& handle : handleList)
-				if (handle.m_Tag == tag)
-					return &handle;
-			return nullptr;
-		}
-
-		static b2Body* GetBody(UUID id)
+		b2Body* GetBody(UUID id)
 		{
 			Entity ent = GetEntity(id);
 			auto& rb2d = ent.GetComponent<Rigidbody2DComponent>();
-			b2Body* body = (b2Body*)rb2d.m_RuntimeBody;
+			b2Body* body = static_cast<b2Body*>(rb2d.m_RuntimeBody);
 			WHP_CORE_ASSERT(body);
 			return body;
 		}
 
-		static AudioComponent::AudioData* GetAudioData(UUID id, UUID32 adId)
+		AudioComponent::AudioData* GetAudioData(UUID id, UUID32 adId)
 		{
 			Entity ent = GetEntity(id);
 			AudioComponent& ac = ent.GetComponent<AudioComponent>();
@@ -112,26 +100,18 @@ namespace Utils
 			return audioData;
 		}
 
-		static AudioComponent::AudioData* GetAudioData(UUID id, const std::string& tag)
-		{
-			Entity ent = GetEntity(id);
-			AudioComponent& ac = ent.GetComponent<AudioComponent>();
-			AudioComponent::AudioData* audioData = detail::FindAcAD(ac.m_AudioDatas, tag);
-			return audioData;
-		}
-
-		static Ref<Animation2D> GetAnimation(UUID handle)
+		Ref<Animation2D> GetAnimation(UUID handle)
 		{
 			return std::static_pointer_cast<Animation2D>(Project::GetActive()->GetRuntimeAssetManager()->GetAsset(handle));
 		}
 	}
 
-	static MonoObject* GetScriptInstance(UUID entityId)
+	MonoObject* GetScriptInstance(UUID entityId)
 	{
 		return ScriptEngine::GetManagedInstance(entityId);
 	}
 
-	static bool EntityHasComponent(UUID entityId, MonoReflectionType* componentType)
+	bool EntityHasComponent(UUID entityId, MonoReflectionType* componentType)
 	{
 		Entity ent = detail::GetEntity(entityId);
 
@@ -140,7 +120,7 @@ namespace Utils
 		return s_EntityHasComponentFuncs.at(managedType)(ent);
 	}
 
-	static uint64_t EntityFindEntityByName(MonoString* name)
+	uint64_t EntityFindEntityByName(MonoString* name)
 	{
 		Scene* scne = detail::GetScene();
 		Entity ent = scne->FindEntityByName(detail::MonoStringToString(name));
@@ -149,17 +129,17 @@ namespace Utils
 		return ent.GetUUID();
 	}
 
-	static void LoggerInternalLog(MonoString* logMessage, Log::Level level)
+	void LoggerInternalLog(MonoString* logMessage, Log::Level level)
 	{
 		Log::GetCoreLogger()->log(Log::WhipLogLevelToSpdlogLevel(level), detail::MonoStringToString(logMessage));
 	}
 
-	static void LoggerInternalAssert(bool cond, MonoString* logMessage, MonoString* filepath, int line)
+	void LoggerInternalAssert(bool cond, MonoString* logMessage, MonoString* filepath, int line)
 	{
-		if (!(cond)) 
-		{ 
+		if (!(cond))
+		{
 			WHP_CORE_CRITICAL(
-				"Whip Assertion failed! File: {0}, Line: {1}, Message: {2}", 
+				"Whip Assertion failed! File: {0}, Line: {1}, Message: {2}",
 				std::filesystem::path(detail::MonoStringToString(filepath)).filename().string(),
 				line,
 				detail::MonoStringToString(logMessage));
@@ -167,18 +147,18 @@ namespace Utils
 		}
 	}
 
-	static void LoggerSetLogger(MonoString* loggerName)
+	void LoggerSetLogger(MonoString* loggerName)
 	{
 		Log::ResetLogger(s_Logger, detail::MonoStringToString(loggerName), Log::OutputTarget::Editor);
 	}
 
-	static void LoggerPrintLog(MonoString* logMessage, Log::Level level)
+	void LoggerPrintLog(MonoString* logMessage, Log::Level level)
 	{
 		s_Logger->log(Log::WhipLogLevelToSpdlogLevel(level), detail::MonoStringToString(logMessage));
 		EditorLog::FileShouldReset().store(true);
 	}
 
-	static void LoggerPrintLogNamed(MonoString* loggerName, MonoString* logMessage, Log::Level level)
+	void LoggerPrintLogNamed(MonoString* loggerName, MonoString* logMessage, Log::Level level)
 	{
 		std::string name = s_Logger->name();
 		LoggerSetLogger(loggerName);
@@ -186,7 +166,7 @@ namespace Utils
 		Log::ResetLogger(s_Logger, name);
 	}
 
-	static bool TimerWaitFor(UUID tag, float ms)
+	bool TimerWaitFor(UUID tag, float ms)
 	{
 		TimerId id = 0;
 		bool result = TimerManager::Get().WaitFor(tag, ms, 0, &id);
@@ -195,7 +175,7 @@ namespace Utils
 		return result;
 	}
 
-	static uint64_t TimerSetTimeout(MonoObject* func, float delayMs, MonoObject* userData)
+	uint64_t TimerSetTimeout(MonoObject* func, float delayMs, MonoObject* userData)
 	{
 		if (!func)
 		{
@@ -226,7 +206,7 @@ namespace Utils
 		return id;
 	}
 
-	static uint64_t TimerSetInterval(MonoObject* func, float intervalMs, MonoObject* userData)
+	uint64_t TimerSetInterval(MonoObject* func, float intervalMs, MonoObject* userData)
 	{
 		if (!func)
 		{
@@ -257,13 +237,13 @@ namespace Utils
 		return id;
 	}
 
-	static void TimerPauseTimer(uint64_t timerId)
+	void TimerPauseTimer(uint64_t timerId)
 	{
 		if(TimerManager::Get().GetGroupMap().Get(RuntimeTimersGroupId).Exists(timerId))
 			TimerManager::Get().PauseTimer(timerId);
 	}
 
-	static void TimerResumeTimer(uint64_t timerId)
+	void TimerResumeTimer(uint64_t timerId)
 	{
 		if (TimerManager::Get().GetGroupMap().Get(RuntimeTimersGroupId).Exists(timerId))
 			TimerManager::Get().ResumeTimer(timerId);
@@ -317,7 +297,7 @@ namespace Utils
 	static MonoString* AssetManagerGetFilepath(AssetHandle handle)
 	{
 		auto& path = Project::GetActive()->GetRuntimeAssetManager()->GetFilepath(handle);
-		return CreateString(path.c_str());
+		return Utils::CreateString(path.c_str());
 	}
 
 	static bool SceneManagerLoadScene(AssetHandle handle)
@@ -452,9 +432,9 @@ namespace Utils
 		if (!audioData)
 		{
 			WHP_CORE_WARN("[C# Method] Audio Data not found!");
-			return CreateString("");
+			return Utils::CreateString("");
 		}
-		return CreateString(audioData->m_Tag.c_str());
+		return Utils::CreateString(audioData->m_Tag.c_str());
 	}
 
 	static void ADSetTag(UUID entityId, UUID32 audioDataId, MonoString* tag)
@@ -849,8 +829,8 @@ namespace Utils
 	static MonoString* AnimatorComponentGetCurrentState(UUID entityId)
 	{
 		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId, false))
-			return CreateString(runtime->GetCurrentStateName().c_str());
-		return CreateString("");
+			return Utils::CreateString(runtime->GetCurrentStateName().c_str());
+		return Utils::CreateString("");
 	}
 
 	static void AnimatorComponentSetBool(UUID entityId, MonoString* name, bool value)
@@ -913,569 +893,569 @@ namespace Utils
 		ent.GetComponent<CameraComponent>().m_Camera.SetPerspectiveVerticalFOV(perspectiveVerticalFOV);
 	}
 
-	static float CameraComponentGetPerspectiveVerticalFOV(UUID entityId)
+	float CameraComponentGetPerspectiveVerticalFOV(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		return ent.GetComponent<CameraComponent>().m_Camera.GetPerspectiveVerticalFOV();
 	}
 
-	static void CameraComponentSetPerspectiveNearClip(UUID entityId, float perspectiveNearClip)
+	void CameraComponentSetPerspectiveNearClip(UUID entityId, float perspectiveNearClip)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<CameraComponent>().m_Camera.SetPerspectiveNearClip(perspectiveNearClip);
 	}
 
-	static float CameraComponentGetPerspectiveNearClip(UUID entityId)
+	float CameraComponentGetPerspectiveNearClip(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		return ent.GetComponent<CameraComponent>().m_Camera.GetPerspectiveNearClip();
 	}
 
-	static void CameraComponentSetPerspectiveFarClip(UUID entityId, float perspectiveFarClip)
+	void CameraComponentSetPerspectiveFarClip(UUID entityId, float perspectiveFarClip)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<CameraComponent>().m_Camera.SetPerspectiveFarClip(perspectiveFarClip);
 	}
 
-	static float CameraComponentGetPerspectiveFarClip(UUID entityId)
+	float CameraComponentGetPerspectiveFarClip(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		return ent.GetComponent<CameraComponent>().m_Camera.GetPerspectiveFarClip();
 	}
 
-	static void CameraComponentSetOrthographicSize(UUID entityId, float orthographicSize)
+	void CameraComponentSetOrthographicSize(UUID entityId, float orthographicSize)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<CameraComponent>().m_Camera.SetOrthographicSize(orthographicSize);
 	}
 
-	static float CameraComponentGetOrthographicSize(UUID entityId)
+	float CameraComponentGetOrthographicSize(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		return ent.GetComponent<CameraComponent>().m_Camera.GetOrthographicSize();
 	}
 
-	static void CameraComponentSetOrthographicNearClip(UUID entityId, float orthographicNearClip)
+	void CameraComponentSetOrthographicNearClip(UUID entityId, float orthographicNearClip)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<CameraComponent>().m_Camera.SetOrthographicNearClip(orthographicNearClip);
 	}
 
-	static float CameraComponentGetOrthographicNearClip(UUID entityId)
+	float CameraComponentGetOrthographicNearClip(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		return ent.GetComponent<CameraComponent>().m_Camera.GetOrthographicNearClip();
 	}
 
-	static void CameraComponentSetOrthographicFarClip(UUID entityId, float orthographicFarClip)
+	void CameraComponentSetOrthographicFarClip(UUID entityId, float orthographicFarClip)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<CameraComponent>().m_Camera.SetOrthographicFarClip(orthographicFarClip);
 	}
 
-	static float CameraComponentGetOrthographicFarClip(UUID entityId)
+	float CameraComponentGetOrthographicFarClip(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		return ent.GetComponent<CameraComponent>().m_Camera.GetOrthographicFarClip();
 	}
 
-	static void TransformComponentGetTranslation(UUID entityId, glm::vec3* outTranslation)
+	void TransformComponentGetTranslation(UUID entityId, glm::vec3* outTranslation)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		*outTranslation = ent.GetComponent<TransformComponent>().m_Translation;
 	}
 
-	static void TransformComponentSetTranslation(UUID entityId, glm::vec3* translation)
+	void TransformComponentSetTranslation(UUID entityId, glm::vec3* translation)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<TransformComponent>().m_Translation = *translation;
 	}
 
-	static void TransformComponentGetRotation(UUID entityId, glm::vec3* outRotation)
+	void TransformComponentGetRotation(UUID entityId, glm::vec3* outRotation)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		*outRotation = glm::degrees(ent.GetComponent<TransformComponent>().m_Rotation);
 	}
 
-	static void TransformComponentSetRotation(UUID entityId, glm::vec3* rotation)
+	void TransformComponentSetRotation(UUID entityId, glm::vec3* rotation)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<TransformComponent>().m_Rotation = glm::radians(*rotation);
 	}
 
-	static void TransformComponentGetScale(UUID entityId, glm::vec3* outScale)
+	void TransformComponentGetScale(UUID entityId, glm::vec3* outScale)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		*outScale = ent.GetComponent<TransformComponent>().m_Scale;
 	}
 
-	static void TransformComponentSetScale(UUID entityId, glm::vec3* scale)
+	void TransformComponentSetScale(UUID entityId, glm::vec3* scale)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<TransformComponent>().m_Scale = *scale;
 	}
 
-	static void Rigidbody2DComponentApplyForce(UUID entityId, glm::vec2* force, glm::vec2* point, bool wake)
+	void Rigidbody2DComponentApplyForce(UUID entityId, glm::vec2* force, glm::vec2* point, bool wake)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->ApplyForce(b2Vec2(force->x, force->y), b2Vec2(point->x, point->y), wake);
 	}
 
-	static void Rigidbody2DComponentApplyForceToCenter(UUID entityId, glm::vec2* force, bool wake)
+	void Rigidbody2DComponentApplyForceToCenter(UUID entityId, glm::vec2* force, bool wake)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->ApplyForceToCenter(b2Vec2(force->x, force->y), wake);
 	}
 
-	static void Rigidbody2DComponentApplyLinearImpulse(UUID entityId, glm::vec2* impulse, glm::vec2* point, bool wake)
+	void Rigidbody2DComponentApplyLinearImpulse(UUID entityId, glm::vec2* impulse, glm::vec2* point, bool wake)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->ApplyLinearImpulse(b2Vec2(impulse->x, impulse->y), b2Vec2(point->x, point->y), wake);
 	}
 
-	static void Rigidbody2DComponentApplyLinearImpulseToCenter(UUID entityId, glm::vec2* impulse, bool wake)
+	void Rigidbody2DComponentApplyLinearImpulseToCenter(UUID entityId, glm::vec2* impulse, bool wake)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->ApplyLinearImpulseToCenter(b2Vec2(impulse->x, impulse->y), wake);
 	}
 
-	static void Rigidbody2DComponentApplyAngularImpulse(UUID entityId, float impulse, bool wake)
+	void Rigidbody2DComponentApplyAngularImpulse(UUID entityId, float impulse, bool wake)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->ApplyAngularImpulse(impulse, wake);
 	}
 
-	static void Rigidbody2DComponentApplyTorque(UUID entityId, float torque, bool wake)
+	void Rigidbody2DComponentApplyTorque(UUID entityId, float torque, bool wake)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->ApplyTorque(torque, wake);
 	}
 
-	static void Rigidbody2DComponentGetLinearVelocity(UUID entityId, glm::vec2* outLinearVelocity)
+	void Rigidbody2DComponentGetLinearVelocity(UUID entityId, glm::vec2* outLinearVelocity)
 	{
 		auto* body = detail::GetBody(entityId);
 		const b2Vec2& linearVelocity = body->GetLinearVelocity();
 		*outLinearVelocity = glm::vec2(linearVelocity.x, linearVelocity.y);
 	}
 
-	static void Rigidbody2DComponentSetLinearVelocity(UUID entityId, glm::vec2* linearVelocity)
+	void Rigidbody2DComponentSetLinearVelocity(UUID entityId, glm::vec2* linearVelocity)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->SetLinearVelocity(b2Vec2(linearVelocity->x, linearVelocity->y));
 	}
 
-	static float Rigidbody2DComponentGetAngularVelocity(UUID entityId)
+	float Rigidbody2DComponentGetAngularVelocity(UUID entityId)
 	{
 		auto* body = detail::GetBody(entityId);
 		return body->GetAngularVelocity();
 	}
 
-	static void Rigidbody2DComponentSetAngularVelocity(UUID entityId, float angularVelocity)
+	void Rigidbody2DComponentSetAngularVelocity(UUID entityId, float angularVelocity)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->SetAngularVelocity(angularVelocity);
 	}
 
-	static Rigidbody2DComponent::BodyType Rigidbody2DComponentGetType(UUID entityId)
+	Rigidbody2DComponent::BodyType Rigidbody2DComponentGetType(UUID entityId)
 	{
 		auto* body = detail::GetBody(entityId);
 		return Physics2D::Rigidbody2DTypeFromBox2DBody(body->GetType());
 	}
 
-	static void Rigidbody2DComponentSetType(UUID entityId, Rigidbody2DComponent::BodyType bodyType)
+	void Rigidbody2DComponentSetType(UUID entityId, Rigidbody2DComponent::BodyType bodyType)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->SetType(Physics2D::Rigidbody2DTypeToBox2DBody(bodyType));
 	}
 
-	static bool Rigidbody2DComponentIsFixedRotation(UUID entityId)
+	bool Rigidbody2DComponentIsFixedRotation(UUID entityId)
 	{
 		auto* body = detail::GetBody(entityId);
 		return body->IsFixedRotation();
 	}
 
-	static void Rigidbody2DComponentSetFixedRotation(UUID entityId, bool fixed)
+	void Rigidbody2DComponentSetFixedRotation(UUID entityId, bool fixed)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->SetFixedRotation(fixed);
 	}
 
-	static float Rigidbody2DComponentGetGravityScale(UUID entityId)
+	float Rigidbody2DComponentGetGravityScale(UUID entityId)
 	{
 		auto* body = detail::GetBody(entityId);
 		return body->GetGravityScale();
 	}
 
-	static void Rigidbody2DComponentSetGravityScale(UUID entityId, float scale)
+	void Rigidbody2DComponentSetGravityScale(UUID entityId, float scale)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->SetGravityScale(scale);
 	}
 
-	static bool Rigidbody2DComponentIsEnabled(UUID entityId)
+	bool Rigidbody2DComponentIsEnabled(UUID entityId)
 	{
 		auto* body = detail::GetBody(entityId);
 		return body->IsEnabled();
 	}
 
-	static void Rigidbody2DComponentSetEnabled(UUID entityId, bool enabled)
+	void Rigidbody2DComponentSetEnabled(UUID entityId, bool enabled)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->SetEnabled(enabled);
 	}
 
-	static bool Rigidbody2DComponentIsAwake(UUID entityId)
+	bool Rigidbody2DComponentIsAwake(UUID entityId)
 	{
 		auto* body = detail::GetBody(entityId);
 		return body->IsAwake();
 	}
 
-	static void Rigidbody2DComponentSetAwake(UUID entityId, bool awake)
+	void Rigidbody2DComponentSetAwake(UUID entityId, bool awake)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->SetAwake(awake);
 	}
 
-	static float Rigidbody2DComponentGetAngle(UUID entityId)
+	float Rigidbody2DComponentGetAngle(UUID entityId)
 	{
 		auto* body = detail::GetBody(entityId);
 		return body->GetAngle();
 	}
 
-	static float Rigidbody2DComponentGetMass(UUID entityId)
+	float Rigidbody2DComponentGetMass(UUID entityId)
 	{
 		auto* body = detail::GetBody(entityId);
 		return body->GetMass();
 	}
 
-	static float Rigidbody2DComponentGetIntertia(UUID entityId)
+	float Rigidbody2DComponentGetIntertia(UUID entityId)
 	{
 		auto* body = detail::GetBody(entityId);
 		return body->GetInertia();
 	}
 
-	static void Rigidbody2DComponentSetTransform(UUID entityId, glm::vec2* position, float angle)
+	void Rigidbody2DComponentSetTransform(UUID entityId, glm::vec2* position, float angle)
 	{
 		auto* body = detail::GetBody(entityId);
 		body->SetTransform(b2Vec2(position->x, position->y), angle);
 	}
 
-	static MonoString* TextComponentGetData(UUID entityId)
+	MonoString* TextComponentGetData(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& tc = ent.GetComponent<TextComponent>();
-		return CreateString(tc.m_TextString.c_str());
+		return Utils::CreateString(tc.m_TextString.c_str());
 	}
 
-	static void TextComponentSetData(UUID entityId, MonoString* textString)
+	void TextComponentSetData(UUID entityId, MonoString* textString)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& tc = ent.GetComponent<TextComponent>();
 		tc.m_TextString = detail::MonoStringToString(textString);
 	}
 
-	static void TextComponentGetColor(UUID entityId, glm::vec4* color)
+	void TextComponentGetColor(UUID entityId, glm::vec4* color)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& tc = ent.GetComponent<TextComponent>();
 		*color = tc.m_Color;
 	}
 
-	static void TextComponentSetColor(UUID entityId, glm::vec4* color)
+	void TextComponentSetColor(UUID entityId, glm::vec4* color)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& tc = ent.GetComponent<TextComponent>();
 		tc.m_Color = *color;
 	}
 
-	static float TextComponentGetKerning(UUID entityId)
+	float TextComponentGetKerning(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& tc = ent.GetComponent<TextComponent>();
 		return tc.m_Kerning;
 	}
 
-	static void TextComponentSetKerning(UUID entityId, float kerning)
+	void TextComponentSetKerning(UUID entityId, float kerning)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& tc = ent.GetComponent<TextComponent>();
 		tc.m_Kerning = kerning;
 	}
 
-	static float TextComponentGetLineSpacing(UUID entityId)
+	float TextComponentGetLineSpacing(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& tc = ent.GetComponent<TextComponent>();
 		return tc.m_LineSpacing;
 	}
 
-	static void TextComponentSetLineSpacing(UUID entityId, float lineSpacing)
+	void TextComponentSetLineSpacing(UUID entityId, float lineSpacing)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& tc = ent.GetComponent<TextComponent>();
 		tc.m_LineSpacing = lineSpacing;
 	}
 
-	static void BoxCollider2DComponentGetOffset(UUID entityId, glm::vec2* offset)
+	void BoxCollider2DComponentGetOffset(UUID entityId, glm::vec2* offset)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		*offset = bc2dc.m_Offset;
 	}
 
-	static void BoxCollider2DComponentSetOffset(UUID entityId, glm::vec2* offset)
+	void BoxCollider2DComponentSetOffset(UUID entityId, glm::vec2* offset)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		bc2dc.m_Offset = *offset;
 	}
 
-	static void BoxCollider2DComponentGetSize(UUID entityId, glm::vec2* size)
+	void BoxCollider2DComponentGetSize(UUID entityId, glm::vec2* size)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		*size = bc2dc.m_Size;
 	}
 
-	static void BoxCollider2DComponentSetSize(UUID entityId, glm::vec2* size)
+	void BoxCollider2DComponentSetSize(UUID entityId, glm::vec2* size)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		bc2dc.m_Size = *size;
 	}
 
-	static MonoString* BoxCollider2DComponentGetTag(UUID entityId)
+	MonoString* BoxCollider2DComponentGetTag(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
-		return CreateString(bc2dc.m_Tag.c_str());
+		return Utils::CreateString(bc2dc.m_Tag.c_str());
 	}
 
-	static void BoxCollider2DComponentSetTag(UUID entityId, MonoString* tag)
+	void BoxCollider2DComponentSetTag(UUID entityId, MonoString* tag)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		bc2dc.m_Tag = detail::MonoStringToString(tag);
 	}
 
-	static float BoxCollider2DComponentGetDensity(UUID entityId)
+	float BoxCollider2DComponentGetDensity(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		return bc2dc.m_Density;
 	}
 
-	static void BoxCollider2DComponentSetDensity(UUID entityId, float density)
+	void BoxCollider2DComponentSetDensity(UUID entityId, float density)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		bc2dc.m_Density = density;
 	}
 
-	static float BoxCollider2DComponentGetFriction(UUID entityId)
+	float BoxCollider2DComponentGetFriction(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		return bc2dc.m_Friction;
 	}
 
-	static void BoxCollider2DComponentSetFriction(UUID entityId, float friction)
+	void BoxCollider2DComponentSetFriction(UUID entityId, float friction)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		bc2dc.m_Friction = friction;
 	}
 
-	static float BoxCollider2DComponentGetRestitution(UUID entityId)
+	float BoxCollider2DComponentGetRestitution(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		return bc2dc.m_Restitution;
 	}
 
-	static void BoxCollider2DComponentSetRestitution(UUID entityId, float restitution)
+	void BoxCollider2DComponentSetRestitution(UUID entityId, float restitution)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		bc2dc.m_Restitution = restitution;
 	}
 
-	static float BoxCollider2DComponentGetRestitutionThreshold(UUID entityId)
+	float BoxCollider2DComponentGetRestitutionThreshold(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		return bc2dc.m_RestitutionThreshold;
 	}
 
-	static void BoxCollider2DComponentSetRestitutionThreshold(UUID entityId, float restitutionThreshold)
+	void BoxCollider2DComponentSetRestitutionThreshold(UUID entityId, float restitutionThreshold)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		bc2dc.m_RestitutionThreshold = restitutionThreshold;
 	}
 
-	static float BoxCollider2DComponentIsSensor(UUID entityId)
+	float BoxCollider2DComponentIsSensor(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		return bc2dc.m_Sensor;
 	}
 
-	static void BoxCollider2DComponentSetSensor(UUID entityId, bool sensor)
+	void BoxCollider2DComponentSetSensor(UUID entityId, bool sensor)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& bc2dc = ent.GetComponent<BoxCollider2DComponent>();
 		bc2dc.m_Sensor = sensor;
 	}
 
-	static void CircleCollider2DComponentGetOffset(UUID entityId, glm::vec2* offset)
+	void CircleCollider2DComponentGetOffset(UUID entityId, glm::vec2* offset)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		*offset = cc2dc.m_Offset;
 	}
 
-	static void CircleCollider2DComponentSetOffset(UUID entityId, glm::vec2* offset)
+	void CircleCollider2DComponentSetOffset(UUID entityId, glm::vec2* offset)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		cc2dc.m_Offset = *offset;
 	}
 
-	static float CircleCollider2DComponentGetRadius(UUID entityId)
+	float CircleCollider2DComponentGetRadius(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		return cc2dc.m_Radius;
 	}
 
-	static void CircleCollider2DComponentSetRadius(UUID entityId, float radius)
+	void CircleCollider2DComponentSetRadius(UUID entityId, float radius)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		cc2dc.m_Radius = radius;
 	}
 
-	static MonoString* CircleCollider2DComponentGetTag(UUID entityId)
+	MonoString* CircleCollider2DComponentGetTag(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
-		return CreateString(cc2dc.m_Tag.c_str());
+		return Utils::CreateString(cc2dc.m_Tag.c_str());
 	}
 
-	static void CircleCollider2DComponentSetTag(UUID entityId, MonoString* tag)
+	void CircleCollider2DComponentSetTag(UUID entityId, MonoString* tag)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		cc2dc.m_Tag = detail::MonoStringToString(tag);
 	}
 
-	static float CircleCollider2DComponentGetDensity(UUID entityId)
+	float CircleCollider2DComponentGetDensity(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		return cc2dc.m_Density;
 	}
 
-	static void CircleCollider2DComponentSetDensity(UUID entityId, float density)
+	void CircleCollider2DComponentSetDensity(UUID entityId, float density)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		cc2dc.m_Density = density;
 	}
 
-	static float CircleCollider2DComponentGetFriction(UUID entityId)
+	float CircleCollider2DComponentGetFriction(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		return cc2dc.m_Friction;
 	}
 
-	static void CircleCollider2DComponentSetFriction(UUID entityId, float friction)
+	void CircleCollider2DComponentSetFriction(UUID entityId, float friction)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		cc2dc.m_Friction = friction;
 	}
 
-	static float CircleCollider2DComponentGetRestitution(UUID entityId)
+	float CircleCollider2DComponentGetRestitution(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		return cc2dc.m_Restitution;
 	}
 
-	static void CircleCollider2DComponentSetRestitution(UUID entityId, float restitution)
+	void CircleCollider2DComponentSetRestitution(UUID entityId, float restitution)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		cc2dc.m_Restitution = restitution;
 	}
 
-	static float CircleCollider2DComponentGetRestitutionThreshold(UUID entityId)
+	float CircleCollider2DComponentGetRestitutionThreshold(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		return cc2dc.m_RestitutionThreshold;
 	}
 
-	static void CircleCollider2DComponentSetRestitutionThreshold(UUID entityId, float restitutionThreshold)
+	void CircleCollider2DComponentSetRestitutionThreshold(UUID entityId, float restitutionThreshold)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		cc2dc.m_RestitutionThreshold = restitutionThreshold;
 	}
 
-	static float CircleCollider2DComponentIsSensor(UUID entityId)
+	float CircleCollider2DComponentIsSensor(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		return cc2dc.m_Sensor;
 	}
 
-	static void CircleCollider2DComponentSetSensor(UUID entityId, bool sensor)
+	void CircleCollider2DComponentSetSensor(UUID entityId, bool sensor)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& cc2dc = ent.GetComponent<CircleCollider2DComponent>();
 		cc2dc.m_Sensor = sensor;
 	}
 
-	static void SpriteRendererComponentGetColor(UUID entityId, glm::vec4* outColor)
+	void SpriteRendererComponentGetColor(UUID entityId, glm::vec4* outColor)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& src = ent.GetComponent<SpriteRendererComponent>();
 		*outColor = src.m_Color;
 	}
 
-	static void SpriteRendererComponentSetColor(UUID entityId, glm::vec4* color)
+	void SpriteRendererComponentSetColor(UUID entityId, glm::vec4* color)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& src = ent.GetComponent<SpriteRendererComponent>();
 		src.m_Color = *color;
 	}
 
-	static float SpriteRendererComponentGetTilingFactor(UUID entityId)
+	float SpriteRendererComponentGetTilingFactor(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& src = ent.GetComponent<SpriteRendererComponent>();
 		return src.m_TilingFactor;
 	}
 
-	static void SpriteRendererComponentSetTilingFactor(UUID entityId, float tilingFactor)
+	void SpriteRendererComponentSetTilingFactor(UUID entityId, float tilingFactor)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& src = ent.GetComponent<SpriteRendererComponent>();
 		src.m_TilingFactor = tilingFactor;
 	}
 
-	static uint64_t SpriteRendererComponentGetTextureHandle(UUID entityId)
+	uint64_t SpriteRendererComponentGetTextureHandle(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& src = ent.GetComponent<SpriteRendererComponent>();
 		return static_cast<uint64_t>(src.m_Texture);
 	}
 
-	static void SpriteRendererComponentSetTextureHandle(UUID entityId, UUID textureHandle)
+	void SpriteRendererComponentSetTextureHandle(UUID entityId, UUID textureHandle)
 	{
 		if (!Project::GetActive()->GetRuntimeAssetManager()->GetAssetRegistry().Exist(AssetType::Texture2D, textureHandle))
 		{
@@ -1486,66 +1466,66 @@ namespace Utils
 		auto& src = ent.GetComponent<SpriteRendererComponent>();
 		src.m_Texture = textureHandle;
 	}
-	
-	static void CircleRendererComponentGetColor(UUID entityId, glm::vec4* outColor)
+
+	void CircleRendererComponentGetColor(UUID entityId, glm::vec4* outColor)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& crc = ent.GetComponent<CircleRendererComponent>();
 		*outColor = crc.m_Color;
 	}
 
-	static void CircleRendererComponentSetColor(UUID entityId, glm::vec4* color)
+	void CircleRendererComponentSetColor(UUID entityId, glm::vec4* color)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& crc = ent.GetComponent<CircleRendererComponent>();
 		crc.m_Color = *color;
 	}
 
-	static float CircleRendererComponentGetThickness(UUID entityId)
+	float CircleRendererComponentGetThickness(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& crc = ent.GetComponent<CircleRendererComponent>();
 		return crc.m_Thickness;
 	}
 
-	static void CircleRendererComponentSetThickness(UUID entityId, float thickness)
+	void CircleRendererComponentSetThickness(UUID entityId, float thickness)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& crc = ent.GetComponent<CircleRendererComponent>();
 		crc.m_Thickness = thickness;
 	}
 
-	static float CircleRendererComponentGetFade(UUID entityId)
+	float CircleRendererComponentGetFade(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& crc = ent.GetComponent<CircleRendererComponent>();
 		return crc.m_Fade;
 	}
 
-	static void CircleRendererComponentSetFade(UUID entityId, float fade)
+	void CircleRendererComponentSetFade(UUID entityId, float fade)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& crc = ent.GetComponent<CircleRendererComponent>();
 		crc.m_Fade = fade;
 	}
 
-	static int AudioComponentGetADCount(UUID entityId)
+	int AudioComponentGetADCount(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& ac = ent.GetComponent<AudioComponent>();
 		return static_cast<int>(ac.m_AudioDatas.size());
 	}
 
-	static uint32_t AudioComponentGetAD(UUID entityId, int index)
+	uint32_t AudioComponentGetAD(UUID entityId, int index)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& ac = ent.GetComponent<AudioComponent>();
-		if (index >= ac.m_AudioDatas.size())
+		if (size_t idx = static_cast<size_t>(index); idx >= ac.m_AudioDatas.size())
 			return 0;
 		return ac.m_AudioDatas[index].m_ID;
 	}
 
-	static uint32_t AudioComponentCreateAudioData(UUID entityId)
+	uint32_t AudioComponentCreateAudioData(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& ac = ent.GetComponent<AudioComponent>();
@@ -1556,7 +1536,7 @@ namespace Utils
 		return data.m_ID;
 	}
 
-	static void AudioComponentRemoveAudioData(UUID entityId, UUID32 audioDataId)
+	void AudioComponentRemoveAudioData(UUID entityId, UUID32 audioDataId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		auto& ac = ent.GetComponent<AudioComponent>();
@@ -1564,14 +1544,14 @@ namespace Utils
 		{
 			if (ac.m_AudioDatas[i].m_ID == audioDataId && ac.m_AudioDatas[i].m_LoadedInRuntime)
 			{
-				ac.m_AudioDatas.erase(ac.m_AudioDatas.begin() + i);
+				ac.m_AudioDatas.erase(ac.m_AudioDatas.begin() + static_cast<std::ptrdiff_t>(i));
 				break;
 			}
 		}
 	}
 
 	template<class... Component>
-	static void RegisterComponent()
+	void RegisterComponent()
 	{
 		([]()
 			{
@@ -1588,7 +1568,7 @@ namespace Utils
 	}
 
 	template<class... Component>
-	static void RegisterComponent(ComponentGroup<Component...>)
+	void RegisterComponent(ComponentGroup<Component...>)
 	{
 		RegisterComponent<Component...>();
 	}
@@ -1597,237 +1577,241 @@ namespace Utils
 void ScriptGlue::RegisterComponents()
 {
 	s_EntityHasComponentFuncs.clear();
-	Utils::RegisterComponent(AllComponentsNoIDNoTagNoScript{});
+	RegisterComponent(AllComponentsNoIDNoTagNoScript{});
 }
 
 void ScriptGlue::RegisterFunctions()
 {
+	//NOLINTBEGIN(clang-diagnostic-microsoft-cast)
+
 	// entity
-	ADD_INTERNAL_CALL(GetScriptInstance, Utils::GetScriptInstance);
-	ADD_INTERNAL_CALL(Entity_HasComponent, Utils::EntityHasComponent);
-	ADD_INTERNAL_CALL(Entity_FindEntityByName, Utils::EntityFindEntityByName);
+	ADD_INTERNAL_CALL(GetScriptInstance, GetScriptInstance);
+	ADD_INTERNAL_CALL(Entity_HasComponent, EntityHasComponent);
+	ADD_INTERNAL_CALL(Entity_FindEntityByName, EntityFindEntityByName);
 
 	// Logger
-	ADD_INTERNAL_CALL(Logger_InternalLog, Utils::LoggerInternalLog);
-	ADD_INTERNAL_CALL(Logger_InternalAssert, Utils::LoggerInternalAssert);
-	ADD_INTERNAL_CALL(Logger_SetLogger, Utils::LoggerSetLogger);
-	ADD_INTERNAL_CALL(Logger_PrintLog, Utils::LoggerPrintLog);
-	ADD_INTERNAL_CALL(Logger_PrintLogNamed, Utils::LoggerPrintLogNamed);
+	ADD_INTERNAL_CALL(Logger_InternalLog, LoggerInternalLog);
+	ADD_INTERNAL_CALL(Logger_InternalAssert, LoggerInternalAssert);
+	ADD_INTERNAL_CALL(Logger_SetLogger, LoggerSetLogger);
+	ADD_INTERNAL_CALL(Logger_PrintLog, LoggerPrintLog);
+	ADD_INTERNAL_CALL(Logger_PrintLogNamed, LoggerPrintLogNamed);
 
 	// timer
-	ADD_INTERNAL_CALL(Timer_WaitFor, Utils::TimerWaitFor);
-	ADD_INTERNAL_CALL(Timer_SetTimeout, Utils::TimerSetTimeout);
-	ADD_INTERNAL_CALL(Timer_SetInterval, Utils::TimerSetInterval);
-	ADD_INTERNAL_CALL(Timer_PauseTimer, Utils::TimerPauseTimer);
-	ADD_INTERNAL_CALL(Timer_ResumeTimer, Utils::TimerResumeTimer);
-	ADD_INTERNAL_CALL(Timer_StopTimer, Utils::TimerStopTimer);
-	ADD_INTERNAL_CALL(Timer_Clear, Utils::TimerClear);
-	ADD_INTERNAL_CALL(Timer_Exists, Utils::TimerExists);
+	ADD_INTERNAL_CALL(Timer_WaitFor, TimerWaitFor);
+	ADD_INTERNAL_CALL(Timer_SetTimeout, TimerSetTimeout);
+	ADD_INTERNAL_CALL(Timer_SetInterval, TimerSetInterval);
+	ADD_INTERNAL_CALL(Timer_PauseTimer, TimerPauseTimer);
+	ADD_INTERNAL_CALL(Timer_ResumeTimer, TimerResumeTimer);
+	ADD_INTERNAL_CALL(Timer_StopTimer, TimerStopTimer);
+	ADD_INTERNAL_CALL(Timer_Clear, TimerClear);
+	ADD_INTERNAL_CALL(Timer_Exists, TimerExists);
 
 	// Asset manager
-	ADD_INTERNAL_CALL(AssetManager_ImportAsset, Utils::AssetManagerImportAsset);
-	ADD_INTERNAL_CALL(AssetManager_DeleteAsset, Utils::AssetManagerDeleteAsset);
-	ADD_INTERNAL_CALL(AssetManager_IsAssetHandleValid, Utils::AssetManagerIsAssetHandleValid);
-	ADD_INTERNAL_CALL(AssetManager_IsAssetLoaded, Utils::AssetManagerIsAsSetLoaded);
-	ADD_INTERNAL_CALL(AssetManager_GetAssetType, Utils::AssetManagerGetAssetType);
-	ADD_INTERNAL_CALL(AssetManager_GetFilepath, Utils::AssetManagerGetFilepath);
+	ADD_INTERNAL_CALL(AssetManager_ImportAsset, AssetManagerImportAsset);
+	ADD_INTERNAL_CALL(AssetManager_DeleteAsset, AssetManagerDeleteAsset);
+	ADD_INTERNAL_CALL(AssetManager_IsAssetHandleValid, AssetManagerIsAssetHandleValid);
+	ADD_INTERNAL_CALL(AssetManager_IsAssetLoaded, AssetManagerIsAsSetLoaded);
+	ADD_INTERNAL_CALL(AssetManager_GetAssetType, AssetManagerGetAssetType);
+	ADD_INTERNAL_CALL(AssetManager_GetFilepath, AssetManagerGetFilepath);
 
 	// scene manager
-	ADD_INTERNAL_CALL(SceneManager_LoadScene, Utils::SceneManagerLoadScene);
-	ADD_INTERNAL_CALL(SceneManager_LoadSceneByName, Utils::SceneManagerLoadSceneByName);
-	ADD_INTERNAL_CALL(SceneManager_FindSceneByName, Utils::SceneManagerFindSceneByName);
-	ADD_INTERNAL_CALL(SceneManager_LoadStartScene, Utils::SceneManagerLoadStartScene);
-	ADD_INTERNAL_CALL(SceneManager_ReloadScene, Utils::SceneManagerReloadScene);
-	ADD_INTERNAL_CALL(SceneManager_UnloadScene, Utils::SceneManagerUnloadScene);
-	ADD_INTERNAL_CALL(SceneManager_GetActiveSceneHandle, Utils::SceneManagerGetActiveSceneHandle);
+	ADD_INTERNAL_CALL(SceneManager_LoadScene, SceneManagerLoadScene);
+	ADD_INTERNAL_CALL(SceneManager_LoadSceneByName, SceneManagerLoadSceneByName);
+	ADD_INTERNAL_CALL(SceneManager_FindSceneByName, SceneManagerFindSceneByName);
+	ADD_INTERNAL_CALL(SceneManager_LoadStartScene, SceneManagerLoadStartScene);
+	ADD_INTERNAL_CALL(SceneManager_ReloadScene, SceneManagerReloadScene);
+	ADD_INTERNAL_CALL(SceneManager_UnloadScene, SceneManagerUnloadScene);
+	ADD_INTERNAL_CALL(SceneManager_GetActiveSceneHandle, SceneManagerGetActiveSceneHandle);
 
 	// Input
-	ADD_INTERNAL_CALL(Input_IsKeyDown, Utils::InputIsKeyDown);
-	ADD_INTERNAL_CALL(Input_IsKeyUp, Utils::InputIsKeyUp);
-	ADD_INTERNAL_CALL(Input_IsKeyPressed, Utils::InputIsKeyPressed);
-	ADD_INTERNAL_CALL(Input_IsKeyReleased, Utils::InputIsKeyReleased);
-	ADD_INTERNAL_CALL(Input_IsMouseButtonDown, Utils::InputIsMouseButtonDown);
-	ADD_INTERNAL_CALL(Input_IsMouseButtonUp, Utils::InputIsMouseButtonUp);
-	ADD_INTERNAL_CALL(Input_IsMouseButtonPressed, Utils::InputIsMouseButtonPressed);
-	ADD_INTERNAL_CALL(Input_IsMouseButtonReleased, Utils::InputIsMouseButtonReleased);
-	ADD_INTERNAL_CALL(Input_GetMouseX, Utils::InputGetMouseX);
-	ADD_INTERNAL_CALL(Input_GetMouseY, Utils::InputGetMouseY);
-	ADD_INTERNAL_CALL(Input_GetMousePosition, Utils::InputGetMousePosition);
+	ADD_INTERNAL_CALL(Input_IsKeyDown, InputIsKeyDown);
+	ADD_INTERNAL_CALL(Input_IsKeyUp, InputIsKeyUp);
+	ADD_INTERNAL_CALL(Input_IsKeyPressed, InputIsKeyPressed);
+	ADD_INTERNAL_CALL(Input_IsKeyReleased, InputIsKeyReleased);
+	ADD_INTERNAL_CALL(Input_IsMouseButtonDown, InputIsMouseButtonDown);
+	ADD_INTERNAL_CALL(Input_IsMouseButtonUp, InputIsMouseButtonUp);
+	ADD_INTERNAL_CALL(Input_IsMouseButtonPressed, InputIsMouseButtonPressed);
+	ADD_INTERNAL_CALL(Input_IsMouseButtonReleased, InputIsMouseButtonReleased);
+	ADD_INTERNAL_CALL(Input_GetMouseX, InputGetMouseX);
+	ADD_INTERNAL_CALL(Input_GetMouseY, InputGetMouseY);
+	ADD_INTERNAL_CALL(Input_GetMousePosition, InputGetMousePosition);
 
 	// audio data
-	ADD_INTERNAL_CALL(AD_IsValid, Utils::ADIsValid);
-	ADD_INTERNAL_CALL(AD_GetAudioHandle, Utils::ADGetAudioHandle);
-	ADD_INTERNAL_CALL(AD_SetAudioHandle, Utils::ADSetAudioHandle);
-	ADD_INTERNAL_CALL(AD_GetTag, Utils::ADGetTag);
-	ADD_INTERNAL_CALL(AD_SetTag, Utils::ADSetTag);
-	ADD_INTERNAL_CALL(AD_GetTranslation, Utils::ADGetTranslation);
-	ADD_INTERNAL_CALL(AD_SetTranslation, Utils::ADSetTranslation);
-	ADD_INTERNAL_CALL(ADIsSpitial, Utils::ADIsSpitial);
-	ADD_INTERNAL_CALL(ADSetSpitial, Utils::ADSetSpitial);
-	ADD_INTERNAL_CALL(ADIsLoop, Utils::ADIsLoop);
-	ADD_INTERNAL_CALL(ADSetLoop, Utils::ADSetLoop);
-	ADD_INTERNAL_CALL(ADGetGain, Utils::ADGetGain);
-	ADD_INTERNAL_CALL(ADSetGain, Utils::ADSetGain);
-	ADD_INTERNAL_CALL(AD_GetPitch, Utils::ADGetPitch);
-	ADD_INTERNAL_CALL(ADSetPitch, Utils::ADSetPitch);
-	ADD_INTERNAL_CALL(AD_GetFullClipLength, Utils::ADGetFullClipLength);
-	ADD_INTERNAL_CALL(AD_GetClipStart, Utils::ADGetClipStart);
-	ADD_INTERNAL_CALL(AD_SetClipStart, Utils::ADSetClipStart);
-	ADD_INTERNAL_CALL(AD_GetClipEnd, Utils::ADGetClipEnd);
-	ADD_INTERNAL_CALL(AD_SetClipEnd, Utils::ADSetClipEnd);
+	ADD_INTERNAL_CALL(AD_IsValid, ADIsValid);
+	ADD_INTERNAL_CALL(AD_GetAudioHandle, ADGetAudioHandle);
+	ADD_INTERNAL_CALL(AD_SetAudioHandle, ADSetAudioHandle);
+	ADD_INTERNAL_CALL(AD_GetTag, ADGetTag);
+	ADD_INTERNAL_CALL(AD_SetTag, ADSetTag);
+	ADD_INTERNAL_CALL(AD_GetTranslation, ADGetTranslation);
+	ADD_INTERNAL_CALL(AD_SetTranslation, ADSetTranslation);
+	ADD_INTERNAL_CALL(ADIsSpitial, ADIsSpitial);
+	ADD_INTERNAL_CALL(ADSetSpitial, ADSetSpitial);
+	ADD_INTERNAL_CALL(ADIsLoop, ADIsLoop);
+	ADD_INTERNAL_CALL(ADSetLoop, ADSetLoop);
+	ADD_INTERNAL_CALL(ADGetGain, ADGetGain);
+	ADD_INTERNAL_CALL(ADSetGain, ADSetGain);
+	ADD_INTERNAL_CALL(AD_GetPitch, ADGetPitch);
+	ADD_INTERNAL_CALL(ADSetPitch, ADSetPitch);
+	ADD_INTERNAL_CALL(AD_GetFullClipLength, ADGetFullClipLength);
+	ADD_INTERNAL_CALL(AD_GetClipStart, ADGetClipStart);
+	ADD_INTERNAL_CALL(AD_SetClipStart, ADSetClipStart);
+	ADD_INTERNAL_CALL(AD_GetClipEnd, ADGetClipEnd);
+	ADD_INTERNAL_CALL(AD_SetClipEnd, ADSetClipEnd);
 
 	// audio Engine or Manager
-	ADD_INTERNAL_CALL(AudioEngine_UpdatePosition, Utils::AudioEngineUpdatePosition);
+	ADD_INTERNAL_CALL(AudioEngine_UpdatePosition, AudioEngineUpdatePosition);
 
 	// Animation
-	ADD_INTERNAL_CALL(Animation_GetAnimationByName, Utils::AnimationGetAnimByTag);
-	ADD_INTERNAL_CALL(Animation_IsValid, Utils::AnimationIsValid);
-	ADD_INTERNAL_CALL(Animation_Bound, Utils::AnimationBound);
-	ADD_INTERNAL_CALL(Animation_Unbound, Utils::AnimationUnbound);
-	ADD_INTERNAL_CALL(Animation_Play, Utils::AnimationPlay);
-	ADD_INTERNAL_CALL(Animation_Stop, Utils::AnimationStop);
-	ADD_INTERNAL_CALL(Animation_Pause, Utils::AnimationPause);
-	ADD_INTERNAL_CALL(Animation_Resume, Utils::AnimationResume);
-	ADD_INTERNAL_CALL(Animation_IsPlaying, Utils::AnimationIsPlaying);
-	ADD_INTERNAL_CALL(Animation_IsPaused, Utils::AnimationIsPaused);
-	ADD_INTERNAL_CALL(Animation_IsLooping, Utils::AnimationIsLooping);
-	ADD_INTERNAL_CALL(Animation_SetLoop, Utils::AnimationSetLoop);
+	ADD_INTERNAL_CALL(Animation_GetAnimationByName, AnimationGetAnimByTag);
+	ADD_INTERNAL_CALL(Animation_IsValid, AnimationIsValid);
+	ADD_INTERNAL_CALL(Animation_Bound, AnimationBound);
+	ADD_INTERNAL_CALL(Animation_Unbound, AnimationUnbound);
+	ADD_INTERNAL_CALL(Animation_Play, AnimationPlay);
+	ADD_INTERNAL_CALL(Animation_Stop, AnimationStop);
+	ADD_INTERNAL_CALL(Animation_Pause, AnimationPause);
+	ADD_INTERNAL_CALL(Animation_Resume, AnimationResume);
+	ADD_INTERNAL_CALL(Animation_IsPlaying, AnimationIsPlaying);
+	ADD_INTERNAL_CALL(Animation_IsPaused, AnimationIsPaused);
+	ADD_INTERNAL_CALL(Animation_IsLooping, AnimationIsLooping);
+	ADD_INTERNAL_CALL(Animation_SetLoop, AnimationSetLoop);
 
 	// Animator component
-	ADD_INTERNAL_CALL(AnimatorComponent_GetController, Utils::AnimatorComponentGetController);
-	ADD_INTERNAL_CALL(AnimatorComponent_SetController, Utils::AnimatorComponentSetController);
-	ADD_INTERNAL_CALL(AnimatorComponent_GetSpeed, Utils::AnimatorComponentGetSpeed);
-	ADD_INTERNAL_CALL(AnimatorComponent_SetSpeed, Utils::AnimatorComponentSetSpeed);
-	ADD_INTERNAL_CALL(AnimatorComponent_Play, Utils::AnimatorComponentPlay);
-	ADD_INTERNAL_CALL(AnimatorComponent_Stop, Utils::AnimatorComponentStop);
-	ADD_INTERNAL_CALL(AnimatorComponent_IsPlaying, Utils::AnimatorComponentIsPlaying);
-	ADD_INTERNAL_CALL(AnimatorComponent_GetCurrentState, Utils::AnimatorComponentGetCurrentState);
-	ADD_INTERNAL_CALL(AnimatorComponent_SetBool, Utils::AnimatorComponentSetBool);
-	ADD_INTERNAL_CALL(AnimatorComponent_SetInt, Utils::AnimatorComponentSetInt);
-	ADD_INTERNAL_CALL(AnimatorComponent_SetFloat, Utils::AnimatorComponentSetFloat);
-	ADD_INTERNAL_CALL(AnimatorComponent_SetTrigger, Utils::AnimatorComponentSetTrigger);
-	ADD_INTERNAL_CALL(AnimatorComponent_ResetTrigger, Utils::AnimatorComponentResetTrigger);
+	ADD_INTERNAL_CALL(AnimatorComponent_GetController, AnimatorComponentGetController);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetController, AnimatorComponentSetController);
+	ADD_INTERNAL_CALL(AnimatorComponent_GetSpeed, AnimatorComponentGetSpeed);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetSpeed, AnimatorComponentSetSpeed);
+	ADD_INTERNAL_CALL(AnimatorComponent_Play, AnimatorComponentPlay);
+	ADD_INTERNAL_CALL(AnimatorComponent_Stop, AnimatorComponentStop);
+	ADD_INTERNAL_CALL(AnimatorComponent_IsPlaying, AnimatorComponentIsPlaying);
+	ADD_INTERNAL_CALL(AnimatorComponent_GetCurrentState, AnimatorComponentGetCurrentState);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetBool, AnimatorComponentSetBool);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetInt, AnimatorComponentSetInt);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetFloat, AnimatorComponentSetFloat);
+	ADD_INTERNAL_CALL(AnimatorComponent_SetTrigger, AnimatorComponentSetTrigger);
+	ADD_INTERNAL_CALL(AnimatorComponent_ResetTrigger, AnimatorComponentResetTrigger);
 
 	// Camera component
-	ADD_INTERNAL_CALL(CameraComponent_IsPrimary, Utils::CameraComponentIsPrimary);
-	ADD_INTERNAL_CALL(CameraComponent_SetPrimary, Utils::CameraComponentSetPrimary);
-	ADD_INTERNAL_CALL(CameraComponent_IsFixedAspectRatio, Utils::CameraComponentIsFixedAspectRatio);
-	ADD_INTERNAL_CALL(CameraComponent_SetFixedAspectRatio, Utils::CameraComponentSetFixedAspectRatio);
-	ADD_INTERNAL_CALL(CameraComponent_GetPerspectiveVerticalFOV, Utils::CameraComponentGetPerspectiveVerticalFOV);
-	ADD_INTERNAL_CALL(CameraComponent_SetPerspectiveVerticalFOV, Utils::CameraComponentSetPerspectiveVerticalFOV);
-	ADD_INTERNAL_CALL(CameraComponent_GetPerspectiveNearClip, Utils::CameraComponentGetPerspectiveNearClip);
-	ADD_INTERNAL_CALL(CameraComponent_SetPerspectiveNearClip, Utils::CameraComponentSetPerspectiveNearClip);
-	ADD_INTERNAL_CALL(CameraComponent_GetPerspectiveFarClip, Utils::CameraComponentGetPerspectiveFarClip);
-	ADD_INTERNAL_CALL(CameraComponent_SetPerspectiveFarClip, Utils::CameraComponentSetPerspectiveFarClip);
-	ADD_INTERNAL_CALL(CameraComponent_GetOrthographicSize, Utils::CameraComponentGetOrthographicSize);
-	ADD_INTERNAL_CALL(CameraComponent_SetOrthographicSize, Utils::CameraComponentSetOrthographicSize);
-	ADD_INTERNAL_CALL(CameraComponent_GetOrthographicNearClip, Utils::CameraComponentGetOrthographicNearClip);
-	ADD_INTERNAL_CALL(CameraComponent_SetOrthographicNearClip, Utils::CameraComponentSetOrthographicNearClip);
-	ADD_INTERNAL_CALL(CameraComponent_GetOrthographicFarClip, Utils::CameraComponentGetOrthographicFarClip);
-	ADD_INTERNAL_CALL(CameraComponent_SetOrthographicFarClip, Utils::CameraComponentSetOrthographicFarClip);
+	ADD_INTERNAL_CALL(CameraComponent_IsPrimary, CameraComponentIsPrimary);
+	ADD_INTERNAL_CALL(CameraComponent_SetPrimary, CameraComponentSetPrimary);
+	ADD_INTERNAL_CALL(CameraComponent_IsFixedAspectRatio, CameraComponentIsFixedAspectRatio);
+	ADD_INTERNAL_CALL(CameraComponent_SetFixedAspectRatio, CameraComponentSetFixedAspectRatio);
+	ADD_INTERNAL_CALL(CameraComponent_GetPerspectiveVerticalFOV, CameraComponentGetPerspectiveVerticalFOV);
+	ADD_INTERNAL_CALL(CameraComponent_SetPerspectiveVerticalFOV, CameraComponentSetPerspectiveVerticalFOV);
+	ADD_INTERNAL_CALL(CameraComponent_GetPerspectiveNearClip, CameraComponentGetPerspectiveNearClip);
+	ADD_INTERNAL_CALL(CameraComponent_SetPerspectiveNearClip, CameraComponentSetPerspectiveNearClip);
+	ADD_INTERNAL_CALL(CameraComponent_GetPerspectiveFarClip, CameraComponentGetPerspectiveFarClip);
+	ADD_INTERNAL_CALL(CameraComponent_SetPerspectiveFarClip, CameraComponentSetPerspectiveFarClip);
+	ADD_INTERNAL_CALL(CameraComponent_GetOrthographicSize, CameraComponentGetOrthographicSize);
+	ADD_INTERNAL_CALL(CameraComponent_SetOrthographicSize, CameraComponentSetOrthographicSize);
+	ADD_INTERNAL_CALL(CameraComponent_GetOrthographicNearClip, CameraComponentGetOrthographicNearClip);
+	ADD_INTERNAL_CALL(CameraComponent_SetOrthographicNearClip, CameraComponentSetOrthographicNearClip);
+	ADD_INTERNAL_CALL(CameraComponent_GetOrthographicFarClip, CameraComponentGetOrthographicFarClip);
+	ADD_INTERNAL_CALL(CameraComponent_SetOrthographicFarClip, CameraComponentSetOrthographicFarClip);
 
 	// transform component
-	ADD_INTERNAL_CALL(TransformComponent_GetTranslation, Utils::TransformComponentGetTranslation);
-	ADD_INTERNAL_CALL(TransformComponent_SetTranslation, Utils::TransformComponentSetTranslation);
-	ADD_INTERNAL_CALL(TransformComponent_GetRotation, Utils::TransformComponentGetRotation);
-	ADD_INTERNAL_CALL(TransformComponent_SetRotation, Utils::TransformComponentSetRotation);
-	ADD_INTERNAL_CALL(TransformComponent_GetScale, Utils::TransformComponentGetScale);
-	ADD_INTERNAL_CALL(TransformComponent_SetScale, Utils::TransformComponentSetScale);
+	ADD_INTERNAL_CALL(TransformComponent_GetTranslation, TransformComponentGetTranslation);
+	ADD_INTERNAL_CALL(TransformComponent_SetTranslation, TransformComponentSetTranslation);
+	ADD_INTERNAL_CALL(TransformComponent_GetRotation, TransformComponentGetRotation);
+	ADD_INTERNAL_CALL(TransformComponent_SetRotation, TransformComponentSetRotation);
+	ADD_INTERNAL_CALL(TransformComponent_GetScale, TransformComponentGetScale);
+	ADD_INTERNAL_CALL(TransformComponent_SetScale, TransformComponentSetScale);
 
 	// text component
-	ADD_INTERNAL_CALL(TextComponent_GetText, Utils::TextComponentGetData);
-	ADD_INTERNAL_CALL(TextComponent_SetText, Utils::TextComponentSetData);
-	ADD_INTERNAL_CALL(TextComponent_GetColor, Utils::TextComponentGetColor);
-	ADD_INTERNAL_CALL(TextComponent_SetColor, Utils::TextComponentSetColor);
-	ADD_INTERNAL_CALL(TextComponent_GetKerning, Utils::TextComponentGetKerning);
-	ADD_INTERNAL_CALL(TextComponent_SetKerning, Utils::TextComponentSetKerning);
-	ADD_INTERNAL_CALL(TextComponent_GetLineSpacing, Utils::TextComponentGetLineSpacing);
-	ADD_INTERNAL_CALL(TextComponent_SetLineSpacing, Utils::TextComponentSetLineSpacing);
+	ADD_INTERNAL_CALL(TextComponent_GetText, TextComponentGetData);
+	ADD_INTERNAL_CALL(TextComponent_SetText, TextComponentSetData);
+	ADD_INTERNAL_CALL(TextComponent_GetColor, TextComponentGetColor);
+	ADD_INTERNAL_CALL(TextComponent_SetColor, TextComponentSetColor);
+	ADD_INTERNAL_CALL(TextComponent_GetKerning, TextComponentGetKerning);
+	ADD_INTERNAL_CALL(TextComponent_SetKerning, TextComponentSetKerning);
+	ADD_INTERNAL_CALL(TextComponent_GetLineSpacing, TextComponentGetLineSpacing);
+	ADD_INTERNAL_CALL(TextComponent_SetLineSpacing, TextComponentSetLineSpacing);
 
 	// rigidbody2D component
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyForce, Utils::Rigidbody2DComponentApplyForce);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyForceToCenter, Utils::Rigidbody2DComponentApplyForceToCenter);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyLinearImpulse, Utils::Rigidbody2DComponentApplyLinearImpulse);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyLinearImpulseToCenter, Utils::Rigidbody2DComponentApplyLinearImpulseToCenter);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyAngularImpulse, Utils::Rigidbody2DComponentApplyAngularImpulse);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyTorque, Utils::Rigidbody2DComponentApplyTorque);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetLinearVelocity, Utils::Rigidbody2DComponentGetLinearVelocity);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetLinearVelocity, Utils::Rigidbody2DComponentSetLinearVelocity);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetAngularVelocity, Utils::Rigidbody2DComponentGetAngularVelocity);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetAngularVelocity, Utils::Rigidbody2DComponentSetAngularVelocity);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetType, Utils::Rigidbody2DComponentGetType);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetType, Utils::Rigidbody2DComponentSetType);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_IsFixedRotation, Utils::Rigidbody2DComponentIsFixedRotation);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetFixedRotation, Utils::Rigidbody2DComponentSetFixedRotation);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetGravityScale, Utils::Rigidbody2DComponentGetGravityScale);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetGravityScale, Utils::Rigidbody2DComponentSetGravityScale);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_IsEnabled, Utils::Rigidbody2DComponentIsEnabled);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetEnabled, Utils::Rigidbody2DComponentSetEnabled);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_IsAwake, Utils::Rigidbody2DComponentIsAwake);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetAwake, Utils::Rigidbody2DComponentSetAwake);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetAngle, Utils::Rigidbody2DComponentGetAngle);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetMass, Utils::Rigidbody2DComponentGetMass);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetIntertia, Utils::Rigidbody2DComponentGetIntertia);
-	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetTransform, Utils::Rigidbody2DComponentSetTransform);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyForce, Rigidbody2DComponentApplyForce);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyForceToCenter, Rigidbody2DComponentApplyForceToCenter);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyLinearImpulse, Rigidbody2DComponentApplyLinearImpulse);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyLinearImpulseToCenter, Rigidbody2DComponentApplyLinearImpulseToCenter);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyAngularImpulse, Rigidbody2DComponentApplyAngularImpulse);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_ApplyTorque, Rigidbody2DComponentApplyTorque);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetLinearVelocity, Rigidbody2DComponentGetLinearVelocity);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetLinearVelocity, Rigidbody2DComponentSetLinearVelocity);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetAngularVelocity, Rigidbody2DComponentGetAngularVelocity);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetAngularVelocity, Rigidbody2DComponentSetAngularVelocity);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetType, Rigidbody2DComponentGetType);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetType, Rigidbody2DComponentSetType);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_IsFixedRotation, Rigidbody2DComponentIsFixedRotation);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetFixedRotation, Rigidbody2DComponentSetFixedRotation);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetGravityScale, Rigidbody2DComponentGetGravityScale);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetGravityScale, Rigidbody2DComponentSetGravityScale);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_IsEnabled, Rigidbody2DComponentIsEnabled);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetEnabled, Rigidbody2DComponentSetEnabled);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_IsAwake, Rigidbody2DComponentIsAwake);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetAwake, Rigidbody2DComponentSetAwake);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetAngle, Rigidbody2DComponentGetAngle);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetMass, Rigidbody2DComponentGetMass);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_GetIntertia, Rigidbody2DComponentGetIntertia);
+	ADD_INTERNAL_CALL(Rigidbody2DComponent_SetTransform, Rigidbody2DComponentSetTransform);
 
 	// box_collider2D_component
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetOffset, Utils::BoxCollider2DComponentGetOffset);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetOffset, Utils::BoxCollider2DComponentSetOffset);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetSize, Utils::BoxCollider2DComponentGetSize);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetSize, Utils::BoxCollider2DComponentSetSize);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetTag, Utils::BoxCollider2DComponentGetTag);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetTag, Utils::BoxCollider2DComponentSetTag);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetDensity, Utils::BoxCollider2DComponentGetDensity);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetDensity, Utils::BoxCollider2DComponentSetDensity);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetFriction, Utils::BoxCollider2DComponentGetFriction);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetFriction, Utils::BoxCollider2DComponentSetFriction);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetRestitution, Utils::BoxCollider2DComponentGetRestitution);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetRestitution, Utils::BoxCollider2DComponentSetRestitution);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetRestitutionThreshold, Utils::BoxCollider2DComponentGetRestitutionThreshold);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetRestitutionThreshold, Utils::BoxCollider2DComponentSetRestitutionThreshold);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_IsSensor, Utils::BoxCollider2DComponentIsSensor);
-	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetSensor, Utils::BoxCollider2DComponentSetSensor);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetOffset, BoxCollider2DComponentGetOffset);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetOffset, BoxCollider2DComponentSetOffset);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetSize, BoxCollider2DComponentGetSize);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetSize, BoxCollider2DComponentSetSize);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetTag, BoxCollider2DComponentGetTag);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetTag, BoxCollider2DComponentSetTag);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetDensity, BoxCollider2DComponentGetDensity);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetDensity, BoxCollider2DComponentSetDensity);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetFriction, BoxCollider2DComponentGetFriction);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetFriction, BoxCollider2DComponentSetFriction);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetRestitution, BoxCollider2DComponentGetRestitution);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetRestitution, BoxCollider2DComponentSetRestitution);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_GetRestitutionThreshold, BoxCollider2DComponentGetRestitutionThreshold);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetRestitutionThreshold, BoxCollider2DComponentSetRestitutionThreshold);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_IsSensor, BoxCollider2DComponentIsSensor);
+	ADD_INTERNAL_CALL(BoxCollider2DComponent_SetSensor, BoxCollider2DComponentSetSensor);
 
 	// circle_collider2D_component
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetOffset, Utils::CircleCollider2DComponentGetOffset);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetOffset, Utils::CircleCollider2DComponentSetOffset);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetSize, Utils::CircleCollider2DComponentGetRadius);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetSize, Utils::CircleCollider2DComponentSetRadius);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetTag, Utils::CircleCollider2DComponentGetTag);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetTag, Utils::CircleCollider2DComponentSetTag);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetDensity, Utils::CircleCollider2DComponentGetDensity);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetDensity, Utils::CircleCollider2DComponentSetDensity);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetFriction, Utils::CircleCollider2DComponentGetFriction);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetFriction, Utils::CircleCollider2DComponentSetFriction);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetRestitution, Utils::CircleCollider2DComponentGetRestitution);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetRestitution, Utils::CircleCollider2DComponentSetRestitution);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetRestitutionThreshold, Utils::CircleCollider2DComponentGetRestitutionThreshold);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetRestitutionThreshold, Utils::CircleCollider2DComponentSetRestitutionThreshold);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_IsSensor, Utils::CircleCollider2DComponentIsSensor);
-	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetSensor, Utils::CircleCollider2DComponentSetSensor);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetOffset, CircleCollider2DComponentGetOffset);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetOffset, CircleCollider2DComponentSetOffset);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetSize, CircleCollider2DComponentGetRadius);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetSize, CircleCollider2DComponentSetRadius);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetTag, CircleCollider2DComponentGetTag);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetTag, CircleCollider2DComponentSetTag);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetDensity, CircleCollider2DComponentGetDensity);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetDensity, CircleCollider2DComponentSetDensity);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetFriction, CircleCollider2DComponentGetFriction);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetFriction, CircleCollider2DComponentSetFriction);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetRestitution, CircleCollider2DComponentGetRestitution);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetRestitution, CircleCollider2DComponentSetRestitution);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_GetRestitutionThreshold, CircleCollider2DComponentGetRestitutionThreshold);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetRestitutionThreshold, CircleCollider2DComponentSetRestitutionThreshold);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_IsSensor, CircleCollider2DComponentIsSensor);
+	ADD_INTERNAL_CALL(CircleCollider2DComponent_SetSensor, CircleCollider2DComponentSetSensor);
 
 	// sprite_renderer_component
-	ADD_INTERNAL_CALL(SpriteRendererComponent_GetColor, Utils::SpriteRendererComponentGetColor);
-	ADD_INTERNAL_CALL(SpriteRendererComponent_SetColor, Utils::SpriteRendererComponentSetColor);
-	ADD_INTERNAL_CALL(SpriteRendererComponent_GetTilingFactor, Utils::SpriteRendererComponentGetTilingFactor);
-	ADD_INTERNAL_CALL(SpriteRendererComponent_SetTilingFactor, Utils::SpriteRendererComponentSetTilingFactor);
-	ADD_INTERNAL_CALL(SpriteRendererComponent_GetTextureHandle, Utils::SpriteRendererComponentGetTextureHandle);
-	ADD_INTERNAL_CALL(SpriteRendererComponent_SetTextureHandle, Utils::SpriteRendererComponentSetTextureHandle);
+	ADD_INTERNAL_CALL(SpriteRendererComponent_GetColor, SpriteRendererComponentGetColor);
+	ADD_INTERNAL_CALL(SpriteRendererComponent_SetColor, SpriteRendererComponentSetColor);
+	ADD_INTERNAL_CALL(SpriteRendererComponent_GetTilingFactor, SpriteRendererComponentGetTilingFactor);
+	ADD_INTERNAL_CALL(SpriteRendererComponent_SetTilingFactor, SpriteRendererComponentSetTilingFactor);
+	ADD_INTERNAL_CALL(SpriteRendererComponent_GetTextureHandle, SpriteRendererComponentGetTextureHandle);
+	ADD_INTERNAL_CALL(SpriteRendererComponent_SetTextureHandle, SpriteRendererComponentSetTextureHandle);
 	// todo Texture jobs
 
 	// circle_renderer_component
-	ADD_INTERNAL_CALL(CircleRendererComponent_GetColor, Utils::CircleRendererComponentGetColor);
-	ADD_INTERNAL_CALL(CircleRendererComponent_SetColor, Utils::CircleRendererComponentSetColor);
-	ADD_INTERNAL_CALL(CircleRendererComponent_GetThickness, Utils::CircleRendererComponentGetThickness);
-	ADD_INTERNAL_CALL(CircleRendererComponent_SetThickness, Utils::CircleRendererComponentSetThickness);
-	ADD_INTERNAL_CALL(CircleRendererComponent_GetFade, Utils::CircleRendererComponentGetFade);
-	ADD_INTERNAL_CALL(CircleRendererComponent_SetFade, Utils::CircleRendererComponentSetFade);
+	ADD_INTERNAL_CALL(CircleRendererComponent_GetColor, CircleRendererComponentGetColor);
+	ADD_INTERNAL_CALL(CircleRendererComponent_SetColor, CircleRendererComponentSetColor);
+	ADD_INTERNAL_CALL(CircleRendererComponent_GetThickness, CircleRendererComponentGetThickness);
+	ADD_INTERNAL_CALL(CircleRendererComponent_SetThickness, CircleRendererComponentSetThickness);
+	ADD_INTERNAL_CALL(CircleRendererComponent_GetFade, CircleRendererComponentGetFade);
+	ADD_INTERNAL_CALL(CircleRendererComponent_SetFade, CircleRendererComponentSetFade);
 
 	// audio_component
-	ADD_INTERNAL_CALL(AudioComponent_GetADCount, Utils::AudioComponentGetADCount);
-	ADD_INTERNAL_CALL(AudioComponent_GetAD, Utils::AudioComponentGetAD);
-	ADD_INTERNAL_CALL(AudioComponent_CreateAudioData, Utils::AudioComponentCreateAudioData);
-	ADD_INTERNAL_CALL(AudioComponent_RemoveAudioData, Utils::AudioComponentRemoveAudioData);
+	ADD_INTERNAL_CALL(AudioComponent_GetADCount, AudioComponentGetADCount);
+	ADD_INTERNAL_CALL(AudioComponent_GetAD, AudioComponentGetAD);
+	ADD_INTERNAL_CALL(AudioComponent_CreateAudioData, AudioComponentCreateAudioData);
+	ADD_INTERNAL_CALL(AudioComponent_RemoveAudioData, AudioComponentRemoveAudioData);
+
+	//NOLINTEND(clang-diagnostic-microsoft-cast)
 }
 
 void ScriptGlue::OnRuntimeStart()

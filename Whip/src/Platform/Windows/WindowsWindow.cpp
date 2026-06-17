@@ -9,10 +9,106 @@
 
 #include <Whip/Debug/Instrumentor.h>
 
+#ifdef WHP_PLATFORM_WINDOWS
+	#define GLFW_EXPOSE_NATIVE_WIN32
+	#include <GLFW/glfw3native.h>
+	#include <Windows.h>
+	#include <windowsx.h>
+	#ifdef IsMaximized
+		#undef IsMaximized
+	#endif
+#endif
+
 _WHIP_START
 
-static uint32_t s_GLFWWindowCount = 0;
-static float s_ScrollDelta = 0.0f;
+namespace
+{
+	uint32_t s_GLFWWindowCount = 0;
+	float s_ScrollDelta = 0.0f;
+
+#ifdef WHP_PLATFORM_WINDOWS
+	constexpr int CustomTitlebarHitTestHeight = 30;
+	constexpr int CustomTitlebarControlWidth = 46 * 3;
+	constexpr int CustomResizeBorder = 8;
+
+	std::unordered_map<HWND, WNDPROC> s_PreviousWindowProcedures;
+
+	LRESULT CALLBACK CustomTitlebarWindowProc(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam)
+	{
+		auto procedureIterator = s_PreviousWindowProcedures.find(windowHandle);
+		WNDPROC previousProcedure = procedureIterator != s_PreviousWindowProcedures.end() ? procedureIterator->second : nullptr;
+
+		if (message == WM_NCCALCSIZE && wParam == TRUE)
+			return 0;
+
+		if (message == WM_NCHITTEST)
+		{
+			RECT rect{};
+			GetClientRect(windowHandle, &rect);
+
+			POINT point{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+			ScreenToClient(windowHandle, &point);
+
+			const bool maximized = IsZoomed(windowHandle) != FALSE;
+			const bool left = point.x >= rect.left && point.x < rect.left + CustomResizeBorder;
+			const bool right = point.x <= rect.right && point.x > rect.right - CustomResizeBorder;
+			const bool top = point.y >= rect.top && point.y < rect.top + CustomResizeBorder;
+			const bool bottom = point.y <= rect.bottom && point.y > rect.bottom - CustomResizeBorder;
+
+			if (!maximized)
+			{
+				if (top && left) return HTTOPLEFT;
+				if (top && right) return HTTOPRIGHT;
+				if (bottom && left) return HTBOTTOMLEFT;
+				if (bottom && right) return HTBOTTOMRIGHT;
+				if (left) return HTLEFT;
+				if (right) return HTRIGHT;
+				if (top) return HTTOP;
+				if (bottom) return HTBOTTOM;
+			}
+
+			const bool inTitlebar = point.y >= rect.top && point.y < rect.top + CustomTitlebarHitTestHeight;
+			const bool inCaptionButtons = point.x >= rect.right - CustomTitlebarControlWidth && point.x <= rect.right;
+			if (inTitlebar && !inCaptionButtons)
+				return HTCAPTION;
+		}
+
+		if (previousProcedure)
+			return CallWindowProcW(previousProcedure, windowHandle, message, wParam, lParam);
+		return DefWindowProcW(windowHandle, message, wParam, lParam);
+	}
+
+	void InstallCustomTitlebarHook(GLFWwindow* window)
+	{
+		HWND windowHandle = glfwGetWin32Window(window);
+		if (!windowHandle || s_PreviousWindowProcedures.contains(windowHandle))
+			return;
+
+		WNDPROC previousProcedure = reinterpret_cast<WNDPROC>(
+			SetWindowLongPtrW(windowHandle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(CustomTitlebarWindowProc)));
+		s_PreviousWindowProcedures[windowHandle] = previousProcedure;
+
+		const LONG_PTR style = GetWindowLongPtrW(windowHandle, GWL_STYLE);
+		SetWindowLongPtrW(windowHandle, GWL_STYLE, style | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+		SetWindowPos(windowHandle, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+	}
+
+	void UninstallCustomTitlebarHook(GLFWwindow* window)
+	{
+		if (!window)
+			return;
+
+		HWND windowHandle = glfwGetWin32Window(window);
+		auto procedureIterator = s_PreviousWindowProcedures.find(windowHandle);
+		if (procedureIterator == s_PreviousWindowProcedures.end())
+			return;
+
+		SetWindowLongPtrW(windowHandle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(procedureIterator->second));
+		s_PreviousWindowProcedures.erase(procedureIterator);
+	}
+#endif
+}
+
 
 #ifdef WHP_PLATFORM_WINDOWS
 
@@ -27,14 +123,14 @@ WindowsWindow::WindowsWindow(const WindowProps& props)
 {
 	WHP_PROFILE_FUNCTION();
 
-	Init(props);
+	WindowsWindow::Init(props);
 }
 
 WindowsWindow::~WindowsWindow()
 {
 	WHP_PROFILE_FUNCTION();
 
-	Shutdown();
+	WindowsWindow::Shutdown();
 }
 
 void WindowsWindow::Init(const WindowProps& props)
@@ -55,27 +151,30 @@ void WindowsWindow::Init(const WindowProps& props)
 			});
 	}
 
-	// Get primary monitor
-	GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
-
-	// Get monitor video mode
-	const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
-
 	glfwWindowHint(GLFW_MAXIMIZED, props.m_Fullscreen);
 	glfwWindowHint(GLFW_DECORATED, props.m_CustomTitlebar ? GLFW_FALSE : GLFW_TRUE);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-	
+
 	// create Window
 	{
 		WHP_PROFILE_SCOPE("glfwCreateWindow");
 		m_Data.m_Properties = props;
-		m_Window = glfwCreateWindow((int)props.m_Width, (int)props.m_Height, m_Data.m_Properties.m_Title.c_str(), nullptr, nullptr);
+		m_Window = glfwCreateWindow(static_cast<int>(props.m_Width), static_cast<int>(props.m_Height), m_Data.m_Properties.m_Title.c_str(), nullptr, nullptr);
 		++s_GLFWWindowCount;
 	}
 
 	if (props.m_Fullscreen)
-		glfwGetWindowSize(m_Window, (int*)(&m_Data.m_Properties.m_Width), (int*)(&m_Data.m_Properties.m_Height));
-	
+	{
+		int width = 0, height = 0;
+		glfwGetWindowSize(m_Window, &width, &height);
+		m_Data.m_Properties.m_Width = width;
+		m_Data.m_Properties.m_Height = height;
+	}
+
+#ifdef WHP_PLATFORM_WINDOWS
+	if (props.m_CustomTitlebar)
+		InstallCustomTitlebarHook(m_Window);
+#endif
 
 	m_Context = GraphicContext::Create(m_Window);
 	m_Context->Init();
@@ -92,7 +191,7 @@ void WindowsWindow::Init(const WindowProps& props)
 			data.m_EventCallback(event);
 		});
 
-	glfwSetWindowCloseCallback(m_Window, [](GLFWwindow* window)->void 
+	glfwSetWindowCloseCallback(m_Window, [](GLFWwindow* window)->void
 		{
 			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
 			WindowCloseEvent event;
@@ -125,17 +224,18 @@ void WindowsWindow::Init(const WindowProps& props)
 					data.m_EventCallback(event);
 					break;
 				}
+				default: break;
 			}
 		});
 
 	glfwSetCharCallback(m_Window, [](GLFWwindow* window, unsigned int keyCode)->void
 	{
 		WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
-		KeyTypedEvent event(keyCode);
+		KeyTypedEvent event{ static_cast<KeyCode>(keyCode) };
 		data.m_EventCallback(event);
 	});
 
-	glfwSetMouseButtonCallback(m_Window, [](GLFWwindow* window, int button, int action, int mods)->void 
+	glfwSetMouseButtonCallback(m_Window, [](GLFWwindow* window, int button, int action, int mods)->void
 		{
 			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
 			switch (action)
@@ -152,25 +252,26 @@ void WindowsWindow::Init(const WindowProps& props)
 					data.m_EventCallback(event);
 					break;
 				}
+				default: break;
 			}
 		});
 	glfwSetScrollCallback(m_Window, [](GLFWwindow* window, double offsetX, double offsetY)->void
 		{
 			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
-			MouseScrolledEvent event((float)offsetX, (float)offsetY);
+			MouseScrolledEvent event(static_cast<float>(offsetX), static_cast<float>(offsetY));
 			data.m_EventCallback(event);
-			s_ScrollDelta = (float)offsetY;
+			s_ScrollDelta = static_cast<float>(offsetY);
 		});
 	glfwSetCursorPosCallback(m_Window, [](GLFWwindow* window, double posX, double posY)->void
 		{
 			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
-			MouseMovedEvent event((float)posX, (float)posY);
+			MouseMovedEvent event(static_cast<float>(posX), static_cast<float>(posY));
 			data.m_EventCallback(event);
 		});
 
 	glfwSetDropCallback(m_Window, [](GLFWwindow* window, int pathCount, const char* paths[])
 		{
-			WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+			WindowData& data = *static_cast<WindowData*>(glfwGetWindowUserPointer(window));
 
 			std::vector<std::filesystem::path> filepaths(pathCount);
 			for (int i = 0; i < pathCount; i++)
@@ -189,6 +290,11 @@ void WindowsWindow::Shutdown()
 
 	if (!m_Window)
 		return;
+
+#ifdef WHP_PLATFORM_WINDOWS
+	if (m_Data.m_Properties.m_CustomTitlebar)
+		UninstallCustomTitlebarHook(m_Window);
+#endif
 
 	glfwDestroyWindow(m_Window);
 	m_Window = nullptr;
@@ -245,11 +351,25 @@ void WindowsWindow::Maximize()
 void WindowsWindow::Restore()
 {
 	glfwRestoreWindow(m_Window);
+	int width = 0, height = 0;
+	glfwGetWindowSize(m_Window, &width, &height);
+	m_Data.m_Properties.m_Width = static_cast<uint32_t>(std::max(width, 0));
+	m_Data.m_Properties.m_Height = static_cast<uint32_t>(std::max(height, 0));
 }
 
 bool WindowsWindow::IsMaximized() const
 {
 	return glfwGetWindowAttrib(m_Window, GLFW_MAXIMIZED) == GLFW_TRUE;
+}
+
+void* WindowsWindow::GetNativeWindow() const
+{
+	return m_Window;
+}
+
+void WindowsWindow::SetEventCallback(const EventCallbackFn& callback)
+{
+	m_Data.m_EventCallback = callback;
 }
 
 void WindowsWindow::SetVsync(bool enabled)

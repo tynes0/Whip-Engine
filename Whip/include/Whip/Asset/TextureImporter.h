@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Whip/Core/Core.h>
-#include <Whip/Render/Texture.h>
+#include "Whip/Core/Core.h"
+#include "Whip/Render/Texture.h"
 
 #include "Asset.h"
 #include "AssetMetadata.h"

@@ -1,10 +1,13 @@
 #include "WhipPch.h"
-#include <Whip/Animation/AnimationManager.h>
-#include <Whip/Core/Application.h>
+#include "Whip/Animation/AnimationManager.h"
+#include "Whip/Core/Application.h"
 
 _WHIP_START
 
-static UniqueNameManager s_NameManager;
+namespace
+{
+	UniqueNameManager s_NameManager;
+}
 
 void AnimationManager::Update(Timestep ts)
 {
@@ -48,14 +51,14 @@ void AnimationManager::Update(Timestep ts)
 	}
 }
 
-void AnimationManager::AddAnimation(Ref<Animation2D> animation)
+void AnimationManager::AddAnimation(const Ref<Animation2D>& animation)
 {
 	m_Animations.push_back(animation);
 }
 
-void AnimationManager::RemoveAnimation(Ref<Animation2D> animation)
+void AnimationManager::RemoveAnimation(const Ref<Animation2D>& animation)
 {
-	m_Animations.erase(std::remove(m_Animations.begin(), m_Animations.end(), animation), m_Animations.end());
+	std::erase(m_Animations, animation);
 }
 
 void AnimationManager::Clear()

@@ -129,26 +129,26 @@ namespace UI
 			case EditorTheme::WhipDark:
 			default:
 				return {
-					ImVec4(0.91f, 0.90f, 0.86f, 1.0f),
-					ImVec4(0.55f, 0.54f, 0.50f, 1.0f),
-					ImVec4(0.052f, 0.050f, 0.046f, 0.98f),
-					ImVec4(0.070f, 0.067f, 0.060f, 1.0f),
-					ImVec4(0.067f, 0.064f, 0.058f, 0.99f),
-					ImVec4(0.190f, 0.175f, 0.145f, 1.0f),
-					ImVec4(0.115f, 0.108f, 0.096f, 1.0f),
-					ImVec4(0.170f, 0.154f, 0.130f, 1.0f),
-					ImVec4(0.300f, 0.205f, 0.110f, 1.0f),
-					ImVec4(0.044f, 0.042f, 0.039f, 1.0f),
-					ImVec4(0.070f, 0.066f, 0.058f, 1.0f),
-					ImVec4(0.058f, 0.055f, 0.050f, 1.0f),
-					ImVec4(0.820f, 0.580f, 0.320f, 1.0f),
-					ImVec4(0.910f, 0.670f, 0.390f, 1.0f),
-					ImVec4(0.980f, 0.760f, 0.480f, 1.0f),
-					ImVec4(0.074f, 0.070f, 0.063f, 1.0f),
-					ImVec4(0.145f, 0.125f, 0.095f, 1.0f),
-					ImVec4(0.128f, 0.095f, 0.060f, 1.0f),
-					ImVec4(0.088f, 0.082f, 0.072f, 1.0f),
-					ImVec4(0.860f, 0.620f, 0.340f, 1.0f)
+					ImVec4(0.92f, 0.94f, 0.96f, 1.0f),
+					ImVec4(0.55f, 0.60f, 0.65f, 1.0f),
+					ImVec4(0.035f, 0.046f, 0.056f, 0.98f),
+					ImVec4(0.052f, 0.067f, 0.081f, 1.0f),
+					ImVec4(0.045f, 0.058f, 0.070f, 0.99f),
+					ImVec4(0.175f, 0.220f, 0.265f, 1.0f),
+					ImVec4(0.080f, 0.102f, 0.122f, 1.0f),
+					ImVec4(0.120f, 0.150f, 0.178f, 1.0f),
+					ImVec4(0.195f, 0.235f, 0.275f, 1.0f),
+					ImVec4(0.027f, 0.036f, 0.046f, 1.0f),
+					ImVec4(0.055f, 0.073f, 0.090f, 1.0f),
+					ImVec4(0.040f, 0.055f, 0.070f, 1.0f),
+					ImVec4(0.700f, 0.770f, 0.850f, 1.0f),
+					ImVec4(0.820f, 0.880f, 0.950f, 1.0f),
+					ImVec4(0.950f, 0.970f, 1.000f, 1.0f),
+					ImVec4(0.060f, 0.078f, 0.094f, 1.0f),
+					ImVec4(0.125f, 0.160f, 0.195f, 1.0f),
+					ImVec4(0.098f, 0.132f, 0.166f, 1.0f),
+					ImVec4(0.067f, 0.085f, 0.102f, 1.0f),
+					ImVec4(0.920f, 0.650f, 0.360f, 1.0f)
 				};
 			}
 		}
@@ -512,7 +512,7 @@ namespace UI
 	{
 		switch (theme)
 		{
-		case EditorTheme::WhipDark: return "Warm charcoal, quiet amber highlights";
+		case EditorTheme::WhipDark: return "Dark graphite shell with cool steel highlights";
 		case EditorTheme::Graphite: return "Neutral studio graphite with brass accents";
 		case EditorTheme::Ember: return "Deep brown-black surfaces with copper focus";
 		case EditorTheme::Moss: return "Soft green-black panels with muted moss accents";

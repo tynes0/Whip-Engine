@@ -12,7 +12,6 @@
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/AssetUtils.h>
 #include <Whip/Asset/SceneImporter.h>
-#include <Whip/Asset/TextureAtlasParser.h>
 
 #include "Helpers/IconManager.h"
 
@@ -100,6 +99,33 @@ namespace
 		}
 
 		return clicked;
+	}
+
+	Ref<Texture2D> GetWhipBrandTexture()
+	{
+		static Ref<Texture2D> texture = TextureImporter::LoadTexture2D("resources/icons/whip_editor_logo.png");
+		return texture;
+	}
+
+	void DrawWhipBrandMark(ImDrawList* drawList, const ImVec2& min)
+	{
+		const ImVec2 max(min.x + 20.0f, min.y + 20.0f);
+		if (Ref<Texture2D> texture = GetWhipBrandTexture(); texture && texture->IsLoaded())
+		{
+			drawList->AddImage(UI::ToImGuiTextureId(texture->GetRendererId()), min, max, ImVec2(0, 1), ImVec2(1, 0));
+			return;
+		}
+
+		const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+		const ImVec2 mark[] =
+		{
+			ImVec2(center.x, min.y + 2.0f),
+			ImVec2(max.x - 3.0f, center.y),
+			ImVec2(center.x, max.y - 2.0f),
+			ImVec2(min.x + 3.0f, center.y)
+		};
+		drawList->AddConvexPolyFilled(mark, 4, IM_COL32(245, 248, 252, 245));
+		drawList->AddPolyline(mark, 4, IM_COL32(110, 128, 146, 190), ImDrawFlags_Closed, 1.2f);
 	}
 
 	bool IsControlDown()
@@ -1496,7 +1522,7 @@ bool EditorLayer::IsEditorActionAvailable(UI::EditorShortcutAction action) const
 
 void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
 {
-	constexpr float TitlebarHeight = 36.0f;
+	constexpr float TitlebarHeight = 30.0f;
 	constexpr float ControlWidth = 46.0f;
 
 	ImGui::BeginChild("##EditorShellTitlebar", ImVec2(0.0f, TitlebarHeight), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -1505,38 +1531,16 @@ void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
 	const ImVec2 max(min.x + size.x, min.y + size.y);
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 
-	const ImU32 titleTop = IM_COL32(30, 28, 23, 255);
-	const ImU32 titleBottom = IM_COL32(18, 17, 15, 255);
+	const ImU32 titleTop = IM_COL32(21, 29, 37, 255);
+	const ImU32 titleBottom = IM_COL32(8, 12, 16, 255);
 	drawList->AddRectFilledMultiColor(min, max, titleTop, titleTop, titleBottom, titleBottom);
-	drawList->AddLine(ImVec2(min.x, max.y - 1.0f), ImVec2(max.x, max.y - 1.0f), ColorU32(ImGuiCol_Border), 1.0f);
-	drawList->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, min.y + 2.0f), ColorU32(ImGuiCol_CheckMark), 0.0f);
+	drawList->AddLine(ImVec2(min.x, max.y - 1.0f), ImVec2(max.x, max.y - 1.0f), IM_COL32(46, 58, 70, 210), 1.0f);
+	drawList->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, min.y + 2.0f), IM_COL32(180, 196, 214, 210), 0.0f);
 
 	const float controlStartX = max.x - ControlWidth * 3.0f;
-	ImGui::SetCursorScreenPos(min);
-	ImGui::InvisibleButton("##EditorTitlebarDrag", ImVec2(std::max(0.0f, controlStartX - min.x), TitlebarHeight));
-	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-	{
-		Window& window = Application::Get().GetWindow();
-		if (window.IsMaximized())
-			window.Restore();
-		else
-			window.Maximize();
-	}
-	else if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
-	{
-		Window& window = Application::Get().GetWindow();
-		if (window.IsMaximized())
-			window.Restore();
 
-		const ImVec2 delta = ImGui::GetIO().MouseDelta;
-		auto [x, y] = window.GetPosition();
-		window.SetPosition(x + static_cast<int>(delta.x), y + static_cast<int>(delta.y));
-	}
-
-	const ImVec2 badgeMin(min.x + 14.0f, min.y + 8.0f);
-	const ImVec2 badgeMax(badgeMin.x + 22.0f, badgeMin.y + 20.0f);
-	drawList->AddRectFilled(badgeMin, badgeMax, ColorU32(ImGuiCol_CheckMark), 4.0f);
-	drawList->AddText(ImVec2(badgeMin.x + 5.0f, badgeMin.y + 1.0f), IM_COL32(22, 20, 17, 255), "W");
+	const ImVec2 logoMin(min.x + 12.0f, min.y + 6.0f);
+	DrawWhipBrandMark(drawList, logoMin);
 
 	std::string title = "Whip Editor";
 	if (projectLoaded && Project::GetActive())
@@ -1544,8 +1548,9 @@ void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
 	else
 		title += "  /  Hub";
 
-	drawList->AddText(ImVec2(min.x + 46.0f, min.y + 8.0f), IM_COL32(232, 226, 212, 245), title.c_str());
-	drawList->AddText(ImVec2(min.x + 46.0f + ImGui::CalcTextSize(title.c_str()).x + 10.0f, min.y + 8.0f), IM_COL32(142, 130, 110, 210), projectLoaded ? "Editor" : "Project Launcher");
+	const float titleX = logoMin.x + 40.0f;
+	drawList->AddText(ImVec2(titleX, min.y + 5.0f), IM_COL32(240, 244, 248, 245), title.c_str());
+	drawList->AddText(ImVec2(titleX + ImGui::CalcTextSize(title.c_str()).x + 10.0f, min.y + 5.0f), IM_COL32(132, 150, 166, 210), projectLoaded ? "Editor" : "Project Launcher");
 
 	Window& window = Application::Get().GetWindow();
 	ImGui::SetCursorScreenPos(ImVec2(controlStartX, min.y));
@@ -1568,9 +1573,10 @@ void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
 
 void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
 {
-	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.040f, 0.055f, 0.070f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4(0.040f, 0.055f, 0.070f, 1.0f));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-	ImGui::BeginChild("##EditorShellMenuBar", ImVec2(0.0f, 30.0f), false, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	ImGui::BeginChild("##EditorShellMenuBar", ImVec2(0.0f, 28.0f), false, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 	ImGui::PopStyleVar();
 
 	if (ImGui::BeginMenuBar())
@@ -1668,7 +1674,7 @@ void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
 	}
 
 	ImGui::EndChild();
-	ImGui::PopStyleColor();
+	ImGui::PopStyleColor(2);
 }
 
 void EditorLayer::OpenCommandPalette()

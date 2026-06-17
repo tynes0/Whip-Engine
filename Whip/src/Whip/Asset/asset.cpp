@@ -1,5 +1,5 @@
-#include <WhipPch.h>
-#include <Whip/Asset/Asset.h>
+#include "WhipPch.h"
+#include "Whip/Asset/Asset.h"
 
 _WHIP_START
 

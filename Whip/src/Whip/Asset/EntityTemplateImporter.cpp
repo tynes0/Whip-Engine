@@ -1,7 +1,6 @@
 #include "WhipPch.h"
-#include <Whip/Asset/EntityTemplateImporter.h>
-
-#include <Whip/Asset/EntityTemplateAsset.h>
+#include "Whip/Asset/EntityTemplateImporter.h"
+#include "Whip/Asset/EntityTemplateAsset.h"
 
 _WHIP_START
 

@@ -1,10 +1,10 @@
 #pragma once
 
-#include <Whip/Animation/AnimationController.h>
-#include <Whip/Core/Core.h>
-#include <Whip/Core/Memory.h>
-#include <Whip/Core/Timestep.h>
-#include <Whip/Core/UUID.h>
+#include "Whip/Animation/AnimationController.h"
+#include "Whip/Core/Core.h"
+#include "Whip/Core/Memory.h"
+#include "Whip/Core/Timestep.h"
+#include "Whip/Core/UUID.h"
 
 #include <string>
 #include <string_view>
@@ -32,23 +32,23 @@ public:
 	void SetTrigger(std::string_view name);
 	void ResetTrigger(std::string_view name);
 
-	bool IsPlaying() const { return m_Playing; }
-	AssetHandle GetControllerHandle() const { return m_Controller ? m_Controller->m_Handle : AssetHandle{}; }
-	const std::string& GetCurrentStateName() const { return m_CurrentStateName; }
-	const std::string& GetLastTransitionSourceName() const { return m_LastTransitionSourceName; }
-	const std::string& GetLastTransitionTargetName() const { return m_LastTransitionTargetName; }
-	float GetTransitionDebugTime() const { return m_TransitionDebugTime; }
-	bool IsTransitioning() const { return m_Transitioning; }
-	const std::string& GetTransitionTargetStateName() const { return m_TransitionTargetStateName; }
+	bool IsPlaying() const;
+	AssetHandle GetControllerHandle() const;
+	const std::string& GetCurrentStateName() const;
+	const std::string& GetLastTransitionSourceName() const;
+	const std::string& GetLastTransitionTargetName() const;
+	float GetTransitionDebugTime() const;
+	bool IsTransitioning() const;
+	const std::string& GetTransitionTargetStateName() const;
 	float GetTransitionProgress() const;
-	float GetStateTime() const { return m_StateTime; }
-	const std::vector<std::string>& GetFiredEvents() const { return m_FiredEvents; }
-	void ClearFiredEvents() { m_FiredEvents.clear(); }
+	float GetStateTime() const;
+	const std::vector<std::string>& GetFiredEvents() const;
+	void ClearFiredEvents();
 
-	const std::unordered_map<std::string, bool>& GetBoolParameters() const { return m_BoolParameters; }
-	const std::unordered_map<std::string, int32_t>& GetIntParameters() const { return m_IntParameters; }
-	const std::unordered_map<std::string, float>& GetFloatParameters() const { return m_FloatParameters; }
-	const std::unordered_set<std::string>& GetTriggerParameters() const { return m_TriggerParameters; }
+	const std::unordered_map<std::string, bool>& GetBoolParameters() const;
+	const std::unordered_map<std::string, int32_t>& GetIntParameters() const;
+	const std::unordered_map<std::string, float>& GetFloatParameters() const;
+	const std::unordered_set<std::string>& GetTriggerParameters() const;
 
 private:
 	const AnimationControllerState* GetCurrentState() const;

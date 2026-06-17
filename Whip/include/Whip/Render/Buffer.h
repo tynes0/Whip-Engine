@@ -6,7 +6,7 @@
 
 _WHIP_START
 
-enum class ShaderDataType : uint16_t
+enum class ShaderDataType : uint8_t
 {
 	None = 0,
 	Float,
@@ -28,13 +28,13 @@ WHP_NODISCARD static uint32_t ShaderDataTypeSize(ShaderDataType type)
 	{
 	case ShaderDataType::None:		WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
 	case ShaderDataType::Float:		return sizeof(float);
-	case ShaderDataType::Float2:		return sizeof(float) * 2;
-	case ShaderDataType::Float3:		return sizeof(float) * 3;
-	case ShaderDataType::Float4:		return sizeof(float) * 4;
+	case ShaderDataType::Float2:	return sizeof(float) * 2;
+	case ShaderDataType::Float3:	return sizeof(float) * 3;
+	case ShaderDataType::Float4:	return sizeof(float) * 4;
 	case ShaderDataType::Mat3:		return sizeof(float) * 3 * 3;
 	case ShaderDataType::Mat4:		return sizeof(float) * 4 * 4;
 	case ShaderDataType::Bool:		return sizeof(bool);
-	case ShaderDataType::Int:			return sizeof(int);
+	case ShaderDataType::Int:		return sizeof(int);
 	case ShaderDataType::Int2:		return sizeof(int) * 2;
 	case ShaderDataType::Int3:		return sizeof(int) * 3;
 	case ShaderDataType::Int4:		return sizeof(int) * 4;
@@ -51,27 +51,27 @@ struct BufferElement
 	uint64_t m_Offset;
 	bool m_Normalized;
 
-	BufferElement() {}
+	BufferElement() = default;
 
-	BufferElement(ShaderDataType typeIn, const std::string& nameIn, bool normalizedIn = false)
-		: m_Name(nameIn), m_Type(typeIn), m_Size(ShaderDataTypeSize(typeIn)), m_Offset(0), m_Normalized(normalizedIn) {}
+	BufferElement(ShaderDataType typeIn, std::string nameIn, bool normalizedIn = false)
+		: m_Name(std::move(nameIn)), m_Type(typeIn), m_Size(ShaderDataTypeSize(typeIn)), m_Offset(0), m_Normalized(normalizedIn) {}
 
 	WHP_NODISCARD uint32_t GetComponentCount() const
 	{
 		switch (m_Type)
 		{
 		case ShaderDataType::None:		WHP_CORE_ASSERT(false, "ShaderDataType is None!"); return 0;
-		case ShaderDataType::Float:		return 1;
-		case ShaderDataType::Float2:		return 2;
-		case ShaderDataType::Float3:		return 3;
-		case ShaderDataType::Float4:		return 4;
+		case ShaderDataType::Float:
+		case ShaderDataType::Bool:
+		case ShaderDataType::Int:		return 1;
+		case ShaderDataType::Float2:
+		case ShaderDataType::Int2:		return 2;
+		case ShaderDataType::Float3:
+		case ShaderDataType::Int3:		return 3;
+		case ShaderDataType::Float4:
+		case ShaderDataType::Int4:		return 4;
 		case ShaderDataType::Mat3:		return 3 * 3;
 		case ShaderDataType::Mat4:		return 4 * 4;
-		case ShaderDataType::Bool:		return 1;
-		case ShaderDataType::Int:			return 1;
-		case ShaderDataType::Int2:		return 2;
-		case ShaderDataType::Int3:		return 3;
-		case ShaderDataType::Int4:		return 4;
 		}
 		WHP_CORE_ASSERT(false, "Unknown ShaderDataType!");
 		return 0;
@@ -82,10 +82,10 @@ class BufferLayout
 {
 	using BufferElementIter		= std::vector<BufferElement>::iterator;
 	using BufferElementConstIter = std::vector<BufferElement>::const_iterator;
-private:
+
 	std::vector<BufferElement> m_Elements;
 	uint64_t m_Stride = 0;
-private:
+
 	void CalculateOffsetsAndStride()
 	{
 		uint64_t offset = 0;
@@ -118,7 +118,7 @@ public:
 class VertexBuffer
 {
 public:
-	virtual ~VertexBuffer() {}
+	virtual ~VertexBuffer() = default;
 
 	virtual void Bind() const = 0;
 	virtual void Unbind() const = 0;
@@ -135,7 +135,7 @@ public:
 class IndexBuffer
 {
 public:
-	virtual ~IndexBuffer() {}
+	virtual ~IndexBuffer() = default;
 
 	virtual void Bind() const = 0;
 	virtual void Unbind() const = 0;

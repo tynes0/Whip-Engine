@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Whip/Core/Core.h>
-#include <Whip/Core/UUID.h>
+#include "Whip/Core/Core.h"
+#include "Whip/Core/UUID.h"
 
 #include <cstdint>
 #include <type_traits>
@@ -12,7 +12,7 @@ _WHIP_START
 
 using AssetHandle = UUID;
 
-enum class AssetType : uint16_t
+enum class AssetType : uint8_t
 {
 	None = 0,
 	Scene,

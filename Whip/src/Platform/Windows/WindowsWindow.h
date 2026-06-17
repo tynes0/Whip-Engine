@@ -8,11 +8,11 @@
 
 _WHIP_START
 
-class WindowsWindow : public Window
+class WindowsWindow : public Window  // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	WindowsWindow(const WindowProps& props);
-	virtual ~WindowsWindow();
+	~WindowsWindow() override;
 
 	void OnUpdate() override;
 
@@ -28,10 +28,10 @@ public:
 	void Restore() override;
 	WHP_NODISCARD bool IsMaximized() const override;
 
-	WHP_NODISCARD inline virtual void* GetNativeWindow() const override { return m_Window; }
+	WHP_NODISCARD void* GetNativeWindow() const override;
 
 	// Window attributes
-	inline void SetEventCallback(const EventCallbackFn& callback) override { m_Data.m_EventCallback = callback; }
+	void SetEventCallback(const EventCallbackFn& callback) override;
 	void SetVsync(bool enabled) override;
 	WHP_NODISCARD bool IsVsync() const override;
 private:

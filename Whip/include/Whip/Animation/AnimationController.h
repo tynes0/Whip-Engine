@@ -1,8 +1,8 @@
 #pragma once
 
-#include <Whip/Asset/Asset.h>
-#include <Whip/Core/Core.h>
-#include <Whip/Core/UUID.h>
+#include "Whip/Asset/Asset.h"
+#include "Whip/Core/Core.h"
+#include "Whip/Core/UUID.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -99,7 +99,7 @@ public:
 
 	AnimationController(AssetHandle handle = AssetHandle{});
 
-	AssetType GetType() const override { return AssetType::AnimationController; }
+	AssetType GetType() const override;
 
 	AnimationControllerState& AddState(std::string name, AssetHandle clip = 0);
 	bool RemoveState(std::string_view name);
@@ -110,20 +110,20 @@ public:
 	bool RemoveParameter(std::string_view name);
 
 	void SetDefaultState(std::string_view name);
-	const std::string& GetDefaultState() const { return m_DefaultState; }
+	const std::string& GetDefaultState() const;
 
-	std::vector<AnimationControllerState>& GetStates() { return m_States; }
-	const std::vector<AnimationControllerState>& GetStates() const { return m_States; }
-	std::vector<AnimationControllerParameter>& GetParameters() { return m_Parameters; }
-	const std::vector<AnimationControllerParameter>& GetParameters() const { return m_Parameters; }
-	std::vector<AnimationControllerTransition>& GetAnyStateTransitions() { return m_AnyStateTransitions; }
-	const std::vector<AnimationControllerTransition>& GetAnyStateTransitions() const { return m_AnyStateTransitions; }
-	glm::vec2& GetEntryGraphPosition() { return m_EntryGraphPosition; }
-	const glm::vec2& GetEntryGraphPosition() const { return m_EntryGraphPosition; }
-	glm::vec2& GetAnyStateGraphPosition() { return m_AnyStateGraphPosition; }
-	const glm::vec2& GetAnyStateGraphPosition() const { return m_AnyStateGraphPosition; }
-	glm::vec2& GetExitGraphPosition() { return m_ExitGraphPosition; }
-	const glm::vec2& GetExitGraphPosition() const { return m_ExitGraphPosition; }
+	std::vector<AnimationControllerState>& GetStates();
+	const std::vector<AnimationControllerState>& GetStates() const;
+	std::vector<AnimationControllerParameter>& GetParameters();
+	const std::vector<AnimationControllerParameter>& GetParameters() const;
+	std::vector<AnimationControllerTransition>& GetAnyStateTransitions();
+	const std::vector<AnimationControllerTransition>& GetAnyStateTransitions() const;
+	glm::vec2& GetEntryGraphPosition();
+	const glm::vec2& GetEntryGraphPosition() const;
+	glm::vec2& GetAnyStateGraphPosition();
+	const glm::vec2& GetAnyStateGraphPosition() const;
+	glm::vec2& GetExitGraphPosition();
+	const glm::vec2& GetExitGraphPosition() const;
 
 	void Serialize(const std::filesystem::path& filepath) const;
 	bool Deserialize(const std::filesystem::path& filepath);

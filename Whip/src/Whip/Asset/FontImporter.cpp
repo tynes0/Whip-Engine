@@ -1,7 +1,6 @@
 #include "WhipPch.h"
-#include <Whip/Asset/FontImporter.h>
-
-#include <Whip/Project/Project.h>
+#include "Whip/Asset/FontImporter.h"
+#include "Whip/Project/Project.h"
 
 _WHIP_START
 

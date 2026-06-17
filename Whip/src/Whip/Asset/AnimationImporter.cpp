@@ -1,7 +1,7 @@
 #include "WhipPch.h"
-#include <Whip/Asset/AnimationImporter.h>
-#include <Whip/Project/Project.h>
-#include <Whip/Animation/AnimationManager.h>
+#include "Whip/Asset/AnimationImporter.h"
+#include "Whip/Project/Project.h"
+#include "Whip/Animation/AnimationManager.h"
 
 _WHIP_START
 

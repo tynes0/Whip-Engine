@@ -1,99 +1,175 @@
 #include "WhipPch.h"
-#include <Whip/Asset/AssetRegistry.h>
-
-#include <Whip/Asset/AssetUtils.h>
-
-#include <Whip/Utils/FileExtensions.h>
-#include <Whip/Project/Project.h>
+#include "Whip/Asset/AssetRegistry.h"
+#include "Whip/Asset/AssetUtils.h"
+#include "Whip/Utils/FileExtensions.h"
+#include "Whip/Project/Project.h"
 
 #include <fstream>
-#include <string_view>
 
 _WHIP_START
-
-static AssetRegistry::Iterator NullIterator = AssetRegistry::Iterator();
-static AssetRegistry::ConstIterator NullConstIterator = AssetRegistry::ConstIterator();
-static AssetMetadata s_NullMetadata;
 
 #define NULL_PIT std::pair<AssetRegistry::PrivateIterator, bool>{ AssetRegistry::PrivateIterator(), false }
 #define NULL_PCIT std::pair<AssetRegistry::PrivateConstIterator, bool>{ AssetRegistry::PrivateConstIterator(), false }
 
-static bool HasYamlNode(const YAML::Node& node)
+namespace
 {
-	return node.IsDefined() && !node.IsNull();
-}
+	AssetRegistry::Iterator NullIterator = AssetRegistry::Iterator();
+	AssetRegistry::ConstIterator NullConstIterator = AssetRegistry::ConstIterator();
+	AssetMetadata s_NullMetadata;
 
-static YAML::Node FindYamlValue(const YAML::Node& mapNode, const char* key)
-{
-	if (!mapNode.IsDefined() || !mapNode.IsMap())
-		return {};
-
-	for (const auto& entry : mapNode)
+	bool HasYamlNode(const YAML::Node& node)
 	{
-		try
-		{
-			if (entry.first.as<std::string>() == key)
-				return entry.second;
-		}
-		catch (const YAML::Exception&)
-		{
-		}
+		return node.IsDefined() && !node.IsNull();
 	}
 
-	return {};
-}
+	YAML::Node FindYamlValue(const YAML::Node& mapNode, const char* key)
+	{
+		if (!mapNode.IsDefined() || !mapNode.IsMap())
+			return {};
 
-static YAML::Node FindYamlValue(const YAML::Node& mapNode, const char* firstKey, const char* secondKey)
-{
-	YAML::Node value = FindYamlValue(mapNode, firstKey);
-	if (!HasYamlNode(value))
-		value = FindYamlValue(mapNode, secondKey);
-	return value;
-}
+		for (const auto& entry : mapNode)
+		{
+			try
+			{
+				if (entry.first.as<std::string>() == key)
+					return entry.second;
+			}
+			catch (const YAML::Exception&)
+			{
+				WHP_CORE_WARN("[Asset Registry] Failed yaml value finding!");
+			}
+		}
 
-static AssetType ParseAssetType(std::string_view typeName)
-{
-	if (auto type = frenum::cast<AssetType>(typeName))
-		return type.value();
-
-	if (typeName == "none") return AssetType::None;
-	if (typeName == "scene") return AssetType::Scene;
-	if (typeName == "texture2D") return AssetType::Texture2D;
-	if (typeName == "texture2d") return AssetType::Texture2D;
-	if (typeName == "audio") return AssetType::Audio;
-	if (typeName == "font") return AssetType::Font;
-	if (typeName == "animation") return AssetType::Animation;
-	if (typeName == "animationController") return AssetType::AnimationController;
-	if (typeName == "animationcontroller") return AssetType::AnimationController;
-	if (typeName == "entity") return AssetType::Entity;
-
-	WHP_CORE_WARN("[Asset Registry] Unknown AssetType '{0}'", typeName);
-	return AssetType::None;
-}
-
-static std::filesystem::path NormalizeRegistryPath(std::filesystem::path filepath)
-{
-	if (filepath.empty())
 		return {};
-	filepath = filepath.lexically_normal();
-	if (filepath == ".")
-		return {};
-	return filepath;
+	}
+
+	YAML::Node FindYamlValue(const YAML::Node& mapNode, const char* firstKey, const char* secondKey)
+	{
+		YAML::Node value = FindYamlValue(mapNode, firstKey);
+		if (!HasYamlNode(value))
+			value = FindYamlValue(mapNode, secondKey);
+		return value;
+	}
+
+	AssetType ParseAssetType(std::string_view typeName)
+	{
+		if (auto type = frenum::cast<AssetType>(typeName))
+			return type.value();
+
+		if (typeName == "none") return AssetType::None;
+		if (typeName == "scene") return AssetType::Scene;
+		if (typeName == "texture2D") return AssetType::Texture2D;
+		if (typeName == "texture2d") return AssetType::Texture2D;
+		if (typeName == "audio") return AssetType::Audio;
+		if (typeName == "font") return AssetType::Font;
+		if (typeName == "animation") return AssetType::Animation;
+		if (typeName == "animationController") return AssetType::AnimationController;
+		if (typeName == "animationcontroller") return AssetType::AnimationController;
+		if (typeName == "entity") return AssetType::Entity;
+
+		WHP_CORE_WARN("[Asset Registry] Unknown AssetType '{0}'", typeName);
+		return AssetType::None;
+	}
+
+	std::filesystem::path NormalizeRegistryPath(std::filesystem::path filepath)
+	{
+		if (filepath.empty())
+			return {};
+		filepath = filepath.lexically_normal();
+		if (filepath == ".")
+			return {};
+		return filepath;
+	}
+
+	std::string NormalizeRegistryPathString(const std::filesystem::path& filepath)
+	{
+		std::string value = NormalizeRegistryPath(filepath).generic_string();
+		std::ranges::transform(value, value.begin(),
+		                       [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+		return value;
+	}
+
+	bool RegistryPathsEqual(const std::filesystem::path& left, const std::filesystem::path& right)
+	{
+		return NormalizeRegistryPathString(left) == NormalizeRegistryPathString(right);
+	}
 }
 
-static std::string NormalizeRegistryPathString(const std::filesystem::path& filepath)
+RegistryIterator::RegistryIterator()
+	: m_Data(nullptr)
 {
-	std::string value = NormalizeRegistryPath(filepath).generic_string();
-	std::transform(value.begin(), value.end(), value.begin(),
-		[](unsigned char character) { return static_cast<char>(std::tolower(character)); });
-	return value;
 }
 
-static bool RegistryPathsEqual(const std::filesystem::path& left, const std::filesystem::path& right)
+RegistryIterator::RegistryIterator(ValueType* data)
+	: m_Data(data)
 {
-	return NormalizeRegistryPathString(left) == NormalizeRegistryPathString(right);
 }
 
+RegistryIterator::RegistryIterator(const FilteredAssetRegistry::iterator& it)
+	: m_Data(it.operator->())
+{
+}
+
+RegistryIterator::ValueType& RegistryIterator::operator*()
+{
+	return *m_Data;
+}
+
+const RegistryIterator::ValueType& RegistryIterator::operator*() const
+{
+	return *m_Data;
+}
+
+RegistryIterator::ValueType* RegistryIterator::operator->()
+{
+	return m_Data;
+}
+
+const RegistryIterator::ValueType* RegistryIterator::operator->() const
+{
+	return m_Data;
+}
+
+bool RegistryIterator::operator==(RegistryIterator it) const
+{ return m_Data == it.m_Data; }
+
+bool RegistryIterator::operator!=(RegistryIterator it) const
+{ return !this->operator==(it); }
+
+RegistryConstIterator::RegistryConstIterator()
+	: m_Data(nullptr)
+{
+}
+
+RegistryConstIterator::RegistryConstIterator(const ValueType* data)
+	: m_Data(data)
+{
+}
+
+RegistryConstIterator::RegistryConstIterator(const FilteredAssetRegistry::const_iterator& it)
+	: m_Data(it.operator->())
+{
+}
+
+const RegistryConstIterator::ValueType& RegistryConstIterator::operator*() const
+{
+	return *m_Data;
+}
+
+const RegistryConstIterator::ValueType* RegistryConstIterator::operator->() const
+{
+	return m_Data;
+}
+
+bool RegistryConstIterator::operator==(RegistryConstIterator it) const
+{
+	return m_Data == it.m_Data;
+}
+
+bool RegistryConstIterator::operator!=(RegistryConstIterator it) const
+{
+	return !this->operator==(it);
+}
 
 bool AssetRegistry::Add(AssetHandle handle, const AssetMetadata& metadata)
 {
@@ -205,7 +281,7 @@ AssetRegistry::Iterator AssetRegistry::Find(AssetHandle handle)
 	{
 		PrivateIterator it = reg.find(handle);
 		if (it != reg.end())
-			return Iterator(it);
+			return Iterator{ it };
 	}
 	return NullIterator;
 }
@@ -218,7 +294,7 @@ AssetRegistry::ConstIterator AssetRegistry::Find(AssetHandle handle) const
 	{
 		PrivateConstIterator it = reg.find(handle);
 		if (it != reg.end())
-			return ConstIterator(it);
+			return ConstIterator{ it };
 	}
 	return NullConstIterator;
 }
@@ -230,7 +306,7 @@ AssetRegistry::Iterator AssetRegistry::Find(AssetType type, AssetHandle handle)
 	auto& reg = m_Registries[*frenum::index(type)];
 	PrivateIterator it = reg.find(handle);
 	if (it != reg.end())
-		return Iterator(it);
+		return Iterator{ it };
 	return NullIterator;
 }
 
@@ -241,7 +317,7 @@ AssetRegistry::ConstIterator AssetRegistry::Find(AssetType type, AssetHandle han
 	auto& reg = m_Registries[*frenum::index(type)];
 	PrivateConstIterator it = reg.find(handle);
 	if (it != reg.end())
-		return ConstIterator(it);
+		return ConstIterator{ it };
 	return NullConstIterator;
 }
 
@@ -273,7 +349,7 @@ bool AssetRegistry::Serialize() const
 		out << YAML::Key << "asset_registry" << YAML::Value;
 
 		out << YAML::BeginSeq;
-		Foreach([&out](const ValueType& value) 
+		Foreach([&out](const ValueType& value)
 			{
 				out << YAML::BeginMap;
 				out << YAML::Key << "handle" << YAML::Value << value.first;
@@ -314,7 +390,7 @@ bool AssetRegistry::Deserialize()
 	{
 		data = YAML::LoadFile(path.string());
 	}
-	catch (YAML::Exception e)
+	catch (const YAML::Exception& e)
 	{
 		WHP_CORE_ERROR("[Asset Registry] Failed to load Project file '{0}'\n\t{1}", path.string(), e.what());
 		return false;
@@ -348,14 +424,14 @@ bool AssetRegistry::Deserialize()
 	return true;
 }
 
-bool AssetRegistry::IsNullIt(Iterator it) const
+bool AssetRegistry::IsNullIt(Iterator it)
 {
-	return bool(!it.operator->());
+	return static_cast<bool>(!it.operator->());
 }
 
-bool AssetRegistry::IsNullIt(ConstIterator it) const
+bool AssetRegistry::IsNullIt(ConstIterator it)
 {
-	return bool(!it.operator->());
+	return static_cast<bool>(!it.operator->());
 }
 
 void AssetRegistry::Foreach(const std::function<void(ValueType&)>& pred)

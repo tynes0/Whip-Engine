@@ -9,8 +9,6 @@ _WHIP_START
 // time default = second
 class Timestep
 {
-private:
-	float m_Time;
 public:
 	Timestep(float time = 0.0f) : m_Time(time) {}
 
@@ -23,6 +21,8 @@ public:
 	WHP_NODISCARD float GetMilliseconds() const { return (GetSeconds() * 1000.0f); }
 	WHP_NODISCARD float GetMicroseconds() const { return (GetMilliseconds() * 1000.0f); }
 	WHP_NODISCARD float GetNanoseconds() const { return (GetMicroseconds() * 1000.0f); }
+private:
+	float m_Time;
 };
 
 _WHIP_END

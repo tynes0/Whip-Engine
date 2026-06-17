@@ -123,6 +123,7 @@ private:
 	void DrawControllerGraph(float width, float height);
 	void DrawControllerStateInspector(float width, float height);
 	void DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget);
+	void DrawTransitionConditionGraph(AnimationControllerTransition& transition);
 	void DrawControllerValidation();
 	void DrawEditorContent(bool showWindowControls);
 	void DrawCompactSummary();

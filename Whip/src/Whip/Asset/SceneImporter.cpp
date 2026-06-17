@@ -1,11 +1,11 @@
 #include "WhipPch.h"
-#include <Whip/Asset/SceneImporter.h>
+#include "Whip/Asset/SceneImporter.h"
 
-#include <Whip/Project/Project.h>
-#include <Whip/Scene/SceneSerializer.h>
+#include "Whip/Project/Project.h"
+#include "Whip/Scene/SceneSerializer.h"
 
 _WHIP_START
-	
+
 Ref<Scene> SceneImporter::ImportScene(AssetHandle handle, const AssetMetadata& metadata)
 {
 	return LoadScene(Project::GetActiveAssetDirectory() / metadata.m_Filepath, handle);
@@ -21,7 +21,7 @@ Ref<Scene> SceneImporter::LoadScene(const std::filesystem::path& path, AssetHand
 	return scene;
 }
 
-void SceneImporter::SaveScene(Ref<Scene> scene, const std::filesystem::path& path)
+void SceneImporter::SaveScene(const Ref<Scene>& scene, const std::filesystem::path& path)
 {
 	std::filesystem::path scenePath = path;
 	if (!scenePath.is_absolute())

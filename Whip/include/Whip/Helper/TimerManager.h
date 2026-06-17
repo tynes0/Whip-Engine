@@ -8,7 +8,6 @@
 
 #include <Whip/Core/Timestep.h>
 #include <Whip/Core/UUID.h>
-#include <Whip/Core/Memory.h>
 #include <Whip/Core/Application.h>
 
 _WHIP_START
@@ -54,7 +53,7 @@ class TimerManager
 public:
 	using FunctionType = std::function<void(void*)>;
 
-	TimerManager();
+	TimerManager() = default;
 	~TimerManager() = default;
 
 	TimerId SetTimeout(FunctionType func, float delayMs, void* userData = nullptr, int priority = 0);
@@ -76,7 +75,7 @@ public:
 
 	static TimerManager& Get() { static TimerManager instance = TimerManager(); return instance; }
 private:
-	TimerId GenerateId();
+	static TimerId GenerateId();
 
 	struct TimerData
 	{

@@ -1,11 +1,10 @@
 #include "WhipPch.h"
-#include <Whip/Animation/AnimatorRuntime.h>
-
-#include <Whip/Animation/Animation2D.h>
-#include <Whip/Asset/AssetManager.h>
-#include <Whip/Scene/Components.h>
-#include <Whip/Scene/Entity.h>
-#include <Whip/Scene/Scene.h>
+#include "Whip/Animation/AnimatorRuntime.h"
+#include "Whip/Animation/Animation2D.h"
+#include "Whip/Asset/AssetManager.h"
+#include "Whip/Scene/Components.h"
+#include "Whip/Scene/Entity.h"
+#include "Whip/Scene/Scene.h"
 
 #include <cmath>
 #include <limits>
@@ -305,6 +304,81 @@ void AnimatorRuntime::ResetTrigger(std::string_view name)
 	m_TriggerParameters.erase(std::string(name));
 }
 
+bool AnimatorRuntime::IsPlaying() const
+{
+	return m_Playing;
+}
+
+AssetHandle AnimatorRuntime::GetControllerHandle() const
+{
+	return m_Controller ? m_Controller->m_Handle : AssetHandle{};
+}
+
+const std::string& AnimatorRuntime::GetCurrentStateName() const
+{
+	return m_CurrentStateName;
+}
+
+const std::string& AnimatorRuntime::GetLastTransitionSourceName() const
+{
+	return m_LastTransitionSourceName;
+}
+
+const std::string& AnimatorRuntime::GetLastTransitionTargetName() const
+{
+	return m_LastTransitionTargetName;
+}
+
+float AnimatorRuntime::GetTransitionDebugTime() const
+{
+	return m_TransitionDebugTime;
+}
+
+bool AnimatorRuntime::IsTransitioning() const
+{
+	return m_Transitioning;
+}
+
+const std::string& AnimatorRuntime::GetTransitionTargetStateName() const
+{
+	return m_TransitionTargetStateName;
+}
+
+float AnimatorRuntime::GetStateTime() const
+{
+	return m_StateTime;
+}
+
+const std::vector<std::string>& AnimatorRuntime::GetFiredEvents() const
+{
+	return m_FiredEvents;
+}
+
+void AnimatorRuntime::ClearFiredEvents()
+{
+	m_FiredEvents.clear();
+}
+
+const std::unordered_map<std::string, bool>& AnimatorRuntime::GetBoolParameters() const
+{
+	return m_BoolParameters;
+}
+
+const std::unordered_map<std::string, int32_t>& AnimatorRuntime::GetIntParameters() const
+{
+	return m_IntParameters;
+}
+
+const std::unordered_map<std::string, float>& AnimatorRuntime::GetFloatParameters() const
+{
+	return m_FloatParameters;
+}
+
+const std::unordered_set<std::string>& AnimatorRuntime::GetTriggerParameters() const
+{
+	return m_TriggerParameters;
+}
+
 const AnimationControllerState* AnimatorRuntime::GetCurrentState() const
 {
 	return m_Controller ? m_Controller->FindState(m_CurrentStateName) : nullptr;
@@ -492,8 +566,11 @@ bool AnimatorRuntime::ConditionPasses(const AnimationControllerCondition& condit
 		case AnimationConditionMode::IfNot: return !value;
 		case AnimationConditionMode::Equals: return value == condition.m_BoolValue;
 		case AnimationConditionMode::NotEquals: return value != condition.m_BoolValue;
-		default: return false;
+		case AnimationConditionMode::Greater:
+		case AnimationConditionMode::Less:
+			break;
 		}
+		return false;
 	}
 	case AnimationParameterType::Int:
 	{
@@ -505,8 +582,11 @@ bool AnimatorRuntime::ConditionPasses(const AnimationControllerCondition& condit
 		case AnimationConditionMode::Less: return value < condition.m_IntValue;
 		case AnimationConditionMode::Equals: return value == condition.m_IntValue;
 		case AnimationConditionMode::NotEquals: return value != condition.m_IntValue;
-		default: return false;
+		case AnimationConditionMode::If:
+		case AnimationConditionMode::IfNot:
+			break;
 		}
+		return false;
 	}
 	case AnimationParameterType::Float:
 	{
@@ -518,8 +598,11 @@ bool AnimatorRuntime::ConditionPasses(const AnimationControllerCondition& condit
 		case AnimationConditionMode::Less: return value < condition.m_Threshold;
 		case AnimationConditionMode::Equals: return NearlyEqual(value, condition.m_Threshold);
 		case AnimationConditionMode::NotEquals: return !NearlyEqual(value, condition.m_Threshold);
-		default: return false;
+		case AnimationConditionMode::If:
+		case AnimationConditionMode::IfNot:
+			break;
 		}
+		return false;
 	}
 	case AnimationParameterType::Trigger:
 	{
@@ -530,8 +613,11 @@ bool AnimatorRuntime::ConditionPasses(const AnimationControllerCondition& condit
 		case AnimationConditionMode::IfNot: return !value;
 		case AnimationConditionMode::Equals: return value == condition.m_BoolValue;
 		case AnimationConditionMode::NotEquals: return value != condition.m_BoolValue;
-		default: return false;
+		case AnimationConditionMode::Greater:
+		case AnimationConditionMode::Less:
+			break;
 		}
+		return false;
 	}
 	}
 
@@ -581,8 +667,7 @@ void AnimatorRuntime::ApplyCurrentFrame()
 
 	if (m_Transitioning)
 	{
-		const AnimationControllerState* targetState = m_Controller->FindState(m_TransitionTargetStateName);
-		if (targetState)
+		if (const AnimationControllerState* targetState = m_Controller->FindState(m_TransitionTargetStateName))
 		{
 			ApplyBlendedFrame(*state, m_StateTime, *targetState, m_TransitionTargetStateTime, GetTransitionProgress());
 			return;

@@ -1,8 +1,7 @@
 #include "WhipPch.h"
-#include <Whip/Asset/TextureImporter.h>
-#include <Whip/Asset/AssetManager.h>
-
-#include <Whip/Project/Project.h>
+#include "Whip/Asset/TextureImporter.h"
+#include "Whip/Asset/AssetManager.h"
+#include "Whip/Project/Project.h"
 
 #include <stb_image.h>
 
@@ -38,7 +37,7 @@ Ref<Texture2D> TextureImporter::LoadTexture2D(const std::filesystem::path& path,
 	}
 
 	// TODO: think about this
-	data.m_Size = static_cast<uint64_t>(width * height * channels);
+	data.m_Size = static_cast<uint64_t>(width) * height * channels;
 
 	TextureSpecification spec;
 	spec.m_Width = width;
@@ -51,6 +50,7 @@ Ref<Texture2D> TextureImporter::LoadTexture2D(const std::filesystem::path& path,
 	case 4:
 		spec.m_Format = ImageFormat::Rgba8;
 		break;
+	default: break;
 	}
 
 	if(!(direction & FlipDirectionVertical))

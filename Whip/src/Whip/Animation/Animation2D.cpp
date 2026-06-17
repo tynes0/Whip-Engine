@@ -1,32 +1,29 @@
-#include <WhipPch.h>
-#include <Whip/Animation/Animation2D.h>
-#include <Whip/Animation/AnimationManager.h>
-#include <Whip/Scene/Components.h>
+#include "WhipPch.h"
+#include "Whip/Animation/Animation2D.h"
+#include "Whip/Animation/AnimationManager.h"
+#include "Whip/Scene/Components.h"
 
 #ifndef YAML_CPP_STATIC_DEFINE
 #define YAML_CPP_STATIC_DEFINE
 #endif
 #include <yaml-cpp/yaml.h>
 
-namespace YAML
+template<>
+struct YAML::convert<whip::AssetHandle>
 {
-	template<>
-	struct convert<whip::AssetHandle>
+	static Node encode(const whip::AssetHandle& handle)
 	{
-		static Node encode(const whip::AssetHandle& handle)
-		{
-			Node node;
-			node.push_back((uint64_t)handle);
-			return node;
-		}
+		Node node;
+		node.push_back(static_cast<uint64_t>(handle));
+		return node;
+	}
 
-		static bool decode(const Node& node, whip::AssetHandle& handle)
-		{
-			handle = node.as<uint64_t>();
-			return true;
-		}
-	};
-}
+	static bool decode(const Node& node, whip::AssetHandle& handle)
+	{
+		handle = node.as<uint64_t>();
+		return true;
+	}
+};
 
 _WHIP_START
 
@@ -115,12 +112,9 @@ namespace
 
 Animation2D::Animation2D(AssetHandle handleIn) : Asset(handleIn), m_Frames() { }
 
-Animation2D::~Animation2D()
-{
-	//AnimationManager::GetAnimationNameManager().RemoveName(m_Name);
-}
+Animation2D::~Animation2D() = default;
 
-Ref<Animation2D> Animation2D::Copy(Ref<Animation2D> anim)
+Ref<Animation2D> Animation2D::Copy(const Ref<Animation2D>& anim)
 {
 	auto newAnimation = MakeRef<Animation2D>();
 	newAnimation->m_Frames = anim->m_Frames;
@@ -148,7 +142,7 @@ void Animation2D::AddFrame(const AnimationFrame& frame)
 void Animation2D::RemoveFrame(size_t index)
 {
 	if (index < m_Frames.size())
-		m_Frames.erase(m_Frames.begin() + index);
+		m_Frames.erase(m_Frames.begin() + static_cast<std::vector<AnimationFrame>::difference_type>(index));
 }
 
 void Animation2D::BindWithEntity(Entity targetEntity)

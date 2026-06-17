@@ -1,8 +1,8 @@
 #pragma once
 
-#include <Whip/Core/Core.h>
-#include <Whip/Core/Memory.h>
-#include <Whip/Render/Font.h>
+#include "Whip/Core/Core.h"
+#include "Whip/Core/Memory.h"
+#include "Whip/Render/Font.h"
 
 #include "AssetMetadata.h"
 

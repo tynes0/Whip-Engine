@@ -1,8 +1,8 @@
 #pragma once
 
-#include <Whip/Core/Core.h>
-#include <Whip/Core/Memory.h>
-#include <Whip/Helper/UniqueNameManager.h>
+#include "Whip/Core/Core.h"
+#include "Whip/Core/Memory.h"
+#include "Whip/Helper/UniqueNameManager.h"
 
 #include "Animation2D.h"
 
@@ -14,8 +14,8 @@ class AnimationManager
 {
 public:
 	void Update(Timestep ts);
-	void AddAnimation(Ref<Animation2D> animation);
-	void RemoveAnimation(Ref<Animation2D> animation);
+	void AddAnimation(const Ref<Animation2D>& animation);
+	void RemoveAnimation(const Ref<Animation2D>& animation);
 
 	void Clear();
 	bool Empty() const;

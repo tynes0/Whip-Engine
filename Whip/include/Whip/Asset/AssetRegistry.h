@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Whip/Core/Core.h>
-#include <Whip/Core/Memory.h>
+#include "Whip/Core/Core.h"
+#include "Whip/Core/Memory.h"
 
 #include "AssetMetadata.h"
 #include "Asset.h"
@@ -14,53 +14,55 @@ _WHIP_START
 
 using FilteredAssetRegistry = std::unordered_map<AssetHandle, AssetMetadata>;
 
-class RegistryIterator
+class RegistryIterator  // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	using ValueType = std::pair<const AssetHandle, AssetMetadata>;
 
-	RegistryIterator() : m_Data(nullptr) {}
-	RegistryIterator(ValueType* data) : m_Data(data) {}
-	RegistryIterator(FilteredAssetRegistry::iterator it) : m_Data(it.operator->()) {}
-	~RegistryIterator() {}
+	RegistryIterator();
+	RegistryIterator(ValueType* data);
+	RegistryIterator(const FilteredAssetRegistry::iterator& it);
 
-	ValueType& operator*() { return *m_Data; }
-	ValueType* operator->() { return m_Data; }
+	ValueType& operator*();
+	const ValueType& operator*() const;
+	ValueType* operator->();
+	const ValueType* operator->() const;
 
-	bool operator==(RegistryIterator it) { return m_Data == it.m_Data; }
-	bool operator!=(RegistryIterator it) { return !this->operator==(it); }
+	bool operator==(RegistryIterator it) const;
+	bool operator!=(RegistryIterator it) const;
+
 private:
 	ValueType* m_Data;
 };
 
-class RegistryConstIterator
+class RegistryConstIterator  // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	using ValueType = std::pair<const AssetHandle, AssetMetadata>;
 
-	RegistryConstIterator() : m_Data(nullptr) {}
-	RegistryConstIterator(ValueType* data) : m_Data(data) {}
-	RegistryConstIterator(FilteredAssetRegistry::const_iterator it) : m_Data(it.operator->()) {}
-	~RegistryConstIterator() {}
+	RegistryConstIterator();
+	RegistryConstIterator(const ValueType* data);
+	RegistryConstIterator(const FilteredAssetRegistry::const_iterator& it);
 
-	const ValueType& operator*() const { return *m_Data; }
-	const ValueType* operator->() const { return m_Data; }
+	const ValueType& operator*() const;
+	const ValueType* operator->() const;
 
-	bool operator==(RegistryConstIterator it) { return m_Data == it.m_Data; }
-	bool operator!=(RegistryConstIterator it) { return !this->operator==(it); }
+	bool operator==(RegistryConstIterator it) const;
+	bool operator!=(RegistryConstIterator it) const;
+
 private:
 	const ValueType* m_Data;
 };
 
-class AssetRegistry
+class AssetRegistry  // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	using ValueType		= FilteredAssetRegistry::value_type;
-	using Iterator			= RegistryIterator;
+	using Iterator		= RegistryIterator;
 	using ConstIterator	= RegistryConstIterator;
 
-	AssetRegistry() {}
-	~AssetRegistry() {}
+	AssetRegistry() = default;
+	~AssetRegistry() = default;
 
 	bool Add(AssetHandle handle, const AssetMetadata& metadata);
 	bool AddOrReset(AssetHandle handle, const AssetMetadata& metadata);
@@ -90,8 +92,8 @@ public:
 	bool Serialize() const;
 	bool Deserialize();
 
-	bool IsNullIt(Iterator it) const;
-	bool IsNullIt(ConstIterator it) const;
+	static bool IsNullIt(Iterator it);
+	static bool IsNullIt(ConstIterator it);
 
 	enum : uint8_t { LoopStop, LoopContinue };
 
@@ -106,7 +108,7 @@ public:
 private:
 	using PrivateIterator = FilteredAssetRegistry::iterator;
 	using PrivateConstIterator = FilteredAssetRegistry::const_iterator;
-	
+
 	std::pair<PrivateIterator, bool> PrivateFind(AssetHandle handle);
 	std::pair<PrivateConstIterator, bool> PrivateFind(AssetHandle handle) const;
 	std::pair<PrivateIterator, bool> PrivateFind(AssetType type, AssetHandle handle);

@@ -40,7 +40,7 @@ private:
 	void DrawDocumentToolbar(AssetHandle handle, const AssetMetadata& metadata) const;
 	void CaptureWorkspaceRect();
 	void RequestFullscreen();
-	void RestoreWorkspaceRect();
+	void RestoreWorkspaceRect(bool anchorToMouse = false);
 	void DrawMetadata(AssetHandle handle, const AssetMetadata& metadata) const;
 	void DrawTextureInspector(AssetHandle handle, const AssetMetadata& metadata, bool compact) const;
 	void DrawAudioInspector(AssetHandle handle, bool compact) const;

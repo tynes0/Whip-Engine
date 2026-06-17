@@ -1,5 +1,5 @@
 #include "WhipPch.h"
-#include <Whip/Animation/AnimationController.h>
+#include "Whip/Animation/AnimationController.h"
 
 #ifndef YAML_CPP_STATIC_DEFINE
 #define YAML_CPP_STATIC_DEFINE
@@ -115,10 +115,80 @@ AnimationController::AnimationController(AssetHandle handle)
 	SetDefaultState("State");
 }
 
+AssetType AnimationController::GetType() const
+{
+	return AssetType::AnimationController;
+}
+
+const std::string& AnimationController::GetDefaultState() const
+{
+	return m_DefaultState;
+}
+
+std::vector<AnimationControllerState>& AnimationController::GetStates()
+{
+	return m_States;
+}
+
+const std::vector<AnimationControllerState>& AnimationController::GetStates() const
+{
+	return m_States;
+}
+
+std::vector<AnimationControllerParameter>& AnimationController::GetParameters()
+{
+	return m_Parameters;
+}
+
+const std::vector<AnimationControllerParameter>& AnimationController::GetParameters() const
+{
+	return m_Parameters;
+}
+
+std::vector<AnimationControllerTransition>& AnimationController::GetAnyStateTransitions()
+{
+	return m_AnyStateTransitions;
+}
+
+const std::vector<AnimationControllerTransition>& AnimationController::GetAnyStateTransitions() const
+{
+	return m_AnyStateTransitions;
+}
+
+glm::vec2& AnimationController::GetEntryGraphPosition()
+{
+	return m_EntryGraphPosition;
+}
+
+const glm::vec2& AnimationController::GetEntryGraphPosition() const
+{
+	return m_EntryGraphPosition;
+}
+
+glm::vec2& AnimationController::GetAnyStateGraphPosition()
+{
+	return m_AnyStateGraphPosition;
+}
+
+const glm::vec2& AnimationController::GetAnyStateGraphPosition() const
+{
+	return m_AnyStateGraphPosition;
+}
+
+glm::vec2& AnimationController::GetExitGraphPosition()
+{
+	return m_ExitGraphPosition;
+}
+
+const glm::vec2& AnimationController::GetExitGraphPosition() const
+{
+	return m_ExitGraphPosition;
+}
+
 AnimationControllerState& AnimationController::AddState(std::string name, AssetHandle clip)
 {
 	AnimationControllerState state;
-	state.m_Name = MakeUniqueStateName(name.empty() ? "State" : name);
+	state.m_Name = MakeUniqueStateName(name.empty() ? "State" : std::move(name));
 	state.m_Clip = clip;
 	m_States.push_back(state);
 
@@ -130,10 +200,10 @@ AnimationControllerState& AnimationController::AddState(std::string name, AssetH
 
 bool AnimationController::RemoveState(std::string_view name)
 {
-	const auto it = std::find_if(m_States.begin(), m_States.end(), [name](const AnimationControllerState& state)
-		{
-			return state.m_Name == name;
-		});
+	const auto it = std::ranges::find_if(m_States, [name](const AnimationControllerState& state)
+	{
+		return state.m_Name == name;
+	});
 
 	if (it == m_States.end())
 		return false;
@@ -159,26 +229,26 @@ bool AnimationController::RemoveState(std::string_view name)
 
 AnimationControllerState* AnimationController::FindState(std::string_view name)
 {
-	const auto it = std::find_if(m_States.begin(), m_States.end(), [name](const AnimationControllerState& state)
-		{
-			return state.m_Name == name;
-		});
+	const auto it = std::ranges::find_if(m_States, [name](const AnimationControllerState& state)
+	{
+		return state.m_Name == name;
+	});
 	return it == m_States.end() ? nullptr : &*it;
 }
 
 const AnimationControllerState* AnimationController::FindState(std::string_view name) const
 {
-	const auto it = std::find_if(m_States.begin(), m_States.end(), [name](const AnimationControllerState& state)
-		{
-			return state.m_Name == name;
-		});
+	const auto it = std::ranges::find_if(m_States, [name](const AnimationControllerState& state)
+	{
+		return state.m_Name == name;
+	});
 	return it == m_States.end() ? nullptr : &*it;
 }
 
 AnimationControllerParameter& AnimationController::AddParameter(std::string name, AnimationParameterType type)
 {
 	AnimationControllerParameter parameter;
-	parameter.m_Name = MakeUniqueParameterName(name.empty() ? "Parameter" : name);
+	parameter.m_Name = MakeUniqueParameterName(name.empty() ? "Parameter" : std::move(name));
 	parameter.m_Type = type;
 	m_Parameters.push_back(parameter);
 	return m_Parameters.back();
@@ -386,10 +456,10 @@ std::string AnimationController::MakeUniqueParameterName(std::string_view baseNa
 	std::string candidate(baseName);
 	const auto exists = [this](std::string_view name)
 		{
-			return std::any_of(m_Parameters.begin(), m_Parameters.end(), [name](const AnimationControllerParameter& parameter)
-				{
-					return parameter.m_Name == name;
-				});
+			return std::ranges::any_of(m_Parameters, [name](const AnimationControllerParameter& parameter)
+			{
+				return parameter.m_Name == name;
+			});
 		};
 
 	for (int suffix = 1; exists(candidate); ++suffix)

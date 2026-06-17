@@ -147,6 +147,9 @@ void AssetEditorPanel::OpenAsset(AssetHandle handle)
 		return;
 
 	for (AssetEditorDocument& document : m_Documents)
+		document.m_FocusRequested = false;
+
+	for (AssetEditorDocument& document : m_Documents)
 	{
 		if (document.m_Handle == handle)
 		{
@@ -242,7 +245,8 @@ void AssetEditorPanel::OnImGuiRender()
 		ImGui::SetNextWindowSize(DefaultWorkspaceSize(), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSizeConstraints(ImVec2(340.0f, 220.0f), ImVec2(FLT_MAX, FLT_MAX));
 	bool open = m_Open;
-	if (!ImGui::Begin("Asset Workspace###AssetWorkspace", &open, ImGuiWindowFlags_NoCollapse))
+	constexpr ImGuiWindowFlags WorkspaceFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking;
+	if (!ImGui::Begin("Asset Workspace###AssetWorkspace", &open, WorkspaceFlags))
 	{
 		m_Open = open;
 		ImGui::End();
@@ -253,7 +257,7 @@ void AssetEditorPanel::OnImGuiRender()
 		m_FocusRequested = false;
 
 	if (m_Fullscreen && TitlebarDragStarted())
-		RestoreWorkspaceRect();
+		RestoreWorkspaceRect(true);
 	else if (!m_Fullscreen && !ImGui::IsWindowDocked())
 		CaptureWorkspaceRect();
 
@@ -294,6 +298,8 @@ void AssetEditorPanel::FocusNextEditor()
 	}
 
 	m_ActiveDocument = m_Documents[index].m_Handle;
+	for (AssetEditorDocument& document : m_Documents)
+		document.m_FocusRequested = false;
 	m_Documents[index].m_FocusRequested = true;
 	m_Minimized = false;
 	m_FocusRequested = true;
@@ -366,7 +372,10 @@ void AssetEditorPanel::DrawWorkspaceHeader()
 void AssetEditorPanel::DrawWorkspaceTabs()
 {
 	if (m_ActiveDocument == 0 && !m_Documents.empty())
+	{
 		m_ActiveDocument = m_Documents.front().m_Handle;
+		m_Documents.front().m_FocusRequested = true;
+	}
 
 	if (ImGui::BeginTabBar("##AssetWorkspaceTabs", ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_FittingPolicyScroll))
 	{
@@ -386,15 +395,17 @@ void AssetEditorPanel::DrawWorkspaceTabs()
 			}
 
 			bool open = document.m_Open;
-			ImGuiTabItemFlags flags = document.m_Handle == m_ActiveDocument ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
+			const bool focusRequested = document.m_FocusRequested;
+			ImGuiTabItemFlags flags = focusRequested ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
 			const std::string label = MakeTabLabel(document.m_Handle, metadata);
 			if (ImGui::BeginTabItem(label.c_str(), &open, flags))
 			{
 				m_ActiveDocument = document.m_Handle;
-				document.m_FocusRequested = false;
 				DrawDocumentContent(document);
 				ImGui::EndTabItem();
 			}
+			if (focusRequested)
+				document.m_FocusRequested = false;
 			document.m_Open = open;
 		}
 		ImGui::EndTabBar();
@@ -515,16 +526,29 @@ void AssetEditorPanel::RequestFullscreen()
 	m_FocusRequested = true;
 }
 
-void AssetEditorPanel::RestoreWorkspaceRect()
+void AssetEditorPanel::RestoreWorkspaceRect(bool anchorToMouse)
 {
 	m_Fullscreen = false;
 	m_FullscreenRequested = false;
 	const ImVec2 size(
 		m_HasRestoreRect ? m_RestoreSize.x : 1040.0f,
 		m_HasRestoreRect ? m_RestoreSize.y : 640.0f);
-	const ImVec2 pos(
+	ImVec2 pos(
 		m_HasRestoreRect ? m_RestorePosition.x : ImGui::GetMainViewport()->WorkPos.x + 80.0f,
 		m_HasRestoreRect ? m_RestorePosition.y : ImGui::GetMainViewport()->WorkPos.y + 80.0f);
+	if (anchorToMouse)
+	{
+		const ImVec2 mouse = ImGui::GetIO().MousePos;
+		const ImVec2 currentPos = ImGui::GetWindowPos();
+		const ImVec2 currentSize = ImGui::GetWindowSize();
+		const float mouseRatioX = currentSize.x > 1.0f ? std::clamp((mouse.x - currentPos.x) / currentSize.x, 0.08f, 0.92f) : 0.5f;
+		pos.x = mouse.x - size.x * mouseRatioX;
+		pos.y = mouse.y - ImGui::GetFrameHeight() * 0.5f;
+
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		pos.x = std::clamp(pos.x, viewport->WorkPos.x, viewport->WorkPos.x + std::max(0.0f, viewport->WorkSize.x - size.x));
+		pos.y = std::clamp(pos.y, viewport->WorkPos.y, viewport->WorkPos.y + std::max(0.0f, viewport->WorkSize.y - size.y));
+	}
 	ImGui::SetWindowPos(pos, ImGuiCond_Always);
 	ImGui::SetWindowSize(size, ImGuiCond_Always);
 }

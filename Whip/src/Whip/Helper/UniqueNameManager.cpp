@@ -22,7 +22,7 @@ std::string UniqueNameManager::AddName(const std::string& name)
 			count = std::stoi(suffix);
 	}
 
-	while (m_NameMap[baseName].count(count))
+	while (m_NameMap[baseName].contains(count))
 		++count;
 
 	m_NameMap[baseName].insert(count);
@@ -37,7 +37,7 @@ bool UniqueNameManager::RemoveName(const std::string& name)
 	std::regex re(R"(^(.*?)(\((\d+)\))?$)");
 	std::smatch match;
 
-	if (std::regex_match(name, match, re)) 
+	if (std::regex_match(name, match, re))
 	{
 		baseName = match[1];
 		std::string suffix = match[3];
@@ -45,10 +45,10 @@ bool UniqueNameManager::RemoveName(const std::string& name)
 			count = std::stoi(suffix);
 	}
 
-	if (m_NameMap.count(baseName) && m_NameMap[baseName].count(count)) 
+	if (m_NameMap.contains(baseName) && m_NameMap[baseName].contains(count))
 	{
 		m_NameMap[baseName].erase(count);
-		if (m_NameMap[baseName].empty()) 
+		if (m_NameMap[baseName].empty())
 			m_NameMap.erase(baseName);
 		return true;
 	}

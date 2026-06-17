@@ -12,7 +12,7 @@ void TimerGroup::Add(TimerId id)
 
 void TimerGroup::Remove(TimerId id)
 {
-	m_Timers.erase(std::remove(m_Timers.begin(), m_Timers.end(), id), m_Timers.end());
+	std::erase(m_Timers, id);
 }
 
 void TimerGroup::Pause()
@@ -42,7 +42,7 @@ void TimerGroup::Clear()
 
 bool TimerGroup::Exists(TimerId id) const
 {
-	return std::find(m_Timers.begin(), m_Timers.end(), id) != m_Timers.end();
+	return std::ranges::find(m_Timers, id) != m_Timers.end();
 }
 
 bool TimerGroup::Empty() const
@@ -89,22 +89,38 @@ void TimerGroupMap::Clear()
 
 bool TimerGroupMap::Exists(const std::string& groupName) const
 {
-	return m_TimerGroups.find(groupName) != m_TimerGroups.end();
+	return m_TimerGroups.contains(groupName);
 }
-
-TimerManager::TimerManager() {}
 
 TimerId TimerManager::SetTimeout(FunctionType func, float delayMs, void* userData, int priority)
 {
 	TimerId id = GenerateId();
-	m_Timers[id] = { func, userData, delayMs / 1000.0f, 0.0f, false, false, true, priority };
+	m_Timers[id] = {
+		.m_Func = std::move(func),
+		.m_UserData = userData,
+		.m_TimeLeft = delayMs / 1000.0f,
+		.m_Interval = 0.0f,
+		.m_Repeat = false,
+		.m_Paused = false,
+		.m_Active = true,
+		.m_Priority = priority
+	};
 	return id;
 }
 
 TimerId TimerManager::SetInterval(FunctionType func, float intervalMs, void* userData, int priority)
 {
 	TimerId id = GenerateId();
-	m_Timers[id] = { func, userData, intervalMs / 1000.0f, intervalMs / 1000.0f, true, false, true, priority };
+	m_Timers[id] = {
+		.m_Func = std::move(func),
+		.m_UserData = userData,
+		.m_TimeLeft = intervalMs / 1000.0f,
+		.m_Interval = intervalMs / 1000.0f,
+		.m_Repeat = true,
+		.m_Paused = false,
+		.m_Active = true,
+		.m_Priority = priority
+	};
 	return id;
 }
 
@@ -165,7 +181,7 @@ float TimerManager::GetRemainingTime(TimerId id) const
 
 bool TimerManager::Exists(TimerId id) const
 {
-	return m_Timers.find(id) != m_Timers.end();
+	return m_Timers.contains(id);
 }
 
 bool TimerManager::IsPaused(TimerId id) const
@@ -199,7 +215,7 @@ void TimerManager::Tick(Timestep deltaTime)
 	{
 		if (!timer.m_Active)
 		{
-			timersToRemove.push_back({ timer.m_Priority, id });
+			timersToRemove.emplace_back(timer.m_Priority, id);
 			continue;
 		}
 
@@ -216,11 +232,11 @@ void TimerManager::Tick(Timestep deltaTime)
 			if (timer.m_Repeat)
 				timer.m_TimeLeft = timer.m_Interval;
 			else
-				timersToRemove.push_back({ timer.m_Priority, id });
+				timersToRemove.emplace_back(timer.m_Priority, id);
 		}
 	}
 
-	std::sort(timersToRemove.begin(), timersToRemove.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+	std::ranges::sort(timersToRemove, [](const auto& a, const auto& b) { return a.first > b.first; });
 
 	for (const auto& [priority, id] : timersToRemove)
 		m_Timers.erase(id);
@@ -230,12 +246,12 @@ TimerGroupMap& TimerManager::GetGroupMap(ApplicationMode mode)
 {
 	switch (mode)
 	{
-	case whip::ApplicationMode::Editor: return m_TimerGroups;
-	case whip::ApplicationMode::Runtime: return m_RuntimeTimerGroups;
-	default:
-		WHP_CORE_ASSERT(false, "[Timer Mananger] Invalid Application mode!");
-		return m_TimerGroups;
+	case ApplicationMode::Editor: return m_TimerGroups;
+	case ApplicationMode::Runtime: return m_RuntimeTimerGroups;
 	}
+
+	WHP_CORE_ASSERT(false, "[Timer Mananger] Invalid Application mode!");
+	return m_TimerGroups;
 }
 
 TimerId TimerManager::GenerateId()

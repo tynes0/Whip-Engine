@@ -1,12 +1,9 @@
 #pragma once
 
-#include <Whip/Core/Core.h>
-
 #include "AssetMetadata.h"
 #include "AssetManagerBase.h"
 #include "AssetRegistry.h"
 
-#include <map>
 #include <filesystem>
 
 
@@ -15,13 +12,13 @@ _WHIP_START
 class EditorAssetManager : public AssetManagerBase
 {
 public:
-	virtual Ref<Asset> GetAsset(AssetHandle handle) override;
+	Ref<Asset> GetAsset(AssetHandle handle) override;
 
-	virtual bool IsAssetHandleValid(AssetHandle handle) const override;
-	virtual bool IsAssetLoaded(AssetHandle handle) const override;
-	virtual AssetType GetAssetType(AssetHandle handle) const override;
-	virtual const AssetMetadata& GetMetadata(AssetHandle handle) const override;
-	virtual void AddRegistry(AssetHandle handle, const AssetMetadata& metadata) override;
+	bool IsAssetHandleValid(AssetHandle handle) const override;
+	bool IsAssetLoaded(AssetHandle handle) const override;
+	AssetType GetAssetType(AssetHandle handle) const override;
+	const AssetMetadata& GetMetadata(AssetHandle handle) const override;
+	void AddRegistry(AssetHandle handle, const AssetMetadata& metadata) override;
 
 	AssetHandle ImportAsset(const std::filesystem::path& filepath);
 	void DeleteAsset(AssetHandle handle);
@@ -33,9 +30,9 @@ public:
 
 	AssetHandle GetHandleFromFilepath(const std::filesystem::path& filepath) const;
 	const std::filesystem::path& GetFilepath(AssetHandle handle) const;
-	const AssetRegistry& GetAssetRegistry() const { return m_AssetRegistry; }
+	const AssetRegistry& GetAssetRegistry() const;
 
-	void SerializeAssetRegistry();
+	void SerializeAssetRegistry(bool* result = nullptr);
 	bool DeserializeAssetRegistry();
 private:
 	AssetRegistry m_AssetRegistry;

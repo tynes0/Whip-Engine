@@ -1,9 +1,9 @@
 #pragma once
 
-#include <Whip/Core/Core.h>
-#include <Whip/Core/UUID.h>
-#include <Whip/Asset/Asset.h>
-#include <Whip/Scene/Entity.h>
+#include "Whip/Core/Core.h"
+#include "Whip/Core/UUID.h"
+#include "Whip/Asset/Asset.h"
+#include "Whip/Scene/Entity.h"
 
 #include <filesystem>
 #include <cstdint>
@@ -53,11 +53,11 @@ public:
 	static constexpr uint32_t FormatVersion = 1;
 
 	Animation2D(AssetHandle handleIn = AssetHandle{});
-	~Animation2D();
+	~Animation2D() override;
 
 	AssetType GetType() const override { return AssetType::Animation; }
 
-	static Ref<Animation2D> Copy(Ref<Animation2D> anim);
+	static Ref<Animation2D> Copy(const Ref<Animation2D>& anim);
 
 	void SetFrames(const std::vector<AnimationFrame>& frames, bool loop);
 	void AddFrame(const AnimationFrame& frame);
