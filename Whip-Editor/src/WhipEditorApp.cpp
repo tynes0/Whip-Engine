@@ -16,6 +16,7 @@ Application* CreateApplication(ApplicationCommandLineArgs args)
 	ApplicationSpecification spec;
 	spec.m_Properties.m_Title = "Whip Editor";
 	spec.m_Properties.m_Fullscreen = true;
+	spec.m_Properties.m_CustomTitlebar = true;
 	spec.m_CommandLineArgs = args;
 	return new WhipEditor(spec);
 }

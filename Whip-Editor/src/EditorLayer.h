@@ -145,6 +145,8 @@ private:
 	void RestoreProjectHistory(const ProjectHistoryEntry& entry);
 	bool ExecuteEditorAction(UI::EditorShortcutAction action);
 	bool IsEditorActionAvailable(UI::EditorShortcutAction action) const;
+	void DrawEditorShellTitlebar(bool projectLoaded);
+	void DrawEditorMenuBar(bool projectLoaded);
 	void OpenCommandPalette();
 	void DrawCommandPalette();
 

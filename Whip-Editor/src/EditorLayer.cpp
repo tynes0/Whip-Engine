@@ -47,6 +47,61 @@ _WHIP_START
 
 namespace
 {
+	enum class ShellWindowControl
+	{
+		Minimize,
+		Maximize,
+		Restore,
+		Close
+	};
+
+	ImU32 ColorU32(ImGuiCol color)
+	{
+		return ImGui::GetColorU32(ImGui::GetStyleColorVec4(color));
+	}
+
+	bool DrawShellWindowControlButton(const char* id, ShellWindowControl control, ImVec2 size)
+	{
+		ImGui::InvisibleButton(id, size);
+		const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+		const bool hovered = ImGui::IsItemHovered();
+		const bool active = ImGui::IsItemActive();
+
+		const ImVec2 min = ImGui::GetItemRectMin();
+		const ImVec2 max = ImGui::GetItemRectMax();
+		const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+		ImU32 background = IM_COL32(255, 255, 255, hovered ? 28 : 0);
+		if (control == ShellWindowControl::Close && hovered)
+			background = IM_COL32(196, 58, 46, active ? 230 : 205);
+		else if (active)
+			background = IM_COL32(255, 255, 255, 42);
+
+		drawList->AddRectFilled(min, max, background, 0.0f);
+		const ImU32 iconColor = control == ShellWindowControl::Close && hovered ? IM_COL32(255, 244, 234, 255) : IM_COL32(226, 218, 202, 235);
+
+		switch (control)
+		{
+		case ShellWindowControl::Minimize:
+			drawList->AddLine(ImVec2(center.x - 5.0f, center.y + 5.0f), ImVec2(center.x + 5.0f, center.y + 5.0f), iconColor, 1.35f);
+			break;
+		case ShellWindowControl::Maximize:
+			drawList->AddRect(ImVec2(center.x - 5.0f, center.y - 5.0f), ImVec2(center.x + 5.0f, center.y + 5.0f), iconColor, 0.0f, 0, 1.25f);
+			break;
+		case ShellWindowControl::Restore:
+			drawList->AddRect(ImVec2(center.x - 3.0f, center.y - 6.0f), ImVec2(center.x + 6.0f, center.y + 3.0f), iconColor, 0.0f, 0, 1.1f);
+			drawList->AddRect(ImVec2(center.x - 7.0f, center.y - 2.0f), ImVec2(center.x + 2.0f, center.y + 7.0f), iconColor, 0.0f, 0, 1.1f);
+			break;
+		case ShellWindowControl::Close:
+			drawList->AddLine(ImVec2(center.x - 5.0f, center.y - 5.0f), ImVec2(center.x + 5.0f, center.y + 5.0f), iconColor, 1.35f);
+			drawList->AddLine(ImVec2(center.x + 5.0f, center.y - 5.0f), ImVec2(center.x - 5.0f, center.y + 5.0f), iconColor, 1.35f);
+			break;
+		}
+
+		return clicked;
+	}
+
 	bool IsControlDown()
 	{
 		return Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl);
@@ -1053,6 +1108,7 @@ void EditorLayer::OnImGuiRender()
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
 		ImGui::Begin("Whip Hub Host", nullptr, hubHostFlags);
+		DrawEditorShellTitlebar(false);
 		m_ProjectLoader.Run();
 		ImGui::End();
 		ImGui::PopStyleColor();
@@ -1065,7 +1121,7 @@ void EditorLayer::OnImGuiRender()
 		static bool pOpen = true;
 		static ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
 
-		ImGuiWindowFlags windowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+		ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDocking;
 
 		const ImGuiViewport* viewport = ImGui::GetMainViewport();
 		ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -1082,6 +1138,8 @@ void EditorLayer::OnImGuiRender()
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 		ImGui::Begin("Editor DockSpace", &pOpen, windowFlags);
 		ImGui::PopStyleVar(3);
+		DrawEditorShellTitlebar(projectLoaded);
+		DrawEditorMenuBar(projectLoaded);
 
 		ImGuiIO& io = ImGui::GetIO();
 		ImGuiStyle& style = ImGui::GetStyle();
@@ -1093,113 +1151,6 @@ void EditorLayer::OnImGuiRender()
 			ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), dockspaceFlags);
 		}
 		style.WindowMinSize.x = minWinSizeX;
-	}
-	// menu bar
-    if (ImGui::BeginMenuBar())
-    {
-		auto drawMenuAction = [this](UI::EditorShortcutAction action, const char* label = nullptr)
-			{
-				std::string shortcut = m_UISettings.GetShortcutLabel(action);
-				const bool available = IsEditorActionAvailable(action);
-				ImGui::BeginDisabled(!available);
-				bool clicked = ImGui::MenuItem(label ? label : UI::UISettings::GetActionDisplayName(action), shortcut.c_str());
-				ImGui::EndDisabled();
-				if (clicked)
-					ExecuteEditorAction(action);
-			};
-
-        if (ImGui::BeginMenu("File"))
-        {
-			drawMenuAction(UI::EditorShortcutAction::OpenProject);
-			drawMenuAction(UI::EditorShortcutAction::SaveProject);
-			ImGui::Separator();
-			drawMenuAction(UI::EditorShortcutAction::NewScene);
-			drawMenuAction(UI::EditorShortcutAction::SaveScene);
-			drawMenuAction(UI::EditorShortcutAction::SaveSceneAs, "Save Scene As...");
-			drawMenuAction(UI::EditorShortcutAction::CloseScene);
-			ImGui::Separator();
-            if (ImGui::MenuItem("Restart"))
-                Application::Get().SubmitToNextTick([]() { Application::Get().Restart(); });
-			if (ImGui::MenuItem("Exit"))
-				Application::Get().Close();
-            ImGui::EndMenu();
-        }
-		if (ImGui::BeginMenu("Edit"))
-		{
-			drawMenuAction(UI::EditorShortcutAction::OpenCommandPalette);
-			drawMenuAction(UI::EditorShortcutAction::OpenSettings, "Settings");
-			ImGui::Separator();
-			drawMenuAction(UI::EditorShortcutAction::Undo);
-			drawMenuAction(UI::EditorShortcutAction::Redo);
-			ImGui::Separator();
-			drawMenuAction(UI::EditorShortcutAction::SelectAll);
-			drawMenuAction(UI::EditorShortcutAction::Copy);
-			drawMenuAction(UI::EditorShortcutAction::Paste);
-			drawMenuAction(UI::EditorShortcutAction::Cut);
-			drawMenuAction(UI::EditorShortcutAction::DuplicateEntity);
-			drawMenuAction(UI::EditorShortcutAction::DeleteEntity);
-			ImGui::Separator();
-			ImGui::BeginDisabled(!projectLoaded);
-			if (ImGui::MenuItem("Show Animation Editor"))
-				m_AnimationEditorPanel.Open();
-			ImGui::EndDisabled();
-			if (ImGui::MenuItem("Show Test Popup"))
-				m_PopupHandler.SetShowState(true);
-
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Script"))
-		{
-			drawMenuAction(UI::EditorShortcutAction::ReloadScripts, "Reload Assembly");
-			ImGui::EndMenu();
-		}
-
-		if (ImGui::BeginMenu("Project"))
-		{
-			drawMenuAction(UI::EditorShortcutAction::OpenSettings, "Settings");
-			ImGui::Separator();
-			drawMenuAction(UI::EditorShortcutAction::OpenProject);
-			drawMenuAction(UI::EditorShortcutAction::SaveProject);
-			ImGui::EndMenu();
-		}
-
-		if (ImGui::BeginMenu("Window"))
-		{
-			auto drawPanelToggle = [](const char* label, bool open, auto&& setter)
-				{
-					bool requestedOpen = open;
-					if (ImGui::MenuItem(label, nullptr, &requestedOpen))
-						setter(requestedOpen);
-				};
-
-			ImGui::BeginDisabled(!projectLoaded);
-			drawPanelToggle("Scene Hierarchy", m_SceneHierarchyPanel.IsOpen(), [this](bool open) { m_SceneHierarchyPanel.SetOpen(open); });
-			drawPanelToggle("Statistics", m_UIStatistics.IsOpen(), [this](bool open) { m_UIStatistics.SetOpen(open); });
-			drawPanelToggle("Animation Editor", m_AnimationEditorPanel.IsOpen(), [this](bool open) { m_AnimationEditorPanel.SetOpen(open); });
-			if (m_ContentBrowserPanel)
-				drawPanelToggle("Content Browser", m_ContentBrowserPanel->IsOpen(), [this](bool open) { m_ContentBrowserPanel->SetOpen(open); });
-			else
-				ImGui::MenuItem("Content Browser", nullptr, false, false);
-			ImGui::BeginDisabled(!m_AssetEditorPanel.HasOpenEditors());
-			if (ImGui::MenuItem("Close Asset Editors"))
-				m_AssetEditorPanel.CloseAll();
-			ImGui::EndDisabled();
-			ImGui::EndDisabled();
-			drawPanelToggle("Console", ConsolePanel::IsOpen(), [](bool open) { ConsolePanel::SetOpen(open); });
-			ImGui::EndMenu();
-		}
-
-        ImGui::EndMenuBar();
-    }
-	if (!projectLoaded)
-	{
-		m_ProjectLoader.Run();
-		ImGui::End(); // dockspace
-		ConsolePanel::OnImGuiRender();
-		m_PopupHandler.OnImGuiRender();
-		if (ConsolePanel::ConsumeOpenDirty())
-			SaveEditorPreferences();
-		return;
 	}
 	// viewport
 	{
@@ -1541,6 +1492,183 @@ bool EditorLayer::IsEditorActionAvailable(UI::EditorShortcutAction action) const
 	default:
 		return false;
 	}
+}
+
+void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
+{
+	constexpr float TitlebarHeight = 36.0f;
+	constexpr float ControlWidth = 46.0f;
+
+	ImGui::BeginChild("##EditorShellTitlebar", ImVec2(0.0f, TitlebarHeight), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	const ImVec2 min = ImGui::GetWindowPos();
+	const ImVec2 size = ImGui::GetWindowSize();
+	const ImVec2 max(min.x + size.x, min.y + size.y);
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+	const ImU32 titleTop = IM_COL32(30, 28, 23, 255);
+	const ImU32 titleBottom = IM_COL32(18, 17, 15, 255);
+	drawList->AddRectFilledMultiColor(min, max, titleTop, titleTop, titleBottom, titleBottom);
+	drawList->AddLine(ImVec2(min.x, max.y - 1.0f), ImVec2(max.x, max.y - 1.0f), ColorU32(ImGuiCol_Border), 1.0f);
+	drawList->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, min.y + 2.0f), ColorU32(ImGuiCol_CheckMark), 0.0f);
+
+	const float controlStartX = max.x - ControlWidth * 3.0f;
+	ImGui::SetCursorScreenPos(min);
+	ImGui::InvisibleButton("##EditorTitlebarDrag", ImVec2(std::max(0.0f, controlStartX - min.x), TitlebarHeight));
+	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+	{
+		Window& window = Application::Get().GetWindow();
+		if (window.IsMaximized())
+			window.Restore();
+		else
+			window.Maximize();
+	}
+	else if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+	{
+		Window& window = Application::Get().GetWindow();
+		if (window.IsMaximized())
+			window.Restore();
+
+		const ImVec2 delta = ImGui::GetIO().MouseDelta;
+		auto [x, y] = window.GetPosition();
+		window.SetPosition(x + static_cast<int>(delta.x), y + static_cast<int>(delta.y));
+	}
+
+	const ImVec2 badgeMin(min.x + 14.0f, min.y + 8.0f);
+	const ImVec2 badgeMax(badgeMin.x + 22.0f, badgeMin.y + 20.0f);
+	drawList->AddRectFilled(badgeMin, badgeMax, ColorU32(ImGuiCol_CheckMark), 4.0f);
+	drawList->AddText(ImVec2(badgeMin.x + 5.0f, badgeMin.y + 1.0f), IM_COL32(22, 20, 17, 255), "W");
+
+	std::string title = "Whip Editor";
+	if (projectLoaded && Project::GetActive())
+		title += "  /  " + Project::GetActive()->GetConfig().m_Name;
+	else
+		title += "  /  Hub";
+
+	drawList->AddText(ImVec2(min.x + 46.0f, min.y + 8.0f), IM_COL32(232, 226, 212, 245), title.c_str());
+	drawList->AddText(ImVec2(min.x + 46.0f + ImGui::CalcTextSize(title.c_str()).x + 10.0f, min.y + 8.0f), IM_COL32(142, 130, 110, 210), projectLoaded ? "Editor" : "Project Launcher");
+
+	Window& window = Application::Get().GetWindow();
+	ImGui::SetCursorScreenPos(ImVec2(controlStartX, min.y));
+	if (DrawShellWindowControlButton("##ShellMinimize", ShellWindowControl::Minimize, ImVec2(ControlWidth, TitlebarHeight)))
+		window.Minimize();
+	ImGui::SameLine(0.0f, 0.0f);
+	if (DrawShellWindowControlButton("##ShellMaximize", window.IsMaximized() ? ShellWindowControl::Restore : ShellWindowControl::Maximize, ImVec2(ControlWidth, TitlebarHeight)))
+	{
+		if (window.IsMaximized())
+			window.Restore();
+		else
+			window.Maximize();
+	}
+	ImGui::SameLine(0.0f, 0.0f);
+	if (DrawShellWindowControlButton("##ShellClose", ShellWindowControl::Close, ImVec2(ControlWidth, TitlebarHeight)))
+		Application::Get().Close();
+
+	ImGui::EndChild();
+}
+
+void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
+{
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::BeginChild("##EditorShellMenuBar", ImVec2(0.0f, 30.0f), false, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	ImGui::PopStyleVar();
+
+	if (ImGui::BeginMenuBar())
+	{
+		auto drawMenuAction = [this](UI::EditorShortcutAction action, const char* label = nullptr)
+			{
+				std::string shortcut = m_UISettings.GetShortcutLabel(action);
+				const bool available = IsEditorActionAvailable(action);
+				ImGui::BeginDisabled(!available);
+				bool clicked = ImGui::MenuItem(label ? label : UI::UISettings::GetActionDisplayName(action), shortcut.c_str());
+				ImGui::EndDisabled();
+				if (clicked)
+					ExecuteEditorAction(action);
+			};
+
+		if (ImGui::BeginMenu("File"))
+		{
+			drawMenuAction(UI::EditorShortcutAction::OpenProject);
+			drawMenuAction(UI::EditorShortcutAction::SaveProject);
+			ImGui::Separator();
+			drawMenuAction(UI::EditorShortcutAction::NewScene);
+			drawMenuAction(UI::EditorShortcutAction::SaveScene);
+			drawMenuAction(UI::EditorShortcutAction::SaveSceneAs, "Save Scene As...");
+			drawMenuAction(UI::EditorShortcutAction::CloseScene);
+			ImGui::Separator();
+			if (ImGui::MenuItem("Restart"))
+				Application::Get().SubmitToNextTick([]() { Application::Get().Restart(); });
+			if (ImGui::MenuItem("Exit"))
+				Application::Get().Close();
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Edit"))
+		{
+			drawMenuAction(UI::EditorShortcutAction::OpenCommandPalette);
+			drawMenuAction(UI::EditorShortcutAction::OpenSettings, "Settings");
+			ImGui::Separator();
+			drawMenuAction(UI::EditorShortcutAction::Undo);
+			drawMenuAction(UI::EditorShortcutAction::Redo);
+			ImGui::Separator();
+			drawMenuAction(UI::EditorShortcutAction::SelectAll);
+			drawMenuAction(UI::EditorShortcutAction::Copy);
+			drawMenuAction(UI::EditorShortcutAction::Paste);
+			drawMenuAction(UI::EditorShortcutAction::Cut);
+			drawMenuAction(UI::EditorShortcutAction::DuplicateEntity);
+			drawMenuAction(UI::EditorShortcutAction::DeleteEntity);
+			ImGui::Separator();
+			ImGui::BeginDisabled(!projectLoaded);
+			if (ImGui::MenuItem("Show Animation Editor"))
+				m_AnimationEditorPanel.Open();
+			ImGui::EndDisabled();
+			if (ImGui::MenuItem("Show Test Popup"))
+				m_PopupHandler.SetShowState(true);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Script"))
+		{
+			drawMenuAction(UI::EditorShortcutAction::ReloadScripts, "Reload Assembly");
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Project"))
+		{
+			drawMenuAction(UI::EditorShortcutAction::OpenSettings, "Settings");
+			ImGui::Separator();
+			drawMenuAction(UI::EditorShortcutAction::OpenProject);
+			drawMenuAction(UI::EditorShortcutAction::SaveProject);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Window"))
+		{
+			auto drawPanelToggle = [](const char* label, bool open, auto&& setter)
+				{
+					bool requestedOpen = open;
+					if (ImGui::MenuItem(label, nullptr, &requestedOpen))
+						setter(requestedOpen);
+				};
+
+			ImGui::BeginDisabled(!projectLoaded);
+			drawPanelToggle("Scene Hierarchy", m_SceneHierarchyPanel.IsOpen(), [this](bool open) { m_SceneHierarchyPanel.SetOpen(open); });
+			drawPanelToggle("Statistics", m_UIStatistics.IsOpen(), [this](bool open) { m_UIStatistics.SetOpen(open); });
+			drawPanelToggle("Animation Editor", m_AnimationEditorPanel.IsOpen(), [this](bool open) { m_AnimationEditorPanel.SetOpen(open); });
+			if (m_ContentBrowserPanel)
+				drawPanelToggle("Content Browser", m_ContentBrowserPanel->IsOpen(), [this](bool open) { m_ContentBrowserPanel->SetOpen(open); });
+			else
+				ImGui::MenuItem("Content Browser", nullptr, false, false);
+			ImGui::BeginDisabled(!m_AssetEditorPanel.HasOpenEditors());
+			if (ImGui::MenuItem("Close Asset Editors"))
+				m_AssetEditorPanel.CloseAll();
+			ImGui::EndDisabled();
+			ImGui::EndDisabled();
+			drawPanelToggle("Console", ConsolePanel::IsOpen(), [](bool open) { ConsolePanel::SetOpen(open); });
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMenuBar();
+	}
+
+	ImGui::EndChild();
+	ImGui::PopStyleColor();
 }
 
 void EditorLayer::OpenCommandPalette()

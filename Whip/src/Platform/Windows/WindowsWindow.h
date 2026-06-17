@@ -21,6 +21,12 @@ public:
 	WHP_NODISCARD virtual float GetScrollDelta() const override;
 
 	WHP_NODISCARD std::pair<int, int> GetPosition() const override;
+	void SetPosition(int x, int y) override;
+	void SetSize(uint32_t width, uint32_t height) override;
+	void Minimize() override;
+	void Maximize() override;
+	void Restore() override;
+	WHP_NODISCARD bool IsMaximized() const override;
 
 	WHP_NODISCARD inline virtual void* GetNativeWindow() const override { return m_Window; }
 

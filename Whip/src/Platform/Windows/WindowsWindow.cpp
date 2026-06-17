@@ -62,6 +62,8 @@ void WindowsWindow::Init(const WindowProps& props)
 	const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
 
 	glfwWindowHint(GLFW_MAXIMIZED, props.m_Fullscreen);
+	glfwWindowHint(GLFW_DECORATED, props.m_CustomTitlebar ? GLFW_FALSE : GLFW_TRUE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 	
 	// create Window
 	{
@@ -216,6 +218,38 @@ std::pair<int, int> WindowsWindow::GetPosition() const
 	int x, y;
 	glfwGetWindowPos(m_Window, &x, &y);
 	return { x, y };
+}
+
+void WindowsWindow::SetPosition(int x, int y)
+{
+	glfwSetWindowPos(m_Window, x, y);
+}
+
+void WindowsWindow::SetSize(uint32_t width, uint32_t height)
+{
+	m_Data.m_Properties.m_Width = width;
+	m_Data.m_Properties.m_Height = height;
+	glfwSetWindowSize(m_Window, static_cast<int>(width), static_cast<int>(height));
+}
+
+void WindowsWindow::Minimize()
+{
+	glfwIconifyWindow(m_Window);
+}
+
+void WindowsWindow::Maximize()
+{
+	glfwMaximizeWindow(m_Window);
+}
+
+void WindowsWindow::Restore()
+{
+	glfwRestoreWindow(m_Window);
+}
+
+bool WindowsWindow::IsMaximized() const
+{
+	return glfwGetWindowAttrib(m_Window, GLFW_MAXIMIZED) == GLFW_TRUE;
 }
 
 void WindowsWindow::SetVsync(bool enabled)

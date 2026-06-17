@@ -14,6 +14,7 @@ struct WindowProps
 	uint32_t m_Width = 1280;
 	uint32_t m_Height = 720;
 	bool m_Fullscreen = false;
+	bool m_CustomTitlebar = false;
 };
 
 // interface representing a desktop system  based Window
@@ -30,6 +31,12 @@ public:
 	WHP_NODISCARD virtual float GetScrollDelta() const = 0;
 
 	WHP_NODISCARD virtual std::pair<int, int> GetPosition() const = 0;
+	virtual void SetPosition(int x, int y) = 0;
+	virtual void SetSize(uint32_t width, uint32_t height) = 0;
+	virtual void Minimize() = 0;
+	virtual void Maximize() = 0;
+	virtual void Restore() = 0;
+	WHP_NODISCARD virtual bool IsMaximized() const = 0;
 
 	// Window attributes
 	virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
