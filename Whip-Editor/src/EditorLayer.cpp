@@ -873,7 +873,8 @@ void EditorLayer::OnAttach()
 	m_AnimationEditorPanel.SetRefreshAssetTreeCallback([this]() {if (m_ContentBrowserPanel) { m_ContentBrowserPanel->RefreshAssetTree(); } });
 	m_AssetEditorPanel.SetOpenSceneCallback([this](AssetHandle handle) { OpenScene(handle); });
 	m_AssetEditorPanel.SetSetStartSceneCallback([this](AssetHandle handle) { SetStartScene(handle); });
-	m_AssetEditorPanel.SetOpenAnimationCallback([this](AssetHandle handle) { return m_AnimationEditorPanel.OpenAsset(handle); });
+	m_AssetEditorPanel.SetOpenAnimationCallback([this](AssetHandle handle) { return m_AnimationEditorPanel.OpenAsset(handle, false); });
+	m_AssetEditorPanel.SetDrawAnimationEditorCallback([this]() { m_AnimationEditorPanel.OnImGuiRenderEmbedded(); });
 	m_SceneHierarchyPanel.SetSceneChangeCallback([this]() { CaptureSceneHistory(); });
 	m_SceneHierarchyPanel.SetSaveEntityTemplateCallback([this](Entity entityIn) { SaveEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetApplyEntityTemplateCallback([this](Entity entityIn) { ApplyEntityTemplate(entityIn); });
@@ -1334,8 +1335,8 @@ void EditorLayer::OnImGuiRender()
 	// other renders
 	m_UIStatistics.OnImGuiRender(m_Ts);
     m_SceneHierarchyPanel.OnImGuiRender();
-	m_AssetEditorPanel.OnImGuiRender();
     m_AnimationEditorPanel.OnImGuiRender();
+	m_AssetEditorPanel.OnImGuiRender();
 	m_AnimationEditorPanel.HandleShortcutInput(m_UISettings);
 	ConsolePanel::OnImGuiRender();
 	if (m_ContentBrowserPanel)
@@ -1728,10 +1729,6 @@ bool EditorLayer::HandleContentBrowserAssetInspect(AssetHandle handle)
 	Ref<Project> activeProject = Project::GetActive();
 	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle))
 		return false;
-
-	const AssetType type = activeProject->GetEditorAssetManager()->GetAssetType(handle);
-	if (type == AssetType::Animation || type == AssetType::AnimationController)
-		return m_AnimationEditorPanel.OpenAsset(handle);
 
 	m_AssetEditorPanel.OpenAsset(handle);
 	return true;

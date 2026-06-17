@@ -30,8 +30,9 @@ public:
 	bool ConsumeOpenDirty();
 
 	void OnImGuiRender();
-	bool OpenAsset(AssetHandle handle);
-	bool WantsShortcutCapture() const { return m_Open && m_ShortcutContextActive; }
+	void OnImGuiRenderEmbedded();
+	bool OpenAsset(AssetHandle handle, bool openWindow = true);
+	bool WantsShortcutCapture() const { return m_ShortcutContextActive; }
 	bool ShouldConsumeShortcutAction(UI::EditorShortcutAction action) const;
 	bool ExecuteShortcutAction(UI::EditorShortcutAction action);
 	void HandleShortcutInput(const UI::UISettings& settings);
@@ -123,6 +124,7 @@ private:
 	void DrawControllerStateInspector(float width, float height);
 	void DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget);
 	void DrawControllerValidation();
+	void DrawEditorContent(bool showWindowControls);
 	void DrawCompactSummary();
 	void DrawWindowControls();
 	void DrawMinimizedStrip();
@@ -183,7 +185,7 @@ private:
 	glm::vec2 m_RestoreSize{ 1120.0f, 680.0f };
 	float m_PreviewElapsed = 0.0f;
 	float m_DefaultFrameDuration = 0.1f;
-	bool m_Open = true;
+	bool m_Open = false;
 	bool m_OpenDirty = false;
 	bool m_ShortcutContextActive = false;
 	std::vector<AnimationEditorSnapshot> m_UndoStack;

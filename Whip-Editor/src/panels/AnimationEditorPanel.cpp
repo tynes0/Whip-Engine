@@ -292,7 +292,22 @@ void AnimationEditorPanel::OnImGuiRender()
 	else if (!m_Fullscreen && !ImGui::IsWindowDocked())
 		CaptureWindowRect();
 	UpdatePreview();
+	DrawEditorContent(true);
+	ImGui::End();
+}
 
+void AnimationEditorPanel::OnImGuiRenderEmbedded()
+{
+	m_Minimized = false;
+	m_Fullscreen = false;
+	m_FullscreenRequested = false;
+	m_ShortcutContextActive = m_ShortcutContextActive || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	UpdatePreview();
+	DrawEditorContent(false);
+}
+
+void AnimationEditorPanel::DrawEditorContent(bool showWindowControls)
+{
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 7.0f));
@@ -330,7 +345,8 @@ void AnimationEditorPanel::OnImGuiRender()
 		controllerStatus = metadata ? metadata.m_Filepath.filename().string() : "Memory controller";
 	}
 	ImGui::TextDisabled("Clip: %s  |  Controller: %s", m_CurrentAnimation ? m_CurrentAnimation->GetName().c_str() : "None", controllerStatus.c_str());
-	DrawWindowControls();
+	if (showWindowControls)
+		DrawWindowControls();
 	ImGui::Separator();
 
 	if (m_EditorMode == AnimationEditorMode::Clip)
@@ -478,7 +494,6 @@ void AnimationEditorPanel::OnImGuiRender()
 		}
 		ImGui::PopStyleColor();
 		ImGui::PopStyleVar(3);
-		ImGui::End();
 		return;
 	}
 
@@ -493,7 +508,6 @@ void AnimationEditorPanel::OnImGuiRender()
 		ImGui::EndChild();
 		ImGui::PopStyleColor();
 		ImGui::PopStyleVar(3);
-		ImGui::End();
 		return;
 	}
 
@@ -530,7 +544,6 @@ void AnimationEditorPanel::OnImGuiRender()
 
 	ImGui::PopStyleColor();
 	ImGui::PopStyleVar(3);
-	ImGui::End();
 }
 
 void AnimationEditorPanel::SetOpen(bool open)
@@ -541,7 +554,7 @@ void AnimationEditorPanel::SetOpen(bool open)
 	m_OpenDirty = true;
 }
 
-bool AnimationEditorPanel::OpenAsset(AssetHandle handle)
+bool AnimationEditorPanel::OpenAsset(AssetHandle handle, bool openWindow)
 {
 	if (handle == 0 || !Project::GetActive() || !AssetManager::IsAssetHandleValid(handle))
 		return false;
@@ -557,8 +570,11 @@ bool AnimationEditorPanel::OpenAsset(AssetHandle handle)
 		m_CurrentAnimation = animation;
 		m_SelectedFrameIndex = -1;
 		StopPreview(false);
-		SetOpen(true);
-		m_FocusRequested = true;
+		if (openWindow)
+		{
+			SetOpen(true);
+			m_FocusRequested = true;
+		}
 		return true;
 	}
 
@@ -574,8 +590,11 @@ bool AnimationEditorPanel::OpenAsset(AssetHandle handle)
 		m_SelectedControllerParameterIndex = -1;
 		ClearSelectedControllerTransition();
 		StopPreview(false);
-		SetOpen(true);
-		m_FocusRequested = true;
+		if (openWindow)
+		{
+			SetOpen(true);
+			m_FocusRequested = true;
+		}
 		return true;
 	}
 

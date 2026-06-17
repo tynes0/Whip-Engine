@@ -93,17 +93,9 @@ namespace
 		};
 	}
 
-	ImVec2 DefaultWindowSizeForType(AssetType type)
+	ImVec2 DefaultWorkspaceSize()
 	{
-		switch (type)
-		{
-		case AssetType::Texture2D: return ClampDefaultWindowSize({ 860.0f, 560.0f });
-		case AssetType::Font: return ClampDefaultWindowSize({ 860.0f, 560.0f });
-		case AssetType::Scene: return ClampDefaultWindowSize({ 640.0f, 360.0f });
-		case AssetType::Audio: return ClampDefaultWindowSize({ 640.0f, 360.0f });
-		case AssetType::Entity: return ClampDefaultWindowSize({ 640.0f, 360.0f });
-		default: return ClampDefaultWindowSize({ 720.0f, 420.0f });
-		}
+		return ClampDefaultWindowSize({ 1040.0f, 640.0f });
 	}
 
 	bool DrawWindowControl(const char* id, WindowControlType type)
@@ -160,6 +152,10 @@ void AssetEditorPanel::OpenAsset(AssetHandle handle)
 		{
 			document.m_Open = true;
 			document.m_FocusRequested = true;
+			m_Open = true;
+			m_Minimized = false;
+			m_ActiveDocument = handle;
+			m_FocusRequested = true;
 			m_OpenDirty = true;
 			return;
 		}
@@ -168,6 +164,10 @@ void AssetEditorPanel::OpenAsset(AssetHandle handle)
 	AssetEditorDocument document;
 	document.m_Handle = handle;
 	m_Documents.push_back(document);
+	m_Open = true;
+	m_Minimized = false;
+	m_ActiveDocument = handle;
+	m_FocusRequested = true;
 	m_OpenDirty = true;
 }
 
@@ -177,7 +177,12 @@ void AssetEditorPanel::CloseAll()
 		return;
 
 	m_Documents.clear();
-	m_LastFocusedEditor = 0;
+	m_Open = false;
+	m_Minimized = false;
+	m_Fullscreen = false;
+	m_FullscreenRequested = false;
+	m_ActiveDocument = 0;
+	m_EmbeddedAnimationHandle = 0;
 	m_OpenDirty = true;
 }
 
@@ -196,28 +201,74 @@ bool AssetEditorPanel::ConsumeOpenDirty()
 void AssetEditorPanel::OnImGuiRender()
 {
 	if (m_Documents.empty())
-		return;
-
-	HandleEditorTabShortcut();
-
-	for (size_t i = 0; i < m_Documents.size();)
 	{
-		AssetEditorDocument& document = m_Documents[i];
-		if (!document.m_Minimized)
-			DrawDocument(document);
-		if (!document.m_Open)
-		{
-			m_Documents.erase(m_Documents.begin() + static_cast<std::ptrdiff_t>(i));
-			m_OpenDirty = true;
-			continue;
-		}
-		++i;
+		m_Open = false;
+		return;
 	}
 
-	DrawMinimizedStrip();
+	if (!m_Open)
+		return;
+
+	HandleWorkspaceTabShortcut();
+
+	if (m_Minimized)
+	{
+		DrawMinimizedStrip();
+		return;
+	}
+
+	if (m_FullscreenRequested)
+	{
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
+		ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
+		m_FullscreenRequested = false;
+	}
+	else if (m_Fullscreen)
+	{
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
+	}
+
+	if (m_FocusRequested)
+	{
+		ImGui::SetNextWindowFocus();
+		m_FocusRequested = false;
+	}
+
+	if (!m_Fullscreen)
+		ImGui::SetNextWindowSize(DefaultWorkspaceSize(), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSizeConstraints(ImVec2(340.0f, 220.0f), ImVec2(FLT_MAX, FLT_MAX));
+	bool open = m_Open;
+	if (!ImGui::Begin("Asset Workspace###AssetWorkspace", &open, ImGuiWindowFlags_NoCollapse))
+	{
+		m_Open = open;
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy))
+		m_FocusRequested = false;
+
+	if (m_Fullscreen && TitlebarDragStarted())
+		RestoreWorkspaceRect();
+	else if (!m_Fullscreen && !ImGui::IsWindowDocked())
+		CaptureWorkspaceRect();
+
+	DrawWorkspaceHeader();
+	ImGui::Separator();
+	DrawWorkspaceTabs();
+
+	m_Open = open;
+	ImGui::End();
+
+	if (!m_Open)
+		CloseAll();
 }
 
-void AssetEditorPanel::HandleEditorTabShortcut()
+void AssetEditorPanel::HandleWorkspaceTabShortcut()
 {
 	if (m_Documents.size() < 2)
 		return;
@@ -235,57 +286,145 @@ void AssetEditorPanel::FocusNextEditor()
 	size_t index = 0;
 	for (size_t i = 0; i < m_Documents.size(); ++i)
 	{
-		if (m_Documents[i].m_Handle == m_LastFocusedEditor)
+		if (m_Documents[i].m_Handle == m_ActiveDocument)
 		{
 			index = (i + 1) % m_Documents.size();
 			break;
 		}
 	}
 
+	m_ActiveDocument = m_Documents[index].m_Handle;
 	m_Documents[index].m_FocusRequested = true;
-	m_Documents[index].m_Minimized = false;
+	m_Minimized = false;
+	m_FocusRequested = true;
 }
 
 void AssetEditorPanel::DrawMinimizedStrip()
 {
-	const bool hasMinimized = std::any_of(m_Documents.begin(), m_Documents.end(), [](const AssetEditorDocument& document) { return document.m_Minimized && document.m_Open; });
-	if (!hasMinimized)
-		return;
-
 	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 	constexpr float stripHeight = 42.0f;
 	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + 10.0f, viewport->WorkPos.y + viewport->WorkSize.y - stripHeight - 10.0f), ImGuiCond_Always);
-	ImGui::SetNextWindowSize(ImVec2(std::min(viewport->WorkSize.x - 20.0f, 780.0f), stripHeight), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(std::min(viewport->WorkSize.x - 20.0f, 360.0f), stripHeight), ImGuiCond_Always);
 	ImGuiWindowFlags flags =
 		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoMove |
 		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
 		ImGuiWindowFlags_NoScrollWithMouse;
 
-	if (!ImGui::Begin("##MinimizedAssetEditors", nullptr, flags))
+	if (!ImGui::Begin("##MinimizedAssetWorkspace", nullptr, flags))
 	{
 		ImGui::End();
 		return;
 	}
 
-	for (AssetEditorDocument& document : m_Documents)
+	std::string label = "Asset Workspace";
+	if (m_ActiveDocument != 0 && Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(m_ActiveDocument))
 	{
-		if (!document.m_Minimized || !document.m_Open)
-			continue;
+		const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(m_ActiveDocument);
+		if (metadata)
+			label += std::string("  ") + metadata.m_Filepath.filename().string();
+	}
+	label += "###RestoreAssetWorkspace";
 
-		const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document.m_Handle);
-		const std::string label = std::string(AssetTypeName(metadata.m_Type)) + "  " + metadata.m_Filepath.filename().string() + "###MinimizedAsset_" + std::to_string(static_cast<uint64_t>(document.m_Handle));
-		if (ImGui::Button(label.c_str(), ImVec2(180.0f, 24.0f)))
-		{
-			document.m_Minimized = false;
-			document.m_FocusRequested = true;
-		}
-		ImGui::SameLine();
+	if (ImGui::Button(label.c_str(), ImVec2(330.0f, 24.0f)))
+	{
+		m_Minimized = false;
+		m_FocusRequested = true;
+		m_OpenDirty = true;
 	}
 
 	ImGui::End();
 }
 
-void AssetEditorPanel::DrawDocument(AssetEditorDocument& document)
+void AssetEditorPanel::DrawWorkspaceHeader()
+{
+	ImGui::TextUnformatted("Asset Workspace");
+	ImGui::SameLine();
+	ImGui::TextDisabled("%zu open", m_Documents.size());
+
+	const float controlsWidth = 28.0f * 2.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f;
+	if (ImGui::GetContentRegionAvail().x > controlsWidth)
+		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - controlsWidth);
+	else
+		ImGui::SameLine();
+
+	if (DrawWindowControl("##AssetWorkspaceMinimize", WindowControlType::Minimize))
+	{
+		m_Minimized = true;
+		m_Fullscreen = false;
+		m_OpenDirty = true;
+	}
+	ImGui::SameLine();
+	if (DrawWindowControl("##AssetWorkspaceMaximize", m_Fullscreen ? WindowControlType::Restore : WindowControlType::Maximize))
+	{
+		if (m_Fullscreen)
+			RestoreWorkspaceRect();
+		else
+			RequestFullscreen();
+	}
+}
+
+void AssetEditorPanel::DrawWorkspaceTabs()
+{
+	if (m_ActiveDocument == 0 && !m_Documents.empty())
+		m_ActiveDocument = m_Documents.front().m_Handle;
+
+	if (ImGui::BeginTabBar("##AssetWorkspaceTabs", ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_FittingPolicyScroll))
+	{
+		for (AssetEditorDocument& document : m_Documents)
+		{
+			if (!Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(document.m_Handle))
+			{
+				document.m_Open = false;
+				continue;
+			}
+
+			const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document.m_Handle);
+			if (!metadata)
+			{
+				document.m_Open = false;
+				continue;
+			}
+
+			bool open = document.m_Open;
+			ImGuiTabItemFlags flags = document.m_Handle == m_ActiveDocument ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
+			const std::string label = MakeTabLabel(document.m_Handle, metadata);
+			if (ImGui::BeginTabItem(label.c_str(), &open, flags))
+			{
+				m_ActiveDocument = document.m_Handle;
+				document.m_FocusRequested = false;
+				DrawDocumentContent(document);
+				ImGui::EndTabItem();
+			}
+			document.m_Open = open;
+		}
+		ImGui::EndTabBar();
+	}
+
+	for (size_t i = 0; i < m_Documents.size();)
+	{
+		if (!m_Documents[i].m_Open)
+		{
+			if (m_Documents[i].m_Handle == m_ActiveDocument)
+				m_ActiveDocument = 0;
+			if (m_Documents[i].m_Handle == m_EmbeddedAnimationHandle)
+				m_EmbeddedAnimationHandle = 0;
+			m_Documents.erase(m_Documents.begin() + static_cast<std::ptrdiff_t>(i));
+			m_OpenDirty = true;
+			continue;
+		}
+		++i;
+	}
+
+	if (m_ActiveDocument == 0 && !m_Documents.empty())
+		m_ActiveDocument = m_Documents.front().m_Handle;
+	if (m_Documents.empty())
+	{
+		m_Open = false;
+		m_OpenDirty = true;
+	}
+}
+
+void AssetEditorPanel::DrawDocumentContent(AssetEditorDocument& document)
 {
 	if (!Project::GetActive() || !Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(document.m_Handle))
 	{
@@ -300,47 +439,7 @@ void AssetEditorPanel::DrawDocument(AssetEditorDocument& document)
 		return;
 	}
 
-	if (document.m_FullscreenRequested)
-	{
-		const ImGuiViewport* viewport = ImGui::GetMainViewport();
-		ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
-		ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
-		ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
-		document.m_FullscreenRequested = false;
-	}
-	else if (document.m_Fullscreen)
-	{
-		const ImGuiViewport* viewport = ImGui::GetMainViewport();
-		ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
-		ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
-	}
-	if (document.m_FocusRequested)
-	{
-		ImGui::SetNextWindowFocus();
-		document.m_FocusRequested = false;
-	}
-
-	if (!document.m_Fullscreen)
-		ImGui::SetNextWindowSize(DefaultWindowSizeForType(metadata.m_Type), ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowSizeConstraints(ImVec2(340.0f, 220.0f), ImVec2(FLT_MAX, FLT_MAX));
-	const std::string title = MakeWindowTitle(document.m_Handle, metadata);
-	bool open = document.m_Open;
-	if (!ImGui::Begin(title.c_str(), &open))
-	{
-		document.m_Open = open;
-		ImGui::End();
-		return;
-	}
-
-	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy))
-		m_LastFocusedEditor = document.m_Handle;
-
-	if (document.m_Fullscreen && TitlebarDragStarted())
-		RestoreWindowRect(document);
-	else if (!document.m_Fullscreen && !ImGui::IsWindowDocked())
-		CaptureWindowRect(document);
-
-	DrawToolbar(document, metadata);
+	DrawDocumentToolbar(document.m_Handle, metadata);
 	ImGui::Separator();
 
 	switch (metadata.m_Type)
@@ -368,72 +467,64 @@ void AssetEditorPanel::DrawDocument(AssetEditorDocument& document)
 		DrawMetadata(document.m_Handle, metadata);
 		break;
 	}
-
-	document.m_Open = open;
-	ImGui::End();
 }
 
-void AssetEditorPanel::DrawToolbar(AssetEditorDocument& document, const AssetMetadata& metadata)
+void AssetEditorPanel::DrawDocumentToolbar(AssetHandle handle, const AssetMetadata& metadata) const
 {
 	ImGui::TextUnformatted(AssetTypeName(metadata.m_Type));
 	ImGui::SameLine();
 	ImGui::TextDisabled("%s", metadata.m_Filepath.filename().string().c_str());
 
-	const float controlsWidth = 28.0f * 3.0f + ImGui::GetStyle().ItemSpacing.x * 3.0f;
-	if (ImGui::GetContentRegionAvail().x > controlsWidth)
-		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - controlsWidth);
+	constexpr float folderWidth = 58.0f;
+	if (ImGui::GetContentRegionAvail().x > folderWidth)
+		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - folderWidth);
 	else
 		ImGui::NewLine();
 
-	if (DrawWindowControl("##AssetEditorMinimize", WindowControlType::Minimize))
-	{
-		document.m_Minimized = true;
-		document.m_Fullscreen = false;
-		m_OpenDirty = true;
-	}
-	ImGui::SameLine();
-	if (DrawWindowControl("##AssetEditorMaximize", document.m_Fullscreen ? WindowControlType::Restore : WindowControlType::Maximize))
-	{
-		if (document.m_Fullscreen)
-			RestoreWindowRect(document);
-		else
-			RequestFullscreen(document);
-	}
-	ImGui::SameLine();
+	ImGui::PushID(static_cast<int>(handle));
 	if (ImGui::SmallButton("Folder"))
 		Utils::OpenExternalPath((Project::GetActiveAssetDirectory() / metadata.m_Filepath).parent_path());
+	ImGui::PopID();
 }
 
-void AssetEditorPanel::CaptureWindowRect(AssetEditorDocument& document) const
+void AssetEditorPanel::CaptureWorkspaceRect()
 {
+	if (m_Fullscreen || ImGui::IsWindowDocked())
+		return;
+
 	const ImVec2 pos = ImGui::GetWindowPos();
 	const ImVec2 size = ImGui::GetWindowSize();
 	if (size.x <= 0.0f || size.y <= 0.0f)
 		return;
 
-	document.m_RestorePosition = { pos.x, pos.y };
-	document.m_RestoreSize = { size.x, size.y };
-	document.m_HasRestoreRect = true;
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	if (size.x >= viewport->WorkSize.x - 24.0f && size.y >= viewport->WorkSize.y - 24.0f)
+		return;
+
+	m_RestorePosition = { pos.x, pos.y };
+	m_RestoreSize = { size.x, size.y };
+	m_HasRestoreRect = true;
 }
 
-void AssetEditorPanel::RequestFullscreen(AssetEditorDocument& document)
+void AssetEditorPanel::RequestFullscreen()
 {
-	CaptureWindowRect(document);
-	document.m_Minimized = false;
-	document.m_Fullscreen = true;
-	document.m_FullscreenRequested = true;
-	document.m_FocusRequested = true;
+	CaptureWorkspaceRect();
+	m_Minimized = false;
+	m_Fullscreen = true;
+	m_FullscreenRequested = true;
+	m_FocusRequested = true;
 }
 
-void AssetEditorPanel::RestoreWindowRect(AssetEditorDocument& document) const
+void AssetEditorPanel::RestoreWorkspaceRect()
 {
-	document.m_Fullscreen = false;
+	m_Fullscreen = false;
+	m_FullscreenRequested = false;
 	const ImVec2 size(
-		document.m_HasRestoreRect ? document.m_RestoreSize.x : 720.0f,
-		document.m_HasRestoreRect ? document.m_RestoreSize.y : 420.0f);
+		m_HasRestoreRect ? m_RestoreSize.x : 1040.0f,
+		m_HasRestoreRect ? m_RestoreSize.y : 640.0f);
 	const ImVec2 pos(
-		document.m_HasRestoreRect ? document.m_RestorePosition.x : ImGui::GetMainViewport()->WorkPos.x + 80.0f,
-		document.m_HasRestoreRect ? document.m_RestorePosition.y : ImGui::GetMainViewport()->WorkPos.y + 80.0f);
+		m_HasRestoreRect ? m_RestorePosition.x : ImGui::GetMainViewport()->WorkPos.x + 80.0f,
+		m_HasRestoreRect ? m_RestorePosition.y : ImGui::GetMainViewport()->WorkPos.y + 80.0f);
 	ImGui::SetWindowPos(pos, ImGuiCond_Always);
 	ImGui::SetWindowSize(size, ImGuiCond_Always);
 }
@@ -547,15 +638,29 @@ void AssetEditorPanel::DrawSceneInspector(AssetHandle handle, bool compact) cons
 	ImGui::EndDisabled();
 }
 
-void AssetEditorPanel::DrawAnimationInspector(AssetHandle handle, const AssetMetadata& metadata, bool compact) const
+void AssetEditorPanel::DrawAnimationInspector(AssetHandle handle, const AssetMetadata& metadata, bool compact)
 {
-	DrawMetadata(handle, metadata);
 	if (compact)
+	{
+		DrawMetadata(handle, metadata);
 		return;
+	}
 
+	if (m_OpenAnimationCallback && m_EmbeddedAnimationHandle != handle)
+	{
+		if (m_OpenAnimationCallback(handle))
+			m_EmbeddedAnimationHandle = handle;
+	}
+
+	if (m_DrawAnimationEditorCallback && m_EmbeddedAnimationHandle == handle)
+	{
+		m_DrawAnimationEditorCallback();
+		return;
+	}
+
+	DrawMetadata(handle, metadata);
 	ImGui::SeparatorText("Animation");
-	if (ImGui::Button(metadata.m_Type == AssetType::AnimationController ? "Open Controller Editor" : "Open Animation Editor", ImVec2(180.0f, 0.0f)) && m_OpenAnimationCallback)
-		m_OpenAnimationCallback(handle);
+	ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Animation editor could not load this asset.");
 }
 
 void AssetEditorPanel::DrawEntityInspector(AssetHandle handle, const AssetMetadata& metadata, bool compact) const
@@ -568,12 +673,14 @@ void AssetEditorPanel::DrawEntityInspector(AssetHandle handle, const AssetMetada
 	ImGui::TextDisabled("Entity template preview and override inspection will live here.");
 }
 
-std::string AssetEditorPanel::MakeWindowTitle(AssetHandle handle, const AssetMetadata& metadata) const
+std::string AssetEditorPanel::MakeTabLabel(AssetHandle handle, const AssetMetadata& metadata) const
 {
-	std::string title = std::string(AssetTypeName(metadata.m_Type)) + " - " + metadata.m_Filepath.filename().string();
-	title += "###AssetEditor_";
-	title += std::to_string(static_cast<uint64_t>(handle));
-	return title;
+	std::string label = metadata.m_Filepath.filename().string();
+	if (label.empty())
+		label = AssetTypeName(metadata.m_Type);
+	label += "###AssetTab_";
+	label += std::to_string(static_cast<uint64_t>(handle));
+	return label;
 }
 
 _WHIP_END
