@@ -1364,7 +1364,11 @@ bool EditorLayer::OnKeyPressed(KeyPressedEvent& event)
 	{
 		UI::EditorShortcutAction action = static_cast<UI::EditorShortcutAction>(i);
 		if (m_UISettings.ShortcutMatches(action, event.GetKeyCode(), control, shift, alt))
+		{
+			if (m_AnimationEditorPanel.WantsShortcutCapture() && m_AnimationEditorPanel.ExecuteShortcutAction(action))
+				return true;
 			return ExecuteEditorAction(action);
+		}
 	}
 
     return false;

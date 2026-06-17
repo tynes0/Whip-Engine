@@ -7,6 +7,7 @@
 #include <Whip/Animation/AnimationController.h>
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Render/Texture.h>
+#include <Whip/UI/UISettings.h>
 
 #include <vector>
 #include <functional>
@@ -29,6 +30,8 @@ public:
 	bool ConsumeOpenDirty();
 
 	void OnImGuiRender();
+	bool WantsShortcutCapture() const { return m_Open && m_ShortcutContextActive; }
+	bool ExecuteShortcutAction(UI::EditorShortcutAction action);
 
 	//void LoadIcon(Icon iconType, Ref<Texture2D> iconTexture);
 	void SetRefreshAssetTreeCallback(const std::function<void()>& func) { m_RefreshAssetTreeCallback = func; }
@@ -37,6 +40,61 @@ private:
 	{
 		Clip,
 		Controller
+	};
+
+	enum class AnimationEditorClipboardType
+	{
+		None,
+		Frame,
+		ControllerState,
+		ControllerTransition
+	};
+
+	struct AnimationClipSnapshot
+	{
+		bool m_Valid = false;
+		AssetHandle m_Handle = 0;
+		std::string m_Name;
+		bool m_Loop = false;
+		std::vector<AnimationFrame> m_Frames;
+		std::vector<AnimationEventKey> m_Events;
+		std::vector<AnimationVec3Key> m_TranslationKeys;
+		std::vector<AnimationVec3Key> m_RotationKeys;
+		std::vector<AnimationVec3Key> m_ScaleKeys;
+		std::vector<AnimationVec4Key> m_ColorKeys;
+		int m_SelectedFrameIndex = -1;
+	};
+
+	struct AnimationControllerSnapshot
+	{
+		bool m_Valid = false;
+		AssetHandle m_Handle = 0;
+		std::string m_DefaultState;
+		std::vector<AnimationControllerState> m_States;
+		std::vector<AnimationControllerParameter> m_Parameters;
+		std::vector<AnimationControllerTransition> m_AnyStateTransitions;
+		glm::vec2 m_EntryGraphPosition{ 0.0f, 0.0f };
+		glm::vec2 m_AnyStateGraphPosition{ 0.0f, 0.0f };
+		glm::vec2 m_ExitGraphPosition{ 0.0f, 0.0f };
+		int m_SelectedStateIndex = 0;
+		int m_SelectedParameterIndex = -1;
+		int m_SelectedTransitionSourceIndex = -1;
+		int m_SelectedTransitionIndex = -1;
+	};
+
+	struct AnimationEditorSnapshot
+	{
+		AnimationEditorMode m_Mode = AnimationEditorMode::Clip;
+		AnimationClipSnapshot m_Clip;
+		AnimationControllerSnapshot m_Controller;
+	};
+
+	struct AnimationEditorClipboard
+	{
+		AnimationEditorClipboardType m_Type = AnimationEditorClipboardType::None;
+		AnimationFrame m_Frame;
+		AnimationControllerState m_State;
+		AnimationControllerTransition m_Transition;
 	};
 
 	void DrawAnimationDragDropArea(float width, float height);
@@ -69,6 +127,23 @@ private:
 	void SaveCurrentController();
 	void ImportTextureFolderFrames();
 	void NormalizeFrameDurations(float frameDuration);
+	AnimationEditorSnapshot CaptureSnapshot() const;
+	void RestoreSnapshot(const AnimationEditorSnapshot& snapshot);
+	void PushHistory();
+	bool Undo();
+	bool Redo();
+	bool CopySelection();
+	bool CutSelection();
+	bool PasteSelection();
+	bool DuplicateSelection();
+	bool DeleteSelection();
+	bool DuplicateSelectedFrame();
+	bool DeleteSelectedFrame();
+	bool DuplicateSelectedControllerState();
+	bool DeleteSelectedControllerState();
+	void PasteFrame(const AnimationFrame& frame);
+	void PasteControllerState(const AnimationControllerState& state);
+	bool PasteControllerTransition(const AnimationControllerTransition& transition);
 	void UpdatePreview();
 	void StepPreview(int direction);
 	void StopPreview(bool resetSelection);
@@ -93,6 +168,10 @@ private:
 	float m_DefaultFrameDuration = 0.1f;
 	bool m_Open = true;
 	bool m_OpenDirty = false;
+	bool m_ShortcutContextActive = false;
+	std::vector<AnimationEditorSnapshot> m_UndoStack;
+	std::vector<AnimationEditorSnapshot> m_RedoStack;
+	AnimationEditorClipboard m_Clipboard;
 
 	std::function<void()> m_RefreshAssetTreeCallback;
 };

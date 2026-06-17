@@ -130,9 +130,13 @@ AnimationEditorPanel::~AnimationEditorPanel() {}
 void AnimationEditorPanel::OnImGuiRender()
 {
 	if (!m_Open)
+	{
+		m_ShortcutContextActive = false;
 		return;
+	}
 	bool open = m_Open;
 	ImGui::Begin("Animation Editor", &open);
+	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	if (open != m_Open)
 		SetOpen(open);
 	UpdatePreview();
@@ -2475,6 +2479,435 @@ void AnimationEditorPanel::NormalizeFrameDurations(float frameDuration)
 		frame.m_Duration = safeDuration;
 	m_DefaultFrameDuration = safeDuration;
 	StopPreview(false);
+}
+
+AnimationEditorPanel::AnimationEditorSnapshot AnimationEditorPanel::CaptureSnapshot() const
+{
+	AnimationEditorSnapshot snapshot;
+	snapshot.m_Mode = m_EditorMode;
+
+	if (m_CurrentAnimation)
+	{
+		AnimationClipSnapshot& clip = snapshot.m_Clip;
+		clip.m_Valid = true;
+		clip.m_Handle = m_CurrentAnimation->m_Handle;
+		clip.m_Name = m_CurrentAnimation->GetName();
+		clip.m_Loop = m_CurrentAnimation->IsLooping();
+		clip.m_Frames = m_CurrentAnimation->GetFrames();
+		clip.m_Events = m_CurrentAnimation->GetEvents();
+		clip.m_TranslationKeys = m_CurrentAnimation->GetTranslationKeys();
+		clip.m_RotationKeys = m_CurrentAnimation->GetRotationKeys();
+		clip.m_ScaleKeys = m_CurrentAnimation->GetScaleKeys();
+		clip.m_ColorKeys = m_CurrentAnimation->GetColorKeys();
+		clip.m_SelectedFrameIndex = m_SelectedFrameIndex;
+	}
+
+	if (m_CurrentController)
+	{
+		AnimationControllerSnapshot& controller = snapshot.m_Controller;
+		controller.m_Valid = true;
+		controller.m_Handle = m_CurrentController->m_Handle;
+		controller.m_DefaultState = m_CurrentController->GetDefaultState();
+		controller.m_States = m_CurrentController->GetStates();
+		controller.m_Parameters = m_CurrentController->GetParameters();
+		controller.m_AnyStateTransitions = m_CurrentController->GetAnyStateTransitions();
+		controller.m_EntryGraphPosition = m_CurrentController->GetEntryGraphPosition();
+		controller.m_AnyStateGraphPosition = m_CurrentController->GetAnyStateGraphPosition();
+		controller.m_ExitGraphPosition = m_CurrentController->GetExitGraphPosition();
+		controller.m_SelectedStateIndex = m_SelectedControllerStateIndex;
+		controller.m_SelectedParameterIndex = m_SelectedControllerParameterIndex;
+		controller.m_SelectedTransitionSourceIndex = m_SelectedTransitionSourceStateIndex;
+		controller.m_SelectedTransitionIndex = m_SelectedTransitionIndex;
+	}
+
+	return snapshot;
+}
+
+void AnimationEditorPanel::RestoreSnapshot(const AnimationEditorSnapshot& snapshot)
+{
+	m_EditorMode = snapshot.m_Mode;
+
+	if (snapshot.m_Clip.m_Valid)
+	{
+		Ref<Animation2D> clip = nullptr;
+		if (m_CurrentAnimation && m_CurrentAnimation->m_Handle == snapshot.m_Clip.m_Handle)
+			clip = m_CurrentAnimation;
+		else if (snapshot.m_Clip.m_Handle != 0 && AssetManager::IsAssetHandleValid(snapshot.m_Clip.m_Handle) && AssetManager::GetAssetType(snapshot.m_Clip.m_Handle) == AssetType::Animation)
+			clip = AssetManager::GetAsset<Animation2D>(snapshot.m_Clip.m_Handle);
+
+		if (clip)
+		{
+			clip->SetName(snapshot.m_Clip.m_Name);
+			clip->SetLoop(snapshot.m_Clip.m_Loop);
+			clip->GetFrames() = snapshot.m_Clip.m_Frames;
+			clip->GetEvents() = snapshot.m_Clip.m_Events;
+			clip->GetTranslationKeys() = snapshot.m_Clip.m_TranslationKeys;
+			clip->GetRotationKeys() = snapshot.m_Clip.m_RotationKeys;
+			clip->GetScaleKeys() = snapshot.m_Clip.m_ScaleKeys;
+			clip->GetColorKeys() = snapshot.m_Clip.m_ColorKeys;
+			m_CurrentAnimation = clip;
+			if (clip->GetFrames().empty())
+				m_SelectedFrameIndex = -1;
+			else
+				m_SelectedFrameIndex = std::clamp(snapshot.m_Clip.m_SelectedFrameIndex, 0, (int)clip->GetFrames().size() - 1);
+			StopPreview(false);
+		}
+	}
+	else if (snapshot.m_Mode == AnimationEditorMode::Clip)
+	{
+		m_CurrentAnimation = nullptr;
+		m_SelectedFrameIndex = -1;
+		StopPreview(false);
+	}
+
+	if (snapshot.m_Controller.m_Valid)
+	{
+		Ref<AnimationController> controller = nullptr;
+		if (m_CurrentController && m_CurrentController->m_Handle == snapshot.m_Controller.m_Handle)
+			controller = m_CurrentController;
+		else if (snapshot.m_Controller.m_Handle != 0 && AssetManager::IsAssetHandleValid(snapshot.m_Controller.m_Handle) && AssetManager::GetAssetType(snapshot.m_Controller.m_Handle) == AssetType::AnimationController)
+			controller = AssetManager::GetAsset<AnimationController>(snapshot.m_Controller.m_Handle);
+
+		if (controller)
+		{
+			controller->GetStates() = snapshot.m_Controller.m_States;
+			controller->GetParameters() = snapshot.m_Controller.m_Parameters;
+			controller->GetAnyStateTransitions() = snapshot.m_Controller.m_AnyStateTransitions;
+			controller->GetEntryGraphPosition() = snapshot.m_Controller.m_EntryGraphPosition;
+			controller->GetAnyStateGraphPosition() = snapshot.m_Controller.m_AnyStateGraphPosition;
+			controller->GetExitGraphPosition() = snapshot.m_Controller.m_ExitGraphPosition;
+			if (!snapshot.m_Controller.m_DefaultState.empty())
+				controller->SetDefaultState(snapshot.m_Controller.m_DefaultState);
+			else if (!controller->GetStates().empty())
+				controller->SetDefaultState(controller->GetStates().front().m_Name);
+
+			m_CurrentController = controller;
+			if (controller->GetStates().empty())
+				m_SelectedControllerStateIndex = 0;
+			else
+				m_SelectedControllerStateIndex = std::clamp(snapshot.m_Controller.m_SelectedStateIndex, 0, (int)controller->GetStates().size() - 1);
+			m_SelectedControllerParameterIndex = snapshot.m_Controller.m_SelectedParameterIndex;
+			if (m_SelectedControllerParameterIndex >= (int)controller->GetParameters().size())
+				m_SelectedControllerParameterIndex = -1;
+			m_SelectedTransitionSourceStateIndex = snapshot.m_Controller.m_SelectedTransitionSourceIndex;
+			m_SelectedTransitionIndex = snapshot.m_Controller.m_SelectedTransitionIndex;
+			if (!GetSelectedControllerTransition())
+				ClearSelectedControllerTransition();
+		}
+	}
+	else if (snapshot.m_Mode == AnimationEditorMode::Controller)
+	{
+		m_CurrentController = nullptr;
+		m_SelectedControllerStateIndex = 0;
+		m_SelectedControllerParameterIndex = -1;
+		ClearSelectedControllerTransition();
+	}
+}
+
+void AnimationEditorPanel::PushHistory()
+{
+	m_UndoStack.push_back(CaptureSnapshot());
+	m_RedoStack.clear();
+	static constexpr size_t MaxHistoryEntries = 80;
+	if (m_UndoStack.size() > MaxHistoryEntries)
+		m_UndoStack.erase(m_UndoStack.begin());
+}
+
+bool AnimationEditorPanel::Undo()
+{
+	if (m_UndoStack.empty())
+		return false;
+
+	m_RedoStack.push_back(CaptureSnapshot());
+	const AnimationEditorSnapshot snapshot = m_UndoStack.back();
+	m_UndoStack.pop_back();
+	RestoreSnapshot(snapshot);
+	return true;
+}
+
+bool AnimationEditorPanel::Redo()
+{
+	if (m_RedoStack.empty())
+		return false;
+
+	m_UndoStack.push_back(CaptureSnapshot());
+	const AnimationEditorSnapshot snapshot = m_RedoStack.back();
+	m_RedoStack.pop_back();
+	RestoreSnapshot(snapshot);
+	return true;
+}
+
+bool AnimationEditorPanel::ExecuteShortcutAction(UI::EditorShortcutAction action)
+{
+	if (ImGui::GetIO().WantTextInput)
+		return false;
+
+	switch (action)
+	{
+	case UI::EditorShortcutAction::Undo:
+		return Undo();
+	case UI::EditorShortcutAction::Redo:
+		return Redo();
+	case UI::EditorShortcutAction::Copy:
+		return CopySelection();
+	case UI::EditorShortcutAction::Cut:
+		return CutSelection();
+	case UI::EditorShortcutAction::Paste:
+		return PasteSelection();
+	case UI::EditorShortcutAction::DuplicateEntity:
+		return DuplicateSelection();
+	case UI::EditorShortcutAction::DeleteEntity:
+		return DeleteSelection();
+	default:
+		return false;
+	}
+}
+
+bool AnimationEditorPanel::CopySelection()
+{
+	if (m_EditorMode == AnimationEditorMode::Clip)
+	{
+		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+			return false;
+
+		m_Clipboard = {};
+		m_Clipboard.m_Type = AnimationEditorClipboardType::Frame;
+		m_Clipboard.m_Frame = m_CurrentAnimation->GetFrames()[m_SelectedFrameIndex];
+		return true;
+	}
+
+	if (!m_CurrentController)
+		return false;
+
+	if (AnimationControllerTransition* transition = GetSelectedControllerTransition())
+	{
+		m_Clipboard = {};
+		m_Clipboard.m_Type = AnimationEditorClipboardType::ControllerTransition;
+		m_Clipboard.m_Transition = *transition;
+		return true;
+	}
+
+	auto& states = m_CurrentController->GetStates();
+	if (m_SelectedControllerStateIndex < 0 || m_SelectedControllerStateIndex >= (int)states.size())
+		return false;
+
+	m_Clipboard = {};
+	m_Clipboard.m_Type = AnimationEditorClipboardType::ControllerState;
+	m_Clipboard.m_State = states[m_SelectedControllerStateIndex];
+	return true;
+}
+
+bool AnimationEditorPanel::CutSelection()
+{
+	if (!CopySelection())
+		return false;
+	return DeleteSelection();
+}
+
+bool AnimationEditorPanel::PasteSelection()
+{
+	if (m_EditorMode == AnimationEditorMode::Clip && m_Clipboard.m_Type == AnimationEditorClipboardType::Frame)
+	{
+		if (!m_CurrentAnimation)
+			return false;
+		PushHistory();
+		PasteFrame(m_Clipboard.m_Frame);
+		return true;
+	}
+
+	if (m_EditorMode != AnimationEditorMode::Controller || !m_CurrentController)
+		return false;
+
+	if (m_Clipboard.m_Type == AnimationEditorClipboardType::ControllerState)
+	{
+		PushHistory();
+		PasteControllerState(m_Clipboard.m_State);
+		return true;
+	}
+
+	if (m_Clipboard.m_Type == AnimationEditorClipboardType::ControllerTransition)
+	{
+		PushHistory();
+		if (PasteControllerTransition(m_Clipboard.m_Transition))
+			return true;
+		Undo();
+		return false;
+	}
+
+	return false;
+}
+
+bool AnimationEditorPanel::DuplicateSelection()
+{
+	if (m_EditorMode == AnimationEditorMode::Clip)
+	{
+		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+			return false;
+		PushHistory();
+		return DuplicateSelectedFrame();
+	}
+
+	if (!m_CurrentController)
+		return false;
+
+	if (AnimationControllerTransition* selectedTransition = GetSelectedControllerTransition())
+	{
+		PushHistory();
+		const AnimationControllerTransition duplicate = *selectedTransition;
+		if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
+		{
+			auto& transitions = m_CurrentController->GetAnyStateTransitions();
+			transitions.push_back(duplicate);
+			m_SelectedTransitionIndex = (int)transitions.size() - 1;
+			return true;
+		}
+
+		auto& states = m_CurrentController->GetStates();
+		if (m_SelectedTransitionSourceStateIndex >= 0 && m_SelectedTransitionSourceStateIndex < (int)states.size())
+		{
+			auto& transitions = states[m_SelectedTransitionSourceStateIndex].m_Transitions;
+			transitions.push_back(duplicate);
+			m_SelectedTransitionIndex = (int)transitions.size() - 1;
+			return true;
+		}
+		return false;
+	}
+
+	if (m_SelectedControllerStateIndex < 0 || m_SelectedControllerStateIndex >= (int)m_CurrentController->GetStates().size())
+		return false;
+	PushHistory();
+	return DuplicateSelectedControllerState();
+}
+
+bool AnimationEditorPanel::DeleteSelection()
+{
+	if (m_EditorMode == AnimationEditorMode::Clip)
+	{
+		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+			return false;
+		PushHistory();
+		return DeleteSelectedFrame();
+	}
+
+	if (!m_CurrentController)
+		return false;
+
+	if (GetSelectedControllerTransition())
+	{
+		PushHistory();
+		RemoveSelectedControllerTransition();
+		return true;
+	}
+
+	if (m_SelectedControllerStateIndex >= 0 && m_SelectedControllerStateIndex < (int)m_CurrentController->GetStates().size() && m_CurrentController->GetStates().size() > 1)
+	{
+		PushHistory();
+		return DeleteSelectedControllerState();
+	}
+
+	return false;
+}
+
+bool AnimationEditorPanel::DuplicateSelectedFrame()
+{
+	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+		return false;
+
+	auto& frames = m_CurrentAnimation->GetFrames();
+	frames.insert(frames.begin() + m_SelectedFrameIndex + 1, frames[m_SelectedFrameIndex]);
+	++m_SelectedFrameIndex;
+	StopPreview(false);
+	return true;
+}
+
+bool AnimationEditorPanel::DeleteSelectedFrame()
+{
+	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+		return false;
+
+	m_CurrentAnimation->RemoveFrame(m_SelectedFrameIndex);
+	if (m_CurrentAnimation->GetFrames().empty())
+		m_SelectedFrameIndex = -1;
+	else
+		m_SelectedFrameIndex = std::min(m_SelectedFrameIndex, (int)m_CurrentAnimation->GetFrames().size() - 1);
+	StopPreview(false);
+	return true;
+}
+
+bool AnimationEditorPanel::DuplicateSelectedControllerState()
+{
+	if (!m_CurrentController)
+		return false;
+
+	auto& states = m_CurrentController->GetStates();
+	if (m_SelectedControllerStateIndex < 0 || m_SelectedControllerStateIndex >= (int)states.size())
+		return false;
+
+	PasteControllerState(states[m_SelectedControllerStateIndex]);
+	return true;
+}
+
+bool AnimationEditorPanel::DeleteSelectedControllerState()
+{
+	if (!m_CurrentController || m_CurrentController->GetStates().size() <= 1)
+		return false;
+
+	auto& states = m_CurrentController->GetStates();
+	if (m_SelectedControllerStateIndex < 0 || m_SelectedControllerStateIndex >= (int)states.size())
+		return false;
+
+	const std::string removedName = states[m_SelectedControllerStateIndex].m_Name;
+	m_CurrentController->RemoveState(removedName);
+	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)m_CurrentController->GetStates().size() - 1);
+	ClearSelectedControllerTransition();
+	return true;
+}
+
+void AnimationEditorPanel::PasteFrame(const AnimationFrame& frame)
+{
+	auto& frames = m_CurrentAnimation->GetFrames();
+	const int insertIndex = m_SelectedFrameIndex >= 0 && m_SelectedFrameIndex < (int)frames.size() ? m_SelectedFrameIndex + 1 : (int)frames.size();
+	frames.insert(frames.begin() + insertIndex, frame);
+	m_SelectedFrameIndex = insertIndex;
+	StopPreview(false);
+}
+
+void AnimationEditorPanel::PasteControllerState(const AnimationControllerState& state)
+{
+	AnimationControllerState& duplicate = m_CurrentController->AddState(state.m_Name + " Copy", state.m_Clip);
+	const std::string uniqueName = duplicate.m_Name;
+	duplicate = state;
+	duplicate.m_Name = uniqueName;
+	duplicate.m_GraphPosition += glm::vec2{ 44.0f, 44.0f };
+	duplicate.m_Transitions.clear();
+	m_SelectedControllerStateIndex = (int)m_CurrentController->GetStates().size() - 1;
+	ClearSelectedControllerTransition();
+}
+
+bool AnimationEditorPanel::PasteControllerTransition(const AnimationControllerTransition& transition)
+{
+	if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
+	{
+		auto& transitions = m_CurrentController->GetAnyStateTransitions();
+		transitions.push_back(transition);
+		m_SelectedTransitionIndex = (int)transitions.size() - 1;
+		return true;
+	}
+
+	auto& states = m_CurrentController->GetStates();
+	int targetSourceIndex = m_SelectedControllerStateIndex;
+	if (m_SelectedTransitionSourceStateIndex >= 0 && m_SelectedTransitionSourceStateIndex < (int)states.size())
+		targetSourceIndex = m_SelectedTransitionSourceStateIndex;
+
+	if (targetSourceIndex < 0 || targetSourceIndex >= (int)states.size())
+		return false;
+
+	auto& transitions = states[targetSourceIndex].m_Transitions;
+	transitions.push_back(transition);
+	m_SelectedControllerStateIndex = targetSourceIndex;
+	m_SelectedTransitionSourceStateIndex = targetSourceIndex;
+	m_SelectedTransitionIndex = (int)transitions.size() - 1;
+	return true;
 }
 
 void AnimationEditorPanel::UpdatePreview()
