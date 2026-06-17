@@ -5,6 +5,8 @@
 #include <functional>
 #include <vector>
 
+#include <glm/vec2.hpp>
+
 _WHIP_START
 
 class AssetEditorPanel
@@ -26,14 +28,22 @@ private:
 		AssetHandle m_Handle = 0;
 		bool m_Open = true;
 		bool m_FocusRequested = true;
-		bool m_Compact = false;
+		bool m_Minimized = false;
+		bool m_Fullscreen = false;
 		bool m_FullscreenRequested = false;
+		bool m_HasRestoreRect = false;
+		glm::vec2 m_RestorePosition{ 120.0f, 90.0f };
+		glm::vec2 m_RestoreSize{ 720.0f, 420.0f };
 	};
 
 	void HandleEditorTabShortcut();
 	void FocusNextEditor();
+	void DrawMinimizedStrip();
 	void DrawDocument(AssetEditorDocument& document);
 	void DrawToolbar(AssetEditorDocument& document, const AssetMetadata& metadata);
+	void CaptureWindowRect(AssetEditorDocument& document) const;
+	void RequestFullscreen(AssetEditorDocument& document);
+	void RestoreWindowRect(AssetEditorDocument& document) const;
 	void DrawMetadata(AssetHandle handle, const AssetMetadata& metadata) const;
 	void DrawTextureInspector(AssetHandle handle, const AssetMetadata& metadata, bool compact) const;
 	void DrawAudioInspector(AssetHandle handle, bool compact) const;

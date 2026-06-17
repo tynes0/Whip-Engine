@@ -7,6 +7,7 @@
 #include <Whip/Utils/PlatformUtils.h>
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <algorithm>
 #include <cfloat>
@@ -17,6 +18,13 @@ _WHIP_START
 
 namespace
 {
+	enum class WindowControlType
+	{
+		Minimize,
+		Maximize,
+		Restore
+	};
+
 	const char* AssetTypeName(AssetType type)
 	{
 		switch (type)
@@ -71,6 +79,73 @@ namespace
 		available.y = std::max(96.0f, available.y);
 		const float scale = std::min(available.x / width, available.y / height);
 		return { width * scale, height * scale };
+	}
+
+	ImVec2 ClampDefaultWindowSize(ImVec2 requested)
+	{
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		const ImVec2 maxSize(
+			std::min(1280.0f, viewport->WorkSize.x - 40.0f),
+			std::min(720.0f, viewport->WorkSize.y - 40.0f));
+		return {
+			std::clamp(requested.x, 360.0f, std::max(360.0f, maxSize.x)),
+			std::clamp(requested.y, 240.0f, std::max(240.0f, maxSize.y))
+		};
+	}
+
+	ImVec2 DefaultWindowSizeForType(AssetType type)
+	{
+		switch (type)
+		{
+		case AssetType::Texture2D: return ClampDefaultWindowSize({ 860.0f, 560.0f });
+		case AssetType::Font: return ClampDefaultWindowSize({ 860.0f, 560.0f });
+		case AssetType::Scene: return ClampDefaultWindowSize({ 640.0f, 360.0f });
+		case AssetType::Audio: return ClampDefaultWindowSize({ 640.0f, 360.0f });
+		case AssetType::Entity: return ClampDefaultWindowSize({ 640.0f, 360.0f });
+		default: return ClampDefaultWindowSize({ 720.0f, 420.0f });
+		}
+	}
+
+	bool DrawWindowControl(const char* id, WindowControlType type)
+	{
+		const ImVec2 size(28.0f, 22.0f);
+		ImGui::InvisibleButton(id, size);
+		const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+		const bool hovered = ImGui::IsItemHovered();
+		const ImVec2 min = ImGui::GetItemRectMin();
+		const ImVec2 max = ImGui::GetItemRectMax();
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+		const ImU32 hoverColor = IM_COL32(255, 255, 255, hovered ? 24 : 0);
+		drawList->AddRectFilled(min, max, hoverColor, 3.0f);
+		const ImU32 color = IM_COL32(226, 226, 226, 230);
+		const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+
+		if (type == WindowControlType::Minimize)
+		{
+			drawList->AddLine(ImVec2(center.x - 5.0f, center.y + 4.0f), ImVec2(center.x + 5.0f, center.y + 4.0f), color, 1.4f);
+		}
+		else if (type == WindowControlType::Maximize)
+		{
+			drawList->AddRect(ImVec2(center.x - 5.0f, center.y - 5.0f), ImVec2(center.x + 5.0f, center.y + 5.0f), color, 0.0f, 0, 1.2f);
+		}
+		else
+		{
+			drawList->AddRect(ImVec2(center.x - 3.0f, center.y - 6.0f), ImVec2(center.x + 7.0f, center.y + 4.0f), color, 0.0f, 0, 1.1f);
+			drawList->AddRect(ImVec2(center.x - 7.0f, center.y - 2.0f), ImVec2(center.x + 3.0f, center.y + 8.0f), color, 0.0f, 0, 1.1f);
+		}
+
+		return clicked;
+	}
+
+	bool TitlebarDragStarted()
+	{
+		const ImGuiWindow* window = ImGui::GetCurrentWindowRead();
+		if (!window || !ImGui::IsMouseDragging(ImGuiMouseButton_Left, 2.0f))
+			return false;
+
+		const ImVec2 click = ImGui::GetIO().MouseClickedPos[ImGuiMouseButton_Left];
+		const float titlebarBottom = window->Pos.y + ImGui::GetFrameHeight();
+		return click.y >= window->Pos.y && click.y <= titlebarBottom;
 	}
 }
 
@@ -128,7 +203,8 @@ void AssetEditorPanel::OnImGuiRender()
 	for (size_t i = 0; i < m_Documents.size();)
 	{
 		AssetEditorDocument& document = m_Documents[i];
-		DrawDocument(document);
+		if (!document.m_Minimized)
+			DrawDocument(document);
 		if (!document.m_Open)
 		{
 			m_Documents.erase(m_Documents.begin() + static_cast<std::ptrdiff_t>(i));
@@ -137,6 +213,8 @@ void AssetEditorPanel::OnImGuiRender()
 		}
 		++i;
 	}
+
+	DrawMinimizedStrip();
 }
 
 void AssetEditorPanel::HandleEditorTabShortcut()
@@ -165,6 +243,46 @@ void AssetEditorPanel::FocusNextEditor()
 	}
 
 	m_Documents[index].m_FocusRequested = true;
+	m_Documents[index].m_Minimized = false;
+}
+
+void AssetEditorPanel::DrawMinimizedStrip()
+{
+	const bool hasMinimized = std::any_of(m_Documents.begin(), m_Documents.end(), [](const AssetEditorDocument& document) { return document.m_Minimized && document.m_Open; });
+	if (!hasMinimized)
+		return;
+
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	constexpr float stripHeight = 42.0f;
+	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + 10.0f, viewport->WorkPos.y + viewport->WorkSize.y - stripHeight - 10.0f), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(std::min(viewport->WorkSize.x - 20.0f, 780.0f), stripHeight), ImGuiCond_Always);
+	ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_NoScrollWithMouse;
+
+	if (!ImGui::Begin("##MinimizedAssetEditors", nullptr, flags))
+	{
+		ImGui::End();
+		return;
+	}
+
+	for (AssetEditorDocument& document : m_Documents)
+	{
+		if (!document.m_Minimized || !document.m_Open)
+			continue;
+
+		const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document.m_Handle);
+		const std::string label = std::string(AssetTypeName(metadata.m_Type)) + "  " + metadata.m_Filepath.filename().string() + "###MinimizedAsset_" + std::to_string(static_cast<uint64_t>(document.m_Handle));
+		if (ImGui::Button(label.c_str(), ImVec2(180.0f, 24.0f)))
+		{
+			document.m_Minimized = false;
+			document.m_FocusRequested = true;
+		}
+		ImGui::SameLine();
+	}
+
+	ImGui::End();
 }
 
 void AssetEditorPanel::DrawDocument(AssetEditorDocument& document)
@@ -185,9 +303,16 @@ void AssetEditorPanel::DrawDocument(AssetEditorDocument& document)
 	if (document.m_FullscreenRequested)
 	{
 		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
 		ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
 		ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
 		document.m_FullscreenRequested = false;
+	}
+	else if (document.m_Fullscreen)
+	{
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
 	}
 	if (document.m_FocusRequested)
 	{
@@ -195,6 +320,8 @@ void AssetEditorPanel::DrawDocument(AssetEditorDocument& document)
 		document.m_FocusRequested = false;
 	}
 
+	if (!document.m_Fullscreen)
+		ImGui::SetNextWindowSize(DefaultWindowSizeForType(metadata.m_Type), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSizeConstraints(ImVec2(340.0f, 220.0f), ImVec2(FLT_MAX, FLT_MAX));
 	const std::string title = MakeWindowTitle(document.m_Handle, metadata);
 	bool open = document.m_Open;
@@ -208,40 +335,38 @@ void AssetEditorPanel::DrawDocument(AssetEditorDocument& document)
 	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy))
 		m_LastFocusedEditor = document.m_Handle;
 
+	if (document.m_Fullscreen && TitlebarDragStarted())
+		RestoreWindowRect(document);
+	else if (!document.m_Fullscreen && !ImGui::IsWindowDocked())
+		CaptureWindowRect(document);
+
 	DrawToolbar(document, metadata);
 	ImGui::Separator();
 
-	if (document.m_Compact)
+	switch (metadata.m_Type)
 	{
+	case AssetType::Texture2D:
+		DrawTextureInspector(document.m_Handle, metadata, false);
+		break;
+	case AssetType::Audio:
+		DrawAudioInspector(document.m_Handle, false);
+		break;
+	case AssetType::Font:
+		DrawFontInspector(document.m_Handle, metadata, false);
+		break;
+	case AssetType::Scene:
+		DrawSceneInspector(document.m_Handle, false);
+		break;
+	case AssetType::Animation:
+	case AssetType::AnimationController:
+		DrawAnimationInspector(document.m_Handle, metadata, false);
+		break;
+	case AssetType::Entity:
+		DrawEntityInspector(document.m_Handle, metadata, false);
+		break;
+	default:
 		DrawMetadata(document.m_Handle, metadata);
-	}
-	else
-	{
-		switch (metadata.m_Type)
-		{
-		case AssetType::Texture2D:
-			DrawTextureInspector(document.m_Handle, metadata, document.m_Compact);
-			break;
-		case AssetType::Audio:
-			DrawAudioInspector(document.m_Handle, document.m_Compact);
-			break;
-		case AssetType::Font:
-			DrawFontInspector(document.m_Handle, metadata, document.m_Compact);
-			break;
-		case AssetType::Scene:
-			DrawSceneInspector(document.m_Handle, document.m_Compact);
-			break;
-		case AssetType::Animation:
-		case AssetType::AnimationController:
-			DrawAnimationInspector(document.m_Handle, metadata, document.m_Compact);
-			break;
-		case AssetType::Entity:
-			DrawEntityInspector(document.m_Handle, metadata, document.m_Compact);
-			break;
-		default:
-			DrawMetadata(document.m_Handle, metadata);
-			break;
-		}
+		break;
 	}
 
 	document.m_Open = open;
@@ -254,21 +379,63 @@ void AssetEditorPanel::DrawToolbar(AssetEditorDocument& document, const AssetMet
 	ImGui::SameLine();
 	ImGui::TextDisabled("%s", metadata.m_Filepath.filename().string().c_str());
 
-	const float buttonWidth = 72.0f;
-	const float totalButtonWidth = buttonWidth * 3.0f + ImGui::GetStyle().ItemSpacing.x * 3.0f;
-	if (ImGui::GetContentRegionAvail().x > totalButtonWidth)
-		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - totalButtonWidth);
+	const float controlsWidth = 28.0f * 3.0f + ImGui::GetStyle().ItemSpacing.x * 3.0f;
+	if (ImGui::GetContentRegionAvail().x > controlsWidth)
+		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - controlsWidth);
 	else
 		ImGui::NewLine();
 
-	if (ImGui::SmallButton(document.m_Compact ? "Expand" : "Mini"))
-		document.m_Compact = !document.m_Compact;
+	if (DrawWindowControl("##AssetEditorMinimize", WindowControlType::Minimize))
+	{
+		document.m_Minimized = true;
+		document.m_Fullscreen = false;
+		m_OpenDirty = true;
+	}
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Full"))
-		document.m_FullscreenRequested = true;
+	if (DrawWindowControl("##AssetEditorMaximize", document.m_Fullscreen ? WindowControlType::Restore : WindowControlType::Maximize))
+	{
+		if (document.m_Fullscreen)
+			RestoreWindowRect(document);
+		else
+			RequestFullscreen(document);
+	}
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Folder"))
 		Utils::OpenExternalPath((Project::GetActiveAssetDirectory() / metadata.m_Filepath).parent_path());
+}
+
+void AssetEditorPanel::CaptureWindowRect(AssetEditorDocument& document) const
+{
+	const ImVec2 pos = ImGui::GetWindowPos();
+	const ImVec2 size = ImGui::GetWindowSize();
+	if (size.x <= 0.0f || size.y <= 0.0f)
+		return;
+
+	document.m_RestorePosition = { pos.x, pos.y };
+	document.m_RestoreSize = { size.x, size.y };
+	document.m_HasRestoreRect = true;
+}
+
+void AssetEditorPanel::RequestFullscreen(AssetEditorDocument& document)
+{
+	CaptureWindowRect(document);
+	document.m_Minimized = false;
+	document.m_Fullscreen = true;
+	document.m_FullscreenRequested = true;
+	document.m_FocusRequested = true;
+}
+
+void AssetEditorPanel::RestoreWindowRect(AssetEditorDocument& document) const
+{
+	document.m_Fullscreen = false;
+	const ImVec2 size(
+		document.m_HasRestoreRect ? document.m_RestoreSize.x : 720.0f,
+		document.m_HasRestoreRect ? document.m_RestoreSize.y : 420.0f);
+	const ImVec2 pos(
+		document.m_HasRestoreRect ? document.m_RestorePosition.x : ImGui::GetMainViewport()->WorkPos.x + 80.0f,
+		document.m_HasRestoreRect ? document.m_RestorePosition.y : ImGui::GetMainViewport()->WorkPos.y + 80.0f);
+	ImGui::SetWindowPos(pos, ImGuiCond_Always);
+	ImGui::SetWindowSize(size, ImGuiCond_Always);
 }
 
 void AssetEditorPanel::DrawMetadata(AssetHandle handle, const AssetMetadata& metadata) const

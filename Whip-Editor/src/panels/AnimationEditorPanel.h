@@ -124,6 +124,11 @@ private:
 	void DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget);
 	void DrawControllerValidation();
 	void DrawCompactSummary();
+	void DrawWindowControls();
+	void DrawMinimizedStrip();
+	void CaptureWindowRect();
+	void RequestFullscreen();
+	void RestoreWindowRect();
 	AnimationControllerTransition* GetSelectedControllerTransition();
 	void ClearSelectedControllerTransition();
 	void RemoveSelectedControllerTransition();
@@ -169,9 +174,13 @@ private:
 	bool m_ShowOnionSkin = true;
 	bool m_PreviewPlaying = false;
 	bool m_PreviewPaused = false;
-	bool m_CompactMode = false;
+	bool m_Minimized = false;
+	bool m_Fullscreen = false;
 	bool m_FullscreenRequested = false;
 	bool m_FocusRequested = false;
+	bool m_HasRestoreRect = false;
+	glm::vec2 m_RestorePosition{ 120.0f, 90.0f };
+	glm::vec2 m_RestoreSize{ 1120.0f, 680.0f };
 	float m_PreviewElapsed = 0.0f;
 	float m_DefaultFrameDuration = 0.1f;
 	bool m_Open = true;

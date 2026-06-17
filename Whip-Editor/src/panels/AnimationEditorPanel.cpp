@@ -31,6 +31,13 @@ namespace
 	constexpr int EntryTransitionSource = -2;
 	constexpr int AnyStateTransitionSource = -3;
 
+	enum class WindowControlType
+	{
+		Minimize,
+		Maximize,
+		Restore
+	};
+
 	ImVec2 Add(const ImVec2& left, const ImVec2& right)
 	{
 		return { left.x + right.x, left.y + right.y };
@@ -178,6 +185,58 @@ namespace
 		return ImGui::IsKeyPressed(imguiKey, false);
 	}
 
+	ImVec2 DefaultAnimationWindowSize()
+	{
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		const ImVec2 maxSize(
+			std::min(1280.0f, viewport->WorkSize.x - 40.0f),
+			std::min(720.0f, viewport->WorkSize.y - 40.0f));
+		return {
+			std::clamp(1120.0f, 520.0f, std::max(520.0f, maxSize.x)),
+			std::clamp(680.0f, 320.0f, std::max(320.0f, maxSize.y))
+		};
+	}
+
+	bool DrawWindowControl(const char* id, WindowControlType type)
+	{
+		const ImVec2 size(28.0f, 22.0f);
+		ImGui::InvisibleButton(id, size);
+		const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+		const bool hovered = ImGui::IsItemHovered();
+		const ImVec2 min = ImGui::GetItemRectMin();
+		const ImVec2 max = ImGui::GetItemRectMax();
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+		drawList->AddRectFilled(min, max, IM_COL32(255, 255, 255, hovered ? 24 : 0), 3.0f);
+		const ImU32 color = IM_COL32(226, 226, 226, 230);
+		const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+
+		if (type == WindowControlType::Minimize)
+		{
+			drawList->AddLine(ImVec2(center.x - 5.0f, center.y + 4.0f), ImVec2(center.x + 5.0f, center.y + 4.0f), color, 1.4f);
+		}
+		else if (type == WindowControlType::Maximize)
+		{
+			drawList->AddRect(ImVec2(center.x - 5.0f, center.y - 5.0f), ImVec2(center.x + 5.0f, center.y + 5.0f), color, 0.0f, 0, 1.2f);
+		}
+		else
+		{
+			drawList->AddRect(ImVec2(center.x - 3.0f, center.y - 6.0f), ImVec2(center.x + 7.0f, center.y + 4.0f), color, 0.0f, 0, 1.1f);
+			drawList->AddRect(ImVec2(center.x - 7.0f, center.y - 2.0f), ImVec2(center.x + 3.0f, center.y + 8.0f), color, 0.0f, 0, 1.1f);
+		}
+
+		return clicked;
+	}
+
+	bool TitlebarDragStarted()
+	{
+		const ImGuiWindow* window = ImGui::GetCurrentWindowRead();
+		if (!window || !ImGui::IsMouseDragging(ImGuiMouseButton_Left, 2.0f))
+			return false;
+
+		const ImVec2 click = ImGui::GetIO().MouseClickedPos[ImGuiMouseButton_Left];
+		const float titlebarBottom = window->Pos.y + ImGui::GetFrameHeight();
+		return click.y >= window->Pos.y && click.y <= titlebarBottom;
+	}
 }
 
 AnimationEditorPanel::AnimationEditorPanel()
@@ -193,25 +252,45 @@ void AnimationEditorPanel::OnImGuiRender()
 		m_ShortcutContextActive = false;
 		return;
 	}
+	if (m_Minimized)
+	{
+		m_ShortcutContextActive = false;
+		DrawMinimizedStrip();
+		return;
+	}
+
 	bool open = m_Open;
 	if (m_FullscreenRequested)
 	{
 		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
 		ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
 		ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
 		m_FullscreenRequested = false;
+	}
+	else if (m_Fullscreen)
+	{
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
 	}
 	if (m_FocusRequested)
 	{
 		ImGui::SetNextWindowFocus();
 		m_FocusRequested = false;
 	}
+	if (!m_Fullscreen)
+		ImGui::SetNextWindowSize(DefaultAnimationWindowSize(), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSizeConstraints(ImVec2(420.0f, 260.0f), ImVec2(FLT_MAX, FLT_MAX));
 	const std::string windowTitle = GetWindowTitle();
 	ImGui::Begin(windowTitle.c_str(), &open);
 	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
 	if (open != m_Open)
 		SetOpen(open);
+	if (m_Fullscreen && TitlebarDragStarted())
+		RestoreWindowRect();
+	else if (!m_Fullscreen && !ImGui::IsWindowDocked())
+		CaptureWindowRect();
 	UpdatePreview();
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
@@ -251,12 +330,7 @@ void AnimationEditorPanel::OnImGuiRender()
 		controllerStatus = metadata ? metadata.m_Filepath.filename().string() : "Memory controller";
 	}
 	ImGui::TextDisabled("Clip: %s  |  Controller: %s", m_CurrentAnimation ? m_CurrentAnimation->GetName().c_str() : "None", controllerStatus.c_str());
-	ImGui::SameLine();
-	if (ImGui::SmallButton(m_CompactMode ? "Expand" : "Mini"))
-		m_CompactMode = !m_CompactMode;
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Full"))
-		m_FullscreenRequested = true;
+	DrawWindowControls();
 	ImGui::Separator();
 
 	if (m_EditorMode == AnimationEditorMode::Clip)
@@ -387,15 +461,6 @@ void AnimationEditorPanel::OnImGuiRender()
 	}
 	ImGui::EndChild();
 
-	if (m_CompactMode)
-	{
-		DrawCompactSummary();
-		ImGui::PopStyleColor();
-		ImGui::PopStyleVar(3);
-		ImGui::End();
-		return;
-	}
-
 	ImGui::Spacing();
 	if (m_EditorMode == AnimationEditorMode::Controller)
 	{
@@ -522,6 +587,90 @@ bool AnimationEditorPanel::ConsumeOpenDirty()
 	const bool dirty = m_OpenDirty;
 	m_OpenDirty = false;
 	return dirty;
+}
+
+void AnimationEditorPanel::DrawWindowControls()
+{
+	const float controlsWidth = 28.0f * 2.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f;
+	if (ImGui::GetContentRegionAvail().x > controlsWidth)
+		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - controlsWidth);
+	else
+		ImGui::SameLine();
+
+	if (DrawWindowControl("##AnimationEditorMinimize", WindowControlType::Minimize))
+	{
+		m_Minimized = true;
+		m_Fullscreen = false;
+		m_OpenDirty = true;
+	}
+	ImGui::SameLine();
+	if (DrawWindowControl("##AnimationEditorMaximize", m_Fullscreen ? WindowControlType::Restore : WindowControlType::Maximize))
+	{
+		if (m_Fullscreen)
+			RestoreWindowRect();
+		else
+			RequestFullscreen();
+	}
+}
+
+void AnimationEditorPanel::DrawMinimizedStrip()
+{
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	constexpr float stripHeight = 42.0f;
+	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + 10.0f, viewport->WorkPos.y + viewport->WorkSize.y - stripHeight - 58.0f), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(240.0f, stripHeight), ImGuiCond_Always);
+	ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_NoScrollWithMouse;
+
+	if (!ImGui::Begin("##MinimizedAnimationEditor", nullptr, flags))
+	{
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::Button("Animation Editor###RestoreAnimationEditor", ImVec2(220.0f, 24.0f)))
+	{
+		m_Minimized = false;
+		m_FocusRequested = true;
+	}
+
+	ImGui::End();
+}
+
+void AnimationEditorPanel::CaptureWindowRect()
+{
+	const ImVec2 pos = ImGui::GetWindowPos();
+	const ImVec2 size = ImGui::GetWindowSize();
+	if (size.x <= 0.0f || size.y <= 0.0f)
+		return;
+
+	m_RestorePosition = { pos.x, pos.y };
+	m_RestoreSize = { size.x, size.y };
+	m_HasRestoreRect = true;
+}
+
+void AnimationEditorPanel::RequestFullscreen()
+{
+	CaptureWindowRect();
+	m_Minimized = false;
+	m_Fullscreen = true;
+	m_FullscreenRequested = true;
+	m_FocusRequested = true;
+}
+
+void AnimationEditorPanel::RestoreWindowRect()
+{
+	m_Fullscreen = false;
+	const ImVec2 size(
+		m_HasRestoreRect ? m_RestoreSize.x : 1120.0f,
+		m_HasRestoreRect ? m_RestoreSize.y : 680.0f);
+	const ImVec2 pos(
+		m_HasRestoreRect ? m_RestorePosition.x : ImGui::GetMainViewport()->WorkPos.x + 80.0f,
+		m_HasRestoreRect ? m_RestorePosition.y : ImGui::GetMainViewport()->WorkPos.y + 80.0f);
+	ImGui::SetWindowPos(pos, ImGuiCond_Always);
+	ImGui::SetWindowSize(size, ImGuiCond_Always);
 }
 
 void AnimationEditorPanel::DrawAnimationDragDropArea(float width, float height)
