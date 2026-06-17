@@ -871,6 +871,9 @@ void EditorLayer::OnAttach()
 	WHP_EDITOR_INFO("[Editor] Attaching EditorLayer.");
 
 	m_AnimationEditorPanel.SetRefreshAssetTreeCallback([this]() {if (m_ContentBrowserPanel) { m_ContentBrowserPanel->RefreshAssetTree(); } });
+	m_AssetEditorPanel.SetOpenSceneCallback([this](AssetHandle handle) { OpenScene(handle); });
+	m_AssetEditorPanel.SetSetStartSceneCallback([this](AssetHandle handle) { SetStartScene(handle); });
+	m_AssetEditorPanel.SetOpenAnimationCallback([this](AssetHandle handle) { return m_AnimationEditorPanel.OpenAsset(handle); });
 	m_SceneHierarchyPanel.SetSceneChangeCallback([this]() { CaptureSceneHistory(); });
 	m_SceneHierarchyPanel.SetSaveEntityTemplateCallback([this](Entity entityIn) { SaveEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetApplyEntityTemplateCallback([this](Entity entityIn) { ApplyEntityTemplate(entityIn); });
@@ -1176,6 +1179,10 @@ void EditorLayer::OnImGuiRender()
 				drawPanelToggle("Content Browser", m_ContentBrowserPanel->IsOpen(), [this](bool open) { m_ContentBrowserPanel->SetOpen(open); });
 			else
 				ImGui::MenuItem("Content Browser", nullptr, false, false);
+			ImGui::BeginDisabled(!m_AssetEditorPanel.HasOpenEditors());
+			if (ImGui::MenuItem("Close Asset Editors"))
+				m_AssetEditorPanel.CloseAll();
+			ImGui::EndDisabled();
 			ImGui::EndDisabled();
 			drawPanelToggle("Console", ConsolePanel::IsOpen(), [](bool open) { ConsolePanel::SetOpen(open); });
 			ImGui::EndMenu();
@@ -1327,6 +1334,7 @@ void EditorLayer::OnImGuiRender()
 	// other renders
 	m_UIStatistics.OnImGuiRender(m_Ts);
     m_SceneHierarchyPanel.OnImGuiRender();
+	m_AssetEditorPanel.OnImGuiRender();
     m_AnimationEditorPanel.OnImGuiRender();
 	m_AnimationEditorPanel.HandleShortcutInput(m_UISettings);
 	ConsolePanel::OnImGuiRender();
@@ -1335,6 +1343,7 @@ void EditorLayer::OnImGuiRender()
 	DrawCommandPalette();
 	if (m_UISettings.ConsumeDirty()
 		|| m_SceneHierarchyPanel.ConsumeOpenDirty()
+		|| m_AssetEditorPanel.ConsumeOpenDirty()
 		|| m_AnimationEditorPanel.ConsumeOpenDirty()
 		|| m_UIStatistics.ConsumeOpenDirty()
 		|| ConsolePanel::ConsumeOpenDirty()
@@ -1709,6 +1718,40 @@ bool EditorLayer::HandleContentBrowserAssetOpen(AssetHandle handle)
 	default:
 		return false;
 	}
+}
+
+bool EditorLayer::HandleContentBrowserAssetInspect(AssetHandle handle)
+{
+	if (handle == 0 || !HasProjectLoaded())
+		return false;
+
+	Ref<Project> activeProject = Project::GetActive();
+	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle))
+		return false;
+
+	const AssetType type = activeProject->GetEditorAssetManager()->GetAssetType(handle);
+	if (type == AssetType::Animation || type == AssetType::AnimationController)
+		return m_AnimationEditorPanel.OpenAsset(handle);
+
+	m_AssetEditorPanel.OpenAsset(handle);
+	return true;
+}
+
+void EditorLayer::SetStartScene(AssetHandle handle)
+{
+	if (handle == 0 || !HasProjectLoaded())
+		return;
+
+	Ref<Project> activeProject = Project::GetActive();
+	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle) ||
+		activeProject->GetEditorAssetManager()->GetAssetType(handle) != AssetType::Scene)
+	{
+		return;
+	}
+
+	activeProject->GetConfig().m_StartScene = handle;
+	Project::SaveActive();
+	WHP_EDITOR_INFO(std::string("[Project] Start scene set: ") + activeProject->GetEditorAssetManager()->GetFilepath(handle).generic_string());
 }
 
 bool EditorLayer::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position)
@@ -2472,6 +2515,7 @@ void EditorLayer::FinishProjectSettings()
 	ReloadAssembly(true);
 	m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
 	m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return HandleContentBrowserAssetOpen(handle); });
+	m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return HandleContentBrowserAssetInspect(handle); });
 	ApplyPreferencesToContentBrowser();
 }
 
@@ -2607,6 +2651,7 @@ bool EditorLayer::OpenProject(const std::filesystem::path& path)
 		}
 		m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
 		m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return HandleContentBrowserAssetOpen(handle); });
+		m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return HandleContentBrowserAssetInspect(handle); });
 		ApplyPreferencesToContentBrowser();
 		AddRecentProject(projectPath);
 		m_ProjectLoader.SetLoaded(true);
@@ -3592,6 +3637,7 @@ void EditorLayer::RestoreProjectHistory(const ProjectHistoryEntry& entry)
 	{
 		m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(activeProject);
 		m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return HandleContentBrowserAssetOpen(handle); });
+		m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return HandleContentBrowserAssetInspect(handle); });
 		ApplyPreferencesToContentBrowser();
 	}
 }

@@ -17,6 +17,7 @@
 #include <misc/cpp/imgui_stdlib.h>
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -193,7 +194,21 @@ void AnimationEditorPanel::OnImGuiRender()
 		return;
 	}
 	bool open = m_Open;
-	ImGui::Begin("Animation Editor", &open);
+	if (m_FullscreenRequested)
+	{
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
+		m_FullscreenRequested = false;
+	}
+	if (m_FocusRequested)
+	{
+		ImGui::SetNextWindowFocus();
+		m_FocusRequested = false;
+	}
+	ImGui::SetNextWindowSizeConstraints(ImVec2(420.0f, 260.0f), ImVec2(FLT_MAX, FLT_MAX));
+	const std::string windowTitle = GetWindowTitle();
+	ImGui::Begin(windowTitle.c_str(), &open);
 	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
 	if (open != m_Open)
 		SetOpen(open);
@@ -236,6 +251,12 @@ void AnimationEditorPanel::OnImGuiRender()
 		controllerStatus = metadata ? metadata.m_Filepath.filename().string() : "Memory controller";
 	}
 	ImGui::TextDisabled("Clip: %s  |  Controller: %s", m_CurrentAnimation ? m_CurrentAnimation->GetName().c_str() : "None", controllerStatus.c_str());
+	ImGui::SameLine();
+	if (ImGui::SmallButton(m_CompactMode ? "Expand" : "Mini"))
+		m_CompactMode = !m_CompactMode;
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Full"))
+		m_FullscreenRequested = true;
 	ImGui::Separator();
 
 	if (m_EditorMode == AnimationEditorMode::Clip)
@@ -366,6 +387,15 @@ void AnimationEditorPanel::OnImGuiRender()
 	}
 	ImGui::EndChild();
 
+	if (m_CompactMode)
+	{
+		DrawCompactSummary();
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar(3);
+		ImGui::End();
+		return;
+	}
+
 	ImGui::Spacing();
 	if (m_EditorMode == AnimationEditorMode::Controller)
 	{
@@ -444,6 +474,47 @@ void AnimationEditorPanel::SetOpen(bool open)
 		return;
 	m_Open = open;
 	m_OpenDirty = true;
+}
+
+bool AnimationEditorPanel::OpenAsset(AssetHandle handle)
+{
+	if (handle == 0 || !Project::GetActive() || !AssetManager::IsAssetHandleValid(handle))
+		return false;
+
+	const AssetType type = AssetManager::GetAssetType(handle);
+	if (type == AssetType::Animation)
+	{
+		Ref<Animation2D> animation = AssetManager::GetAsset<Animation2D>(handle);
+		if (!animation)
+			return false;
+
+		m_EditorMode = AnimationEditorMode::Clip;
+		m_CurrentAnimation = animation;
+		m_SelectedFrameIndex = -1;
+		StopPreview(false);
+		SetOpen(true);
+		m_FocusRequested = true;
+		return true;
+	}
+
+	if (type == AssetType::AnimationController)
+	{
+		Ref<AnimationController> controller = AssetManager::GetAsset<AnimationController>(handle);
+		if (!controller)
+			return false;
+
+		m_EditorMode = AnimationEditorMode::Controller;
+		m_CurrentController = controller;
+		m_SelectedControllerStateIndex = 0;
+		m_SelectedControllerParameterIndex = -1;
+		ClearSelectedControllerTransition();
+		StopPreview(false);
+		SetOpen(true);
+		m_FocusRequested = true;
+		return true;
+	}
+
+	return false;
 }
 
 bool AnimationEditorPanel::ConsumeOpenDirty()
@@ -1471,6 +1542,46 @@ void AnimationEditorPanel::AutoLayoutControllerGraph()
 		exitColumn = std::max(exitColumn, state.m_GraphPosition.x + nodeWidth + 190.0f);
 	m_CurrentController->GetExitGraphPosition() = { exitColumn, 108.0f };
 	m_FrameControllerGraphRequested = true;
+}
+
+void AnimationEditorPanel::DrawCompactSummary()
+{
+	ImGui::BeginChild("##AnimationEditorCompactSummary", ImVec2(0.0f, 0.0f), true);
+	if (m_EditorMode == AnimationEditorMode::Clip)
+	{
+		ImGui::TextUnformatted("Animation Clip");
+		if (!m_CurrentAnimation)
+		{
+			ImGui::TextDisabled("No animation selected.");
+			DrawAnimationDragDropArea(std::max(160.0f, ImGui::GetContentRegionAvail().x), 64.0f);
+		}
+		else
+		{
+			const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentAnimation->m_Handle);
+			ImGui::TextDisabled("%s", metadata ? metadata.m_Filepath.generic_string().c_str() : "Memory animation");
+			ImGui::Text("Frames: %zu", m_CurrentAnimation->GetFrames().size());
+			ImGui::Text("Duration: %.3fs", m_CurrentAnimation->GetDuration());
+			ImGui::Text("Loop: %s", m_CurrentAnimation->IsLooping() ? "true" : "false");
+		}
+	}
+	else
+	{
+		ImGui::TextUnformatted("Animation Controller");
+		if (!m_CurrentController)
+		{
+			ImGui::TextDisabled("No controller selected.");
+			DrawControllerDragDropArea(std::max(160.0f, ImGui::GetContentRegionAvail().x), 64.0f);
+		}
+		else
+		{
+			const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentController->m_Handle);
+			ImGui::TextDisabled("%s", metadata ? metadata.m_Filepath.generic_string().c_str() : "Memory controller");
+			ImGui::Text("States: %zu", m_CurrentController->GetStates().size());
+			ImGui::Text("Parameters: %zu", m_CurrentController->GetParameters().size());
+			ImGui::Text("Any State transitions: %zu", m_CurrentController->GetAnyStateTransitions().size());
+		}
+	}
+	ImGui::EndChild();
 }
 
 void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget)
@@ -3009,6 +3120,24 @@ bool AnimationEditorPanel::PasteControllerTransition(const AnimationControllerTr
 	m_SelectedTransitionSourceStateIndex = targetSourceIndex;
 	m_SelectedTransitionIndex = (int)transitions.size() - 1;
 	return true;
+}
+
+std::string AnimationEditorPanel::GetWindowTitle() const
+{
+	std::string title = "Animation Editor";
+	if (m_EditorMode == AnimationEditorMode::Clip && m_CurrentAnimation)
+	{
+		const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentAnimation->m_Handle);
+		title = std::string("Animation - ") + (metadata ? metadata.m_Filepath.filename().string() : m_CurrentAnimation->GetName());
+	}
+	else if (m_EditorMode == AnimationEditorMode::Controller && m_CurrentController)
+	{
+		const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentController->m_Handle);
+		title = std::string("Animation Controller - ") + (metadata ? metadata.m_Filepath.filename().string() : "Controller");
+	}
+
+	title += "###AnimationEditor";
+	return title;
 }
 
 void AnimationEditorPanel::UpdatePreview()

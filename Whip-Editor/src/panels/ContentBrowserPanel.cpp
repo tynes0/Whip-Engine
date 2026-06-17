@@ -429,7 +429,10 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && item.m_Directory)
 		SetCurrentDirectory(item.m_AbsolutePath);
 	else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !item.m_Directory)
-		OpenAsset(item);
+	{
+		if (!InspectAsset(item))
+			OpenAsset(item);
+	}
 
 	if (ImGui::BeginDragDropSource())
 	{
@@ -501,6 +504,8 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 				{
 					if (ImGui::MenuItem("Open Scene"))
 						OpenAsset(item);
+					if (ImGui::MenuItem("Open Asset Editor"))
+						InspectAsset(item);
 					const bool isStartScene = m_Project && m_Project->GetConfig().m_StartScene == item.m_Handle;
 					if (ImGui::MenuItem("Set as Start Scene", nullptr, isStartScene))
 						SetSceneAsStartScene(item);
@@ -510,6 +515,14 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 				{
 					if (ImGui::MenuItem("Instantiate Entity Template"))
 						OpenAsset(item);
+					if (ImGui::MenuItem("Open Asset Editor"))
+						InspectAsset(item);
+					ImGui::Separator();
+				}
+				if (item.m_Supported && item.m_Type != AssetType::Scene && item.m_Type != AssetType::Entity)
+				{
+					if (ImGui::MenuItem("Open Asset Editor"))
+						InspectAsset(item);
 					ImGui::Separator();
 				}
 
@@ -880,7 +893,32 @@ bool ContentBrowserPanel::OpenAsset(const BrowserItem& item)
 
 	if (m_AssetOpenCallback(handle))
 	{
-	SetStatus("Opened: " + item.m_RelativePath.generic_string());
+		SetStatus("Opened: " + item.m_RelativePath.generic_string());
+		return true;
+	}
+
+	return false;
+}
+
+bool ContentBrowserPanel::InspectAsset(const BrowserItem& item)
+{
+	if (item.m_Directory || item.m_Missing || !item.m_Supported || !m_AssetInspectCallback)
+		return false;
+
+	AssetHandle handle = item.m_Handle;
+	if (handle == 0)
+	{
+		if (!ImportFile(item.m_RelativePath))
+			return false;
+		handle = FindAssetHandle(item.m_RelativePath);
+	}
+
+	if (handle == 0)
+		return false;
+
+	if (m_AssetInspectCallback(handle))
+	{
+		SetStatus("Editing: " + item.m_RelativePath.generic_string());
 		return true;
 	}
 

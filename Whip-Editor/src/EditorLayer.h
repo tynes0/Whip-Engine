@@ -11,6 +11,7 @@
 #include "panels/SceneHierarchyPanel.h"
 #include "panels/ContentBrowserPanel.h"
 #include "panels/AnimationEditorPanel.h"
+#include "panels/AssetEditorPanel.h"
 #include "panels/ConsolePanel.h"
 
 #include <FileWatch.h>
@@ -102,6 +103,8 @@ private:
 	bool InstantiateEntityTemplate(AssetHandle handle);
 	bool HandleViewportAssetDrop(AssetHandle handle);
 	bool HandleContentBrowserAssetOpen(AssetHandle handle);
+	bool HandleContentBrowserAssetInspect(AssetHandle handle);
+	void SetStartScene(AssetHandle handle);
 	bool CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position);
 	AssetHandle ImportExternalAssetFile(const std::filesystem::path& sourcePath);
 	glm::vec3 GetViewportMouseWorldPosition() const;
@@ -240,6 +243,7 @@ private:
 	// panels
 	SceneHierarchyPanel m_SceneHierarchyPanel;
 	AnimationEditorPanel m_AnimationEditorPanel;
+	AssetEditorPanel m_AssetEditorPanel;
 	Scope<ContentBrowserPanel> m_ContentBrowserPanel;
 
 	Ref<AudioSource> m_AudioSource;

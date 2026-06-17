@@ -53,6 +53,7 @@ public:
 	bool IsOpen() const { return m_Open; }
 	bool IsHovered() const { return m_Hovered; }
 	void SetAssetOpenCallback(std::function<bool(AssetHandle)> callback) { m_AssetOpenCallback = std::move(callback); }
+	void SetAssetInspectCallback(std::function<bool(AssetHandle)> callback) { m_AssetInspectCallback = std::move(callback); }
 	bool HandleExternalDrop(const std::vector<std::filesystem::path>& paths);
 private:
 	enum class Mode
@@ -104,6 +105,7 @@ private:
 	void RequestDeleteItem(const BrowserItem& item);
 	void RequestRemoveAsset(AssetHandle handle, const std::filesystem::path& relativePath);
 	bool OpenAsset(const BrowserItem& item);
+	bool InspectAsset(const BrowserItem& item);
 	bool SetSceneAsStartScene(const BrowserItem& item);
 	void ClearPendingOperation();
 	bool RenamePendingItem();
@@ -148,6 +150,7 @@ private:
 	std::string m_OperationText;
 	std::string m_OperationError;
 	std::function<bool(AssetHandle)> m_AssetOpenCallback;
+	std::function<bool(AssetHandle)> m_AssetInspectCallback;
 
 	std::string m_SearchQuery;
 	std::string m_StatusMessage;

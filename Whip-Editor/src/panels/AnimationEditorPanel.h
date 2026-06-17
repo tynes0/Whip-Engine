@@ -30,6 +30,7 @@ public:
 	bool ConsumeOpenDirty();
 
 	void OnImGuiRender();
+	bool OpenAsset(AssetHandle handle);
 	bool WantsShortcutCapture() const { return m_Open && m_ShortcutContextActive; }
 	bool ShouldConsumeShortcutAction(UI::EditorShortcutAction action) const;
 	bool ExecuteShortcutAction(UI::EditorShortcutAction action);
@@ -122,6 +123,7 @@ private:
 	void DrawControllerStateInspector(float width, float height);
 	void DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget);
 	void DrawControllerValidation();
+	void DrawCompactSummary();
 	AnimationControllerTransition* GetSelectedControllerTransition();
 	void ClearSelectedControllerTransition();
 	void RemoveSelectedControllerTransition();
@@ -146,6 +148,7 @@ private:
 	void PasteFrame(const AnimationFrame& frame);
 	void PasteControllerState(const AnimationControllerState& state);
 	bool PasteControllerTransition(const AnimationControllerTransition& transition);
+	std::string GetWindowTitle() const;
 	void UpdatePreview();
 	void StepPreview(int direction);
 	void StopPreview(bool resetSelection);
@@ -166,6 +169,9 @@ private:
 	bool m_ShowOnionSkin = true;
 	bool m_PreviewPlaying = false;
 	bool m_PreviewPaused = false;
+	bool m_CompactMode = false;
+	bool m_FullscreenRequested = false;
+	bool m_FocusRequested = false;
 	float m_PreviewElapsed = 0.0f;
 	float m_DefaultFrameDuration = 0.1f;
 	bool m_Open = true;
