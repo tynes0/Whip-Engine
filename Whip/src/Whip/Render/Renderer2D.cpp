@@ -14,11 +14,242 @@
 
 #include <algorithm>
 #include <array>
+#include <deque>
+#include <limits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 _WHIP_START
 
 namespace
 {
+	struct SpriteTextureCacheEntry
+	{
+		RendererId m_SourceRendererId = 0;
+		Ref<SubTexture2D> m_SubTexture;
+	};
+
+	std::unordered_map<uint64_t, SpriteTextureCacheEntry> s_IsolatedSpriteTextureCache;
+
+	uint64_t MakeSpriteTextureCacheKey(AssetHandle textureHandle, int32_t spriteIndex)
+	{
+		uint64_t seed = static_cast<uint64_t>(textureHandle);
+		const uint64_t value = static_cast<uint64_t>(static_cast<uint32_t>(spriteIndex));
+		seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6U) + (seed >> 2U);
+		return seed;
+	}
+
+	size_t PixelIndexBottomLeft(uint32_t width, uint32_t x, uint32_t storageY)
+	{
+		return (static_cast<size_t>(storageY) * width + x) * 4;
+	}
+
+	size_t PixelIndexTopLeft(uint32_t width, uint32_t height, uint32_t x, uint32_t topLeftY)
+	{
+		return PixelIndexBottomLeft(width, x, height - 1U - topLeftY);
+	}
+
+	void ExtrudeTransparentRgb(std::vector<uint8_t>& rgbaPixels, uint32_t width, uint32_t height, uint32_t passes)
+	{
+		if (passes == 0 || width == 0 || height == 0 || rgbaPixels.size() != static_cast<size_t>(width) * height * 4)
+			return;
+
+		std::vector<uint8_t> filled(static_cast<size_t>(width) * height, 0);
+		for (uint32_t y = 0; y < height; ++y)
+			for (uint32_t x = 0; x < width; ++x)
+				filled[static_cast<size_t>(y) * width + x] = rgbaPixels[PixelIndexBottomLeft(width, x, y) + 3] > 0 ? 1 : 0;
+
+		static constexpr int32_t Directions4[4][2] =
+		{
+			{ 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }
+		};
+
+		for (uint32_t pass = 0; pass < passes; ++pass)
+		{
+			std::vector<uint8_t> nextFilled = filled;
+			std::vector<uint8_t> nextPixels = rgbaPixels;
+			bool wrote = false;
+
+			for (uint32_t y = 0; y < height; ++y)
+			{
+				for (uint32_t x = 0; x < width; ++x)
+				{
+					const size_t pixelIndex = static_cast<size_t>(y) * width + x;
+					if (filled[pixelIndex])
+						continue;
+
+					for (const auto& direction : Directions4)
+					{
+						const int32_t nx = static_cast<int32_t>(x) + direction[0];
+						const int32_t ny = static_cast<int32_t>(y) + direction[1];
+						if (nx < 0 || ny < 0 || nx >= static_cast<int32_t>(width) || ny >= static_cast<int32_t>(height))
+							continue;
+
+						const size_t neighborMaskIndex = static_cast<size_t>(ny) * width + static_cast<uint32_t>(nx);
+						if (!filled[neighborMaskIndex])
+							continue;
+
+						const size_t target = PixelIndexBottomLeft(width, x, y);
+						const size_t source = PixelIndexBottomLeft(width, static_cast<uint32_t>(nx), static_cast<uint32_t>(ny));
+						nextPixels[target + 0] = rgbaPixels[source + 0];
+						nextPixels[target + 1] = rgbaPixels[source + 1];
+						nextPixels[target + 2] = rgbaPixels[source + 2];
+						nextPixels[target + 3] = 0;
+						nextFilled[pixelIndex] = 1;
+						wrote = true;
+						break;
+					}
+				}
+			}
+
+			rgbaPixels.swap(nextPixels);
+			filled.swap(nextFilled);
+			if (!wrote)
+				break;
+		}
+	}
+
+	Ref<SubTexture2D> CreateUvSubTextureFromSpriteRect(const Ref<Texture2D>& texture, const TextureSpriteRect& sprite)
+	{
+		const float textureWidth = static_cast<float>(texture->GetWidth());
+		const float textureHeight = static_cast<float>(texture->GetHeight());
+		const float insetX = sprite.m_Width > 2 ? 0.5f : 0.0f;
+		const float insetY = sprite.m_Height > 2 ? 0.5f : 0.0f;
+		const float minX = std::clamp((static_cast<float>(sprite.m_X) + insetX) / textureWidth, 0.0f, 1.0f);
+		const float maxX = std::clamp((static_cast<float>(sprite.m_X + sprite.m_Width) - insetX) / textureWidth, 0.0f, 1.0f);
+		const float minY = std::clamp(1.0f - (static_cast<float>(sprite.m_Y + sprite.m_Height) - insetY) / textureHeight, 0.0f, 1.0f);
+		const float maxY = std::clamp(1.0f - (static_cast<float>(sprite.m_Y) + insetY) / textureHeight, 0.0f, 1.0f);
+		return std::make_shared<SubTexture2D>(texture, glm::vec2(minX, minY), glm::vec2(maxX, maxY));
+	}
+
+	Ref<SubTexture2D> CreateIsolatedSubTextureFromSpriteRect(const Ref<Texture2D>& texture, const TextureSpriteRect& sprite)
+	{
+		if (texture->GetSpecification().m_Format != ImageFormat::Rgba8)
+			return nullptr;
+
+		const uint32_t textureWidth = texture->GetWidth();
+		const uint32_t textureHeight = texture->GetHeight();
+		if (sprite.m_X >= textureWidth || sprite.m_Y >= textureHeight)
+			return nullptr;
+
+		const uint32_t cropWidth = std::min(sprite.m_Width, textureWidth - sprite.m_X);
+		const uint32_t cropHeight = std::min(sprite.m_Height, textureHeight - sprite.m_Y);
+		if (cropWidth == 0 || cropHeight == 0)
+			return nullptr;
+
+		RawBuffer sourceData = texture->GetData();
+		const uint64_t expectedSize = static_cast<uint64_t>(textureWidth) * textureHeight * 4;
+		if (!sourceData || sourceData.m_Size != expectedSize)
+		{
+			sourceData.Release();
+			return nullptr;
+		}
+
+		std::vector<uint8_t> foreground(static_cast<size_t>(cropWidth) * cropHeight, 0);
+		for (uint32_t y = 0; y < cropHeight; ++y)
+		{
+			for (uint32_t x = 0; x < cropWidth; ++x)
+			{
+				const size_t sourceIndex = PixelIndexTopLeft(textureWidth, textureHeight, sprite.m_X + x, sprite.m_Y + y);
+				foreground[static_cast<size_t>(y) * cropWidth + x] = sourceData.m_Data[sourceIndex + 3] > 8 ? 1 : 0;
+			}
+		}
+
+		std::vector<uint8_t> visited(foreground.size(), 0);
+		std::vector<uint8_t> selected(foreground.size(), 0);
+		std::deque<std::pair<uint32_t, uint32_t>> queue;
+		std::vector<size_t> componentPixels;
+		std::vector<size_t> bestComponentPixels;
+		static constexpr int32_t Directions4[4][2] =
+		{
+			{ 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }
+		};
+
+		for (uint32_t y = 0; y < cropHeight; ++y)
+		{
+			for (uint32_t x = 0; x < cropWidth; ++x)
+			{
+				const size_t startIndex = static_cast<size_t>(y) * cropWidth + x;
+				if (!foreground[startIndex] || visited[startIndex])
+					continue;
+
+				componentPixels.clear();
+				visited[startIndex] = 1;
+				queue.emplace_back(x, y);
+				while (!queue.empty())
+				{
+					const auto [cx, cy] = queue.front();
+					queue.pop_front();
+					const size_t pixelIndex = static_cast<size_t>(cy) * cropWidth + cx;
+					componentPixels.push_back(pixelIndex);
+
+					for (const auto& direction : Directions4)
+					{
+						const int32_t nx = static_cast<int32_t>(cx) + direction[0];
+						const int32_t ny = static_cast<int32_t>(cy) + direction[1];
+						if (nx < 0 || ny < 0 || nx >= static_cast<int32_t>(cropWidth) || ny >= static_cast<int32_t>(cropHeight))
+							continue;
+
+						const size_t neighborIndex = static_cast<size_t>(ny) * cropWidth + static_cast<uint32_t>(nx);
+						if (!foreground[neighborIndex] || visited[neighborIndex])
+							continue;
+
+						visited[neighborIndex] = 1;
+						queue.emplace_back(static_cast<uint32_t>(nx), static_cast<uint32_t>(ny));
+					}
+				}
+
+				if (componentPixels.size() > bestComponentPixels.size())
+					bestComponentPixels = componentPixels;
+			}
+		}
+
+		if (bestComponentPixels.empty())
+		{
+			sourceData.Release();
+			return nullptr;
+		}
+
+		for (size_t pixelIndex : bestComponentPixels)
+			selected[pixelIndex] = 1;
+
+		std::vector<uint8_t> cropPixels(static_cast<size_t>(cropWidth) * cropHeight * 4, 0);
+		for (uint32_t y = 0; y < cropHeight; ++y)
+		{
+			for (uint32_t x = 0; x < cropWidth; ++x)
+			{
+				const size_t maskIndex = static_cast<size_t>(y) * cropWidth + x;
+				if (!selected[maskIndex])
+					continue;
+
+				const size_t sourceIndex = PixelIndexTopLeft(textureWidth, textureHeight, sprite.m_X + x, sprite.m_Y + y);
+				const size_t targetIndex = PixelIndexTopLeft(cropWidth, cropHeight, x, y);
+				cropPixels[targetIndex + 0] = sourceData.m_Data[sourceIndex + 0];
+				cropPixels[targetIndex + 1] = sourceData.m_Data[sourceIndex + 1];
+				cropPixels[targetIndex + 2] = sourceData.m_Data[sourceIndex + 2];
+				cropPixels[targetIndex + 3] = sourceData.m_Data[sourceIndex + 3];
+			}
+		}
+		sourceData.Release();
+
+		ExtrudeTransparentRgb(cropPixels, cropWidth, cropHeight, 2);
+
+		TextureSpecification specification;
+		specification.m_Width = cropWidth;
+		specification.m_Height = cropHeight;
+		specification.m_Format = ImageFormat::Rgba8;
+		specification.m_FilterMode = texture->GetSpecification().m_FilterMode;
+		specification.m_WrapMode = TextureWrapMode::ClampToEdge;
+		specification.m_GenerateMips = false;
+
+		Ref<Texture2D> isolatedTexture = Texture2D::Create(specification, RawBuffer(cropPixels.data(), cropPixels.size()));
+		if (!isolatedTexture || !isolatedTexture->IsLoaded())
+			return nullptr;
+
+		return std::make_shared<SubTexture2D>(isolatedTexture, glm::vec2(0.0f), glm::vec2(1.0f));
+	}
+
 	Ref<SubTexture2D> CreateSubTextureFromSpriteIndex(const Ref<Texture2D>& texture, AssetHandle textureHandle, int32_t spriteIndex)
 	{
 		if (!texture || spriteIndex < 0 || !AssetManager::IsAssetHandleValid(textureHandle))
@@ -33,13 +264,22 @@ namespace
 		if (sprite.m_Width == 0 || sprite.m_Height == 0 || texture->GetWidth() == 0 || texture->GetHeight() == 0)
 			return nullptr;
 
-		const float textureWidth = static_cast<float>(texture->GetWidth());
-		const float textureHeight = static_cast<float>(texture->GetHeight());
-		const float minX = std::clamp(static_cast<float>(sprite.m_X) / textureWidth, 0.0f, 1.0f);
-		const float maxX = std::clamp(static_cast<float>(sprite.m_X + sprite.m_Width) / textureWidth, 0.0f, 1.0f);
-		const float minY = std::clamp(1.0f - static_cast<float>(sprite.m_Y + sprite.m_Height) / textureHeight, 0.0f, 1.0f);
-		const float maxY = std::clamp(1.0f - static_cast<float>(sprite.m_Y) / textureHeight, 0.0f, 1.0f);
-		return std::make_shared<SubTexture2D>(texture, glm::vec2(minX, minY), glm::vec2(maxX, maxY));
+		if (metadata.m_TextureSettings.m_SpriteMode == TextureSpriteMode::Multiple)
+		{
+			const uint64_t cacheKey = MakeSpriteTextureCacheKey(textureHandle, spriteIndex);
+			const RendererId sourceRendererId = texture->GetRendererId();
+			auto it = s_IsolatedSpriteTextureCache.find(cacheKey);
+			if (it != s_IsolatedSpriteTextureCache.end() && it->second.m_SourceRendererId == sourceRendererId && it->second.m_SubTexture)
+				return it->second.m_SubTexture;
+
+			if (Ref<SubTexture2D> isolatedSubTexture = CreateIsolatedSubTextureFromSpriteRect(texture, sprite))
+			{
+				s_IsolatedSpriteTextureCache[cacheKey] = { sourceRendererId, isolatedSubTexture };
+				return isolatedSubTexture;
+			}
+		}
+
+		return CreateUvSubTextureFromSpriteRect(texture, sprite);
 	}
 }
 
@@ -269,6 +509,8 @@ void Renderer2D::Init()
 void Renderer2D::Shutdown()
 {
 	WHP_PROFILE_FUNCTION();
+
+	s_IsolatedSpriteTextureCache.clear();
 
 	ReleaseVertexBuffer(s_Data.m_QuadVertexBufferBase);
 	ReleaseVertexBuffer(s_Data.m_CircleVertexBufferBase);

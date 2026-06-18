@@ -48,8 +48,8 @@ Ref<Texture2D> TextureImporter::LoadTexture2D(const std::filesystem::path& path,
 	spec.m_Width = width;
 	spec.m_Height = height;
 	spec.m_FilterMode = settings.m_FilterMode;
-	spec.m_WrapMode = settings.m_WrapMode;
-	spec.m_GenerateMips = settings.m_GenerateMips;
+	spec.m_WrapMode = settings.m_SpriteMode == TextureSpriteMode::Multiple ? TextureWrapMode::ClampToEdge : settings.m_WrapMode;
+	spec.m_GenerateMips = settings.m_SpriteMode == TextureSpriteMode::Multiple ? false : settings.m_GenerateMips;
 	switch (channels)
 	{
 	case 3:
