@@ -20,7 +20,7 @@ public:
 	// AssetMetadata filepath is relative to Project Asset directory
 	// Reads file directly from filesystem
 	// (i.e. path has to be relative / absolute to working directory)
-	static Ref<Texture2D> LoadTexture2D(const std::filesystem::path& path, FlipDirection direction = FlipDirectionNone);
+	static Ref<Texture2D> LoadTexture2D(const std::filesystem::path& path, FlipDirection direction = FlipDirectionNone, const TextureImportSettings& settings = TextureImportSettings{});
 };
 
 _WHIP_END

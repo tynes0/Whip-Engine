@@ -1,4 +1,4 @@
-#include "IconManager.h"
+#include <Whip-Editor/Helpers/IconManager.h>
 
 _WHIP_START
 

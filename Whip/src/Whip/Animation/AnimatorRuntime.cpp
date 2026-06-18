@@ -6,6 +6,7 @@
 #include "Whip/Scene/Entity.h"
 #include "Whip/Scene/Scene.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -16,6 +17,24 @@ namespace
 	bool NearlyEqual(float left, float right)
 	{
 		return std::abs(left - right) <= 0.0001f;
+	}
+
+	const AnimationControllerBlueprintNode* FindBlueprintNode(const AnimationControllerTransition& transition, uint32_t nodeId)
+	{
+		const auto it = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [nodeId](const AnimationControllerBlueprintNode& node)
+			{
+				return node.m_Id == nodeId;
+			});
+		return it == transition.m_BlueprintNodes.end() ? nullptr : &*it;
+	}
+
+	const AnimationControllerBlueprintLink* FindBlueprintInputLink(const AnimationControllerTransition& transition, uint32_t nodeId, uint32_t inputPin)
+	{
+		const auto it = std::find_if(transition.m_BlueprintLinks.begin(), transition.m_BlueprintLinks.end(), [nodeId, inputPin](const AnimationControllerBlueprintLink& link)
+			{
+				return link.m_InputNode == nodeId && link.m_InputPin == inputPin;
+			});
+		return it == transition.m_BlueprintLinks.end() ? nullptr : &*it;
 	}
 
 	glm::vec3 Lerp(const glm::vec3& left, const glm::vec3& right, float factor)
@@ -540,6 +559,9 @@ bool AnimatorRuntime::IsExitTimeReady(const AnimationControllerTransition& trans
 
 bool AnimatorRuntime::ConditionsPass(const AnimationControllerTransition& transition) const
 {
+	if (!transition.m_BlueprintNodes.empty())
+		return BlueprintConditionsPass(transition);
+
 	for (const AnimationControllerCondition& condition : transition.m_Conditions)
 	{
 		if (!ConditionPasses(condition))
@@ -624,8 +646,303 @@ bool AnimatorRuntime::ConditionPasses(const AnimationControllerCondition& condit
 	return false;
 }
 
+bool AnimatorRuntime::BlueprintConditionsPass(const AnimationControllerTransition& transition) const
+{
+	const bool hasExecLinks = std::any_of(transition.m_BlueprintLinks.begin(), transition.m_BlueprintLinks.end(), [](const AnimationControllerBlueprintLink& link)
+		{
+			return IsAnimationBlueprintExecPin(link.m_OutputPin) || IsAnimationBlueprintExecPin(link.m_InputPin);
+		});
+	if (hasExecLinks)
+		return BlueprintExecPasses(transition);
+
+	const auto resultIt = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [](const AnimationControllerBlueprintNode& node)
+		{
+			return node.m_Type == AnimationBlueprintNodeType::Result;
+		});
+
+	if (resultIt == transition.m_BlueprintNodes.end())
+		return transition.m_Conditions.empty() ? true : std::all_of(transition.m_Conditions.begin(), transition.m_Conditions.end(), [this](const AnimationControllerCondition& condition)
+			{
+				return ConditionPasses(condition);
+			});
+
+	for (const AnimationControllerBlueprintLink& link : transition.m_BlueprintLinks)
+	{
+		if (link.m_InputNode != resultIt->m_Id || link.m_InputPin != 0)
+			continue;
+
+		std::unordered_set<uint32_t> visiting;
+		if (!EvaluateBlueprintNodeBool(transition, link.m_OutputNode, link.m_OutputPin, visiting))
+			return false;
+	}
+
+	return true;
+}
+
+bool AnimatorRuntime::BlueprintExecPasses(const AnimationControllerTransition& transition) const
+{
+	const auto startIt = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [](const AnimationControllerBlueprintNode& node)
+		{
+			return node.m_Type == AnimationBlueprintNodeType::Start;
+		});
+	if (startIt == transition.m_BlueprintNodes.end())
+		return false;
+
+	std::unordered_set<uint32_t> visiting;
+	return ExecuteBlueprintNode(transition, startIt->m_Id, visiting);
+}
+
+bool AnimatorRuntime::ExecuteBlueprintNode(const AnimationControllerTransition& transition, uint32_t nodeId, std::unordered_set<uint32_t>& visiting) const
+{
+	const AnimationControllerBlueprintNode* node = FindBlueprintNode(transition, nodeId);
+	if (!node)
+		return false;
+	if (!visiting.insert(nodeId).second)
+		return false;
+
+	bool result = false;
+	switch (node->m_Type)
+	{
+	case AnimationBlueprintNodeType::Start:
+		result = ExecuteBlueprintOutput(transition, node->m_Id, AnimationBlueprintThenPin, visiting);
+		break;
+	case AnimationBlueprintNodeType::Reroute:
+		result = ExecuteBlueprintOutput(transition, node->m_Id, AnimationBlueprintThenPin, visiting);
+		break;
+	case AnimationBlueprintNodeType::If:
+	case AnimationBlueprintNodeType::IfNot:
+	case AnimationBlueprintNodeType::Greater:
+	case AnimationBlueprintNodeType::Less:
+	case AnimationBlueprintNodeType::Equals:
+	case AnimationBlueprintNodeType::NotEquals:
+	{
+		std::unordered_set<uint32_t> valueVisiting;
+		const bool pass = EvaluateBlueprintNodeBool(transition, node->m_Id, 0, valueVisiting);
+		result = ExecuteBlueprintOutput(transition, node->m_Id, pass ? AnimationBlueprintTruePin : AnimationBlueprintFalsePin, visiting);
+		break;
+	}
+	case AnimationBlueprintNodeType::Result:
+	{
+		std::unordered_set<uint32_t> valueVisiting;
+		result = EvaluateBlueprintInputBool(transition, *node, 0, true, valueVisiting);
+		break;
+	}
+	default:
+		result = false;
+		break;
+	}
+
+	visiting.erase(nodeId);
+	return result;
+}
+
+bool AnimatorRuntime::ExecuteBlueprintOutput(const AnimationControllerTransition& transition, uint32_t nodeId, uint32_t outputPin, std::unordered_set<uint32_t>& visiting) const
+{
+	bool hasOutgoing = false;
+	for (const AnimationControllerBlueprintLink& link : transition.m_BlueprintLinks)
+	{
+		if (link.m_OutputNode != nodeId || link.m_OutputPin != outputPin || !IsAnimationBlueprintExecPin(link.m_InputPin))
+			continue;
+
+		hasOutgoing = true;
+		if (ExecuteBlueprintNode(transition, link.m_InputNode, visiting))
+			return true;
+	}
+	return hasOutgoing ? false : false;
+}
+
+bool AnimatorRuntime::EvaluateBlueprintNodeBool(const AnimationControllerTransition& transition, uint32_t nodeId, uint32_t outputPin, std::unordered_set<uint32_t>& visiting) const
+{
+	const AnimationControllerBlueprintNode* node = FindBlueprintNode(transition, nodeId);
+	if (!node)
+		return false;
+
+	if (!visiting.insert(nodeId).second)
+		return false;
+
+	bool value = false;
+	switch (node->m_Type)
+	{
+	case AnimationBlueprintNodeType::Start:
+		value = true;
+		break;
+	case AnimationBlueprintNodeType::Parameter:
+		value = GetBlueprintParameterBool(node->m_Parameter);
+		break;
+	case AnimationBlueprintNodeType::If:
+		value = EvaluateBlueprintInputBool(transition, *node, 0, node->m_InputBoolValues[0], visiting);
+		break;
+	case AnimationBlueprintNodeType::IfNot:
+		value = !EvaluateBlueprintInputBool(transition, *node, 0, node->m_InputBoolValues[0], visiting);
+		break;
+	case AnimationBlueprintNodeType::Greater:
+		if (const AnimationControllerParameter* parameter = FindParameter(node->m_Parameter); parameter && parameter->m_Type == AnimationParameterType::Int)
+			value = EvaluateBlueprintInputNumber(transition, *node, 0, (float)node->m_InputIntValues[0], visiting) > EvaluateBlueprintInputNumber(transition, *node, 1, (float)node->m_InputIntValues[1], visiting);
+		else
+			value = EvaluateBlueprintInputNumber(transition, *node, 0, node->m_InputFloatValues[0], visiting) > EvaluateBlueprintInputNumber(transition, *node, 1, node->m_InputFloatValues[1], visiting);
+		break;
+	case AnimationBlueprintNodeType::Less:
+		if (const AnimationControllerParameter* parameter = FindParameter(node->m_Parameter); parameter && parameter->m_Type == AnimationParameterType::Int)
+			value = EvaluateBlueprintInputNumber(transition, *node, 0, (float)node->m_InputIntValues[0], visiting) < EvaluateBlueprintInputNumber(transition, *node, 1, (float)node->m_InputIntValues[1], visiting);
+		else
+			value = EvaluateBlueprintInputNumber(transition, *node, 0, node->m_InputFloatValues[0], visiting) < EvaluateBlueprintInputNumber(transition, *node, 1, node->m_InputFloatValues[1], visiting);
+		break;
+	case AnimationBlueprintNodeType::Equals:
+	{
+		const AnimationControllerParameter* parameter = FindParameter(node->m_Parameter);
+		if (parameter && (parameter->m_Type == AnimationParameterType::Bool || parameter->m_Type == AnimationParameterType::Trigger))
+			value = EvaluateBlueprintInputBool(transition, *node, 0, node->m_InputBoolValues[0], visiting) == EvaluateBlueprintInputBool(transition, *node, 1, node->m_InputBoolValues[1], visiting);
+		else if (parameter && parameter->m_Type == AnimationParameterType::Int)
+			value = (int32_t)EvaluateBlueprintInputNumber(transition, *node, 0, (float)node->m_InputIntValues[0], visiting) == (int32_t)EvaluateBlueprintInputNumber(transition, *node, 1, (float)node->m_InputIntValues[1], visiting);
+		else
+			value = NearlyEqual(EvaluateBlueprintInputNumber(transition, *node, 0, node->m_InputFloatValues[0], visiting), EvaluateBlueprintInputNumber(transition, *node, 1, node->m_InputFloatValues[1], visiting));
+		break;
+	}
+	case AnimationBlueprintNodeType::NotEquals:
+	{
+		const AnimationControllerParameter* parameter = FindParameter(node->m_Parameter);
+		if (parameter && (parameter->m_Type == AnimationParameterType::Bool || parameter->m_Type == AnimationParameterType::Trigger))
+			value = EvaluateBlueprintInputBool(transition, *node, 0, node->m_InputBoolValues[0], visiting) != EvaluateBlueprintInputBool(transition, *node, 1, node->m_InputBoolValues[1], visiting);
+		else if (parameter && parameter->m_Type == AnimationParameterType::Int)
+			value = (int32_t)EvaluateBlueprintInputNumber(transition, *node, 0, (float)node->m_InputIntValues[0], visiting) != (int32_t)EvaluateBlueprintInputNumber(transition, *node, 1, (float)node->m_InputIntValues[1], visiting);
+		else
+			value = !NearlyEqual(EvaluateBlueprintInputNumber(transition, *node, 0, node->m_InputFloatValues[0], visiting), EvaluateBlueprintInputNumber(transition, *node, 1, node->m_InputFloatValues[1], visiting));
+		break;
+	}
+	case AnimationBlueprintNodeType::Not:
+		value = !EvaluateBlueprintInputBool(transition, *node, 0, false, visiting);
+		break;
+	case AnimationBlueprintNodeType::And:
+		value = EvaluateBlueprintInputBool(transition, *node, 0, false, visiting) && EvaluateBlueprintInputBool(transition, *node, 1, true, visiting);
+		break;
+	case AnimationBlueprintNodeType::Or:
+		value = EvaluateBlueprintInputBool(transition, *node, 0, false, visiting) || EvaluateBlueprintInputBool(transition, *node, 1, false, visiting);
+		break;
+	case AnimationBlueprintNodeType::Reroute:
+		value = EvaluateBlueprintInputBool(transition, *node, 0, false, visiting);
+		break;
+	case AnimationBlueprintNodeType::Result:
+		value = EvaluateBlueprintInputBool(transition, *node, 0, true, visiting);
+		break;
+	}
+
+	visiting.erase(nodeId);
+	if (outputPin == 1)
+	{
+		switch (node->m_Type)
+		{
+		case AnimationBlueprintNodeType::If:
+		case AnimationBlueprintNodeType::IfNot:
+		case AnimationBlueprintNodeType::Greater:
+		case AnimationBlueprintNodeType::Less:
+		case AnimationBlueprintNodeType::Equals:
+		case AnimationBlueprintNodeType::NotEquals:
+			return !value;
+		default:
+			return false;
+		}
+	}
+	return value;
+}
+
+float AnimatorRuntime::EvaluateBlueprintNodeNumber(const AnimationControllerTransition& transition, uint32_t nodeId, uint32_t outputPin, std::unordered_set<uint32_t>& visiting) const
+{
+	const AnimationControllerBlueprintNode* node = FindBlueprintNode(transition, nodeId);
+	if (!node)
+		return 0.0f;
+	if (node->m_Type == AnimationBlueprintNodeType::Parameter)
+		return GetBlueprintParameterNumber(node->m_Parameter);
+	if (node->m_Type == AnimationBlueprintNodeType::Reroute)
+		return EvaluateBlueprintInputNumber(transition, *node, 0, 0.0f, visiting);
+	return EvaluateBlueprintNodeBool(transition, nodeId, outputPin, visiting) ? 1.0f : 0.0f;
+}
+
+bool AnimatorRuntime::EvaluateBlueprintInputBool(const AnimationControllerTransition& transition, const AnimationControllerBlueprintNode& node, uint32_t inputPin, bool fallback, std::unordered_set<uint32_t>& visiting) const
+{
+	if (const AnimationControllerBlueprintLink* link = FindBlueprintInputLink(transition, node.m_Id, inputPin))
+		return EvaluateBlueprintNodeBool(transition, link->m_OutputNode, link->m_OutputPin, visiting);
+	return fallback;
+}
+
+float AnimatorRuntime::EvaluateBlueprintInputNumber(const AnimationControllerTransition& transition, const AnimationControllerBlueprintNode& node, uint32_t inputPin, float fallback, std::unordered_set<uint32_t>& visiting) const
+{
+	if (const AnimationControllerBlueprintLink* link = FindBlueprintInputLink(transition, node.m_Id, inputPin))
+		return EvaluateBlueprintNodeNumber(transition, link->m_OutputNode, link->m_OutputPin, visiting);
+	return fallback;
+}
+
+bool AnimatorRuntime::GetBlueprintParameterBool(std::string_view name) const
+{
+	const AnimationControllerParameter* parameter = FindParameter(name);
+	if (!parameter)
+		return false;
+
+	switch (parameter->m_Type)
+	{
+	case AnimationParameterType::Bool:
+	{
+		const auto it = m_BoolParameters.find(parameter->m_Name);
+		return it != m_BoolParameters.end() ? it->second : parameter->m_DefaultBool;
+	}
+	case AnimationParameterType::Int:
+	{
+		const auto it = m_IntParameters.find(parameter->m_Name);
+		return (it != m_IntParameters.end() ? it->second : parameter->m_DefaultInt) != 0;
+	}
+	case AnimationParameterType::Float:
+	{
+		const auto it = m_FloatParameters.find(parameter->m_Name);
+		return std::abs(it != m_FloatParameters.end() ? it->second : parameter->m_DefaultFloat) > 0.0001f;
+	}
+	case AnimationParameterType::Trigger:
+		return m_TriggerParameters.contains(parameter->m_Name);
+	}
+
+	return false;
+}
+
+float AnimatorRuntime::GetBlueprintParameterNumber(std::string_view name) const
+{
+	const AnimationControllerParameter* parameter = FindParameter(name);
+	if (!parameter)
+		return 0.0f;
+
+	switch (parameter->m_Type)
+	{
+	case AnimationParameterType::Bool:
+	{
+		const auto it = m_BoolParameters.find(parameter->m_Name);
+		return (it != m_BoolParameters.end() ? it->second : parameter->m_DefaultBool) ? 1.0f : 0.0f;
+	}
+	case AnimationParameterType::Int:
+	{
+		const auto it = m_IntParameters.find(parameter->m_Name);
+		return (float)(it != m_IntParameters.end() ? it->second : parameter->m_DefaultInt);
+	}
+	case AnimationParameterType::Float:
+	{
+		const auto it = m_FloatParameters.find(parameter->m_Name);
+		return it != m_FloatParameters.end() ? it->second : parameter->m_DefaultFloat;
+	}
+	case AnimationParameterType::Trigger:
+		return m_TriggerParameters.contains(parameter->m_Name) ? 1.0f : 0.0f;
+	}
+
+	return 0.0f;
+}
+
 void AnimatorRuntime::ConsumeTransitionTriggers(const AnimationControllerTransition& transition)
 {
+	if (!transition.m_BlueprintNodes.empty())
+	{
+		for (const AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+		{
+			const AnimationControllerParameter* parameter = FindParameter(node.m_Parameter);
+			if (parameter && parameter->m_Type == AnimationParameterType::Trigger)
+				m_TriggerParameters.erase(parameter->m_Name);
+		}
+	}
+
 	for (const AnimationControllerCondition& condition : transition.m_Conditions)
 	{
 		const AnimationControllerParameter* parameter = FindParameter(condition.m_Parameter);
@@ -695,7 +1012,10 @@ void AnimatorRuntime::ApplyStateFrame(const AnimationControllerState& state, flo
 	if (!clip->GetFrames().empty() && entity.HasComponent<SpriteRendererComponent>())
 	{
 		const size_t frameIndex = clip->GetFrameIndexAtTime(sampleTime);
-		entity.GetComponent<SpriteRendererComponent>().m_Texture = clip->GetFrames()[frameIndex].m_Texture;
+		const AnimationFrame& frame = clip->GetFrames()[frameIndex];
+		auto& spriteRenderer = entity.GetComponent<SpriteRendererComponent>();
+		spriteRenderer.m_Texture = frame.m_Texture;
+		spriteRenderer.m_TextureSpriteIndex = frame.m_TextureSpriteIndex;
 	}
 	ApplyPropertyTracks(*clip, sampleTime);
 }
@@ -736,7 +1056,9 @@ void AnimatorRuntime::ApplyBlendedFrame(const AnimationControllerState& sourceSt
 		if (spriteClip && !spriteClip->GetFrames().empty())
 		{
 			const size_t frameIndex = spriteClip->GetFrameIndexAtTime(spriteTime);
-			spriteRenderer.m_Texture = spriteClip->GetFrames()[frameIndex].m_Texture;
+			const AnimationFrame& frame = spriteClip->GetFrames()[frameIndex];
+			spriteRenderer.m_Texture = frame.m_Texture;
+			spriteRenderer.m_TextureSpriteIndex = frame.m_TextureSpriteIndex;
 		}
 	}
 

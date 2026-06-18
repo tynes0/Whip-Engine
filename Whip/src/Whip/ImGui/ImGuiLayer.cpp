@@ -3,7 +3,6 @@
 
 #include <Whip/Core/KeyCodes.h>
 #include <Whip/Core/Application.h>
-#include <Whip/UI/UISettings.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -162,7 +161,7 @@ void ImGuiLayer::SetInitialStyle()
 
 void ImGuiLayer::SetDarkThemeColor()
 {
-	UI::ApplyEditorTheme(UI::EditorTheme::WhipDark);
+	ImGui::StyleColorsDark();
 }
 
 _WHIP_END

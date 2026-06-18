@@ -39,7 +39,17 @@ namespace
 		WNDPROC previousProcedure = procedureIterator != s_PreviousWindowProcedures.end() ? procedureIterator->second : nullptr;
 
 		if (message == WM_NCCALCSIZE && wParam == TRUE)
+		{
+			if (IsZoomed(windowHandle) != FALSE)
+			{
+				auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam);
+				MONITORINFO monitorInfo{};
+				monitorInfo.cbSize = sizeof(MONITORINFO);
+				if (GetMonitorInfoW(MonitorFromWindow(windowHandle, MONITOR_DEFAULTTONEAREST), &monitorInfo))
+					params->rgrc[0] = monitorInfo.rcWork;
+			}
 			return 0;
+		}
 
 		if (message == WM_NCHITTEST)
 		{

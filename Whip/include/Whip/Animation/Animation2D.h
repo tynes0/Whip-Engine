@@ -18,6 +18,7 @@ _WHIP_START
 struct AnimationFrame
 {
 	AssetHandle m_Texture = 0;
+	int32_t m_TextureSpriteIndex = -1;
 	float m_Duration = 0.0f;
 };
 
@@ -99,7 +100,8 @@ public:
 	void Serialize(const std::filesystem::path& filepath);
 	bool Deserialize(const std::filesystem::path& filepath);
 private:
-	void ApplyFrame(AssetHandle texture);
+	void ApplyFrame(const AnimationFrame& frame);
+	void RestoreOriginalFrame();
 
 	std::vector<AnimationFrame> m_Frames;
 	std::vector<AnimationEventKey> m_Events;
@@ -110,6 +112,7 @@ private:
 
 	Entity m_TargetEntity;
 	AssetHandle m_OriginalTexture = AssetHandle(0);
+	int32_t m_OriginalTextureSpriteIndex = -1;
 
 	bool m_Loop = false;
 	bool m_IsPlaying = false;

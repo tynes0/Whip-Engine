@@ -1,12 +1,18 @@
 #include "WhipPch.h"
-#include <Whip/UI/UIHelpers.h>
+#include <Whip-Editor/UI/UIHelpers.h>
 
-#include <Whip/UI/UIScopedStyle.h>
+#include <Whip-Editor/UI/UIScopedStyle.h>
 
 #include <Whip/Core/Input.h>
 #include <Whip/Asset/AssetManager.h>
+#include <Whip/Asset/AssetMetadata.h>
+#include <Whip/Project/Project.h>
 
+#include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <string>
+#include <vector>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -39,9 +45,98 @@ namespace UI
 		const ImVec4 AxisZ = ImVec4{ 0.34f, 0.36f, 0.50f, 1.0f };
 		const ImVec4 AxisZHover = ImVec4{ 0.42f, 0.44f, 0.62f, 1.0f };
 		const ImVec4 AxisZActive = ImVec4{ 0.52f, 0.54f, 0.74f, 1.0f };
+
+		struct AssetSelectEntry
+		{
+			AssetHandle m_Handle = 0;
+			std::filesystem::path m_Path;
+			std::string m_DisplayName;
+			std::string m_Tooltip;
+			int32_t m_TextureSpriteIndex = -1;
+		};
+
+		std::vector<AssetSelectEntry> GetAssetSelectEntries(AssetType type, bool includeTextureSprites)
+		{
+			std::vector<AssetSelectEntry> entries;
+			if (!Project::GetActive())
+				return entries;
+
+			const auto assetManager = Project::GetActive()->GetEditorAssetManager();
+			if (!assetManager)
+				return entries;
+
+			const auto& registry = assetManager->GetAssetRegistry().GetFiltered(type);
+			entries.reserve(registry.size());
+			for (const auto& [handle, metadata] : registry)
+			{
+				if (!metadata)
+					continue;
+
+				const std::filesystem::path filename = metadata.m_Filepath.filename();
+				AssetSelectEntry entry;
+				entry.m_Handle = handle;
+				entry.m_Path = metadata.m_Filepath;
+				entry.m_DisplayName = filename.empty() ? metadata.m_Filepath.generic_string() : filename.string();
+				entry.m_Tooltip = metadata.m_Filepath.generic_string();
+				entries.push_back(std::move(entry));
+
+				if (includeTextureSprites && type == AssetType::Texture2D)
+				{
+					const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+					for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+					{
+						const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
+						AssetSelectEntry spriteEntry;
+						spriteEntry.m_Handle = handle;
+						spriteEntry.m_Path = metadata.m_Filepath;
+						spriteEntry.m_DisplayName = (filename.empty() ? metadata.m_Filepath.generic_string() : filename.string()) + " / " + sprite.m_Name;
+						spriteEntry.m_Tooltip = metadata.m_Filepath.generic_string() + " :: " + sprite.m_Name;
+						spriteEntry.m_TextureSpriteIndex = spriteIndex;
+						entries.push_back(std::move(spriteEntry));
+					}
+				}
+			}
+
+			std::ranges::sort(entries, [](const AssetSelectEntry& left, const AssetSelectEntry& right)
+				{
+					return left.m_Tooltip < right.m_Tooltip;
+				});
+			return entries;
+		}
+
+		void DrawAssetSelector(AssetType type, const std::function<void(AssetHandle)>& callback, float width, const std::function<void(AssetHandle, int32_t)>& assetReferenceCallback)
+		{
+			const std::vector<AssetSelectEntry> entries = GetAssetSelectEntries(type, assetReferenceCallback && type == AssetType::Texture2D);
+			ImGui::SetNextItemWidth(width);
+			if (!ImGui::BeginCombo("##AssetSelectCombo", "Select"))
+				return;
+
+			if (entries.empty())
+			{
+				ImGui::TextDisabled("No imported assets.");
+				ImGui::EndCombo();
+				return;
+			}
+
+			for (const AssetSelectEntry& entry : entries)
+			{
+				ImGui::PushID(entry.m_Tooltip.c_str());
+				if (ImGui::Selectable(entry.m_DisplayName.c_str()))
+				{
+					if (assetReferenceCallback)
+						assetReferenceCallback(entry.m_Handle, entry.m_TextureSpriteIndex);
+					else
+						callback(entry.m_Handle);
+				}
+				if (ImGui::IsItemHovered() && !entry.m_Tooltip.empty())
+					ImGui::SetTooltip("%s", entry.m_Tooltip.c_str());
+				ImGui::PopID();
+			}
+			ImGui::EndCombo();
+		}
 	}
 
-	void DragDropTarget(AssetType type, const std::function<void(AssetHandle)>& callback, const char* label, bool drawButton, float xSize, float ySize, bool visible, const std::function<void()>& errorCallback)
+	void DragDropTarget(AssetType type, const std::function<void(AssetHandle)>& callback, const char* label, bool drawButton, float xSize, float ySize, bool visible, const std::function<void()>& errorCallback, const std::function<void(AssetHandle, int32_t)>& assetReferenceCallback)
 	{
 		if (type == AssetType::None)
 		{
@@ -50,17 +145,44 @@ namespace UI
 		}
 		ImVec2 cursorPos = ImGui::GetCursorPos();
 
+		bool buttonDrawn = false;
+		float selectorWidth = 0.0f;
+		float buttonWidth = xSize;
+		const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
+		if (drawButton && visible)
+		{
+			const float availableLineWidth = ImGui::GetContentRegionAvail().x;
+			const float requestedButtonWidth = xSize > 0.0f ? xSize : availableLineWidth;
+			const float spaceAfterButton = availableLineWidth - requestedButtonWidth - spacing;
+			if (spaceAfterButton >= 132.0f)
+				selectorWidth = 132.0f;
+			else if (spaceAfterButton >= 108.0f)
+				selectorWidth = 108.0f;
+			else if (spaceAfterButton >= 88.0f)
+				selectorWidth = 88.0f;
+
+			if (selectorWidth <= 0.0f && availableLineWidth >= 156.0f)
+			{
+				selectorWidth = 88.0f;
+				if (xSize > 0.0f)
+					buttonWidth = std::max(64.0f, availableLineWidth - selectorWidth - spacing);
+			}
+			if (selectorWidth > 0.0f && xSize <= 0.0f)
+				buttonWidth = std::max(64.0f, availableLineWidth - selectorWidth - spacing);
+		}
 		if(drawButton)
 		{
 			if (visible)
 			{
-				ImGui::Button(label, ImVec2(xSize, ySize));
+				ImGui::Button(label, ImVec2(buttonWidth, ySize));
+				buttonDrawn = true;
 			}
 			else
 			{
 				ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-				ImGui::InvisibleButton(label, ImVec2(xSize, ySize), ImGuiButtonFlags_AllowOverlap);
+				ImGui::InvisibleButton(label, ImVec2(buttonWidth, ySize), ImGuiButtonFlags_AllowOverlap);
 				ImGui::PopItemFlag();
+				buttonDrawn = true;
 			}
 		}
 
@@ -68,10 +190,13 @@ namespace UI
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
 			{
-				AssetHandle handle = *(AssetHandle*)payload->Data;
-				if (AssetManager::GetAssetType(handle) == type)
+				const AssetReferencePayload assetPayload = ReadAssetReferencePayload(payload);
+				if (AssetManager::GetAssetType(assetPayload.m_Handle) == type)
 				{
-					callback(handle);
+					if (assetReferenceCallback)
+						assetReferenceCallback(assetPayload.m_Handle, assetPayload.m_TextureSpriteIndex);
+					else
+						callback(assetPayload.m_Handle);
 				}
 				else
 				{
@@ -82,6 +207,18 @@ namespace UI
 				}
 			}
 			ImGui::EndDragDropTarget();
+		}
+		if (buttonDrawn && visible)
+		{
+			if (selectorWidth > 0.0f)
+			{
+				ImGui::SameLine();
+				ImGui::PushID(label);
+				ImGui::PushID(static_cast<int>(type));
+				DrawAssetSelector(type, callback, selectorWidth, assetReferenceCallback);
+				ImGui::PopID();
+				ImGui::PopID();
+			}
 		}
 		if(!visible)
 			ImGui::SetCursorPos(cursorPos);

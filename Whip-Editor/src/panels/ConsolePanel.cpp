@@ -1,4 +1,4 @@
-#include "ConsolePanel.h"
+#include <Whip-Editor/panels/ConsolePanel.h>
 
 #include <array>
 #include <cctype>
@@ -10,7 +10,7 @@
 #include <FileWatch.h>
 
 #include <Whip/Core/Memory.h>
-#include <Whip/UI/UIScopedStyle.h>
+#include <Whip-Editor/UI/UIScopedStyle.h>
 
 #include <algorithm>
 

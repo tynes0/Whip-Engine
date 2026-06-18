@@ -16,6 +16,29 @@ _WHIP_START
 
 namespace UI
 {
+	struct AssetReferencePayload
+	{
+		AssetHandle m_Handle = 0;
+		int32_t m_TextureSpriteIndex = -1;
+	};
+
+	WHP_NODISCARD inline AssetReferencePayload ReadAssetReferencePayload(const ImGuiPayload* payload)
+	{
+		AssetReferencePayload result;
+		if (!payload || !payload->Data)
+			return result;
+
+		if (payload->DataSize >= static_cast<int>(sizeof(AssetReferencePayload)))
+		{
+			result = *static_cast<const AssetReferencePayload*>(payload->Data);
+			return result;
+		}
+
+		if (payload->DataSize >= static_cast<int>(sizeof(AssetHandle)))
+			result.m_Handle = *static_cast<const AssetHandle*>(payload->Data);
+
+		return result;
+	}
 
 	WHP_NODISCARD inline ImTextureID ToImGuiTextureId(uint64_t rendererId)
 	{
@@ -43,7 +66,7 @@ namespace UI
 #endif
 	}
 
-	void DragDropTarget(AssetType type, const std::function<void(AssetHandle)>& callback, const char* label, bool drawButton = true, float xSize = 0.0f, float ySize = 0.0f, bool visible = true, const std::function<void()>& errorCallback = nullptr);
+	void DragDropTarget(AssetType type, const std::function<void(AssetHandle)>& callback, const char* label, bool drawButton = true, float xSize = 0.0f, float ySize = 0.0f, bool visible = true, const std::function<void()>& errorCallback = nullptr, const std::function<void(AssetHandle, int32_t)>& assetReferenceCallback = nullptr);
 
 	void DrawVec3Control(const std::string& label, glm::vec3& values, float resetValue = 0.0f, float columnWidth = 100.0f, float spacing = 0.0f, bool noText = false);
 	bool DrawFieldVec2Control(const std::string& labelForId, glm::vec2& values, float resetValue = 0.0f, float columnWidth = 100.0f);

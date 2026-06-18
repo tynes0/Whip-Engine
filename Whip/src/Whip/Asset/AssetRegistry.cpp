@@ -93,6 +93,137 @@ namespace
 	{
 		return NormalizeRegistryPathString(left) == NormalizeRegistryPathString(right);
 	}
+
+	std::string LowerCopy(std::string value)
+	{
+		std::ranges::transform(value, value.begin(),
+			[](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+		return value;
+	}
+
+	const char* TextureFilterModeName(TextureFilterMode mode)
+	{
+		switch (mode)
+		{
+		case TextureFilterMode::Nearest: return "Nearest";
+		case TextureFilterMode::Linear: return "Linear";
+		default: return "Linear";
+		}
+	}
+
+	const char* TextureWrapModeName(TextureWrapMode mode)
+	{
+		switch (mode)
+		{
+		case TextureWrapMode::Repeat: return "Repeat";
+		case TextureWrapMode::ClampToEdge: return "ClampToEdge";
+		default: return "Repeat";
+		}
+	}
+
+	const char* TextureSpriteModeName(TextureSpriteMode mode)
+	{
+		switch (mode)
+		{
+		case TextureSpriteMode::Single: return "Single";
+		case TextureSpriteMode::Multiple: return "Multiple";
+		default: return "Single";
+		}
+	}
+
+	TextureFilterMode ParseTextureFilterMode(std::string value)
+	{
+		value = LowerCopy(std::move(value));
+		if (value == "nearest")
+			return TextureFilterMode::Nearest;
+		return TextureFilterMode::Linear;
+	}
+
+	TextureWrapMode ParseTextureWrapMode(std::string value)
+	{
+		value = LowerCopy(std::move(value));
+		if (value == "clamptoedge" || value == "clamp_to_edge" || value == "clamp")
+			return TextureWrapMode::ClampToEdge;
+		return TextureWrapMode::Repeat;
+	}
+
+	TextureSpriteMode ParseTextureSpriteMode(std::string value)
+	{
+		value = LowerCopy(std::move(value));
+		if (value == "multiple")
+			return TextureSpriteMode::Multiple;
+		return TextureSpriteMode::Single;
+	}
+
+	void SerializeTextureImportSettings(YAML::Emitter& out, const TextureImportSettings& settings)
+	{
+		out << YAML::Key << "texture_import" << YAML::Value << YAML::BeginMap;
+		out << YAML::Key << "filter" << YAML::Value << TextureFilterModeName(settings.m_FilterMode);
+		out << YAML::Key << "wrap" << YAML::Value << TextureWrapModeName(settings.m_WrapMode);
+		out << YAML::Key << "generate_mips" << YAML::Value << settings.m_GenerateMips;
+		out << YAML::Key << "alpha_transparency" << YAML::Value << settings.m_AlphaTransparency;
+		out << YAML::Key << "sprite_mode" << YAML::Value << TextureSpriteModeName(settings.m_SpriteMode);
+		out << YAML::Key << "pixels_per_unit" << YAML::Value << settings.m_PixelsPerUnit;
+		out << YAML::Key << "sprites" << YAML::Value << YAML::BeginSeq;
+		for (const TextureSpriteRect& sprite : settings.m_Sprites)
+		{
+			out << YAML::BeginMap;
+			out << YAML::Key << "name" << YAML::Value << sprite.m_Name;
+			out << YAML::Key << "x" << YAML::Value << sprite.m_X;
+			out << YAML::Key << "y" << YAML::Value << sprite.m_Y;
+			out << YAML::Key << "width" << YAML::Value << sprite.m_Width;
+			out << YAML::Key << "height" << YAML::Value << sprite.m_Height;
+			out << YAML::EndMap;
+		}
+		out << YAML::EndSeq;
+		out << YAML::EndMap;
+	}
+
+	void DeserializeTextureImportSettings(const YAML::Node& assetNode, TextureImportSettings& settings)
+	{
+		YAML::Node importNode = FindYamlValue(assetNode, "texture_import", "TextureImport");
+		if (!HasYamlNode(importNode) || !importNode.IsMap())
+			return;
+
+		if (YAML::Node value = FindYamlValue(importNode, "filter", "Filter"); HasYamlNode(value))
+			settings.m_FilterMode = ParseTextureFilterMode(value.as<std::string>());
+		if (YAML::Node value = FindYamlValue(importNode, "wrap", "Wrap"); HasYamlNode(value))
+			settings.m_WrapMode = ParseTextureWrapMode(value.as<std::string>());
+		if (YAML::Node value = FindYamlValue(importNode, "generate_mips", "GenerateMips"); HasYamlNode(value))
+			settings.m_GenerateMips = value.as<bool>();
+		if (YAML::Node value = FindYamlValue(importNode, "alpha_transparency", "AlphaTransparency"); HasYamlNode(value))
+			settings.m_AlphaTransparency = value.as<bool>();
+		if (YAML::Node value = FindYamlValue(importNode, "sprite_mode", "SpriteMode"); HasYamlNode(value))
+			settings.m_SpriteMode = ParseTextureSpriteMode(value.as<std::string>());
+		if (YAML::Node value = FindYamlValue(importNode, "pixels_per_unit", "PixelsPerUnit"); HasYamlNode(value))
+			settings.m_PixelsPerUnit = std::max(1.0f, value.as<float>());
+
+		settings.m_Sprites.clear();
+		YAML::Node spritesNode = FindYamlValue(importNode, "sprites", "Sprites");
+		if (!HasYamlNode(spritesNode) || !spritesNode.IsSequence())
+			return;
+
+		for (const YAML::Node& spriteNode : spritesNode)
+		{
+			if (!spriteNode.IsMap())
+				continue;
+
+			TextureSpriteRect sprite;
+			if (YAML::Node value = FindYamlValue(spriteNode, "name", "Name"); HasYamlNode(value))
+				sprite.m_Name = value.as<std::string>();
+			if (YAML::Node value = FindYamlValue(spriteNode, "x", "X"); HasYamlNode(value))
+				sprite.m_X = value.as<uint32_t>();
+			if (YAML::Node value = FindYamlValue(spriteNode, "y", "Y"); HasYamlNode(value))
+				sprite.m_Y = value.as<uint32_t>();
+			if (YAML::Node value = FindYamlValue(spriteNode, "width", "Width"); HasYamlNode(value))
+				sprite.m_Width = std::max<uint32_t>(1, value.as<uint32_t>());
+			if (YAML::Node value = FindYamlValue(spriteNode, "height", "Height"); HasYamlNode(value))
+				sprite.m_Height = std::max<uint32_t>(1, value.as<uint32_t>());
+			if (sprite.m_Name.empty())
+				sprite.m_Name = "Sprite";
+			settings.m_Sprites.push_back(std::move(sprite));
+		}
+	}
 }
 
 RegistryIterator::RegistryIterator()
@@ -356,6 +487,8 @@ bool AssetRegistry::Serialize() const
 				std::string filepathString = value.second.m_Filepath.generic_string();
 				out << YAML::Key << "filepath" << YAML::Value << filepathString;
 				out << YAML::Key << "type" << YAML::Value << frenum::to_string(value.second.m_Type);
+				if (value.second.m_Type == AssetType::Texture2D)
+					SerializeTextureImportSettings(out, value.second.m_TextureSettings);
 				out << YAML::EndMap;
 			});
 		out << YAML::EndSeq;
@@ -413,6 +546,8 @@ bool AssetRegistry::Deserialize()
 			AssetMetadata metadata;
 			metadata.m_Filepath = NormalizeRegistryPath(filepathNode.as<std::string>());
 			metadata.m_Type = ParseAssetType(typeNode.as<std::string>());
+			if (metadata.m_Type == AssetType::Texture2D)
+				DeserializeTextureImportSettings(node, metadata.m_TextureSettings);
 			AddOrReset(handle, metadata);
 		}
 		catch (const YAML::Exception& e)

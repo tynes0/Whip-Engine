@@ -1,5 +1,5 @@
 #include "WhipPch.h"
-#include <Whip/UI/UIProject.h>
+#include <Whip-Editor/UI/UIProject.h>
 
 #include <Whip/Core/Application.h>
 #include <Whip/Utils/FileExtensions.h>

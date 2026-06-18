@@ -93,6 +93,7 @@ struct SpriteRendererComponent
 {
     glm::vec4 m_Color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	AssetHandle m_Texture = 0;
+	int32_t m_TextureSpriteIndex = -1;
 	float m_TilingFactor = 1.0f;
 
     SpriteRendererComponent() = default;

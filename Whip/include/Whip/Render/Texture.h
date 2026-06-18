@@ -18,12 +18,26 @@ enum class ImageFormat
 	Rgba32F
 };
 
+enum class TextureFilterMode
+{
+	Nearest = 0,
+	Linear
+};
+
+enum class TextureWrapMode
+{
+	Repeat = 0,
+	ClampToEdge
+};
+
 struct TextureSpecification
 {
 	uint32_t m_Width = 1;
 	uint32_t m_Height = 1;
 	ImageFormat m_Format = ImageFormat::Rgba8;
 	bool m_GenerateMips = true;
+	TextureFilterMode m_FilterMode = TextureFilterMode::Linear;
+	TextureWrapMode m_WrapMode = TextureWrapMode::Repeat;
 };
 
 class Texture : public Asset

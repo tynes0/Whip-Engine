@@ -46,7 +46,7 @@ void AnimationManager::Update(Timestep ts)
 				}
 			}
 
-			anim->ApplyFrame(anim->m_Frames[anim->m_CurrentFrame].m_Texture);
+			anim->ApplyFrame(anim->m_Frames[anim->m_CurrentFrame]);
 		}
 	}
 }

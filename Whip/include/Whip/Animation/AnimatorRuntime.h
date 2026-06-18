@@ -65,6 +65,16 @@ private:
 	bool IsExitTimeReady(const AnimationControllerTransition& transition, float stateDuration) const;
 	bool ConditionsPass(const AnimationControllerTransition& transition) const;
 	bool ConditionPasses(const AnimationControllerCondition& condition) const;
+	bool BlueprintConditionsPass(const AnimationControllerTransition& transition) const;
+	bool BlueprintExecPasses(const AnimationControllerTransition& transition) const;
+	bool ExecuteBlueprintNode(const AnimationControllerTransition& transition, uint32_t nodeId, std::unordered_set<uint32_t>& visiting) const;
+	bool ExecuteBlueprintOutput(const AnimationControllerTransition& transition, uint32_t nodeId, uint32_t outputPin, std::unordered_set<uint32_t>& visiting) const;
+	bool EvaluateBlueprintNodeBool(const AnimationControllerTransition& transition, uint32_t nodeId, uint32_t outputPin, std::unordered_set<uint32_t>& visiting) const;
+	float EvaluateBlueprintNodeNumber(const AnimationControllerTransition& transition, uint32_t nodeId, uint32_t outputPin, std::unordered_set<uint32_t>& visiting) const;
+	bool EvaluateBlueprintInputBool(const AnimationControllerTransition& transition, const AnimationControllerBlueprintNode& node, uint32_t inputPin, bool fallback, std::unordered_set<uint32_t>& visiting) const;
+	float EvaluateBlueprintInputNumber(const AnimationControllerTransition& transition, const AnimationControllerBlueprintNode& node, uint32_t inputPin, float fallback, std::unordered_set<uint32_t>& visiting) const;
+	bool GetBlueprintParameterBool(std::string_view name) const;
+	float GetBlueprintParameterNumber(std::string_view name) const;
 	void ConsumeTransitionTriggers(const AnimationControllerTransition& transition);
 
 	void SwitchState(std::string_view stateName);

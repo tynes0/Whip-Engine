@@ -9,7 +9,7 @@ _WHIP_START
 
 Ref<Texture2D> TextureImporter::ImportTexture2D(AssetHandle handle, const AssetMetadata& metadata)
 {
-	Ref<Texture2D> result = LoadTexture2D(Project::GetActiveAssetDirectory() / metadata.m_Filepath);
+	Ref<Texture2D> result = LoadTexture2D(Project::GetActiveAssetDirectory() / metadata.m_Filepath, FlipDirectionNone, metadata.m_TextureSettings);
 	if (!result)
 		return nullptr;
 
@@ -17,7 +17,7 @@ Ref<Texture2D> TextureImporter::ImportTexture2D(AssetHandle handle, const AssetM
 	return result;
 }
 
-Ref<Texture2D> TextureImporter::LoadTexture2D(const std::filesystem::path& path, FlipDirection direction)
+Ref<Texture2D> TextureImporter::LoadTexture2D(const std::filesystem::path& path, FlipDirection direction, const TextureImportSettings& settings)
 {
 	WHP_PROFILE_FUNCTION();
 	int width, height, channels;
@@ -38,10 +38,18 @@ Ref<Texture2D> TextureImporter::LoadTexture2D(const std::filesystem::path& path,
 
 	// TODO: think about this
 	data.m_Size = static_cast<uint64_t>(width) * height * channels;
+	if (!settings.m_AlphaTransparency && channels == 4)
+	{
+		for (uint64_t i = 3; i < data.m_Size; i += 4)
+			data.m_Data[i] = 255;
+	}
 
 	TextureSpecification spec;
 	spec.m_Width = width;
 	spec.m_Height = height;
+	spec.m_FilterMode = settings.m_FilterMode;
+	spec.m_WrapMode = settings.m_WrapMode;
+	spec.m_GenerateMips = settings.m_GenerateMips;
 	switch (channels)
 	{
 	case 3:

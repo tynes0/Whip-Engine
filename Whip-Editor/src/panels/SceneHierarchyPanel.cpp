@@ -1,8 +1,8 @@
-#include "SceneHierarchyPanel.h"
+#include <Whip-Editor/panels/SceneHierarchyPanel.h>
 
 #include <Whip/Scene/Components.h>
-#include <Whip/UI/UIHelpers.h>
-#include <Whip/UI/UIScopedStyle.h>
+#include <Whip-Editor/UI/UIHelpers.h>
+#include <Whip-Editor/UI/UIScopedStyle.h>
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Project/Project.h>
 #include <Whip/Asset/AssetManager.h>
@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-#include "../Helpers/ScriptFieldHelper.h"
+#include <Whip-Editor/Helpers/ScriptFieldHelper.h>
 
 #define BEGIN_COMPONENT_TABLE_ROW(...) do { ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text(__VA_ARGS__); ImGui::TableNextColumn(); ImGui::PushItemWidth(-1); } while(false)
 #define END_COMPONENT_TABLE_ROW() do { ImGui::PopItemWidth(); } while(false)
@@ -79,6 +79,20 @@ namespace
 
 		const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(handle);
 		return metadata ? metadata.m_Filepath.filename().string() : "Invalid";
+	}
+
+	std::string TextureAssetLabel(AssetHandle handle, int32_t spriteIndex)
+	{
+		std::string label = AssetLabel(handle, AssetType::Texture2D);
+		if (handle == 0 || label == "Invalid" || spriteIndex < 0 || !AssetManager::IsAssetHandleValid(handle) || AssetManager::GetAssetType(handle) != AssetType::Texture2D)
+			return label;
+
+		const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(handle);
+		const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+		if (spriteIndex >= static_cast<int32_t>(sprites.size()))
+			return label;
+
+		return label + " / " + sprites[static_cast<size_t>(spriteIndex)].m_Name;
 	}
 
 	std::filesystem::path FindFileWithExtension(const std::filesystem::path& directory, const char* extension)
@@ -1171,9 +1185,11 @@ void SceneHierarchyPanel::DrawMultiSpriteRendererComponent(const std::vector<Ent
 		SpriteRendererComponent& primary = primaryEntity.GetComponent<SpriteRendererComponent>();
 		glm::vec4 color = primary.m_Color;
 		AssetHandle texture = primary.m_Texture;
+		int32_t textureSpriteIndex = primary.m_TextureSpriteIndex;
 		float tilingFactor = primary.m_TilingFactor;
 		bool colorMixed = false;
 		bool textureMixed = false;
+		bool textureSpriteMixed = false;
 		bool tilingMixed = false;
 
 		for (Entity selected : selectedEntities)
@@ -1181,6 +1197,7 @@ void SceneHierarchyPanel::DrawMultiSpriteRendererComponent(const std::vector<Ent
 			const auto& component = selected.GetComponent<SpriteRendererComponent>();
 			colorMixed |= !SameVec4(component.m_Color, color);
 			textureMixed |= component.m_Texture != texture;
+			textureSpriteMixed |= component.m_TextureSpriteIndex != textureSpriteIndex;
 			tilingMixed |= component.m_TilingFactor != tilingFactor;
 		}
 
@@ -1192,21 +1209,39 @@ void SceneHierarchyPanel::DrawMultiSpriteRendererComponent(const std::vector<Ent
 				selected.GetComponent<SpriteRendererComponent>().m_Color = color;
 		}
 
-		DrawMixedHint("Texture", textureMixed);
-		std::string label = textureMixed ? "Mixed" : AssetLabel(texture, AssetType::Texture2D);
+		DrawMixedHint("Texture", textureMixed || textureSpriteMixed);
+		std::string label = (textureMixed || textureSpriteMixed) ? "Mixed" : TextureAssetLabel(texture, textureSpriteIndex);
 		const auto dragDropCallback = [this, &selectedEntities](AssetHandle handle)
 			{
 				BeginPropertyEditHistory();
 				for (Entity selected : selectedEntities)
-					selected.GetComponent<SpriteRendererComponent>().m_Texture = handle;
+				{
+					auto& component = selected.GetComponent<SpriteRendererComponent>();
+					component.m_Texture = handle;
+					component.m_TextureSpriteIndex = -1;
+				}
 			};
-		UI::DragDropTarget(AssetType::Texture2D, dragDropCallback, label.c_str(), true, glm::max<float>(100.0f, ImGui::CalcTextSize(label.c_str()).x + 20.0f), 0.0f);
+		const auto assetReferenceCallback = [this, &selectedEntities](AssetHandle handle, int32_t spriteIndex)
+			{
+				BeginPropertyEditHistory();
+				for (Entity selected : selectedEntities)
+				{
+					auto& component = selected.GetComponent<SpriteRendererComponent>();
+					component.m_Texture = handle;
+					component.m_TextureSpriteIndex = spriteIndex;
+				}
+			};
+		UI::DragDropTarget(AssetType::Texture2D, dragDropCallback, label.c_str(), true, glm::max<float>(100.0f, ImGui::CalcTextSize(label.c_str()).x + 20.0f), 0.0f, true, nullptr, assetReferenceCallback);
 		ImGui::SameLine();
 		if (ImGui::Button("Clear Texture"))
 		{
 			BeginPropertyEditHistory();
 			for (Entity selected : selectedEntities)
-				selected.GetComponent<SpriteRendererComponent>().m_Texture = 0;
+			{
+				auto& component = selected.GetComponent<SpriteRendererComponent>();
+				component.m_Texture = 0;
+				component.m_TextureSpriteIndex = -1;
+			}
 		}
 
 		DrawMixedHint("Tiling Factor", tilingMixed);
@@ -1986,8 +2021,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			{
 				if (AssetManager::IsAssetHandleValid(component.m_Texture) && AssetManager::GetAssetType(component.m_Texture) == AssetType::Texture2D)
 				{
-					const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(component.m_Texture);
-					label = metadata.m_Filepath.filename().string();
+					label = TextureAssetLabel(component.m_Texture, component.m_TextureSpriteIndex);
 					isTextureValid = true;
 				}
 				else
@@ -2000,12 +2034,18 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			buttonLabelSize.x += 20.0f;
 			float buttonLabelWidth = glm::max<float>(100.0f, buttonLabelSize.x);
 
-			static const auto dragDropCallback = [&component](AssetHandle handle)
+			const auto dragDropCallback = [&component](AssetHandle handle)
 				{
 					component.m_Texture = handle;
+					component.m_TextureSpriteIndex = -1;
+				};
+			const auto assetReferenceCallback = [&component](AssetHandle handle, int32_t spriteIndex)
+				{
+					component.m_Texture = handle;
+					component.m_TextureSpriteIndex = spriteIndex;
 				};
 
-			UI::DragDropTarget(AssetType::Texture2D, dragDropCallback, label.c_str(), true, buttonLabelWidth, 0.0f);
+			UI::DragDropTarget(AssetType::Texture2D, dragDropCallback, label.c_str(), true, buttonLabelWidth, 0.0f, true, nullptr, assetReferenceCallback);
 
 			if (isTextureValid)
 			{
@@ -2015,11 +2055,37 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 				if (ImGui::Button("X", ImVec2(buttonSize, buttonSize)))
 				{
 					component.m_Texture = 0;
+					component.m_TextureSpriteIndex = -1;
 				}
 			}
 
 			ImGui::SameLine();
 			ImGui::Text("Texture");
+
+			if (isTextureValid)
+			{
+				const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(component.m_Texture);
+				const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+				if (!sprites.empty())
+				{
+					const bool validSpriteIndex = component.m_TextureSpriteIndex >= 0 && component.m_TextureSpriteIndex < static_cast<int32_t>(sprites.size());
+					const char* preview = validSpriteIndex ? sprites[static_cast<size_t>(component.m_TextureSpriteIndex)].m_Name.c_str() : "Full Texture";
+					if (ImGui::BeginCombo("Sprite", preview))
+					{
+						if (ImGui::Selectable("Full Texture", component.m_TextureSpriteIndex < 0))
+							component.m_TextureSpriteIndex = -1;
+						for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+						{
+							const bool selected = component.m_TextureSpriteIndex == spriteIndex;
+							if (ImGui::Selectable(sprites[static_cast<size_t>(spriteIndex)].m_Name.c_str(), selected))
+								component.m_TextureSpriteIndex = spriteIndex;
+							if (selected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+				}
+			}
 
 			ImGui::DragFloat("Tiling Factor", &component.m_TilingFactor, 0.1f, 0.0f, 100.0f);
 		});

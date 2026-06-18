@@ -176,6 +176,37 @@ void EditorAssetManager::UnloadAsset(AssetHandle handle)
 		m_LoadedAssets.erase(it);
 }
 
+bool EditorAssetManager::ReimportAsset(AssetHandle handle)
+{
+	if (!IsAssetHandleValid(handle))
+		return false;
+
+	const AssetMetadata& metadata = GetMetadata(handle);
+	Ref<Asset> asset = AssetImporter::ImportAsset(handle, metadata);
+	if (!asset)
+	{
+		WHP_CORE_ERROR("[Asset Manager] Asset reimport failed!");
+		return false;
+	}
+
+	asset->m_Handle = handle;
+	m_LoadedAssets[handle] = asset;
+	return true;
+}
+
+bool EditorAssetManager::UpdateAssetMetadata(AssetHandle handle, const AssetMetadata& metadata)
+{
+	if (!IsAssetHandleValid(handle))
+		return false;
+
+	if (!m_AssetRegistry.AddOrReset(handle, metadata))
+		return false;
+
+	bool result = false;
+	SerializeAssetRegistry(&result);
+	return result;
+}
+
 bool EditorAssetManager::UpdateAssetFilepath(AssetHandle handle, const std::filesystem::path& filepath)
 {
 	if (!IsAssetHandleValid(handle))

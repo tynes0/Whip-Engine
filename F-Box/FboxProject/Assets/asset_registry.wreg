@@ -8,87 +8,1111 @@ asset_registry:
   - handle: 5209149187099410432
     filepath: textures/PNG Grass/slice06_06.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 807861937663179368
     filepath: game/textures/character/frame_1.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 11910312095153810152
     filepath: textures/PNG Grass/slice03_03.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 9883998218707963624
     filepath: textures/PNG Grass/slice02_02.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 457595418565771432
     filepath: game/textures/character/frame_4.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 1235926050482352591
     filepath: textures/istanbul.jpg
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 1381901797618045202
     filepath: game/textures/character/frame_5.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 1698093905773764281
     filepath: textures/PNG Grass/slice01_01.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 4060785113878933158
     filepath: textures/PNG Grass/slice33_33.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 16537052886676986397
     filepath: game/textures/character/frame_2.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 6522945722160215709
     filepath: textures/PNG Grass/slice05_05.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 6528178745506105428
     filepath: textures/dirt_0.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 7358304365887755857
     filepath: game/textures/character/frame_3.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 12321918548411972371
     filepath: textures/Background/Purple.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 7662381716553045395
     filepath: textures/character.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 11457176946638621517
     filepath: textures/PNG Grass/slice04_04.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 7731751794024312653
     filepath: textures/PNG Grass/slice19_19.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 9144828812580870379
     filepath: textures/PNG Grass/slice25_25.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 9510154853945851114
     filepath: textures/new_bg.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
+  - handle: 13792256144177487234
+    filepath: textures/image-sprite.png
+    type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Multiple
+      pixels_per_unit: 100
+      sprites:
+        - name: image-sprite_000
+          x: 9
+          y: 4
+          width: 72
+          height: 86
+        - name: image-sprite_001
+          x: 81
+          y: 0
+          width: 77
+          height: 95
+        - name: image-sprite_002
+          x: 257
+          y: 2
+          width: 65
+          height: 151
+        - name: image-sprite_003
+          x: 322
+          y: 2
+          width: 66
+          height: 79
+        - name: image-sprite_004
+          x: 405
+          y: 5
+          width: 26
+          height: 20
+        - name: image-sprite_005
+          x: 503
+          y: 0
+          width: 144
+          height: 92
+        - name: image-sprite_006
+          x: 163
+          y: 10
+          width: 34
+          height: 15
+        - name: image-sprite_007
+          x: 435
+          y: 12
+          width: 22
+          height: 15
+        - name: image-sprite_008
+          x: 465
+          y: 12
+          width: 18
+          height: 14
+        - name: image-sprite_009
+          x: 646
+          y: 6
+          width: 33
+          height: 14
+        - name: image-sprite_010
+          x: 686
+          y: 7
+          width: 17
+          height: 11
+        - name: image-sprite_011
+          x: 694
+          y: 13
+          width: 12
+          height: 10
+        - name: image-sprite_012
+          x: 715
+          y: 6
+          width: 21
+          height: 17
+        - name: image-sprite_013
+          x: 204
+          y: 15
+          width: 24
+          height: 19
+        - name: image-sprite_014
+          x: 233
+          y: 16
+          width: 25
+          height: 18
+        - name: image-sprite_015
+          x: 647
+          y: 24
+          width: 26
+          height: 15
+        - name: image-sprite_016
+          x: 165
+          y: 36
+          width: 22
+          height: 12
+        - name: image-sprite_017
+          x: 205
+          y: 35
+          width: 23
+          height: 18
+        - name: image-sprite_018
+          x: 233
+          y: 34
+          width: 25
+          height: 19
+        - name: image-sprite_019
+          x: 404
+          y: 36
+          width: 17
+          height: 13
+        - name: image-sprite_020
+          x: 467
+          y: 39
+          width: 14
+          height: 14
+        - name: image-sprite_021
+          x: 646
+          y: 38
+          width: 29
+          height: 22
+        - name: image-sprite_022
+          x: 685
+          y: 32
+          width: 20
+          height: 16
+        - name: image-sprite_023
+          x: 718
+          y: 32
+          width: 10
+          height: 8
+        - name: image-sprite_024
+          x: 472
+          y: 44
+          width: 15
+          height: 11
+        - name: image-sprite_025
+          x: 727
+          y: 37
+          width: 11
+          height: 9
+        - name: image-sprite_026
+          x: 164
+          y: 53
+          width: 25
+          height: 18
+        - name: image-sprite_027
+          x: 217
+          y: 54
+          width: 26
+          height: 22
+        - name: image-sprite_028
+          x: 403
+          y: 52
+          width: 29
+          height: 13
+        - name: image-sprite_029
+          x: 440
+          y: 59
+          width: 44
+          height: 28
+        - name: image-sprite_030
+          x: 693
+          y: 51
+          width: 36
+          height: 23
+        - name: image-sprite_031
+          x: 401
+          y: 70
+          width: 22
+          height: 12
+        - name: image-sprite_032
+          x: 667
+          y: 64
+          width: 22
+          height: 16
+        - name: image-sprite_033
+          x: 167
+          y: 73
+          width: 18
+          height: 15
+        - name: image-sprite_034
+          x: 198
+          y: 73
+          width: 42
+          height: 47
+        - name: image-sprite_035
+          x: 695
+          y: 77
+          width: 46
+          height: 26
+        - name: image-sprite_036
+          x: 145
+          y: 90
+          width: 41
+          height: 27
+        - name: image-sprite_037
+          x: 308
+          y: 78
+          width: 48
+          height: 76
+        - name: image-sprite_038
+          x: 356
+          y: 89
+          width: 32
+          height: 22
+        - name: image-sprite_039
+          x: 405
+          y: 84
+          width: 15
+          height: 25
+        - name: image-sprite_040
+          x: 435
+          y: 86
+          width: 32
+          height: 22
+        - name: image-sprite_041
+          x: 501
+          y: 93
+          width: 49
+          height: 84
+        - name: image-sprite_042
+          x: 615
+          y: 86
+          width: 39
+          height: 19
+        - name: image-sprite_043
+          x: 653
+          y: 81
+          width: 42
+          height: 27
+        - name: image-sprite_044
+          x: 0
+          y: 98
+          width: 52
+          height: 81
+        - name: image-sprite_045
+          x: 52
+          y: 99
+          width: 50
+          height: 82
+        - name: image-sprite_046
+          x: 99
+          y: 94
+          width: 39
+          height: 26
+        - name: image-sprite_047
+          x: 550
+          y: 95
+          width: 83
+          height: 83
+        - name: image-sprite_048
+          x: 690
+          y: 103
+          width: 36
+          height: 30
+        - name: image-sprite_049
+          x: 398
+          y: 112
+          width: 30
+          height: 20
+        - name: image-sprite_050
+          x: 444
+          y: 116
+          width: 24
+          height: 15
+        - name: image-sprite_051
+          x: 634
+          y: 109
+          width: 49
+          height: 67
+        - name: image-sprite_052
+          x: 100
+          y: 122
+          width: 36
+          height: 24
+        - name: image-sprite_053
+          x: 146
+          y: 126
+          width: 39
+          height: 18
+        - name: image-sprite_054
+          x: 201
+          y: 121
+          width: 34
+          height: 23
+        - name: image-sprite_055
+          x: 356
+          y: 121
+          width: 34
+          height: 15
+        - name: image-sprite_056
+          x: 197
+          y: 148
+          width: 42
+          height: 31
+        - name: image-sprite_057
+          x: 396
+          y: 134
+          width: 38
+          height: 41
+        - name: image-sprite_058
+          x: 439
+          y: 138
+          width: 36
+          height: 37
+        - name: image-sprite_059
+          x: 594
+          y: 135
+          width: 39
+          height: 32
+        - name: image-sprite_060
+          x: 688
+          y: 134
+          width: 41
+          height: 41
+        - name: image-sprite_061
+          x: 96
+          y: 154
+          width: 41
+          height: 40
+        - name: image-sprite_062
+          x: 145
+          y: 155
+          width: 37
+          height: 25
+        - name: image-sprite_063
+          x: 268
+          y: 155
+          width: 75
+          height: 79
+        - name: image-sprite_064
+          x: 356
+          y: 146
+          width: 35
+          height: 24
+        - name: image-sprite_065
+          x: 3
+          y: 179
+          width: 83
+          height: 155
+        - name: image-sprite_066
+          x: 196
+          y: 179
+          width: 20
+          height: 29
+        - name: image-sprite_067
+          x: 356
+          y: 174
+          width: 36
+          height: 37
+        - name: image-sprite_068
+          x: 441
+          y: 181
+          width: 36
+          height: 23
+        - name: image-sprite_069
+          x: 499
+          y: 174
+          width: 84
+          height: 162
+        - name: image-sprite_070
+          x: 594
+          y: 171
+          width: 36
+          height: 37
+        - name: image-sprite_071
+          x: 401
+          y: 183
+          width: 36
+          height: 22
+        - name: image-sprite_072
+          x: 637
+          y: 179
+          width: 40
+          height: 29
+        - name: image-sprite_073
+          x: 691
+          y: 179
+          width: 40
+          height: 29
+        - name: image-sprite_074
+          x: 146
+          y: 188
+          width: 30
+          height: 17
+        - name: image-sprite_075
+          x: 94
+          y: 202
+          width: 41
+          height: 40
+        - name: image-sprite_076
+          x: 142
+          y: 211
+          width: 49
+          height: 33
+        - name: image-sprite_077
+          x: 199
+          y: 212
+          width: 48
+          height: 30
+        - name: image-sprite_078
+          x: 351
+          y: 214
+          width: 44
+          height: 29
+        - name: image-sprite_079
+          x: 398
+          y: 212
+          width: 45
+          height: 30
+        - name: image-sprite_080
+          x: 446
+          y: 214
+          width: 44
+          height: 28
+        - name: image-sprite_081
+          x: 582
+          y: 209
+          width: 41
+          height: 41
+        - name: image-sprite_082
+          x: 631
+          y: 214
+          width: 49
+          height: 31
+        - name: image-sprite_083
+          x: 690
+          y: 214
+          width: 50
+          height: 120
+        - name: image-sprite_084
+          x: 89
+          y: 250
+          width: 49
+          height: 31
+        - name: image-sprite_085
+          x: 143
+          y: 249
+          width: 49
+          height: 32
+        - name: image-sprite_086
+          x: 202
+          y: 245
+          width: 49
+          height: 32
+        - name: image-sprite_087
+          x: 278
+          y: 245
+          width: 53
+          height: 53
+        - name: image-sprite_088
+          x: 357
+          y: 250
+          width: 43
+          height: 28
+        - name: image-sprite_089
+          x: 400
+          y: 250
+          width: 44
+          height: 28
+        - name: image-sprite_090
+          x: 444
+          y: 250
+          width: 44
+          height: 28
+        - name: image-sprite_091
+          x: 605
+          y: 244
+          width: 49
+          height: 30
+        - name: image-sprite_092
+          x: 661
+          y: 242
+          width: 49
+          height: 30
+        - name: image-sprite_093
+          x: 75
+          y: 283
+          width: 70
+          height: 51
+        - name: image-sprite_094
+          x: 155
+          y: 282
+          width: 52
+          height: 50
+        - name: image-sprite_095
+          x: 210
+          y: 280
+          width: 48
+          height: 57
+        - name: image-sprite_096
+          x: 325
+          y: 280
+          width: 65
+          height: 48
+        - name: image-sprite_097
+          x: 399
+          y: 282
+          width: 45
+          height: 45
+        - name: image-sprite_098
+          x: 451
+          y: 283
+          width: 45
+          height: 52
+        - name: image-sprite_099
+          x: 568
+          y: 278
+          width: 65
+          height: 48
+        - name: image-sprite_100
+          x: 637
+          y: 278
+          width: 49
+          height: 50
   - handle: 10264681718048124162
     filepath: textures/PNG Grass/slice26_26.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 10994589850343145046
     filepath: textures/PNG Grass/slice20_20.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 12591577346510988466
     filepath: textures/PNG Grass/slice14_14.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 13091727724414827710
     filepath: textures/green charater.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 13795996094995889566
     filepath: textures/Background/Blue.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 15081442114440191542
     filepath: textures/PNG Grass/slice15_15.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 15234674121272403662
     filepath: textures/bg.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 16669571840788983229
     filepath: textures/new_triangle.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
   - handle: 17104614555848034036
     filepath: textures/PNG Grass/slice16_16.png
     type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Single
+      pixels_per_unit: 100
+      sprites:
+        []
+  - handle: 12991881016646592373
+    filepath: textures/PNG Dirt/Spritesheet/sheet.png
+    type: Texture2D
+    texture_import:
+      filter: Linear
+      wrap: Repeat
+      generate_mips: true
+      alpha_transparency: true
+      sprite_mode: Multiple
+      pixels_per_unit: 100
+      sprites:
+        - name: sheet_000
+          x: 0
+          y: 0
+          width: 70
+          height: 70
+        - name: sheet_001
+          x: 70
+          y: 0
+          width: 70
+          height: 70
+        - name: sheet_002
+          x: 140
+          y: 0
+          width: 70
+          height: 70
+        - name: sheet_003
+          x: 210
+          y: 0
+          width: 70
+          height: 70
+        - name: sheet_004
+          x: 280
+          y: 0
+          width: 70
+          height: 70
+        - name: sheet_005
+          x: 350
+          y: 0
+          width: 70
+          height: 70
+        - name: sheet_006
+          x: 420
+          y: 0
+          width: 70
+          height: 70
+        - name: sheet_007
+          x: 0
+          y: 70
+          width: 70
+          height: 70
+        - name: sheet_008
+          x: 70
+          y: 70
+          width: 70
+          height: 70
+        - name: sheet_009
+          x: 140
+          y: 70
+          width: 70
+          height: 70
+        - name: sheet_010
+          x: 210
+          y: 70
+          width: 70
+          height: 70
+        - name: sheet_011
+          x: 280
+          y: 70
+          width: 70
+          height: 70
+        - name: sheet_012
+          x: 350
+          y: 70
+          width: 70
+          height: 70
+        - name: sheet_013
+          x: 420
+          y: 70
+          width: 70
+          height: 70
+        - name: sheet_014
+          x: 0
+          y: 140
+          width: 70
+          height: 70
+        - name: sheet_015
+          x: 70
+          y: 140
+          width: 70
+          height: 70
+        - name: sheet_016
+          x: 140
+          y: 140
+          width: 70
+          height: 70
+        - name: sheet_017
+          x: 210
+          y: 140
+          width: 70
+          height: 70
+        - name: sheet_018
+          x: 280
+          y: 140
+          width: 70
+          height: 70
+        - name: sheet_019
+          x: 350
+          y: 140
+          width: 70
+          height: 70
+        - name: sheet_020
+          x: 420
+          y: 140
+          width: 70
+          height: 70
+        - name: sheet_021
+          x: 0
+          y: 210
+          width: 70
+          height: 70
+        - name: sheet_022
+          x: 70
+          y: 210
+          width: 70
+          height: 70
+        - name: sheet_023
+          x: 140
+          y: 210
+          width: 70
+          height: 70
+        - name: sheet_024
+          x: 210
+          y: 210
+          width: 70
+          height: 70
+        - name: sheet_025
+          x: 280
+          y: 210
+          width: 70
+          height: 70
+        - name: sheet_026
+          x: 350
+          y: 210
+          width: 70
+          height: 70
+        - name: sheet_027
+          x: 420
+          y: 210
+          width: 70
+          height: 70
+        - name: sheet_028
+          x: 0
+          y: 280
+          width: 70
+          height: 70
+        - name: sheet_029
+          x: 70
+          y: 280
+          width: 70
+          height: 70
+        - name: sheet_030
+          x: 140
+          y: 280
+          width: 70
+          height: 70
+        - name: sheet_031
+          x: 210
+          y: 280
+          width: 70
+          height: 70
+        - name: sheet_032
+          x: 280
+          y: 280
+          width: 70
+          height: 70
+        - name: sheet_033
+          x: 350
+          y: 280
+          width: 70
+          height: 70
+        - name: sheet_034
+          x: 420
+          y: 280
+          width: 70
+          height: 70
+        - name: sheet_035
+          x: 0
+          y: 350
+          width: 70
+          height: 70
+        - name: sheet_036
+          x: 70
+          y: 350
+          width: 70
+          height: 70
+        - name: sheet_037
+          x: 140
+          y: 350
+          width: 70
+          height: 70
+        - name: sheet_038
+          x: 210
+          y: 350
+          width: 70
+          height: 70
+        - name: sheet_039
+          x: 280
+          y: 350
+          width: 70
+          height: 70
+        - name: sheet_040
+          x: 350
+          y: 350
+          width: 70
+          height: 70
+        - name: sheet_041
+          x: 420
+          y: 350
+          width: 70
+          height: 70
+        - name: sheet_042
+          x: 0
+          y: 420
+          width: 70
+          height: 70
+        - name: sheet_043
+          x: 70
+          y: 420
+          width: 70
+          height: 70
+        - name: sheet_044
+          x: 140
+          y: 420
+          width: 70
+          height: 70
+        - name: sheet_045
+          x: 210
+          y: 420
+          width: 70
+          height: 70
+        - name: sheet_046
+          x: 280
+          y: 420
+          width: 70
+          height: 70
+        - name: sheet_047
+          x: 350
+          y: 420
+          width: 70
+          height: 70
+        - name: sheet_048
+          x: 420
+          y: 420
+          width: 70
+          height: 70
   - handle: 2266388037283019659
     filepath: Audios/babycry.wav
     type: Audio

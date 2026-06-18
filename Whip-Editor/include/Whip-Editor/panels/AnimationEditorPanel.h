@@ -7,7 +7,7 @@
 #include <Whip/Animation/AnimationController.h>
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Render/Texture.h>
-#include <Whip/UI/UISettings.h>
+#include <Whip-Editor/UI/UISettings.h>
 
 #include <vector>
 #include <functional>
@@ -51,7 +51,14 @@ private:
 		None,
 		Frame,
 		ControllerState,
-		ControllerTransition
+		ControllerTransition,
+		ControllerBlueprintNode
+	};
+
+	enum class AnimationControllerWorkspaceTab
+	{
+		StateMachine,
+		TransitionBlueprint
 	};
 
 	struct AnimationClipSnapshot
@@ -99,6 +106,7 @@ private:
 		AnimationFrame m_Frame;
 		AnimationControllerState m_State;
 		AnimationControllerTransition m_Transition;
+		AnimationControllerBlueprintNode m_BlueprintNode;
 	};
 
 	void DrawAnimationDragDropArea(float width, float height);
@@ -123,7 +131,7 @@ private:
 	void DrawControllerGraph(float width, float height);
 	void DrawControllerStateInspector(float width, float height);
 	void DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget);
-	void DrawTransitionConditionGraph(AnimationControllerTransition& transition);
+	void DrawTransitionConditionGraph(AnimationControllerTransition& transition, float height);
 	void DrawControllerValidation();
 	void DrawEditorContent(bool showWindowControls);
 	void DrawCompactSummary();
@@ -169,9 +177,24 @@ private:
 	int m_SelectedControllerParameterIndex = -1;
 	int m_SelectedTransitionSourceStateIndex = -1;
 	int m_SelectedTransitionIndex = -1;
+	int m_SelectedConditionNodeIndex = -1;
+	uint32_t m_SelectedBlueprintNodeId = 0;
+	uint32_t m_PendingBlueprintLinkNodeId = 0;
+	uint32_t m_PendingBlueprintLinkPin = 0;
+	bool m_PendingBlueprintLinkFromInput = false;
+	uint32_t m_ContextBlueprintLinkNodeId = 0;
+	uint32_t m_ContextBlueprintLinkPin = 0;
+	bool m_ContextBlueprintLinkFromInput = false;
 	int m_PendingTransitionSourceStateIndex = -1;
 	float m_ControllerGraphZoom = 1.0f;
+	float m_BlueprintGraphZoom = 1.0f;
 	glm::vec2 m_ControllerGraphPan{ 28.0f, 28.0f };
+	glm::vec2 m_BlueprintGraphPan{ 18.0f, 18.0f };
+	glm::vec2 m_BlueprintContextSpawnPosition{ 0.0f, 0.0f };
+	std::string m_BlueprintNodeSearch;
+	AnimationControllerWorkspaceTab m_ControllerWorkspaceTab = AnimationControllerWorkspaceTab::StateMachine;
+	bool m_ControllerWorkspaceTabSelectionRequested = false;
+	bool m_BlueprintNodeSearchFocusRequested = false;
 	bool m_ControllerGraphSnapToGrid = true;
 	bool m_FrameControllerGraphRequested = false;
 	bool m_ShowOnionSkin = true;

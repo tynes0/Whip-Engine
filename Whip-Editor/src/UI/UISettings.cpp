@@ -1,8 +1,8 @@
 #include "WhipPch.h"
-#include <Whip/UI/UISettings.h>
+#include <Whip-Editor/UI/UISettings.h>
 
 #include <imgui.h>
-#include <Whip/UI/UIHelpers.h>
+#include <Whip-Editor/UI/UIHelpers.h>
 
 _WHIP_START
 

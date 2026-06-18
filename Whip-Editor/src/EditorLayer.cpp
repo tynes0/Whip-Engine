@@ -1,4 +1,4 @@
-#include "EditorLayer.h"
+#include <Whip-Editor/EditorLayer.h>
 
 #include <Whip/Core/EntryPoint.h>
 #include <Whip/Utils/FileExtensions.h>
@@ -6,14 +6,15 @@
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Scripting/ScriptProjectGenerator.h>
 #include <Whip/Utils/PlatformUtils.h>
-#include <Whip/UI/UIHelpers.h>
-#include <Whip/UI/UIProjectLoader.h>
+#include <Whip-Editor/UI/UIHelpers.h>
+#include <Whip-Editor/UI/UIProjectLoader.h>
 #include <Whip/Math/Math.h>
 #include <Whip/Asset/AssetManager.h>
+#include <Whip/Asset/AssetMetadata.h>
 #include <Whip/Asset/AssetUtils.h>
 #include <Whip/Asset/SceneImporter.h>
 
-#include "Helpers/IconManager.h"
+#include <Whip-Editor/Helpers/IconManager.h>
 
 #include <algorithm>
 #include <array>
@@ -1199,8 +1200,8 @@ void EditorLayer::OnImGuiRender()
 			bool handledDrop = false;
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
 			{
-				AssetHandle handle = *(AssetHandle*)payload->Data;
-				handledDrop = HandleViewportAssetDrop(handle);
+				const UI::AssetReferencePayload assetPayload = UI::ReadAssetReferencePayload(payload);
+				handledDrop = HandleViewportAssetDrop(assetPayload.m_Handle, assetPayload.m_TextureSpriteIndex);
 			}
 
 			if (!handledDrop)
@@ -1809,7 +1810,7 @@ bool EditorLayer::OnWindowDrop(WindowDropEvent& event)
 	return handled;
 }
 
-bool EditorLayer::HandleViewportAssetDrop(AssetHandle handle)
+bool EditorLayer::HandleViewportAssetDrop(AssetHandle handle, int32_t textureSpriteIndex)
 {
 	if (handle == 0 || !HasProjectLoaded())
 		return false;
@@ -1827,7 +1828,7 @@ bool EditorLayer::HandleViewportAssetDrop(AssetHandle handle)
 	case AssetType::Entity:
 		return InstantiateEntityTemplate(handle);
 	case AssetType::Texture2D:
-		return CreateSpriteEntityFromTexture(handle, GetViewportMouseWorldPosition());
+		return CreateSpriteEntityFromTexture(handle, GetViewportMouseWorldPosition(), textureSpriteIndex);
 	default:
 		WHP_EDITOR_WARN("[Viewport] This Asset type cannot be dropped into the viewport yet.");
 		return false;
@@ -1885,7 +1886,7 @@ void EditorLayer::SetStartScene(AssetHandle handle)
 	WHP_EDITOR_INFO(std::string("[Project] Start scene set: ") + activeProject->GetEditorAssetManager()->GetFilepath(handle).generic_string());
 }
 
-bool EditorLayer::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position)
+bool EditorLayer::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex)
 {
 	if (!HasProjectLoaded() || !m_EditorScene || m_SceneState != SceneState::Edit)
 		return false;
@@ -1899,7 +1900,10 @@ bool EditorLayer::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::v
 
 	CaptureSceneHistory();
 	const auto& metadata = activeProject->GetEditorAssetManager()->GetMetadata(handle);
-	const std::string name = metadata.m_Filepath.stem().empty() ? "Sprite" : metadata.m_Filepath.stem().string();
+	const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+	const bool validSpriteIndex = textureSpriteIndex >= 0 && textureSpriteIndex < static_cast<int32_t>(sprites.size());
+	const TextureSpriteRect* spriteRect = validSpriteIndex ? &sprites[static_cast<size_t>(textureSpriteIndex)] : nullptr;
+	const std::string name = spriteRect ? spriteRect->m_Name : (metadata.m_Filepath.stem().empty() ? "Sprite" : metadata.m_Filepath.stem().string());
 	Entity sprite = m_EditorScene->CreateEntity(name);
 	auto& transform = sprite.GetComponent<TransformComponent>();
 	transform.m_Translation = position;
@@ -1907,16 +1911,19 @@ bool EditorLayer::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::v
 	auto texture = AssetManager::GetAsset<Texture2D>(handle);
 	if (texture && texture->IsLoaded())
 	{
-		constexpr float pixelsPerUnit = 100.0f;
+		const float pixelsPerUnit = metadata.m_TextureSettings.m_PixelsPerUnit > 0.0f ? metadata.m_TextureSettings.m_PixelsPerUnit : 100.0f;
+		const float spriteWidth = spriteRect ? static_cast<float>(spriteRect->m_Width) : static_cast<float>(texture->GetWidth());
+		const float spriteHeight = spriteRect ? static_cast<float>(spriteRect->m_Height) : static_cast<float>(texture->GetHeight());
 		transform.m_Scale = {
-			glm::max(texture->GetWidth() / pixelsPerUnit, 0.1f),
-			glm::max(texture->GetHeight() / pixelsPerUnit, 0.1f),
+			glm::max(spriteWidth / pixelsPerUnit, 0.1f),
+			glm::max(spriteHeight / pixelsPerUnit, 0.1f),
 			1.0f
 		};
 	}
 
 	auto& spriteRenderer = sprite.AddComponent<SpriteRendererComponent>();
 	spriteRenderer.m_Texture = handle;
+	spriteRenderer.m_TextureSpriteIndex = validSpriteIndex ? textureSpriteIndex : -1;
 	spriteRenderer.m_Color = glm::vec4(1.0f);
 	m_SceneHierarchyPanel.SetSelectedEntity(sprite);
 	WHP_EDITOR_INFO(std::string("[Viewport] Created sprite entity from texture ") + metadata.m_Filepath.generic_string());

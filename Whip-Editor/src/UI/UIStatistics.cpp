@@ -1,5 +1,5 @@
 #include "WhipPch.h"
-#include <Whip/UI/UIStatistics.h>
+#include <Whip-Editor/UI/UIStatistics.h>
 
 #include <Whip/Render/Renderer2D.h>
 

@@ -1,9 +1,11 @@
 #include <WhipPch.h>
-#include "ThumbnailCache.h"
+#include <Whip-Editor/panels/ThumbnailCache.h>
 
 #include <Whip/Asset/TextureImporter.h>
 
 #include <chrono>
+#include <algorithm>
+#include <cctype>
 
 _WHIP_START
 
@@ -17,7 +19,7 @@ Ref<Texture2D> ThumbnailCache::GetOrCreateThumbnail(const std::filesystem::path&
 {
 	auto absolutePath = m_Project->GetAssetAbsolutePath(path);
 	std::filesystem::file_time_type lastWriteTime = std::filesystem::last_write_time(absolutePath);
-	uint64_t timestamp = std::chrono::duration_cast<std::chrono::seconds>(lastWriteTime.time_since_epoch()).count();
+	uint64_t timestamp = static_cast<uint64_t>(lastWriteTime.time_since_epoch().count());
 
 	if (m_CachedImages.find(path) != m_CachedImages.end())
 	{
@@ -26,8 +28,10 @@ Ref<Texture2D> ThumbnailCache::GetOrCreateThumbnail(const std::filesystem::path&
 			return cachedImage.m_Image;
 	}
 
-	// TODO: PNGs for now
-	if (path.extension() != ".png" && path.extension() != ".jpg" && path.extension() != ".jpeg")
+	std::string extension = path.extension().string();
+	std::ranges::transform(extension, extension.begin(),
+		[](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+	if (extension != ".png" && extension != ".jpg" && extension != ".jpeg")
 		return nullptr;
 
 	Ref<Texture2D> texture = TextureImporter::LoadTexture2D(absolutePath);

@@ -1,18 +1,18 @@
 #pragma once
 
 #include <Whip.h>
-#include <Whip/UI/UIProjectLoader.h>
-#include <Whip/UI/UIProject.h>
-#include <Whip/UI/UISettings.h>
-#include <Whip/UI/UIStatistics.h>
+#include <Whip-Editor/UI/UIProjectLoader.h>
+#include <Whip-Editor/UI/UIProject.h>
+#include <Whip-Editor/UI/UISettings.h>
+#include <Whip-Editor/UI/UIStatistics.h>
 #include <Whip/Render/EditorCamera.h>
 #include <Whip/Audio/AudioEngine.h>
 
-#include "panels/SceneHierarchyPanel.h"
-#include "panels/ContentBrowserPanel.h"
-#include "panels/AnimationEditorPanel.h"
-#include "panels/AssetEditorPanel.h"
-#include "panels/ConsolePanel.h"
+#include <Whip-Editor/panels/SceneHierarchyPanel.h>
+#include <Whip-Editor/panels/ContentBrowserPanel.h>
+#include <Whip-Editor/panels/AnimationEditorPanel.h>
+#include <Whip-Editor/panels/AssetEditorPanel.h>
+#include <Whip-Editor/panels/ConsolePanel.h>
 
 #include <FileWatch.h>
 
@@ -101,11 +101,11 @@ private:
 	Entity FindPrefabRoot(Entity entityIn) const;
 	void RemovePrefabLinksRecursive(Entity entityIn);
 	bool InstantiateEntityTemplate(AssetHandle handle);
-	bool HandleViewportAssetDrop(AssetHandle handle);
+	bool HandleViewportAssetDrop(AssetHandle handle, int32_t textureSpriteIndex = -1);
 	bool HandleContentBrowserAssetOpen(AssetHandle handle);
 	bool HandleContentBrowserAssetInspect(AssetHandle handle);
 	void SetStartScene(AssetHandle handle);
-	bool CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position);
+	bool CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex = -1);
 	AssetHandle ImportExternalAssetFile(const std::filesystem::path& sourcePath);
 	glm::vec3 GetViewportMouseWorldPosition() const;
 

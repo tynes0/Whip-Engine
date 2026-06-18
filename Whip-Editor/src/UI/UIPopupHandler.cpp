@@ -1,7 +1,7 @@
 #include <WhipPch.h>
-#include <Whip/UI/UIPopupHandler.h>
+#include <Whip-Editor/UI/UIPopupHandler.h>
 
-#include <Whip/UI/UIHelpers.h>
+#include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip/Core/Application.h>
 
 #include <imgui.h>

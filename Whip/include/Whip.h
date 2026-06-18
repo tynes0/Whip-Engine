@@ -69,6 +69,7 @@
 #include <Whip/Asset/FontImporter.h>
 #include <Whip/Asset/SceneImporter.h>
 #include <Whip/Asset/TextureImporter.h>
+#include <Whip/Asset/TextureSlicer.h>
 #include <Whip/Asset/AssetImporter.h>
 #include <Whip/Asset/EditorAssetManager.h>
 #include <Whip/Asset/RuntimeAssetManager.h>

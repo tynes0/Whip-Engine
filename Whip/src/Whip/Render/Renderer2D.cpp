@@ -12,10 +12,36 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <algorithm>
 #include <array>
 
 _WHIP_START
 
+namespace
+{
+	Ref<SubTexture2D> CreateSubTextureFromSpriteIndex(const Ref<Texture2D>& texture, AssetHandle textureHandle, int32_t spriteIndex)
+	{
+		if (!texture || spriteIndex < 0 || !AssetManager::IsAssetHandleValid(textureHandle))
+			return nullptr;
+
+		const AssetMetadata& metadata = AssetManager::GetAssetMetadata(textureHandle);
+		const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+		if (spriteIndex < 0 || spriteIndex >= static_cast<int32_t>(sprites.size()))
+			return nullptr;
+
+		const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
+		if (sprite.m_Width == 0 || sprite.m_Height == 0 || texture->GetWidth() == 0 || texture->GetHeight() == 0)
+			return nullptr;
+
+		const float textureWidth = static_cast<float>(texture->GetWidth());
+		const float textureHeight = static_cast<float>(texture->GetHeight());
+		const float minX = std::clamp(static_cast<float>(sprite.m_X) / textureWidth, 0.0f, 1.0f);
+		const float maxX = std::clamp(static_cast<float>(sprite.m_X + sprite.m_Width) / textureWidth, 0.0f, 1.0f);
+		const float minY = std::clamp(1.0f - static_cast<float>(sprite.m_Y + sprite.m_Height) / textureHeight, 0.0f, 1.0f);
+		const float maxY = std::clamp(1.0f - static_cast<float>(sprite.m_Y) / textureHeight, 0.0f, 1.0f);
+		return std::make_shared<SubTexture2D>(texture, glm::vec2(minX, minY), glm::vec2(maxX, maxY));
+	}
+}
 
 struct QuadVertex
 {
@@ -599,7 +625,12 @@ void Renderer2D::DrawSprite(const glm::mat4& transform, const SpriteRendererComp
 	if (src.m_Texture)
 	{
 		Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(src.m_Texture);
-		DrawQuad(transform, texture, src.m_TilingFactor, src.m_Color, entityId);
+		if (Ref<SubTexture2D> subTexture = CreateSubTextureFromSpriteIndex(texture, src.m_Texture, src.m_TextureSpriteIndex))
+			DrawQuad(transform, subTexture, src.m_TilingFactor, src.m_Color, entityId);
+		else if (texture)
+			DrawQuad(transform, texture, src.m_TilingFactor, src.m_Color, entityId);
+		else
+			DrawQuad(transform, src.m_Color, entityId);
 	}
 	else
 	{

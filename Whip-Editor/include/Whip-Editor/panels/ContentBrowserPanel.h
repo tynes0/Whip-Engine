@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ThumbnailCache.h"
+#include <Whip-Editor/panels/ThumbnailCache.h>
 
 #include <Whip/Core/Core.h>
 #include <Whip/Asset/Asset.h>
@@ -66,12 +66,15 @@ private:
 	{
 		std::filesystem::path m_AbsolutePath;
 		std::filesystem::path m_RelativePath;
+		std::string m_DisplayName;
 		AssetHandle m_Handle = 0;
 		AssetType m_Type = AssetType::None;
+		int32_t m_TextureSpriteIndex = -1;
 		bool m_Directory = false;
 		bool m_Imported = false;
 		bool m_Supported = false;
 		bool m_Missing = false;
+		bool m_SubAsset = false;
 	};
 
 	enum class FileOperation
@@ -91,6 +94,7 @@ private:
 	void DrawContentGrid(const std::vector<BrowserItem>& items);
 	void DrawItem(const BrowserItem& item);
 	void DrawFileOperationModals();
+	void DrawAutoSliceModal();
 	void DrawTypeFilter();
 
 	std::vector<BrowserItem> CollectItems() const;
@@ -104,6 +108,8 @@ private:
 	void RequestMoveItem(const BrowserItem& item);
 	void RequestDeleteItem(const BrowserItem& item);
 	void RequestRemoveAsset(AssetHandle handle, const std::filesystem::path& relativePath);
+	void RequestAutoSliceTexture(const BrowserItem& item);
+	bool RunPendingAutoSlice();
 	bool OpenAsset(const BrowserItem& item);
 	bool InspectAsset(const BrowserItem& item);
 	bool SetSceneAsStartScene(const BrowserItem& item);
@@ -149,6 +155,17 @@ private:
 	bool m_PendingOperationIsDirectory = false;
 	std::string m_OperationText;
 	std::string m_OperationError;
+	bool m_ShowAutoSlicePopup = false;
+	AssetHandle m_AutoSliceHandle = 0;
+	std::filesystem::path m_AutoSliceRelativePath;
+	int m_AutoSliceMinPixels = 24;
+	int m_AutoSliceBackgroundTolerance = 24;
+	int m_AutoSliceMergeGap = 0;
+	int m_AutoSlicePadding = 1;
+	int m_AutoSliceExtrudePixels = 0;
+	bool m_AutoSliceSeparateDiagonalTouches = true;
+	bool m_AutoSliceExportPngs = false;
+	bool m_AutoSliceReplaceExisting = true;
 	std::function<bool(AssetHandle)> m_AssetOpenCallback;
 	std::function<bool(AssetHandle)> m_AssetInspectCallback;
 

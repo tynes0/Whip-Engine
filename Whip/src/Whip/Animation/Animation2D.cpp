@@ -155,6 +155,7 @@ void Animation2D::BindWithEntity(Entity targetEntity)
 
 	auto& spriteRenderer = targetEntity.GetComponent<SpriteRendererComponent>();
 	m_OriginalTexture = spriteRenderer.m_Texture;
+	m_OriginalTextureSpriteIndex = spriteRenderer.m_TextureSpriteIndex;
 
 	m_TargetEntity = targetEntity;
 }
@@ -163,9 +164,10 @@ void Animation2D::UnbindFromEntity()
 {
 	m_TargetEntity = {};
 	m_OriginalTexture = {};
+	m_OriginalTextureSpriteIndex = -1;
 }
 
-void Animation2D::ApplyFrame(AssetHandle texture)
+void Animation2D::ApplyFrame(const AnimationFrame& frame)
 {
 	if (!m_TargetEntity)
 	{
@@ -174,7 +176,18 @@ void Animation2D::ApplyFrame(AssetHandle texture)
 	}
 
 	auto& spriteRenderer = m_TargetEntity.GetComponent<SpriteRendererComponent>();
-	spriteRenderer.m_Texture = texture;
+	spriteRenderer.m_Texture = frame.m_Texture;
+	spriteRenderer.m_TextureSpriteIndex = frame.m_TextureSpriteIndex;
+}
+
+void Animation2D::RestoreOriginalFrame()
+{
+	if (!m_TargetEntity)
+		return;
+
+	auto& spriteRenderer = m_TargetEntity.GetComponent<SpriteRendererComponent>();
+	spriteRenderer.m_Texture = m_OriginalTexture;
+	spriteRenderer.m_TextureSpriteIndex = m_OriginalTextureSpriteIndex;
 }
 
 void Animation2D::Play()
@@ -194,7 +207,7 @@ void Animation2D::Play()
 	m_ElapsedTime = 0.0f;
 
 	if (!m_Frames.empty())
-		ApplyFrame(m_Frames[m_CurrentFrame].m_Texture);
+		ApplyFrame(m_Frames[m_CurrentFrame]);
 }
 
 void Animation2D::Stop()
@@ -207,7 +220,7 @@ void Animation2D::Stop()
 	m_CurrentFrame = 0;
 	m_ElapsedTime = 0.0f;
 
-	ApplyFrame(m_OriginalTexture);
+	RestoreOriginalFrame();
 }
 
 void Animation2D::Pause()
@@ -290,6 +303,7 @@ void Animation2D::Serialize(const std::filesystem::path& filepath)
 	{
 		out << YAML::BeginMap;
 		out << YAML::Key << "handle" << YAML::Value << frame.m_Texture;
+		out << YAML::Key << "sprite_index" << YAML::Value << frame.m_TextureSpriteIndex;
 		out << YAML::Key << "duration" << YAML::Value << frame.m_Duration;
 		out << YAML::EndMap;
 	}
@@ -345,6 +359,8 @@ bool Animation2D::Deserialize(const std::filesystem::path& filepath)
 	{
 		AnimationFrame frame;
 		frame.m_Texture = frameNode["handle"].as<uint64_t>();
+		if (const YAML::Node spriteIndexNode = frameNode["sprite_index"])
+			frame.m_TextureSpriteIndex = spriteIndexNode.as<int32_t>(-1);
 		frame.m_Duration = frameNode["duration"].as<float>();
 		m_Frames.push_back(frame);
 	}

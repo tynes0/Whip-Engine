@@ -24,6 +24,8 @@ public:
 	void DeleteAsset(AssetHandle handle);
 	void SetLoadedAsset(AssetHandle handle, const Ref<Asset>& asset);
 	void UnloadAsset(AssetHandle handle);
+	bool ReimportAsset(AssetHandle handle);
+	bool UpdateAssetMetadata(AssetHandle handle, const AssetMetadata& metadata);
 	bool UpdateAssetFilepath(AssetHandle handle, const std::filesystem::path& filepath);
 	size_t UpdateAssetDirectoryPaths(const std::filesystem::path& oldDirectory, const std::filesystem::path& newDirectory);
 	size_t DeleteAssetsUnderDirectory(const std::filesystem::path& directory);

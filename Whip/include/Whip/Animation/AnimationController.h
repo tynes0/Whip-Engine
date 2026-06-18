@@ -36,6 +36,36 @@ enum class AnimationConditionMode : uint8_t
 
 MakeFrenumInNamespace(whip, AnimationConditionMode, If, IfNot, Greater, Less, Equals, NotEquals)
 
+enum class AnimationBlueprintNodeType : uint8_t
+{
+	Start,
+	Parameter,
+	If,
+	IfNot,
+	Greater,
+	Less,
+	Equals,
+	NotEquals,
+	Not,
+	And,
+	Or,
+	Reroute,
+	Result
+};
+
+MakeFrenumInNamespace(whip, AnimationBlueprintNodeType, Start, Parameter, If, IfNot, Greater, Less, Equals, NotEquals, Not, And, Or, Reroute, Result)
+
+inline constexpr uint32_t AnimationBlueprintExecPinBase = 1000;
+inline constexpr uint32_t AnimationBlueprintExecInputPin = AnimationBlueprintExecPinBase;
+inline constexpr uint32_t AnimationBlueprintThenPin = AnimationBlueprintExecPinBase;
+inline constexpr uint32_t AnimationBlueprintTruePin = AnimationBlueprintExecPinBase + 1;
+inline constexpr uint32_t AnimationBlueprintFalsePin = AnimationBlueprintExecPinBase + 2;
+
+inline bool IsAnimationBlueprintExecPin(uint32_t pin)
+{
+	return pin >= AnimationBlueprintExecPinBase;
+}
+
 enum class AnimationMotionType : uint8_t
 {
 	Clip,
@@ -60,6 +90,30 @@ struct AnimationControllerCondition
 	float m_Threshold = 0.0f;
 	int32_t m_IntValue = 0;
 	bool m_BoolValue = true;
+	glm::vec2 m_GraphPosition{ 0.0f, 0.0f };
+};
+
+struct AnimationControllerBlueprintNode
+{
+	uint32_t m_Id = 0;
+	AnimationBlueprintNodeType m_Type = AnimationBlueprintNodeType::Parameter;
+	std::string m_Parameter;
+	float m_Threshold = 0.0f;
+	int32_t m_IntValue = 0;
+	bool m_BoolValue = true;
+	float m_InputFloatValues[2] = { 0.0f, 0.0f };
+	int32_t m_InputIntValues[2] = { 0, 0 };
+	bool m_InputBoolValues[2] = { false, true };
+	glm::vec2 m_GraphPosition{ 0.0f, 0.0f };
+};
+
+struct AnimationControllerBlueprintLink
+{
+	uint32_t m_Id = 0;
+	uint32_t m_OutputNode = 0;
+	uint32_t m_OutputPin = 0;
+	uint32_t m_InputNode = 0;
+	uint32_t m_InputPin = 0;
 };
 
 struct AnimationControllerTransition
@@ -69,6 +123,10 @@ struct AnimationControllerTransition
 	float m_ExitTime = 1.0f;
 	bool m_HasExitTime = true;
 	std::vector<AnimationControllerCondition> m_Conditions;
+	std::vector<AnimationControllerBlueprintNode> m_BlueprintNodes;
+	std::vector<AnimationControllerBlueprintLink> m_BlueprintLinks;
+	uint32_t m_NextBlueprintNodeId = 1;
+	uint32_t m_NextBlueprintLinkId = 1;
 };
 
 struct AnimationBlendChild
@@ -94,7 +152,7 @@ struct AnimationControllerState
 class AnimationController : public Asset
 {
 public:
-	static constexpr uint32_t FormatVersion = 2;
+	static constexpr uint32_t FormatVersion = 7;
 	static constexpr std::string_view ExitStateName = "Exit";
 
 	AnimationController(AssetHandle handle = AssetHandle{});

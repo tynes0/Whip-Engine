@@ -486,6 +486,7 @@ namespace Utils
 			auto& spriteRendererComponent = entityIn.GetComponent<SpriteRendererComponent>();
 			out << YAML::Key << "color" << YAML::Value << spriteRendererComponent.m_Color;
 			out << YAML::Key << "texture_handle" << YAML::Value << spriteRendererComponent.m_Texture;
+			out << YAML::Key << "texture_sprite_index" << YAML::Value << spriteRendererComponent.m_TextureSpriteIndex;
 
 			out << YAML::Key << "tiling_factor" << YAML::Value << spriteRendererComponent.m_TilingFactor;
 
@@ -902,6 +903,9 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 
 				if (spriteRendererComponent["texture_handle"])
 					sprite.m_Texture = spriteRendererComponent["texture_handle"].as<AssetHandle>();
+
+				if (spriteRendererComponent["texture_sprite_index"])
+					sprite.m_TextureSpriteIndex = spriteRendererComponent["texture_sprite_index"].as<int32_t>(-1);
 
 				if (spriteRendererComponent["tiling_factor"])
 					sprite.m_TilingFactor = spriteRendererComponent["tiling_factor"].as<float>();

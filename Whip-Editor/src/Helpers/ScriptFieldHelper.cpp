@@ -1,9 +1,9 @@
-#include "ScriptFieldHelper.h"
+#include <Whip-Editor/Helpers/ScriptFieldHelper.h>
 
 #include <Whip/Core/KeyCodes.h>
 #include <Whip/Core/MouseButtonCodes.h>
 #include <Whip/Project/Project.h>
-#include <Whip/UI/UIHelpers.h>
+#include <Whip-Editor/UI/UIHelpers.h>
 
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -375,7 +375,7 @@ namespace
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
 			{
-				AssetHandle droppedHandle = *static_cast<AssetHandle*>(payload->Data);
+				const AssetHandle droppedHandle = UI::ReadAssetReferencePayload(payload).m_Handle;
 				Ref<Project> activeProject = Project::GetActive();
 				if (activeProject && activeProject->GetEditorAssetManager() &&
 					activeProject->GetEditorAssetManager()->IsAssetHandleValid(droppedHandle) &&

@@ -41,6 +41,16 @@ namespace
 		return AnimationConditionMode::If;
 	}
 
+	AnimationBlueprintNodeType ParseBlueprintNodeType(const YAML::Node& node)
+	{
+		if (!node)
+			return AnimationBlueprintNodeType::Parameter;
+		const std::string value = node.as<std::string>();
+		if (auto type = frenum::cast<AnimationBlueprintNodeType>(value))
+			return type.value();
+		return AnimationBlueprintNodeType::Parameter;
+	}
+
 	AnimationMotionType ParseMotionType(const YAML::Node& node)
 	{
 		if (!node)
@@ -76,6 +86,41 @@ namespace
 			out << YAML::Key << "threshold" << YAML::Value << condition.m_Threshold;
 			out << YAML::Key << "int_value" << YAML::Value << condition.m_IntValue;
 			out << YAML::Key << "bool_value" << YAML::Value << condition.m_BoolValue;
+			out << YAML::Key << "graph_position" << YAML::Value << YAML::Flow << YAML::BeginSeq << condition.m_GraphPosition.x << condition.m_GraphPosition.y << YAML::EndSeq;
+			out << YAML::EndMap;
+		}
+		out << YAML::EndSeq;
+
+		out << YAML::Key << "next_blueprint_node_id" << YAML::Value << transition.m_NextBlueprintNodeId;
+		out << YAML::Key << "next_blueprint_link_id" << YAML::Value << transition.m_NextBlueprintLinkId;
+
+		out << YAML::Key << "blueprint_nodes" << YAML::Value << YAML::BeginSeq;
+		for (const AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+		{
+			out << YAML::BeginMap;
+			out << YAML::Key << "id" << YAML::Value << node.m_Id;
+			out << YAML::Key << "type" << YAML::Value << frenum::to_string(node.m_Type);
+			out << YAML::Key << "parameter" << YAML::Value << node.m_Parameter;
+			out << YAML::Key << "threshold" << YAML::Value << node.m_Threshold;
+			out << YAML::Key << "int_value" << YAML::Value << node.m_IntValue;
+			out << YAML::Key << "bool_value" << YAML::Value << node.m_BoolValue;
+			out << YAML::Key << "input_float_values" << YAML::Value << YAML::Flow << YAML::BeginSeq << node.m_InputFloatValues[0] << node.m_InputFloatValues[1] << YAML::EndSeq;
+			out << YAML::Key << "input_int_values" << YAML::Value << YAML::Flow << YAML::BeginSeq << node.m_InputIntValues[0] << node.m_InputIntValues[1] << YAML::EndSeq;
+			out << YAML::Key << "input_bool_values" << YAML::Value << YAML::Flow << YAML::BeginSeq << node.m_InputBoolValues[0] << node.m_InputBoolValues[1] << YAML::EndSeq;
+			out << YAML::Key << "graph_position" << YAML::Value << YAML::Flow << YAML::BeginSeq << node.m_GraphPosition.x << node.m_GraphPosition.y << YAML::EndSeq;
+			out << YAML::EndMap;
+		}
+		out << YAML::EndSeq;
+
+		out << YAML::Key << "blueprint_links" << YAML::Value << YAML::BeginSeq;
+		for (const AnimationControllerBlueprintLink& link : transition.m_BlueprintLinks)
+		{
+			out << YAML::BeginMap;
+			out << YAML::Key << "id" << YAML::Value << link.m_Id;
+			out << YAML::Key << "output_node" << YAML::Value << link.m_OutputNode;
+			out << YAML::Key << "output_pin" << YAML::Value << link.m_OutputPin;
+			out << YAML::Key << "input_node" << YAML::Value << link.m_InputNode;
+			out << YAML::Key << "input_pin" << YAML::Value << link.m_InputPin;
 			out << YAML::EndMap;
 		}
 		out << YAML::EndSeq;
@@ -100,7 +145,71 @@ namespace
 				condition.m_Threshold = ReadYamlValue<float>(conditionNode, "threshold", 0.0f);
 				condition.m_IntValue = ReadYamlValue<int32_t>(conditionNode, "int_value", 0);
 				condition.m_BoolValue = ReadYamlValue<bool>(conditionNode, "bool_value", true);
+				condition.m_GraphPosition = ReadGraphPosition(conditionNode, "graph_position", condition.m_GraphPosition);
 				transition.m_Conditions.push_back(condition);
+			}
+		}
+
+		transition.m_NextBlueprintNodeId = ReadYamlValue<uint32_t>(transitionNode, "next_blueprint_node_id", 1);
+		transition.m_NextBlueprintLinkId = ReadYamlValue<uint32_t>(transitionNode, "next_blueprint_link_id", 1);
+
+		if (const YAML::Node blueprintNodes = transitionNode["blueprint_nodes"])
+		{
+			for (const YAML::Node& nodeYaml : blueprintNodes)
+			{
+				AnimationControllerBlueprintNode node;
+				node.m_Id = ReadYamlValue<uint32_t>(nodeYaml, "id", transition.m_NextBlueprintNodeId++);
+				node.m_Type = ParseBlueprintNodeType(nodeYaml["type"]);
+				node.m_Parameter = ReadYamlValue<std::string>(nodeYaml, "parameter", {});
+				node.m_Threshold = ReadYamlValue<float>(nodeYaml, "threshold", 0.0f);
+				node.m_IntValue = ReadYamlValue<int32_t>(nodeYaml, "int_value", 0);
+				node.m_BoolValue = ReadYamlValue<bool>(nodeYaml, "bool_value", true);
+				if (const YAML::Node inputFloatValues = nodeYaml["input_float_values"]; inputFloatValues && inputFloatValues.IsSequence() && inputFloatValues.size() >= 2)
+				{
+					node.m_InputFloatValues[0] = inputFloatValues[0].as<float>(0.0f);
+					node.m_InputFloatValues[1] = inputFloatValues[1].as<float>(node.m_Threshold);
+				}
+				else
+				{
+					node.m_InputFloatValues[1] = node.m_Threshold;
+				}
+				if (const YAML::Node inputIntValues = nodeYaml["input_int_values"]; inputIntValues && inputIntValues.IsSequence() && inputIntValues.size() >= 2)
+				{
+					node.m_InputIntValues[0] = inputIntValues[0].as<int32_t>(0);
+					node.m_InputIntValues[1] = inputIntValues[1].as<int32_t>(node.m_IntValue);
+				}
+				else
+				{
+					node.m_InputIntValues[1] = node.m_IntValue;
+				}
+				if (const YAML::Node inputBoolValues = nodeYaml["input_bool_values"]; inputBoolValues && inputBoolValues.IsSequence() && inputBoolValues.size() >= 2)
+				{
+					node.m_InputBoolValues[0] = inputBoolValues[0].as<bool>(false);
+					node.m_InputBoolValues[1] = inputBoolValues[1].as<bool>(node.m_BoolValue);
+				}
+				else
+				{
+					node.m_InputBoolValues[1] = node.m_BoolValue;
+				}
+				node.m_GraphPosition = ReadGraphPosition(nodeYaml, "graph_position", node.m_GraphPosition);
+				transition.m_NextBlueprintNodeId = std::max(transition.m_NextBlueprintNodeId, node.m_Id + 1);
+				transition.m_BlueprintNodes.push_back(node);
+			}
+		}
+
+		if (const YAML::Node blueprintLinks = transitionNode["blueprint_links"])
+		{
+			for (const YAML::Node& linkYaml : blueprintLinks)
+			{
+				AnimationControllerBlueprintLink link;
+				link.m_Id = ReadYamlValue<uint32_t>(linkYaml, "id", transition.m_NextBlueprintLinkId++);
+				link.m_OutputNode = ReadYamlValue<uint32_t>(linkYaml, "output_node", 0);
+				link.m_OutputPin = ReadYamlValue<uint32_t>(linkYaml, "output_pin", 0);
+				link.m_InputNode = ReadYamlValue<uint32_t>(linkYaml, "input_node", 0);
+				link.m_InputPin = ReadYamlValue<uint32_t>(linkYaml, "input_pin", 0);
+				transition.m_NextBlueprintLinkId = std::max(transition.m_NextBlueprintLinkId, link.m_Id + 1);
+				if (link.m_OutputNode != 0 && link.m_InputNode != 0)
+					transition.m_BlueprintLinks.push_back(link);
 			}
 		}
 

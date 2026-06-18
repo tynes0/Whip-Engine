@@ -1,17 +1,25 @@
-#include "AssetEditorPanel.h"
+#include <Whip-Editor/panels/AssetEditorPanel.h>
 
 #include <Whip/Asset/AssetManager.h>
+#include <Whip/Asset/TextureSlicer.h>
+#include <Whip/Audio/AudioEngine.h>
 #include <Whip/Audio/AudioSource.h>
 #include <Whip/Render/Font.h>
-#include <Whip/UI/UIHelpers.h>
+#include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip/Utils/PlatformUtils.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <misc/cpp/imgui_stdlib.h>
 
 #include <algorithm>
+#include <array>
 #include <cfloat>
+#include <cctype>
+#include <cmath>
 #include <cstdio>
+#include <deque>
+#include <fstream>
 #include <string>
 
 _WHIP_START
@@ -138,6 +146,236 @@ namespace
 		const ImVec2 click = ImGui::GetIO().MouseClickedPos[ImGuiMouseButton_Left];
 		const float titlebarBottom = window->Pos.y + ImGui::GetFrameHeight();
 		return click.y >= window->Pos.y && click.y <= titlebarBottom;
+	}
+
+	uint32_t BytesPerPixel(ImageFormat format)
+	{
+		switch (format)
+		{
+		case ImageFormat::Rgb8: return 3;
+		case ImageFormat::Rgba8: return 4;
+		default: return 0;
+		}
+	}
+
+	const char* ImageFormatName(ImageFormat format)
+	{
+		switch (format)
+		{
+		case ImageFormat::R8: return "R8";
+		case ImageFormat::Rgb8: return "RGB8";
+		case ImageFormat::Rgba8: return "RGBA8";
+		case ImageFormat::Rgba32F: return "RGBA32F";
+		default: return "None";
+		}
+	}
+
+	const char* TextureFilterModeName(TextureFilterMode mode)
+	{
+		switch (mode)
+		{
+		case TextureFilterMode::Nearest: return "Nearest";
+		case TextureFilterMode::Linear: return "Linear";
+		default: return "Linear";
+		}
+	}
+
+	const char* TextureWrapModeName(TextureWrapMode mode)
+	{
+		switch (mode)
+		{
+		case TextureWrapMode::Repeat: return "Repeat";
+		case TextureWrapMode::ClampToEdge: return "Clamp To Edge";
+		default: return "Repeat";
+		}
+	}
+
+	const char* TextureSpriteModeName(TextureSpriteMode mode)
+	{
+		switch (mode)
+		{
+		case TextureSpriteMode::Single: return "Single";
+		case TextureSpriteMode::Multiple: return "Multiple";
+		default: return "Single";
+		}
+	}
+
+
+	uint8_t ColorFloatToByte(float value)
+	{
+		return static_cast<uint8_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+	}
+
+	std::array<uint8_t, 4> BrushColorBytes(const std::array<float, 4>& color)
+	{
+		return {
+			ColorFloatToByte(color[0]),
+			ColorFloatToByte(color[1]),
+			ColorFloatToByte(color[2]),
+			ColorFloatToByte(color[3])
+		};
+	}
+
+	std::string LowercaseExtension(std::filesystem::path path)
+	{
+		std::string extension = path.extension().string();
+		std::ranges::transform(extension, extension.begin(), [](unsigned char character)
+		{
+			return static_cast<char>(std::tolower(character));
+		});
+		return extension;
+	}
+
+	void WriteBigEndianU32(std::vector<uint8_t>& buffer, uint32_t value)
+	{
+		buffer.push_back(static_cast<uint8_t>((value >> 24) & 0xFF));
+		buffer.push_back(static_cast<uint8_t>((value >> 16) & 0xFF));
+		buffer.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
+		buffer.push_back(static_cast<uint8_t>(value & 0xFF));
+	}
+
+	uint32_t Crc32(const uint8_t* data, size_t size)
+	{
+		static uint32_t table[256]{};
+		static bool initialized = false;
+		if (!initialized)
+		{
+			for (uint32_t i = 0; i < 256; ++i)
+			{
+				uint32_t crc = i;
+				for (int bit = 0; bit < 8; ++bit)
+					crc = (crc & 1U) ? (0xEDB88320U ^ (crc >> 1U)) : (crc >> 1U);
+				table[i] = crc;
+			}
+			initialized = true;
+		}
+
+		uint32_t crc = 0xFFFFFFFFU;
+		for (size_t i = 0; i < size; ++i)
+			crc = table[(crc ^ data[i]) & 0xFFU] ^ (crc >> 8U);
+		return crc ^ 0xFFFFFFFFU;
+	}
+
+	uint32_t Adler32(const std::vector<uint8_t>& data)
+	{
+		constexpr uint32_t Mod = 65521;
+		uint32_t a = 1;
+		uint32_t b = 0;
+		for (uint8_t byte : data)
+		{
+			a = (a + byte) % Mod;
+			b = (b + a) % Mod;
+		}
+		return (b << 16U) | a;
+	}
+
+	void WritePngChunk(std::vector<uint8_t>& png, const char type[4], const std::vector<uint8_t>& data)
+	{
+		WriteBigEndianU32(png, static_cast<uint32_t>(data.size()));
+		const size_t crcStart = png.size();
+		png.insert(png.end(), type, type + 4);
+		png.insert(png.end(), data.begin(), data.end());
+		const uint32_t crc = Crc32(png.data() + crcStart, png.size() - crcStart);
+		WriteBigEndianU32(png, crc);
+	}
+
+	bool WritePngFile(const std::filesystem::path& path, const std::vector<uint8_t>& pixels, uint32_t width, uint32_t height, uint32_t channels, std::string& error)
+	{
+		if (width == 0 || height == 0 || (channels != 3 && channels != 4))
+		{
+			error = "Texture format is not editable.";
+			return false;
+		}
+
+		const uint64_t expectedSize = static_cast<uint64_t>(width) * height * channels;
+		if (pixels.size() != expectedSize)
+		{
+			error = "Texture edit buffer is out of sync.";
+			return false;
+		}
+
+		std::vector<uint8_t> scanlines;
+		scanlines.reserve(static_cast<size_t>(height) * (static_cast<size_t>(width) * 4 + 1));
+		for (uint32_t y = 0; y < height; ++y)
+		{
+			scanlines.push_back(0);
+			const uint32_t storageY = height - 1 - y;
+			for (uint32_t x = 0; x < width; ++x)
+			{
+				const size_t index = (static_cast<size_t>(storageY) * width + x) * channels;
+				scanlines.push_back(pixels[index + 0]);
+				scanlines.push_back(pixels[index + 1]);
+				scanlines.push_back(pixels[index + 2]);
+				scanlines.push_back(channels == 4 ? pixels[index + 3] : 255);
+			}
+		}
+
+		std::vector<uint8_t> zlib;
+		zlib.reserve(scanlines.size() + scanlines.size() / 65535 * 5 + 16);
+		zlib.push_back(0x78);
+		zlib.push_back(0x01);
+
+		size_t offset = 0;
+		while (offset < scanlines.size())
+		{
+			const uint16_t blockSize = static_cast<uint16_t>(std::min<size_t>(65535, scanlines.size() - offset));
+			const bool finalBlock = offset + blockSize >= scanlines.size();
+			zlib.push_back(finalBlock ? 0x01 : 0x00);
+			zlib.push_back(static_cast<uint8_t>(blockSize & 0xFF));
+			zlib.push_back(static_cast<uint8_t>((blockSize >> 8) & 0xFF));
+			const uint16_t inverse = static_cast<uint16_t>(~blockSize);
+			zlib.push_back(static_cast<uint8_t>(inverse & 0xFF));
+			zlib.push_back(static_cast<uint8_t>((inverse >> 8) & 0xFF));
+			zlib.insert(zlib.end(), scanlines.begin() + static_cast<std::ptrdiff_t>(offset), scanlines.begin() + static_cast<std::ptrdiff_t>(offset + blockSize));
+			offset += blockSize;
+		}
+
+		WriteBigEndianU32(zlib, Adler32(scanlines));
+
+		std::vector<uint8_t> png = { 137, 80, 78, 71, 13, 10, 26, 10 };
+		std::vector<uint8_t> ihdr;
+		ihdr.reserve(13);
+		WriteBigEndianU32(ihdr, width);
+		WriteBigEndianU32(ihdr, height);
+		ihdr.push_back(8);
+		ihdr.push_back(6);
+		ihdr.push_back(0);
+		ihdr.push_back(0);
+		ihdr.push_back(0);
+		WritePngChunk(png, "IHDR", ihdr);
+		WritePngChunk(png, "IDAT", zlib);
+		WritePngChunk(png, "IEND", {});
+
+		std::ofstream output(path, std::ios::binary | std::ios::trunc);
+		if (!output)
+		{
+			error = "Could not open texture file for writing.";
+			return false;
+		}
+
+		output.write(reinterpret_cast<const char*>(png.data()), static_cast<std::streamsize>(png.size()));
+		if (!output)
+		{
+			error = "Could not finish writing PNG.";
+			return false;
+		}
+
+		return true;
+	}
+
+	std::string ReadTextPreview(const std::filesystem::path& path, size_t maxBytes = 24000)
+	{
+		std::ifstream input(path, std::ios::binary);
+		if (!input)
+			return {};
+
+		std::string result;
+		result.resize(maxBytes);
+		input.read(result.data(), static_cast<std::streamsize>(result.size()));
+		result.resize(static_cast<size_t>(input.gcount()));
+		if (!input.eof())
+			result += "\n...";
+		return result;
 	}
 }
 
@@ -456,13 +694,13 @@ void AssetEditorPanel::DrawDocumentContent(AssetEditorDocument& document)
 	switch (metadata.m_Type)
 	{
 	case AssetType::Texture2D:
-		DrawTextureInspector(document.m_Handle, metadata, false);
+		DrawTextureInspector(document, metadata, false);
 		break;
 	case AssetType::Audio:
 		DrawAudioInspector(document.m_Handle, false);
 		break;
 	case AssetType::Font:
-		DrawFontInspector(document.m_Handle, metadata, false);
+		DrawFontInspector(document, metadata, false);
 		break;
 	case AssetType::Scene:
 		DrawSceneInspector(document.m_Handle, false);
@@ -576,50 +814,831 @@ void AssetEditorPanel::DrawMetadata(AssetHandle handle, const AssetMetadata& met
 	}
 }
 
-void AssetEditorPanel::DrawTextureInspector(AssetHandle handle, const AssetMetadata& metadata, bool compact) const
+bool AssetEditorPanel::EnsureTextureEditorState(TextureEditorState& state, AssetHandle handle, const Ref<Texture2D>& texture)
 {
-	DrawMetadata(handle, metadata);
-	if (compact)
+	if (!texture || !texture->IsLoaded())
+		return false;
+
+	const TextureSpecification& specification = texture->GetSpecification();
+	const uint32_t channels = BytesPerPixel(specification.m_Format);
+	if (channels == 0)
+		return false;
+
+	const uint64_t expectedSize = static_cast<uint64_t>(specification.m_Width) * specification.m_Height * channels;
+	if (state.m_LoadedHandle == handle && state.m_Width == specification.m_Width && state.m_Height == specification.m_Height &&
+		state.m_Channels == channels && state.m_Format == specification.m_Format && state.m_Pixels.size() == expectedSize)
+		return true;
+
+	ReloadTextureEditorState(state, handle, texture);
+	return !state.m_Pixels.empty();
+}
+
+void AssetEditorPanel::ReloadTextureEditorState(TextureEditorState& state, AssetHandle handle, const Ref<Texture2D>& texture)
+{
+	state = TextureEditorState{};
+	state.m_LoadedHandle = handle;
+
+	if (!texture || !texture->IsLoaded())
+	{
+		state.m_Status = "Texture is not loaded.";
 		return;
+	}
+
+	const TextureSpecification& specification = texture->GetSpecification();
+	const uint32_t channels = BytesPerPixel(specification.m_Format);
+	if (channels == 0)
+	{
+		state.m_Status = "Texture format is not editable.";
+		return;
+	}
+
+	RawBuffer data = texture->GetData();
+	if (!data)
+	{
+		state.m_Status = "Could not read texture pixels.";
+		return;
+	}
+
+	state.m_Width = specification.m_Width;
+	state.m_Height = specification.m_Height;
+	state.m_Format = specification.m_Format;
+	state.m_Channels = channels;
+	state.m_Pixels.assign(data.m_Data, data.m_Data + data.m_Size);
+	data.Release();
+
+	const float longEdge = static_cast<float>(std::max(state.m_Width, state.m_Height));
+	state.m_Zoom = std::clamp(512.0f / std::max(1.0f, longEdge), 1.0f, 24.0f);
+	if (state.m_Zoom < 4.0f && longEdge <= 256.0f)
+		state.m_Zoom = 4.0f;
+	state.m_Pan = { 16.0f, 16.0f };
+	state.m_Status = "Ready.";
+}
+
+void AssetEditorPanel::ApplyTextureEditorState(TextureEditorState& state, const Ref<Texture2D>& texture)
+{
+	if (!texture || !texture->IsLoaded() || state.m_Pixels.empty())
+		return;
+
+	RawBuffer data(state.m_Pixels.data(), static_cast<uint64_t>(state.m_Pixels.size()));
+	texture->SetData(data);
+	state.m_Status = state.m_Dirty ? "Preview updated. Save writes the PNG file." : "Preview updated.";
+}
+
+bool AssetEditorPanel::SaveTextureEditorState(TextureEditorState& state, const AssetMetadata& metadata)
+{
+	if (!Project::GetActive())
+		return false;
+
+	const std::filesystem::path absolutePath = Project::GetActiveAssetDirectory() / metadata.m_Filepath;
+	if (LowercaseExtension(absolutePath) != ".png")
+	{
+		state.m_Status = "Direct save currently supports PNG textures. Live preview still uses your edits.";
+		return false;
+	}
+
+	std::string error;
+	if (!WritePngFile(absolutePath, state.m_Pixels, state.m_Width, state.m_Height, state.m_Channels, error))
+	{
+		state.m_Status = error;
+		return false;
+	}
+
+	state.m_Dirty = false;
+	state.m_Status = "Saved PNG.";
+	return true;
+}
+
+bool AssetEditorPanel::SaveAssetMetadata(AssetHandle handle, const AssetMetadata& metadata)
+{
+	if (!Project::GetActive() || !Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(handle))
+		return false;
+
+	return Project::GetActive()->GetEditorAssetManager()->UpdateAssetMetadata(handle, metadata);
+}
+
+std::array<uint8_t, 4> AssetEditorPanel::ReadTexturePixel(const TextureEditorState& state, int x, int y) const
+{
+	if (x < 0 || y < 0 || x >= static_cast<int>(state.m_Width) || y >= static_cast<int>(state.m_Height) || state.m_Pixels.empty())
+		return { 0, 0, 0, 0 };
+
+	const uint32_t storageY = state.m_Height - 1 - static_cast<uint32_t>(y);
+	const size_t index = (static_cast<size_t>(storageY) * state.m_Width + static_cast<uint32_t>(x)) * state.m_Channels;
+	return {
+		state.m_Pixels[index + 0],
+		state.m_Pixels[index + 1],
+		state.m_Pixels[index + 2],
+		state.m_Channels == 4 ? state.m_Pixels[index + 3] : static_cast<uint8_t>(255)
+	};
+}
+
+bool AssetEditorPanel::WriteTexturePixel(TextureEditorState& state, int x, int y, const std::array<uint8_t, 4>& color)
+{
+	if (x < 0 || y < 0 || x >= static_cast<int>(state.m_Width) || y >= static_cast<int>(state.m_Height) || state.m_Pixels.empty())
+		return false;
+
+	const uint32_t storageY = state.m_Height - 1 - static_cast<uint32_t>(y);
+	const size_t index = (static_cast<size_t>(storageY) * state.m_Width + static_cast<uint32_t>(x)) * state.m_Channels;
+	bool changed = false;
+	for (uint32_t channel = 0; channel < state.m_Channels; ++channel)
+	{
+		const uint8_t value = color[channel];
+		if (state.m_Pixels[index + channel] != value)
+		{
+			state.m_Pixels[index + channel] = value;
+			changed = true;
+		}
+	}
+	return changed;
+}
+
+bool AssetEditorPanel::PaintTextureBrush(TextureEditorState& state, int x, int y, bool erase)
+{
+	std::array<uint8_t, 4> color = erase ? std::array<uint8_t, 4>{ 0, 0, 0, 0 } : BrushColorBytes(state.m_BrushColor);
+	const int brushSize = std::max(1, state.m_BrushSize);
+	const int minX = x - brushSize / 2;
+	const int minY = y - brushSize / 2;
+	const float radius = static_cast<float>(brushSize) * 0.5f;
+	const float radiusSq = radius * radius;
+	bool changed = false;
+
+	for (int yy = minY; yy < minY + brushSize; ++yy)
+	{
+		for (int xx = minX; xx < minX + brushSize; ++xx)
+		{
+			const float dx = static_cast<float>(xx - minX) + 0.5f - radius;
+			const float dy = static_cast<float>(yy - minY) + 0.5f - radius;
+			if (brushSize > 2 && dx * dx + dy * dy > radiusSq)
+				continue;
+			changed |= WriteTexturePixel(state, xx, yy, color);
+		}
+	}
+
+	if (changed)
+		state.m_Dirty = true;
+	return changed;
+}
+
+bool AssetEditorPanel::FillTextureRegion(TextureEditorState& state, int x, int y, const std::array<uint8_t, 4>& color)
+{
+	const std::array<uint8_t, 4> target = ReadTexturePixel(state, x, y);
+	if (target == color)
+		return false;
+
+	std::vector<uint8_t> visited(static_cast<size_t>(state.m_Width) * state.m_Height, 0);
+	std::deque<std::pair<int, int>> queue;
+	queue.emplace_back(x, y);
+	bool changed = false;
+
+	while (!queue.empty())
+	{
+		const auto [cx, cy] = queue.front();
+		queue.pop_front();
+		if (cx < 0 || cy < 0 || cx >= static_cast<int>(state.m_Width) || cy >= static_cast<int>(state.m_Height))
+			continue;
+
+		const size_t visitIndex = static_cast<size_t>(cy) * state.m_Width + static_cast<uint32_t>(cx);
+		if (visited[visitIndex])
+			continue;
+		visited[visitIndex] = 1;
+
+		if (ReadTexturePixel(state, cx, cy) != target)
+			continue;
+
+		changed |= WriteTexturePixel(state, cx, cy, color);
+		queue.emplace_back(cx + 1, cy);
+		queue.emplace_back(cx - 1, cy);
+		queue.emplace_back(cx, cy + 1);
+		queue.emplace_back(cx, cy - 1);
+	}
+
+	if (changed)
+		state.m_Dirty = true;
+	return changed;
+}
+
+void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const AssetMetadata& metadata, bool compact)
+{
+	AssetHandle handle = document.m_Handle;
+	if (compact)
+	{
+		DrawMetadata(handle, metadata);
+		return;
+	}
 
 	Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(handle);
 	if (!texture || !texture->IsLoaded())
 	{
+		DrawMetadata(handle, metadata);
 		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Texture is not loaded.");
 		return;
 	}
 
-	ImGui::SeparatorText("Preview");
-	ImGui::TextDisabled("%u x %u", texture->GetWidth(), texture->GetHeight());
-	const ImVec2 previewSize = FitImageSize(static_cast<float>(texture->GetWidth()), static_cast<float>(texture->GetHeight()), ImGui::GetContentRegionAvail());
-	UI::Image(UI::ToImGuiTextureId(texture->GetRendererId()), previewSize, { 0, 1 }, { 1, 0 });
+	TextureEditorState& state = document.m_TextureState;
+	if (!EnsureTextureEditorState(state, handle, texture))
+	{
+		DrawMetadata(handle, metadata);
+		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "%s", state.m_Status.c_str());
+		return;
+	}
+
+	AssetMetadata editedMetadata = metadata;
+	TextureImportSettings& importSettings = editedMetadata.m_TextureSettings;
+	if (state.m_SelectedSpriteIndex >= static_cast<int>(importSettings.m_Sprites.size()))
+		state.m_SelectedSpriteIndex = importSettings.m_Sprites.empty() ? -1 : static_cast<int>(importSettings.m_Sprites.size()) - 1;
+	const float toolsWidth = std::min(280.0f, std::max(220.0f, ImGui::GetContentRegionAvail().x * 0.25f));
+	ImGui::BeginChild("##TextureEditorTools", ImVec2(toolsWidth, 0.0f), true);
+	ImGui::TextUnformatted("Texture Editor");
+	ImGui::TextDisabled("%u x %u  %s", state.m_Width, state.m_Height, ImageFormatName(state.m_Format));
+	ImGui::Spacing();
+
+	auto toolButton = [&](TextureEditorTool tool, const char* label)
+	{
+		const bool selected = state.m_Tool == tool;
+		if (selected)
+			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Header));
+		if (ImGui::Button(label, ImVec2((ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f, 0.0f)))
+			state.m_Tool = tool;
+		if (selected)
+			ImGui::PopStyleColor();
+	};
+
+	toolButton(TextureEditorTool::Brush, "Brush");
+	ImGui::SameLine();
+	toolButton(TextureEditorTool::Eraser, "Eraser");
+	toolButton(TextureEditorTool::Picker, "Picker");
+	ImGui::SameLine();
+	toolButton(TextureEditorTool::Fill, "Fill");
+	toolButton(TextureEditorTool::Slice, "Slice");
+
+	ImGui::SeparatorText("Paint");
+	ImGui::ColorEdit4("Color", state.m_BrushColor.data(), ImGuiColorEditFlags_AlphaBar);
+	ImGui::SliderInt("Brush Size", &state.m_BrushSize, 1, 32);
+	ImGui::Checkbox("Live Apply", &state.m_LiveApply);
+	ImGui::Checkbox("Grid", &state.m_ShowGrid);
+	ImGui::SliderFloat("Zoom", &state.m_Zoom, 1.0f, 64.0f, "%.1fx", ImGuiSliderFlags_Logarithmic);
+
+	if (ImGui::Button("Reset View", ImVec2(-1.0f, 0.0f)))
+	{
+		const float longEdge = static_cast<float>(std::max(state.m_Width, state.m_Height));
+		state.m_Zoom = std::clamp(512.0f / std::max(1.0f, longEdge), 1.0f, 24.0f);
+		state.m_Pan = { 16.0f, 16.0f };
+	}
+
+	ImGui::SeparatorText("Import Settings");
+	bool importSettingsDirty = false;
+	if (ImGui::BeginCombo("Filter", TextureFilterModeName(importSettings.m_FilterMode)))
+	{
+		for (TextureFilterMode mode : { TextureFilterMode::Nearest, TextureFilterMode::Linear })
+		{
+			const bool selected = importSettings.m_FilterMode == mode;
+			if (ImGui::Selectable(TextureFilterModeName(mode), selected))
+			{
+				importSettings.m_FilterMode = mode;
+				importSettingsDirty = true;
+			}
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+		}
+		ImGui::EndCombo();
+	}
+	if (ImGui::BeginCombo("Wrap", TextureWrapModeName(importSettings.m_WrapMode)))
+	{
+		for (TextureWrapMode mode : { TextureWrapMode::Repeat, TextureWrapMode::ClampToEdge })
+		{
+			const bool selected = importSettings.m_WrapMode == mode;
+			if (ImGui::Selectable(TextureWrapModeName(mode), selected))
+			{
+				importSettings.m_WrapMode = mode;
+				importSettingsDirty = true;
+			}
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+		}
+		ImGui::EndCombo();
+	}
+	importSettingsDirty |= ImGui::Checkbox("Generate Mips", &importSettings.m_GenerateMips);
+	importSettingsDirty |= ImGui::Checkbox("Alpha Transparency", &importSettings.m_AlphaTransparency);
+	if (ImGui::BeginCombo("Sprite Mode", TextureSpriteModeName(importSettings.m_SpriteMode)))
+	{
+		for (TextureSpriteMode mode : { TextureSpriteMode::Single, TextureSpriteMode::Multiple })
+		{
+			const bool selected = importSettings.m_SpriteMode == mode;
+			if (ImGui::Selectable(TextureSpriteModeName(mode), selected))
+			{
+				importSettings.m_SpriteMode = mode;
+				importSettingsDirty = true;
+			}
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+		}
+		ImGui::EndCombo();
+	}
+	importSettingsDirty |= ImGui::DragFloat("Pixels Per Unit", &importSettings.m_PixelsPerUnit, 1.0f, 1.0f, 10000.0f, "%.0f");
+	if (importSettings.m_PixelsPerUnit < 1.0f)
+		importSettings.m_PixelsPerUnit = 1.0f;
+	if (importSettingsDirty && SaveAssetMetadata(handle, editedMetadata))
+		state.m_Status = "Import settings saved. Reimport to apply sampler changes.";
+	if (ImGui::Button("Reimport With Settings", ImVec2(-1.0f, 0.0f)))
+	{
+		if (Project::GetActive()->GetEditorAssetManager()->ReimportAsset(handle))
+		{
+			texture = AssetManager::GetAsset<Texture2D>(handle);
+			ReloadTextureEditorState(state, handle, texture);
+			state.m_Status = "Texture reimported with saved settings.";
+		}
+		else
+		{
+			state.m_Status = "Texture reimport failed.";
+		}
+	}
+
+	if (importSettings.m_SpriteMode == TextureSpriteMode::Multiple)
+	{
+		ImGui::SeparatorText("Sprite Sheet");
+		ImGui::InputInt("Cell W", &state.m_SliceCellWidth);
+		ImGui::InputInt("Cell H", &state.m_SliceCellHeight);
+		ImGui::InputInt("Padding", &state.m_SlicePadding);
+		ImGui::InputInt("Spacing", &state.m_SliceSpacing);
+		state.m_SliceCellWidth = std::max(1, state.m_SliceCellWidth);
+		state.m_SliceCellHeight = std::max(1, state.m_SliceCellHeight);
+		state.m_SlicePadding = std::max(0, state.m_SlicePadding);
+		state.m_SliceSpacing = std::max(0, state.m_SliceSpacing);
+		if (ImGui::Button("Slice Grid", ImVec2(-1.0f, 0.0f)))
+		{
+			importSettings.m_Sprites.clear();
+			int index = 0;
+			for (int y = state.m_SlicePadding; y + state.m_SliceCellHeight <= static_cast<int>(state.m_Height); y += state.m_SliceCellHeight + state.m_SliceSpacing)
+			{
+				for (int x = state.m_SlicePadding; x + state.m_SliceCellWidth <= static_cast<int>(state.m_Width); x += state.m_SliceCellWidth + state.m_SliceSpacing)
+				{
+					TextureSpriteRect sprite;
+					char nameBuffer[96]{};
+					std::snprintf(nameBuffer, sizeof(nameBuffer), "%s_%03d", metadata.m_Filepath.stem().string().c_str(), index);
+					sprite.m_Name = nameBuffer;
+					sprite.m_X = static_cast<uint32_t>(x);
+					sprite.m_Y = static_cast<uint32_t>(y);
+					sprite.m_Width = static_cast<uint32_t>(state.m_SliceCellWidth);
+					sprite.m_Height = static_cast<uint32_t>(state.m_SliceCellHeight);
+					importSettings.m_Sprites.push_back(std::move(sprite));
+					++index;
+				}
+			}
+			state.m_SelectedSpriteIndex = importSettings.m_Sprites.empty() ? -1 : 0;
+			if (SaveAssetMetadata(handle, editedMetadata))
+				state.m_Status = "Sprite grid generated.";
+		}
+		ImGui::SeparatorText("Smart Slice");
+		ImGui::InputInt("Min Pixels", &state.m_AutoSliceMinPixels);
+		ImGui::InputInt("Background Tolerance", &state.m_AutoSliceBackgroundTolerance);
+		ImGui::InputInt("Fragment Merge Gap", &state.m_AutoSliceMergeGap);
+		ImGui::InputInt("Auto Padding", &state.m_AutoSlicePadding);
+		ImGui::InputInt("Extrude Pixels", &state.m_AutoSliceExtrudePixels);
+		state.m_AutoSliceMinPixels = std::max(1, state.m_AutoSliceMinPixels);
+		state.m_AutoSliceBackgroundTolerance = std::clamp(state.m_AutoSliceBackgroundTolerance, 0, 255);
+		state.m_AutoSliceMergeGap = std::max(0, state.m_AutoSliceMergeGap);
+		state.m_AutoSlicePadding = std::max(0, state.m_AutoSlicePadding);
+		state.m_AutoSliceExtrudePixels = std::clamp(state.m_AutoSliceExtrudePixels, 0, 16);
+		ImGui::Checkbox("Separate Diagonal Touches", &state.m_AutoSliceSeparateDiagonalTouches);
+		ImGui::Checkbox("Export Cropped PNGs", &state.m_AutoSliceExportPngs);
+		if (ImGui::Button("Smart Auto Slice", ImVec2(-1.0f, 0.0f)))
+		{
+			TextureSlicer::PixelBuffer buffer;
+			buffer.m_Width = state.m_Width;
+			buffer.m_Height = state.m_Height;
+			buffer.m_Channels = state.m_Channels;
+			buffer.m_Format = state.m_Format;
+			buffer.m_Pixels = state.m_Pixels;
+
+			TextureSlicer::AutoSliceOptions options;
+			options.m_MinPixels = static_cast<uint32_t>(state.m_AutoSliceMinPixels);
+			options.m_BackgroundTolerance = state.m_AutoSliceBackgroundTolerance;
+			options.m_MergeGap = static_cast<uint32_t>(state.m_AutoSliceMergeGap);
+			options.m_Padding = static_cast<uint32_t>(state.m_AutoSlicePadding);
+			options.m_ExtrudePixels = static_cast<uint32_t>(state.m_AutoSliceExtrudePixels);
+			options.m_SeparateDiagonalTouches = state.m_AutoSliceSeparateDiagonalTouches;
+
+			const std::string stem = metadata.m_Filepath.stem().empty() ? "sprite" : metadata.m_Filepath.stem().string();
+			TextureSlicer::AutoSliceResult result = TextureSlicer::DetectSprites(buffer, stem, options);
+			if (result.m_Sprites.empty())
+			{
+				state.m_Status = result.m_Error;
+			}
+			else
+			{
+				importSettings.m_SpriteMode = TextureSpriteMode::Multiple;
+				importSettings.m_Sprites = result.m_Sprites;
+				state.m_SelectedSpriteIndex = 0;
+				bool saved = SaveAssetMetadata(handle, editedMetadata);
+				size_t exportedCount = 0;
+				bool exportFailed = false;
+				if (saved && state.m_AutoSliceExportPngs && Project::GetActive())
+				{
+					const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
+					const std::filesystem::path outputDirectory = assetDirectory / metadata.m_Filepath.parent_path() / (stem + "_slices");
+					std::vector<std::filesystem::path> exportedPaths;
+					std::string exportError;
+					if (TextureSlicer::ExportSpritePngs(buffer, result, outputDirectory, stem, exportedPaths, exportError, options.m_ExtrudePixels))
+					{
+						exportedCount = exportedPaths.size();
+						for (const std::filesystem::path& exportedPath : exportedPaths)
+						{
+							std::error_code relativeError;
+							std::filesystem::path relativePath = std::filesystem::relative(exportedPath, assetDirectory, relativeError).lexically_normal();
+							if (!relativeError)
+								Project::GetActive()->GetEditorAssetManager()->ImportAsset(relativePath);
+						}
+					}
+					else
+					{
+						state.m_Status = exportError;
+						exportFailed = true;
+					}
+				}
+				if (saved && !exportFailed)
+				{
+					state.m_Status = "Smart sliced " + std::to_string(result.m_Sprites.size()) + " sprite(s)";
+					if (exportedCount > 0)
+						state.m_Status += ", exported " + std::to_string(exportedCount) + " PNG(s)";
+					state.m_Status += result.m_UsedAlpha ? " using alpha." : " using background model (tol " + std::to_string(result.m_EffectiveBackgroundTolerance) + ").";
+				}
+				else if (!saved)
+				{
+					state.m_Status = "Could not save smart slice metadata.";
+				}
+			}
+		}
+		if (ImGui::Button("Add Full Texture Sprite", ImVec2(-1.0f, 0.0f)))
+		{
+			TextureSpriteRect sprite;
+			sprite.m_Name = metadata.m_Filepath.stem().string();
+			sprite.m_X = 0;
+			sprite.m_Y = 0;
+			sprite.m_Width = state.m_Width;
+			sprite.m_Height = state.m_Height;
+			importSettings.m_Sprites.push_back(std::move(sprite));
+			state.m_SelectedSpriteIndex = static_cast<int>(importSettings.m_Sprites.size()) - 1;
+			if (SaveAssetMetadata(handle, editedMetadata))
+				state.m_Status = "Sprite added.";
+		}
+		ImGui::TextDisabled("%zu sprite(s)", importSettings.m_Sprites.size());
+		ImGui::BeginChild("##TextureSpriteList", ImVec2(0.0f, 118.0f), true);
+		for (int i = 0; i < static_cast<int>(importSettings.m_Sprites.size()); ++i)
+		{
+			ImGui::PushID(i);
+			const bool selected = state.m_SelectedSpriteIndex == i;
+			if (ImGui::Selectable(importSettings.m_Sprites[i].m_Name.c_str(), selected))
+				state.m_SelectedSpriteIndex = i;
+			ImGui::PopID();
+		}
+		ImGui::EndChild();
+
+		if (state.m_SelectedSpriteIndex >= 0 && state.m_SelectedSpriteIndex < static_cast<int>(importSettings.m_Sprites.size()))
+		{
+			TextureSpriteRect& sprite = importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex)];
+			bool spriteChanged = false;
+			spriteChanged |= ImGui::InputText("Name", &sprite.m_Name);
+			int rect[4] = {
+				static_cast<int>(sprite.m_X),
+				static_cast<int>(sprite.m_Y),
+				static_cast<int>(sprite.m_Width),
+				static_cast<int>(sprite.m_Height)
+			};
+			if (ImGui::DragInt4("Rect", rect, 1.0f, 0, 16384))
+			{
+				rect[0] = std::clamp(rect[0], 0, static_cast<int>(state.m_Width) - 1);
+				rect[1] = std::clamp(rect[1], 0, static_cast<int>(state.m_Height) - 1);
+				rect[2] = std::clamp(rect[2], 1, static_cast<int>(state.m_Width) - rect[0]);
+				rect[3] = std::clamp(rect[3], 1, static_cast<int>(state.m_Height) - rect[1]);
+				sprite.m_X = static_cast<uint32_t>(rect[0]);
+				sprite.m_Y = static_cast<uint32_t>(rect[1]);
+				sprite.m_Width = static_cast<uint32_t>(rect[2]);
+				sprite.m_Height = static_cast<uint32_t>(rect[3]);
+				spriteChanged = true;
+			}
+			if (spriteChanged && SaveAssetMetadata(handle, editedMetadata))
+				state.m_Status = "Sprite updated.";
+			if (ImGui::Button("Remove Sprite", ImVec2(-1.0f, 0.0f)))
+			{
+				importSettings.m_Sprites.erase(importSettings.m_Sprites.begin() + state.m_SelectedSpriteIndex);
+				state.m_SelectedSpriteIndex = std::min(state.m_SelectedSpriteIndex, static_cast<int>(importSettings.m_Sprites.size()) - 1);
+				if (SaveAssetMetadata(handle, editedMetadata))
+					state.m_Status = "Sprite removed.";
+			}
+		}
+	}
+
+	ImGui::SeparatorText("File");
+	if (ImGui::Button("Apply Preview", ImVec2(-1.0f, 0.0f)))
+		ApplyTextureEditorState(state, texture);
+
+	const bool canSavePng = LowercaseExtension(metadata.m_Filepath) == ".png";
+	ImGui::BeginDisabled(!canSavePng || state.m_Pixels.empty());
+	if (ImGui::Button(state.m_Dirty ? "Save PNG *" : "Save PNG", ImVec2(-1.0f, 0.0f)))
+	{
+		ApplyTextureEditorState(state, texture);
+		SaveTextureEditorState(state, metadata);
+	}
+	ImGui::EndDisabled();
+	if (!canSavePng && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		ImGui::SetTooltip("Direct file save is limited to .png textures.");
+
+	if (ImGui::Button("Reload From Asset", ImVec2(-1.0f, 0.0f)))
+		ReloadTextureEditorState(state, handle, texture);
+	if (ImGui::Button("Reimport Asset", ImVec2(-1.0f, 0.0f)))
+	{
+		if (Project::GetActive()->GetEditorAssetManager()->ReimportAsset(handle))
+		{
+			texture = AssetManager::GetAsset<Texture2D>(handle);
+			ReloadTextureEditorState(state, handle, texture);
+			state.m_Status = "Asset reimported.";
+		}
+		else
+		{
+			state.m_Status = "Asset reimport failed.";
+		}
+	}
+
+	if (ImGui::CollapsingHeader("Asset Details"))
+		DrawMetadata(handle, metadata);
+
+	ImGui::Separator();
+	if (state.m_Dirty)
+		ImGui::TextColored(ImVec4(0.95f, 0.73f, 0.36f, 1.0f), "Unsaved changes");
+	ImGui::TextWrapped("%s", state.m_Status.c_str());
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+	ImGui::BeginChild("##TextureEditorCanvas", ImVec2(0.0f, 0.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	const ImVec2 canvasMin = ImGui::GetCursorScreenPos();
+	ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+	canvasSize.x = std::max(1.0f, canvasSize.x);
+	canvasSize.y = std::max(1.0f, canvasSize.y);
+	const ImVec2 canvasMax(canvasMin.x + canvasSize.x, canvasMin.y + canvasSize.y);
+	ImGui::InvisibleButton("##TextureCanvasHitbox", canvasSize, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
+	const bool canvasHovered = ImGui::IsItemHovered();
+	const ImGuiIO& io = ImGui::GetIO();
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	drawList->AddRectFilled(canvasMin, canvasMax, IM_COL32(9, 13, 16, 255));
+	drawList->PushClipRect(canvasMin, canvasMax, true);
+
+	if (canvasHovered && io.MouseWheel != 0.0f)
+	{
+		const float oldZoom = state.m_Zoom;
+		const ImVec2 oldImageMin(canvasMin.x + state.m_Pan.x, canvasMin.y + state.m_Pan.y);
+		const float imageX = (io.MousePos.x - oldImageMin.x) / std::max(0.001f, oldZoom);
+		const float imageY = (io.MousePos.y - oldImageMin.y) / std::max(0.001f, oldZoom);
+		state.m_Zoom = std::clamp(state.m_Zoom * (1.0f + io.MouseWheel * 0.12f), 1.0f, 96.0f);
+		state.m_Pan.x = io.MousePos.x - canvasMin.x - imageX * state.m_Zoom;
+		state.m_Pan.y = io.MousePos.y - canvasMin.y - imageY * state.m_Zoom;
+	}
+
+	if (canvasHovered && (ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0f) || ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f)))
+	{
+		state.m_Pan.x += io.MouseDelta.x;
+		state.m_Pan.y += io.MouseDelta.y;
+	}
+
+	const ImVec2 imageMin(canvasMin.x + state.m_Pan.x, canvasMin.y + state.m_Pan.y);
+	const ImVec2 imageMax(imageMin.x + static_cast<float>(state.m_Width) * state.m_Zoom, imageMin.y + static_cast<float>(state.m_Height) * state.m_Zoom);
+	drawList->AddRectFilled(imageMin, imageMax, IM_COL32(28, 34, 38, 255));
+	drawList->AddImage(UI::ToImGuiTextureId(texture->GetRendererId()), imageMin, imageMax, ImVec2(0, 1), ImVec2(1, 0));
+
+	const bool drawGrid = state.m_ShowGrid && state.m_Zoom >= 6.0f && state.m_Width <= 1024 && state.m_Height <= 1024;
+	if (drawGrid)
+	{
+		const ImU32 gridColor = IM_COL32(255, 255, 255, state.m_Zoom >= 12.0f ? 42 : 24);
+		for (uint32_t x = 0; x <= state.m_Width; ++x)
+		{
+			const float screenX = imageMin.x + static_cast<float>(x) * state.m_Zoom;
+			drawList->AddLine(ImVec2(screenX, imageMin.y), ImVec2(screenX, imageMax.y), gridColor);
+		}
+		for (uint32_t y = 0; y <= state.m_Height; ++y)
+		{
+			const float screenY = imageMin.y + static_cast<float>(y) * state.m_Zoom;
+			drawList->AddLine(ImVec2(imageMin.x, screenY), ImVec2(imageMax.x, screenY), gridColor);
+		}
+	}
+	if (importSettings.m_SpriteMode == TextureSpriteMode::Multiple)
+	{
+		for (int i = 0; i < static_cast<int>(importSettings.m_Sprites.size()); ++i)
+		{
+			const TextureSpriteRect& sprite = importSettings.m_Sprites[static_cast<size_t>(i)];
+			if (sprite.m_Width == 0 || sprite.m_Height == 0)
+				continue;
+
+			const ImVec2 rectMin(imageMin.x + static_cast<float>(sprite.m_X) * state.m_Zoom, imageMin.y + static_cast<float>(sprite.m_Y) * state.m_Zoom);
+			const ImVec2 rectMax(imageMin.x + static_cast<float>(sprite.m_X + sprite.m_Width) * state.m_Zoom, imageMin.y + static_cast<float>(sprite.m_Y + sprite.m_Height) * state.m_Zoom);
+			const bool selected = state.m_SelectedSpriteIndex == i;
+			drawList->AddRectFilled(rectMin, rectMax, selected ? IM_COL32(255, 190, 85, 26) : IM_COL32(88, 178, 214, 18));
+			drawList->AddRect(rectMin, rectMax, selected ? IM_COL32(255, 198, 91, 230) : IM_COL32(92, 181, 218, 190), 0.0f, 0, selected ? 2.0f : 1.2f);
+			if (state.m_Zoom >= 2.0f)
+				drawList->AddText(ImVec2(rectMin.x + 4.0f, rectMin.y + 4.0f), selected ? IM_COL32(255, 238, 190, 240) : IM_COL32(180, 220, 236, 210), sprite.m_Name.c_str());
+		}
+	}
+	drawList->AddRect(imageMin, imageMax, IM_COL32(126, 159, 184, 180), 0.0f, 0, 1.2f);
+
+	const int pixelX = static_cast<int>((io.MousePos.x - imageMin.x) / std::max(0.001f, state.m_Zoom));
+	const int pixelY = static_cast<int>((io.MousePos.y - imageMin.y) / std::max(0.001f, state.m_Zoom));
+	const bool overPixel = canvasHovered && pixelX >= 0 && pixelY >= 0 && pixelX < static_cast<int>(state.m_Width) && pixelY < static_cast<int>(state.m_Height);
+	bool changed = false;
+
+	if (overPixel)
+	{
+		if (state.m_Tool == TextureEditorTool::Slice && importSettings.m_SpriteMode == TextureSpriteMode::Multiple)
+		{
+			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+			{
+				state.m_IsSlicing = true;
+				state.m_SliceStart = { static_cast<float>(pixelX), static_cast<float>(pixelY) };
+				state.m_SliceEnd = state.m_SliceStart;
+			}
+			if (state.m_IsSlicing && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+				state.m_SliceEnd = { static_cast<float>(pixelX), static_cast<float>(pixelY) };
+			if (state.m_IsSlicing && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+			{
+				const int minX = std::clamp(static_cast<int>(std::min(state.m_SliceStart.x, state.m_SliceEnd.x)), 0, static_cast<int>(state.m_Width) - 1);
+				const int minY = std::clamp(static_cast<int>(std::min(state.m_SliceStart.y, state.m_SliceEnd.y)), 0, static_cast<int>(state.m_Height) - 1);
+				const int maxX = std::clamp(static_cast<int>(std::max(state.m_SliceStart.x, state.m_SliceEnd.x)), 0, static_cast<int>(state.m_Width) - 1);
+				const int maxY = std::clamp(static_cast<int>(std::max(state.m_SliceStart.y, state.m_SliceEnd.y)), 0, static_cast<int>(state.m_Height) - 1);
+				if (maxX >= minX && maxY >= minY)
+				{
+					TextureSpriteRect sprite;
+					char nameBuffer[96]{};
+					std::snprintf(nameBuffer, sizeof(nameBuffer), "%s_%03zu", metadata.m_Filepath.stem().string().c_str(), importSettings.m_Sprites.size());
+					sprite.m_Name = nameBuffer;
+					sprite.m_X = static_cast<uint32_t>(minX);
+					sprite.m_Y = static_cast<uint32_t>(minY);
+					sprite.m_Width = static_cast<uint32_t>(maxX - minX + 1);
+					sprite.m_Height = static_cast<uint32_t>(maxY - minY + 1);
+					importSettings.m_Sprites.push_back(std::move(sprite));
+					state.m_SelectedSpriteIndex = static_cast<int>(importSettings.m_Sprites.size()) - 1;
+					if (SaveAssetMetadata(handle, editedMetadata))
+						state.m_Status = "Sprite slice added.";
+				}
+				state.m_IsSlicing = false;
+			}
+		}
+		else
+		{
+			const int brushSize = std::max(1, state.m_BrushSize);
+			const int minX = pixelX - brushSize / 2;
+			const int minY = pixelY - brushSize / 2;
+			const ImVec2 brushMin(imageMin.x + static_cast<float>(minX) * state.m_Zoom, imageMin.y + static_cast<float>(minY) * state.m_Zoom);
+			const ImVec2 brushMax(imageMin.x + static_cast<float>(minX + brushSize) * state.m_Zoom, imageMin.y + static_cast<float>(minY + brushSize) * state.m_Zoom);
+			drawList->AddRect(brushMin, brushMax, IM_COL32(255, 255, 255, 210), 0.0f, 0, 1.5f);
+
+			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) || (ImGui::IsMouseDown(ImGuiMouseButton_Left) && (state.m_Tool == TextureEditorTool::Brush || state.m_Tool == TextureEditorTool::Eraser)))
+			{
+				switch (state.m_Tool)
+				{
+				case TextureEditorTool::Brush:
+					changed = PaintTextureBrush(state, pixelX, pixelY, false);
+					break;
+				case TextureEditorTool::Eraser:
+					changed = PaintTextureBrush(state, pixelX, pixelY, true);
+					break;
+				case TextureEditorTool::Picker:
+				{
+					const std::array<uint8_t, 4> color = ReadTexturePixel(state, pixelX, pixelY);
+					state.m_BrushColor = { color[0] / 255.0f, color[1] / 255.0f, color[2] / 255.0f, color[3] / 255.0f };
+					state.m_Status = "Picked color.";
+					break;
+				}
+				case TextureEditorTool::Fill:
+					changed = FillTextureRegion(state, pixelX, pixelY, BrushColorBytes(state.m_BrushColor));
+					break;
+				case TextureEditorTool::Slice:
+					break;
+				}
+			}
+		}
+	}
+
+	if (state.m_IsSlicing && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !overPixel)
+		state.m_IsSlicing = false;
+
+	if (state.m_IsSlicing)
+	{
+		const float minX = std::min(state.m_SliceStart.x, state.m_SliceEnd.x);
+		const float minY = std::min(state.m_SliceStart.y, state.m_SliceEnd.y);
+		const float maxX = std::max(state.m_SliceStart.x, state.m_SliceEnd.x) + 1.0f;
+		const float maxY = std::max(state.m_SliceStart.y, state.m_SliceEnd.y) + 1.0f;
+		const ImVec2 rectMin(imageMin.x + minX * state.m_Zoom, imageMin.y + minY * state.m_Zoom);
+		const ImVec2 rectMax(imageMin.x + maxX * state.m_Zoom, imageMin.y + maxY * state.m_Zoom);
+		drawList->AddRectFilled(rectMin, rectMax, IM_COL32(255, 194, 82, 36));
+		drawList->AddRect(rectMin, rectMax, IM_COL32(255, 210, 104, 240), 0.0f, 0, 2.0f);
+	}
+
+	if (changed && state.m_LiveApply)
+		ApplyTextureEditorState(state, texture);
+
+	drawList->PopClipRect();
+	if (overPixel)
+	{
+		const std::array<uint8_t, 4> color = ReadTexturePixel(state, pixelX, pixelY);
+		ImGui::SetTooltip("X %d  Y %d\nRGBA %u %u %u %u", pixelX, pixelY, color[0], color[1], color[2], color[3]);
+	}
+	ImGui::EndChild();
 }
 
 void AssetEditorPanel::DrawAudioInspector(AssetHandle handle, bool compact) const
 {
 	const AssetMetadata& metadata = AssetManager::GetAssetMetadata(handle);
-	DrawMetadata(handle, metadata);
 	if (compact)
+	{
+		DrawMetadata(handle, metadata);
 		return;
+	}
 
 	Ref<AudioSource> audio = AssetManager::GetAsset<AudioSource>(handle);
 	if (!audio || !audio->IsLoaded())
 	{
+		DrawMetadata(handle, metadata);
 		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Audio is not loaded.");
 		return;
 	}
 
-	ImGui::SeparatorText("Audio");
+	const float inspectorWidth = std::min(320.0f, std::max(260.0f, ImGui::GetContentRegionAvail().x * 0.32f));
+	ImGui::BeginChild("##AudioEditorControls", ImVec2(inspectorWidth, 0.0f), true);
+	ImGui::TextUnformatted("Audio Editor");
+	ImGui::TextDisabled("%s", FormatDuration(audio->GetLength()).c_str());
+	ImGui::Spacing();
+
+	if (ImGui::Button("Play", ImVec2(72.0f, 0.0f)))
+		AudioEngine::Play(audio);
+	ImGui::SameLine();
+	if (ImGui::Button("Pause", ImVec2(72.0f, 0.0f)))
+		AudioEngine::Pause(audio);
+	ImGui::SameLine();
+	if (ImGui::Button("Stop", ImVec2(72.0f, 0.0f)))
+		AudioEngine::Stop(audio);
+	if (ImGui::Button("Rewind", ImVec2(-1.0f, 0.0f)))
+		AudioEngine::Rewind(audio);
+
+	float position = audio->GetCurrentDuration();
+	if (ImGui::SliderFloat("Position", &position, 0.0f, std::max(0.01f, audio->GetLength()), "%.2fs"))
+		AudioEngine::Seek(audio, position);
+
+	float gain = audio->GetGain();
+	if (ImGui::SliderFloat("Gain", &gain, 0.0f, 2.0f, "%.2f"))
+		audio->SetGain(gain);
+
+	float pitch = audio->GetPitch();
+	if (ImGui::SliderFloat("Pitch", &pitch, 0.25f, 3.0f, "%.2f"))
+		audio->SetPitch(pitch);
+
+	bool loop = audio->IsLoop();
+	if (ImGui::Checkbox("Loop", &loop))
+		audio->SetLoop(loop);
+
+	bool spatial = audio->IsSpitial();
+	if (ImGui::Checkbox("Spatial", &spatial))
+		audio->SetSpitial(spatial);
+
+	if (ImGui::CollapsingHeader("Asset Details"))
+		DrawMetadata(handle, metadata);
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+	ImGui::BeginChild("##AudioEditorReadout", ImVec2(0.0f, 0.0f), true);
+	const AudioEngine::AudioState state = AudioEngine::GetState(audio);
+	const char* stateText = "None";
+	switch (state)
+	{
+	case AudioEngine::AudioState::Stopped: stateText = "Stopped"; break;
+	case AudioEngine::AudioState::Playing: stateText = "Playing"; break;
+	case AudioEngine::AudioState::Paused: stateText = "Paused"; break;
+	default: break;
+	}
+
+	ImGui::SeparatorText("Clip");
+	ImGui::Text("State: %s", stateText);
 	ImGui::Text("Length: %s", FormatDuration(audio->GetLength()).c_str());
-	ImGui::Text("Gain: %.2f", audio->GetGain());
-	ImGui::Text("Pitch: %.2f", audio->GetPitch());
-	ImGui::Text("Loop: %s", audio->IsLoop() ? "true" : "false");
-	ImGui::Text("Spatial: %s", audio->IsSpitial() ? "true" : "false");
 	ImGui::Text("Streaming: %s", audio->IsStreaming() ? "true" : "false");
+
+	const float waveformHeight = std::min(160.0f, std::max(96.0f, ImGui::GetContentRegionAvail().y * 0.35f));
+	const ImVec2 min = ImGui::GetCursorScreenPos();
+	const ImVec2 size(ImGui::GetContentRegionAvail().x, waveformHeight);
+	ImGui::InvisibleButton("##AudioWaveformPlaceholder", size);
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	drawList->AddRectFilled(min, ImVec2(min.x + size.x, min.y + size.y), IM_COL32(10, 16, 20, 255), 4.0f);
+	const ImU32 lineColor = IM_COL32(88, 145, 178, 180);
+	const float centerY = min.y + size.y * 0.5f;
+	for (int i = 0; i < 96; ++i)
+	{
+		const float t = static_cast<float>(i) / 95.0f;
+		const float x = min.x + t * size.x;
+		const float height = (0.18f + 0.72f * std::abs(std::sin(t * 19.0f) * std::cos(t * 7.0f))) * size.y * 0.5f;
+		drawList->AddLine(ImVec2(x, centerY - height), ImVec2(x, centerY + height), lineColor, 1.0f);
+	}
+	drawList->AddRect(min, ImVec2(min.x + size.x, min.y + size.y), IM_COL32(80, 104, 120, 180), 4.0f);
+	ImGui::TextDisabled("Waveform visualization is generated as an editor guide.");
+	ImGui::EndChild();
 }
 
-void AssetEditorPanel::DrawFontInspector(AssetHandle handle, const AssetMetadata& metadata, bool compact) const
+void AssetEditorPanel::DrawFontInspector(AssetEditorDocument& document, const AssetMetadata& metadata, bool compact) const
 {
+	AssetHandle handle = document.m_Handle;
 	DrawMetadata(handle, metadata);
 	if (compact)
 		return;
@@ -638,20 +1657,53 @@ void AssetEditorPanel::DrawFontInspector(AssetHandle handle, const AssetMetadata
 		return;
 	}
 
+	FontEditorState& state = document.m_FontState;
+	ImGui::SeparatorText("Font Editor");
+	ImGui::InputTextMultiline("Preview Text", &state.m_PreviewText, ImVec2(-1.0f, 88.0f));
+	ImGui::SliderFloat("Preview Scale", &state.m_PreviewScale, 0.5f, 3.0f, "%.1fx");
+	ImGui::Checkbox("Atlas Grid", &state.m_ShowAtlasGrid);
+
+	const float previewHeight = std::max(90.0f, 110.0f * state.m_PreviewScale);
+	ImGui::BeginChild("##FontPreviewSurface", ImVec2(0.0f, previewHeight), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	const ImVec2 min = ImGui::GetWindowPos();
+	const ImVec2 max(min.x + ImGui::GetWindowSize().x, min.y + ImGui::GetWindowSize().y);
+	drawList->AddRectFilled(min, max, IM_COL32(8, 13, 16, 255), 4.0f);
+	const float fontSize = ImGui::GetFontSize() * state.m_PreviewScale;
+	drawList->AddText(ImGui::GetFont(), fontSize, ImVec2(min.x + 14.0f, min.y + 14.0f), IM_COL32(225, 235, 241, 255), state.m_PreviewText.c_str(), nullptr, max.x - min.x - 28.0f);
+	ImGui::EndChild();
+
 	ImGui::SeparatorText("Atlas");
 	ImGui::TextDisabled("%u x %u", atlas->GetWidth(), atlas->GetHeight());
 	const ImVec2 previewSize = FitImageSize(static_cast<float>(atlas->GetWidth()), static_cast<float>(atlas->GetHeight()), ImGui::GetContentRegionAvail());
+	const ImVec2 imageMin = ImGui::GetCursorScreenPos();
 	UI::Image(UI::ToImGuiTextureId(atlas->GetRendererId()), previewSize, { 0, 1 }, { 1, 0 });
+	if (state.m_ShowAtlasGrid)
+	{
+		ImDrawList* atlasDrawList = ImGui::GetWindowDrawList();
+		const ImVec2 imageMax(imageMin.x + previewSize.x, imageMin.y + previewSize.y);
+		const ImU32 gridColor = IM_COL32(255, 255, 255, 28);
+		for (int i = 1; i < 8; ++i)
+		{
+			const float x = imageMin.x + previewSize.x * static_cast<float>(i) / 8.0f;
+			const float y = imageMin.y + previewSize.y * static_cast<float>(i) / 8.0f;
+			atlasDrawList->AddLine(ImVec2(x, imageMin.y), ImVec2(x, imageMax.y), gridColor);
+			atlasDrawList->AddLine(ImVec2(imageMin.x, y), ImVec2(imageMax.x, y), gridColor);
+		}
+	}
 }
 
 void AssetEditorPanel::DrawSceneInspector(AssetHandle handle, bool compact) const
 {
 	const AssetMetadata& metadata = AssetManager::GetAssetMetadata(handle);
-	DrawMetadata(handle, metadata);
 	if (compact)
+	{
+		DrawMetadata(handle, metadata);
 		return;
+	}
 
-	ImGui::SeparatorText("Scene");
+	DrawMetadata(handle, metadata);
+	ImGui::SeparatorText("Scene Editor");
 	if (ImGui::Button("Open Scene", ImVec2(120.0f, 0.0f)) && m_OpenSceneCallback)
 		m_OpenSceneCallback(handle);
 	ImGui::SameLine();
@@ -660,6 +1712,18 @@ void AssetEditorPanel::DrawSceneInspector(AssetHandle handle, bool compact) cons
 	if (ImGui::Button(isStartScene ? "Start Scene" : "Set Start Scene", ImVec2(128.0f, 0.0f)) && m_SetStartSceneCallback)
 		m_SetStartSceneCallback(handle);
 	ImGui::EndDisabled();
+
+	const std::filesystem::path absolutePath = Project::GetActiveAssetDirectory() / metadata.m_Filepath;
+	if (ImGui::CollapsingHeader("Scene Source Preview"))
+	{
+		const std::string preview = ReadTextPreview(absolutePath);
+		ImGui::BeginChild("##SceneSourcePreview", ImVec2(0.0f, 260.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
+		if (preview.empty())
+			ImGui::TextDisabled("Scene file could not be read.");
+		else
+			ImGui::TextUnformatted(preview.c_str());
+		ImGui::EndChild();
+	}
 }
 
 void AssetEditorPanel::DrawAnimationInspector(AssetHandle handle, const AssetMetadata& metadata, bool compact)
@@ -693,8 +1757,22 @@ void AssetEditorPanel::DrawEntityInspector(AssetHandle handle, const AssetMetada
 	if (compact)
 		return;
 
-	ImGui::SeparatorText("Entity Template");
-	ImGui::TextDisabled("Entity template preview and override inspection will live here.");
+	ImGui::SeparatorText("Entity Template Editor");
+	const std::filesystem::path absolutePath = Project::GetActiveAssetDirectory() / metadata.m_Filepath;
+	if (ImGui::Button("Open Source", ImVec2(128.0f, 0.0f)))
+		Utils::OpenExternalPath(absolutePath);
+	ImGui::SameLine();
+	if (ImGui::Button("Show In Folder", ImVec2(128.0f, 0.0f)))
+		Utils::OpenExternalPath(absolutePath.parent_path());
+
+	ImGui::TextDisabled("Template source");
+	const std::string preview = ReadTextPreview(absolutePath);
+	ImGui::BeginChild("##EntityTemplateSource", ImVec2(0.0f, 320.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
+	if (preview.empty())
+		ImGui::TextDisabled("Entity template file could not be read.");
+	else
+		ImGui::TextUnformatted(preview.c_str());
+	ImGui::EndChild();
 }
 
 std::string AssetEditorPanel::MakeTabLabel(AssetHandle handle, const AssetMetadata& metadata) const

@@ -1,4 +1,6 @@
 file(GLOB_RECURSE WHIP_EDITOR_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -15,6 +17,7 @@ target_include_directories(Whip-Editor PRIVATE
     "${CMAKE_SOURCE_DIR}/Whip/include"
     "${CMAKE_SOURCE_DIR}/Whip/src"
     "${CMAKE_SOURCE_DIR}/Whip/vendor"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 target_link_libraries(Whip-Editor PRIVATE whip::engine)

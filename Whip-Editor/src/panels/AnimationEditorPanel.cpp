@@ -1,4 +1,4 @@
-#include "AnimationEditorPanel.h"
+#include <Whip-Editor/panels/AnimationEditorPanel.h>
 #include <Whip/Core/Application.h>
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Utils/Utility.h>
@@ -6,11 +6,11 @@
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/AssetUtils.h>
 #include <Whip/Asset/AnimationImporter.h>
-#include <Whip/UI/UIHelpers.h>
+#include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip/Animation/AnimationManager.h>
 #include <Whip/Animation/AnimationController.h>
 #include <Whip/Utils/PlatformUtils.h>
-#include "../Helpers/IconManager.h"
+#include <Whip-Editor/Helpers/IconManager.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -102,6 +103,48 @@ namespace
 	bool IsTextureSourceFile(const std::filesystem::path& filepath)
 	{
 		return Utils::TryGetAssetTypeFromFileExtension(filepath.extension()) == AssetType::Texture2D;
+	}
+
+	const TextureSpriteRect* GetAnimationFrameSpriteRect(const AnimationFrame& frame)
+	{
+		if (!frame.m_Texture || frame.m_TextureSpriteIndex < 0 || !AssetManager::IsAssetHandleValid(frame.m_Texture) || AssetManager::GetAssetType(frame.m_Texture) != AssetType::Texture2D)
+			return nullptr;
+
+		const AssetMetadata& metadata = AssetManager::GetAssetMetadata(frame.m_Texture);
+		const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+		if (frame.m_TextureSpriteIndex >= static_cast<int32_t>(sprites.size()))
+			return nullptr;
+		return &sprites[static_cast<size_t>(frame.m_TextureSpriteIndex)];
+	}
+
+	ImVec2 GetAnimationFramePixelSize(const AnimationFrame& frame, const Ref<Texture2D>& texture)
+	{
+		if (const TextureSpriteRect* sprite = GetAnimationFrameSpriteRect(frame))
+			return { static_cast<float>(sprite->m_Width), static_cast<float>(sprite->m_Height) };
+		if (!texture)
+			return { 1.0f, 1.0f };
+		return { static_cast<float>(texture->GetWidth()), static_cast<float>(texture->GetHeight()) };
+	}
+
+	void GetAnimationFrameImageUvs(const AnimationFrame& frame, const Ref<Texture2D>& texture, ImVec2& uv0, ImVec2& uv1)
+	{
+		uv0 = ImVec2(0.0f, 1.0f);
+		uv1 = ImVec2(1.0f, 0.0f);
+		if (!texture)
+			return;
+
+		const TextureSpriteRect* sprite = GetAnimationFrameSpriteRect(frame);
+		if (!sprite || texture->GetWidth() == 0 || texture->GetHeight() == 0)
+			return;
+
+		const float width = static_cast<float>(texture->GetWidth());
+		const float height = static_cast<float>(texture->GetHeight());
+		uv0 = ImVec2(
+			std::clamp(static_cast<float>(sprite->m_X) / width, 0.0f, 1.0f),
+			std::clamp(1.0f - static_cast<float>(sprite->m_Y) / height, 0.0f, 1.0f));
+		uv1 = ImVec2(
+			std::clamp(static_cast<float>(sprite->m_X + sprite->m_Width) / width, 0.0f, 1.0f),
+			std::clamp(1.0f - static_cast<float>(sprite->m_Y + sprite->m_Height) / height, 0.0f, 1.0f));
 	}
 
 	bool IsRelativePathInsideRoot(const std::filesystem::path& relativePath)
@@ -945,7 +988,35 @@ void AnimationEditorPanel::DrawControllerEditor(float height)
 
 	DrawControllerParameters(parameterWidth, height);
 	ImGui::SameLine();
-	DrawControllerGraph(graphWidth, height);
+	ImGui::BeginChild("##ControllerWorkspace", ImVec2(graphWidth, height), false);
+	if (ImGui::BeginTabBar("##ControllerWorkspaceTabs"))
+	{
+		const ImGuiTabItemFlags stateMachineFlags = m_ControllerWorkspaceTabSelectionRequested && m_ControllerWorkspaceTab == AnimationControllerWorkspaceTab::StateMachine ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
+		if (ImGui::BeginTabItem("State Machine", nullptr, stateMachineFlags))
+		{
+			m_ControllerWorkspaceTab = AnimationControllerWorkspaceTab::StateMachine;
+			DrawControllerGraph(ImGui::GetContentRegionAvail().x, std::max(220.0f, ImGui::GetContentRegionAvail().y));
+			ImGui::EndTabItem();
+		}
+
+		const ImGuiTabItemFlags transitionBlueprintFlags = m_ControllerWorkspaceTabSelectionRequested && m_ControllerWorkspaceTab == AnimationControllerWorkspaceTab::TransitionBlueprint ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
+		if (ImGui::BeginTabItem("Transition Blueprint", nullptr, transitionBlueprintFlags))
+		{
+			m_ControllerWorkspaceTab = AnimationControllerWorkspaceTab::TransitionBlueprint;
+			if (AnimationControllerTransition* selectedTransition = GetSelectedControllerTransition())
+				DrawTransitionConditionGraph(*selectedTransition, std::max(220.0f, ImGui::GetContentRegionAvail().y));
+			else
+			{
+				ImGui::BeginChild("##TransitionBlueprintEmpty", ImVec2(0.0f, std::max(220.0f, ImGui::GetContentRegionAvail().y)), true);
+				ImGui::TextDisabled("Select a transition in the State Machine tab to edit its blueprint.");
+				ImGui::EndChild();
+			}
+			ImGui::EndTabItem();
+		}
+		m_ControllerWorkspaceTabSelectionRequested = false;
+		ImGui::EndTabBar();
+	}
+	ImGui::EndChild();
 	ImGui::SameLine();
 	DrawControllerStateInspector(inspectorWidth, height);
 }
@@ -983,6 +1054,14 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 		const bool selected = m_SelectedControllerParameterIndex == (int)i;
 		if (ImGui::Selectable(parameters[i].m_Name.c_str(), selected))
 			m_SelectedControllerParameterIndex = (int)i;
+		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+		{
+			const int parameterIndex = (int)i;
+			ImGui::SetDragDropPayload("ANIMATION_PARAMETER", &parameterIndex, sizeof(parameterIndex));
+			ImGui::Text("%s", parameters[i].m_Name.c_str());
+			ImGui::TextDisabled("%s", frenum::to_string(parameters[i].m_Type).data());
+			ImGui::EndDragDropSource();
+		}
 		ImGui::PopID();
 	}
 
@@ -1006,6 +1085,11 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 							if (condition.m_Parameter == oldName)
 								condition.m_Parameter = parameter.m_Name;
 						}
+						for (AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+						{
+							if (node.m_Parameter == oldName)
+								node.m_Parameter = parameter.m_Name;
+						}
 					}
 				}
 				for (AnimationControllerTransition& transition : m_CurrentController->GetAnyStateTransitions())
@@ -1014,6 +1098,11 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 					{
 						if (condition.m_Parameter == oldName)
 							condition.m_Parameter = parameter.m_Name;
+					}
+					for (AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+					{
+						if (node.m_Parameter == oldName)
+							node.m_Parameter = parameter.m_Name;
 					}
 				}
 			}
@@ -1051,6 +1140,22 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 		if (ImGui::Button("Remove Parameter", ImVec2(-1.0f, 0.0f)))
 		{
 			const std::string removedName = parameter.m_Name;
+			auto removeBlueprintReferences = [&removedName](AnimationControllerTransition& transition)
+				{
+					std::unordered_set<uint32_t> removedNodes;
+					std::erase_if(transition.m_BlueprintNodes, [&removedName, &removedNodes](const AnimationControllerBlueprintNode& node)
+						{
+							if (node.m_Parameter != removedName)
+								return false;
+							removedNodes.insert(node.m_Id);
+							return true;
+						});
+					std::erase_if(transition.m_BlueprintLinks, [&removedNodes](const AnimationControllerBlueprintLink& link)
+						{
+							return removedNodes.contains(link.m_OutputNode) || removedNodes.contains(link.m_InputNode);
+						});
+				};
+
 			for (AnimationControllerState& state : m_CurrentController->GetStates())
 			{
 				for (AnimationControllerTransition& transition : state.m_Transitions)
@@ -1059,6 +1164,7 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 						{
 							return condition.m_Parameter == removedName;
 						});
+					removeBlueprintReferences(transition);
 				}
 			}
 			for (AnimationControllerTransition& transition : m_CurrentController->GetAnyStateTransitions())
@@ -1067,6 +1173,7 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 					{
 						return condition.m_Parameter == removedName;
 					});
+				removeBlueprintReferences(transition);
 			}
 			parameters.erase(parameters.begin() + m_SelectedControllerParameterIndex);
 			m_SelectedControllerParameterIndex = -1;
@@ -1168,8 +1275,25 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		m_ControllerGraphPan.x += delta.x;
 		m_ControllerGraphPan.y += delta.y;
 	}
-	if (canvasHovered && ImGui::GetIO().KeyCtrl && ImGui::GetIO().MouseWheel != 0.0f)
-		m_ControllerGraphZoom = std::clamp(m_ControllerGraphZoom + ImGui::GetIO().MouseWheel * 0.08f, 0.45f, 2.0f);
+	if (canvasHovered && ImGui::GetIO().MouseWheel != 0.0f)
+	{
+		const float oldZoom = m_ControllerGraphZoom;
+		const float newZoom = std::clamp(oldZoom + ImGui::GetIO().MouseWheel * 0.08f, 0.45f, 2.0f);
+		if (newZoom != oldZoom)
+		{
+			const glm::vec2 focusWorld
+			{
+				(mousePos.x - canvasMin.x - m_ControllerGraphPan.x) / oldZoom,
+				(mousePos.y - canvasMin.y - m_ControllerGraphPan.y) / oldZoom
+			};
+			m_ControllerGraphZoom = newZoom;
+			m_ControllerGraphPan =
+			{
+				mousePos.x - canvasMin.x - focusWorld.x * newZoom,
+				mousePos.y - canvasMin.y - focusWorld.y * newZoom
+			};
+		}
+	}
 
 	const float nodeWidth = 174.0f;
 	const float nodeHeight = 82.0f;
@@ -1289,6 +1413,9 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		{
 			m_SelectedTransitionSourceStateIndex = sourceStateIndex;
 			m_SelectedTransitionIndex = transitionIndex;
+			m_SelectedBlueprintNodeId = 0;
+			m_PendingBlueprintLinkNodeId = 0;
+			m_PendingBlueprintLinkFromInput = false;
 			if (sourceStateIndex >= 0)
 				m_SelectedControllerStateIndex = sourceStateIndex;
 		};
@@ -1406,7 +1533,16 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 				color);
 
 			std::string badge;
-			if (!transition.m_Conditions.empty())
+			if (!transition.m_BlueprintNodes.empty())
+			{
+				const size_t logicNodeCount = std::count_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [](const AnimationControllerBlueprintNode& node)
+					{
+						return node.m_Type != AnimationBlueprintNodeType::Parameter && node.m_Type != AnimationBlueprintNodeType::Reroute && node.m_Type != AnimationBlueprintNodeType::Result;
+					});
+				if (logicNodeCount > 0)
+					badge += std::to_string(logicNodeCount) + " logic";
+			}
+			else if (!transition.m_Conditions.empty())
 				badge += std::to_string(transition.m_Conditions.size()) + " cond";
 			if (transition.m_HasExitTime)
 				badge += (badge.empty() ? "" : " | ") + std::string("exit ") + FormatCompactFloat(transition.m_ExitTime);
@@ -1422,7 +1558,13 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 				drawList->AddText(ImVec2(badgeMin.x + 6.0f, badgeMin.y + 3.0f), IM_COL32(225, 233, 240, 255), badge.c_str());
 			}
 
-			if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+			if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+			{
+				selectTransition(sourceStateIndex, transitionIndex);
+				m_ControllerWorkspaceTab = AnimationControllerWorkspaceTab::TransitionBlueprint;
+				m_ControllerWorkspaceTabSelectionRequested = true;
+			}
+			else if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 				selectTransition(sourceStateIndex, transitionIndex);
 		};
 
@@ -1509,9 +1651,9 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			}
 		};
 
-	drawSpecialNode("Entry", entryPosition, IM_COL32(26, 42, 54, 255), IM_COL32(92, 168, 236, 235), EntryTransitionSource, false);
-	drawSpecialNode("Any State", anyStatePosition, IM_COL32(31, 43, 54, 255), IM_COL32(124, 152, 180, 235), AnyStateTransitionSource, false);
-	drawSpecialNode("Exit", exitPosition, IM_COL32(35, 43, 52, 255), IM_COL32(150, 165, 181, 235), NoTransitionSource, true);
+	drawSpecialNode("Entry", entryPosition, IM_COL32(24, 45, 62, 255), IM_COL32(92, 168, 236, 235), EntryTransitionSource, false);
+	drawSpecialNode("Any State", anyStatePosition, IM_COL32(24, 47, 45, 255), IM_COL32(94, 184, 178, 235), AnyStateTransitionSource, false);
+	drawSpecialNode("Exit", exitPosition, IM_COL32(48, 38, 52, 255), IM_COL32(178, 126, 170, 235), NoTransitionSource, true);
 
 	int stateToRemove = -1;
 	int stateToDuplicate = -1;
@@ -1522,7 +1664,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		const ImVec2 nodeMax(nodeMin.x + nodeSize.x, nodeMin.y + nodeSize.y);
 		const bool selected = m_SelectedControllerStateIndex == (int)i && m_SelectedTransitionIndex < 0;
 		const bool isDefault = state.m_Name == m_CurrentController->GetDefaultState();
-		const ImU32 fill = selected ? IM_COL32(38, 55, 72, 255) : IM_COL32(24, 32, 41, 255);
+		const ImU32 fill = selected ? IM_COL32(38, 55, 72, 255) : isDefault ? IM_COL32(28, 42, 56, 255) : IM_COL32(24, 32, 41, 255);
 		const ImU32 border = isDefault ? IM_COL32(92, 168, 236, 245) : selected ? IM_COL32(188, 210, 232, 230) : IM_COL32(68, 84, 100, 190);
 		drawList->AddRectFilled(nodeMin, nodeMax, fill, 6.0f);
 		drawList->AddRect(nodeMin, nodeMax, border, 6.0f, 0, isDefault ? 2.2f : 1.2f);
@@ -1632,11 +1774,18 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			clearPendingConnection();
 	}
 
-	if (canvasHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !edgeHovered && !ImGui::IsAnyItemHovered())
+	const bool controllerGraphItemHovered = edgeHovered || ImGui::IsAnyItemHovered();
+	if (canvasHovered && !controllerGraphItemHovered)
+	{
+		ImGui::SetCursorScreenPos(canvasMin);
+		ImGui::InvisibleButton("##ControllerGraphCanvasCapture", canvasSize, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
+	}
+
+	if (canvasHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !controllerGraphItemHovered)
 		ClearSelectedControllerTransition();
 	if (canvasHovered && ImGui::IsKeyPressed(ImGuiKey_Delete) && GetSelectedControllerTransition())
 		RemoveSelectedControllerTransition();
-	if (canvasHovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && !ImGui::IsAnyItemHovered() && Length(ImGui::GetMouseDragDelta(ImGuiMouseButton_Right)) < 2.0f)
+	if (canvasHovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && !controllerGraphItemHovered && Length(ImGui::GetMouseDragDelta(ImGuiMouseButton_Right)) < 2.0f)
 		ImGui::OpenPopup("##ControllerGraphCanvasContext");
 	if (ImGui::BeginPopup("##ControllerGraphCanvasContext"))
 	{
@@ -1693,6 +1842,9 @@ void AnimationEditorPanel::ClearSelectedControllerTransition()
 {
 	m_SelectedTransitionSourceStateIndex = NoTransitionSource;
 	m_SelectedTransitionIndex = -1;
+	m_SelectedBlueprintNodeId = 0;
+	m_PendingBlueprintLinkNodeId = 0;
+	m_PendingBlueprintLinkFromInput = false;
 }
 
 void AnimationEditorPanel::RemoveSelectedControllerTransition()
@@ -1846,12 +1998,17 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 		condition.m_Parameter = m_CurrentController->GetParameters().front().m_Name;
 		transition.m_Conditions.push_back(condition);
 	}
-	ImGui::BeginDisabled(transition.m_Conditions.empty());
+	ImGui::BeginDisabled(transition.m_Conditions.empty() && transition.m_BlueprintNodes.empty());
 	if (ImGui::Button("Clear Conditions", ImVec2(-1.0f, 0.0f)))
+	{
 		transition.m_Conditions.clear();
+		transition.m_BlueprintNodes.clear();
+		transition.m_BlueprintLinks.clear();
+		transition.m_NextBlueprintNodeId = 1;
+		transition.m_NextBlueprintLinkId = 1;
+		m_SelectedBlueprintNodeId = 0;
+	}
 	ImGui::EndDisabled();
-
-	DrawTransitionConditionGraph(transition);
 
 	int conditionToDuplicate = -1;
 	int conditionToMoveUp = -1;
@@ -1939,58 +2096,19 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 		transition.m_Conditions.insert(transition.m_Conditions.begin() + conditionToDuplicate + 1, transition.m_Conditions[conditionToDuplicate]);
 }
 
-void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTransition& transition)
+void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTransition& transition, float height)
 {
-	if (!m_CurrentController)
-		return;
-
-	if (!ImGui::TreeNodeEx("Condition Blueprint", ImGuiTreeNodeFlags_DefaultOpen))
+	if (!m_CurrentController || height <= 0.0f)
 		return;
 
 	auto& parameters = m_CurrentController->GetParameters();
-	auto addCondition = [&](AnimationConditionMode mode)
-		{
-			if (parameters.empty())
-				return;
 
-			AnimationControllerCondition condition;
-			auto parameterIt = parameters.begin();
-			if (mode == AnimationConditionMode::Greater || mode == AnimationConditionMode::Less || mode == AnimationConditionMode::Equals || mode == AnimationConditionMode::NotEquals)
-			{
-				const auto numericIt = std::find_if(parameters.begin(), parameters.end(), [](const AnimationControllerParameter& parameter)
-					{
-						return parameter.m_Type == AnimationParameterType::Float || parameter.m_Type == AnimationParameterType::Int;
-					});
-				if (numericIt != parameters.end())
-					parameterIt = numericIt;
-			}
-			condition.m_Parameter = parameterIt->m_Name;
-			condition.m_Mode = mode;
-			transition.m_Conditions.push_back(condition);
-		};
-
-	ImGui::BeginDisabled(parameters.empty());
-	if (ImGui::SmallButton("+ If"))
-		addCondition(AnimationConditionMode::If);
-	ImGui::SameLine();
-	if (ImGui::SmallButton("+ If Not"))
-		addCondition(AnimationConditionMode::IfNot);
-	ImGui::SameLine();
-	if (ImGui::SmallButton("+ Greater"))
-		addCondition(AnimationConditionMode::Greater);
-	ImGui::SameLine();
-	if (ImGui::SmallButton("+ Equals"))
-		addCondition(AnimationConditionMode::Equals);
-	ImGui::EndDisabled();
-
-	const float canvasHeight = std::clamp(118.0f + transition.m_Conditions.size() * 66.0f, 172.0f, 360.0f);
-	const ImVec2 canvasMin = ImGui::GetCursorScreenPos();
-	const ImVec2 canvasSize(std::max(460.0f, ImGui::GetContentRegionAvail().x), canvasHeight);
-	ImGui::InvisibleButton("##ConditionBlueprintCanvas", canvasSize);
-	const ImVec2 canvasMax = ImGui::GetItemRectMax();
-	ImDrawList* drawList = ImGui::GetWindowDrawList();
-	drawList->AddRectFilled(canvasMin, canvasMax, IM_COL32(10, 14, 18, 255), 5.0f);
-	drawList->AddRect(canvasMin, canvasMax, IM_COL32(54, 66, 78, 210), 5.0f);
+	struct NodePalette
+	{
+		ImU32 m_Fill;
+		ImU32 m_Border;
+		ImU32 m_Accent;
+	};
 
 	auto findParameter = [&](std::string_view name) -> const AnimationControllerParameter*
 		{
@@ -2001,75 +2119,1581 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			return it == parameters.end() ? nullptr : &*it;
 		};
 
-	auto conditionValueText = [&](const AnimationControllerCondition& condition) -> std::string
+	auto findNode = [&](uint32_t nodeId) -> AnimationControllerBlueprintNode*
 		{
-			const AnimationControllerParameter* parameter = findParameter(condition.m_Parameter);
-			if (!parameter)
-				return "missing";
-			if (parameter->m_Type == AnimationParameterType::Float)
-				return FormatCompactFloat(condition.m_Threshold);
-			if (parameter->m_Type == AnimationParameterType::Int)
-				return std::to_string(condition.m_IntValue);
-			if (parameter->m_Type == AnimationParameterType::Trigger)
-				return "triggered";
-			return condition.m_BoolValue ? "true" : "false";
+			const auto it = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [nodeId](const AnimationControllerBlueprintNode& node)
+				{
+					return node.m_Id == nodeId;
+				});
+			return it == transition.m_BlueprintNodes.end() ? nullptr : &*it;
 		};
 
-	auto drawNode = [&](const ImVec2& min, const ImVec2& size, const char* title, const std::string& detail, ImU32 fill, ImU32 border)
+	auto nodeLabel = [](AnimationBlueprintNodeType type) -> const char*
 		{
-			const ImVec2 max(min.x + size.x, min.y + size.y);
-			drawList->AddRectFilled(min, max, fill, 6.0f);
-			drawList->AddRect(min, max, border, 6.0f, 0, 1.25f);
-			drawList->AddText(ImVec2(min.x + 10.0f, min.y + 8.0f), IM_COL32(238, 242, 246, 255), title);
-			if (!detail.empty())
-				drawList->AddText(ImVec2(min.x + 10.0f, min.y + 28.0f), IM_COL32(150, 162, 174, 255), detail.c_str());
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::Start: return "Start";
+			case AnimationBlueprintNodeType::Parameter: return "Parameter";
+			case AnimationBlueprintNodeType::If: return "If";
+			case AnimationBlueprintNodeType::IfNot: return "If Not";
+			case AnimationBlueprintNodeType::Greater: return "Greater";
+			case AnimationBlueprintNodeType::Less: return "Less";
+			case AnimationBlueprintNodeType::Equals: return "Equals";
+			case AnimationBlueprintNodeType::NotEquals: return "Not Equals";
+			case AnimationBlueprintNodeType::Not: return "Not";
+			case AnimationBlueprintNodeType::And: return "And";
+			case AnimationBlueprintNodeType::Or: return "Or";
+			case AnimationBlueprintNodeType::Reroute: return "Reroute";
+			case AnimationBlueprintNodeType::Result: return "Result";
+			default: return "Node";
+			}
 		};
 
-	const ImVec2 startNode(canvasMin.x + 12.0f, canvasMin.y + 18.0f);
-	const ImVec2 resultNode(canvasMax.x - 118.0f, canvasMin.y + canvasHeight * 0.5f - 24.0f);
-	drawNode(startNode, ImVec2(92.0f, 48.0f), "Start", "transition", IM_COL32(26, 42, 54, 255), IM_COL32(112, 162, 210, 230));
-	drawNode(resultNode, ImVec2(96.0f, 48.0f), "Result", transition.m_Conditions.empty() ? "always" : "all true", IM_COL32(24, 38, 42, 255), IM_COL32(94, 184, 178, 230));
+	auto nodePalette = [&](const AnimationControllerBlueprintNode& node)
+		{
+			switch (node.m_Type)
+			{
+			case AnimationBlueprintNodeType::Start:
+				return NodePalette{ IM_COL32(25, 42, 58, 255), IM_COL32(102, 160, 214, 225), IM_COL32(122, 196, 255, 245) };
+			case AnimationBlueprintNodeType::Parameter:
+				if (const AnimationControllerParameter* parameter = findParameter(node.m_Parameter))
+				{
+					switch (parameter->m_Type)
+					{
+					case AnimationParameterType::Bool: return NodePalette{ IM_COL32(21, 48, 46, 255), IM_COL32(84, 184, 174, 225), IM_COL32(105, 214, 204, 245) };
+					case AnimationParameterType::Int: return NodePalette{ IM_COL32(40, 36, 56, 255), IM_COL32(148, 128, 214, 225), IM_COL32(178, 156, 238, 245) };
+					case AnimationParameterType::Float: return NodePalette{ IM_COL32(24, 42, 61, 255), IM_COL32(86, 158, 232, 230), IM_COL32(118, 190, 255, 245) };
+					case AnimationParameterType::Trigger: return NodePalette{ IM_COL32(32, 50, 35, 255), IM_COL32(116, 188, 126, 225), IM_COL32(145, 226, 152, 245) };
+					}
+				}
+				return NodePalette{ IM_COL32(30, 38, 48, 255), IM_COL32(108, 126, 146, 220), IM_COL32(154, 170, 188, 235) };
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::IfNot:
+				return NodePalette{ IM_COL32(27, 44, 48, 255), IM_COL32(96, 188, 178, 225), IM_COL32(124, 220, 208, 245) };
+			case AnimationBlueprintNodeType::Greater:
+			case AnimationBlueprintNodeType::Less:
+			case AnimationBlueprintNodeType::Equals:
+			case AnimationBlueprintNodeType::NotEquals:
+				return NodePalette{ IM_COL32(27, 42, 60, 255), IM_COL32(98, 166, 230, 225), IM_COL32(124, 196, 255, 245) };
+			case AnimationBlueprintNodeType::Not:
+				return NodePalette{ IM_COL32(40, 40, 58, 255), IM_COL32(138, 148, 214, 225), IM_COL32(168, 180, 236, 245) };
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or:
+				return NodePalette{ IM_COL32(42, 38, 50, 255), IM_COL32(176, 130, 186, 225), IM_COL32(210, 160, 220, 245) };
+			case AnimationBlueprintNodeType::Reroute:
+				return NodePalette{ IM_COL32(24, 34, 42, 255), IM_COL32(118, 150, 176, 220), IM_COL32(170, 198, 222, 245) };
+			case AnimationBlueprintNodeType::Result:
+				return NodePalette{ IM_COL32(27, 48, 38, 255), IM_COL32(110, 190, 132, 225), IM_COL32(142, 226, 156, 245) };
+			default:
+				return NodePalette{ IM_COL32(30, 38, 48, 255), IM_COL32(108, 126, 146, 220), IM_COL32(154, 170, 188, 235) };
+			}
+		};
 
-	if (parameters.empty())
+	auto inputPinCount = [](AnimationBlueprintNodeType type) -> uint32_t
+		{
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::Start:
+			case AnimationBlueprintNodeType::Parameter: return 0;
+			case AnimationBlueprintNodeType::Greater:
+			case AnimationBlueprintNodeType::Less:
+			case AnimationBlueprintNodeType::Equals:
+			case AnimationBlueprintNodeType::NotEquals:
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or: return 2;
+			case AnimationBlueprintNodeType::Reroute:
+			case AnimationBlueprintNodeType::Result: return 1;
+			default: return 1;
+			}
+		};
+
+	auto outputPinCount = [](AnimationBlueprintNodeType type) -> uint32_t
+		{
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::Start:
+			case AnimationBlueprintNodeType::Result: return 0;
+			case AnimationBlueprintNodeType::Parameter: return 1;
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::IfNot:
+			case AnimationBlueprintNodeType::Greater:
+			case AnimationBlueprintNodeType::Less:
+			case AnimationBlueprintNodeType::Equals:
+			case AnimationBlueprintNodeType::NotEquals: return 1;
+			case AnimationBlueprintNodeType::Reroute:
+			case AnimationBlueprintNodeType::Not:
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or: return 1;
+			default: return 0;
+			}
+		};
+
+	auto inputPinLabel = [](AnimationBlueprintNodeType type, uint32_t pin) -> const char*
+		{
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or: return pin == 0 ? "A" : "B";
+			case AnimationBlueprintNodeType::Not: return "In";
+			case AnimationBlueprintNodeType::Reroute: return "";
+			case AnimationBlueprintNodeType::Result: return "Pass";
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::IfNot: return "Bool";
+			case AnimationBlueprintNodeType::Greater:
+			case AnimationBlueprintNodeType::Less:
+			case AnimationBlueprintNodeType::Equals:
+			case AnimationBlueprintNodeType::NotEquals: return pin == 0 ? "A" : "B";
+			default: return "";
+			}
+		};
+
+	auto outputPinLabel = [](AnimationBlueprintNodeType type, uint32_t) -> const char*
+		{
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::Parameter: return "Value";
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::IfNot:
+			case AnimationBlueprintNodeType::Greater:
+			case AnimationBlueprintNodeType::Less:
+			case AnimationBlueprintNodeType::Equals:
+			case AnimationBlueprintNodeType::NotEquals: return "Bool";
+			case AnimationBlueprintNodeType::Not:
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or: return "Out";
+			case AnimationBlueprintNodeType::Reroute: return "";
+			default: return "";
+			}
+		};
+
+	auto execInputPinCount = [](AnimationBlueprintNodeType type) -> uint32_t
+		{
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::IfNot:
+			case AnimationBlueprintNodeType::Greater:
+			case AnimationBlueprintNodeType::Less:
+			case AnimationBlueprintNodeType::Equals:
+			case AnimationBlueprintNodeType::NotEquals:
+			case AnimationBlueprintNodeType::Reroute:
+			case AnimationBlueprintNodeType::Result:
+				return 1;
+			default:
+				return 0;
+			}
+		};
+
+	auto execOutputPinCount = [](AnimationBlueprintNodeType type) -> uint32_t
+		{
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::Start:
+			case AnimationBlueprintNodeType::Reroute:
+				return 1;
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::IfNot:
+			case AnimationBlueprintNodeType::Greater:
+			case AnimationBlueprintNodeType::Less:
+			case AnimationBlueprintNodeType::Equals:
+			case AnimationBlueprintNodeType::NotEquals:
+				return 2;
+			default:
+				return 0;
+			}
+		};
+
+	auto execOutputPinId = [](AnimationBlueprintNodeType type, uint32_t pin) -> uint32_t
+		{
+			if (type == AnimationBlueprintNodeType::Start || type == AnimationBlueprintNodeType::Reroute)
+				return AnimationBlueprintThenPin;
+			return pin == 0 ? AnimationBlueprintTruePin : AnimationBlueprintFalsePin;
+		};
+
+	auto execInputPinLabel = [](AnimationBlueprintNodeType type) -> const char*
+		{
+			if (type == AnimationBlueprintNodeType::Reroute)
+				return "";
+			return "Exec";
+		};
+
+	auto execOutputPinLabel = [](AnimationBlueprintNodeType type, uint32_t pin) -> const char*
+		{
+			if (type == AnimationBlueprintNodeType::Start)
+				return "Then";
+			if (type == AnimationBlueprintNodeType::Reroute)
+				return "";
+			return pin == 0 ? "True" : "False";
+		};
+
+	auto nodeSize = [](AnimationBlueprintNodeType type) -> ImVec2
+		{
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::Start: return { 176.0f, 86.0f };
+			case AnimationBlueprintNodeType::Parameter: return { 196.0f, 84.0f };
+			case AnimationBlueprintNodeType::Reroute: return { 96.0f, 56.0f };
+			case AnimationBlueprintNodeType::Not: return { 184.0f, 94.0f };
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or: return { 196.0f, 108.0f };
+			case AnimationBlueprintNodeType::Greater:
+			case AnimationBlueprintNodeType::Less:
+			case AnimationBlueprintNodeType::Equals:
+			case AnimationBlueprintNodeType::NotEquals: return { 252.0f, 150.0f };
+			case AnimationBlueprintNodeType::Result: return { 176.0f, 92.0f };
+			default: return { 224.0f, 118.0f };
+			}
+		};
+
+	auto conditionModeFromNodeType = [](AnimationBlueprintNodeType type) -> AnimationConditionMode
+		{
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::IfNot: return AnimationConditionMode::IfNot;
+			case AnimationBlueprintNodeType::Greater: return AnimationConditionMode::Greater;
+			case AnimationBlueprintNodeType::Less: return AnimationConditionMode::Less;
+			case AnimationBlueprintNodeType::Equals: return AnimationConditionMode::Equals;
+			case AnimationBlueprintNodeType::NotEquals: return AnimationConditionMode::NotEquals;
+			default: return AnimationConditionMode::If;
+			}
+		};
+
+	auto nodeTypeFromConditionMode = [](AnimationConditionMode mode) -> AnimationBlueprintNodeType
+		{
+			switch (mode)
+			{
+			case AnimationConditionMode::IfNot: return AnimationBlueprintNodeType::IfNot;
+			case AnimationConditionMode::Greater: return AnimationBlueprintNodeType::Greater;
+			case AnimationConditionMode::Less: return AnimationBlueprintNodeType::Less;
+			case AnimationConditionMode::Equals: return AnimationBlueprintNodeType::Equals;
+			case AnimationConditionMode::NotEquals: return AnimationBlueprintNodeType::NotEquals;
+			default: return AnimationBlueprintNodeType::If;
+			}
+		};
+
+	auto addNode = [&](AnimationBlueprintNodeType type, glm::vec2 graphPosition, std::string parameterName = {}) -> AnimationControllerBlueprintNode&
+		{
+			AnimationControllerBlueprintNode node;
+			node.m_Id = transition.m_NextBlueprintNodeId++;
+			node.m_Type = type;
+			node.m_Parameter = std::move(parameterName);
+			node.m_GraphPosition = graphPosition;
+			transition.m_BlueprintNodes.push_back(node);
+			m_SelectedBlueprintNodeId = node.m_Id;
+			return transition.m_BlueprintNodes.back();
+		};
+
+	auto removeLinksForNode = [&](uint32_t nodeId)
+		{
+			std::erase_if(transition.m_BlueprintLinks, [nodeId](const AnimationControllerBlueprintLink& link)
+				{
+					return link.m_OutputNode == nodeId || link.m_InputNode == nodeId;
+				});
+		};
+
+	auto addLink = [&](uint32_t outputNode, uint32_t outputPin, uint32_t inputNode, uint32_t inputPin)
+		{
+			if (outputNode == 0 || inputNode == 0 || outputNode == inputNode)
+				return;
+			AnimationControllerBlueprintNode* input = findNode(inputNode);
+			AnimationControllerBlueprintNode* output = findNode(outputNode);
+			if (!input || !output)
+				return;
+			const bool execLink = IsAnimationBlueprintExecPin(outputPin) || IsAnimationBlueprintExecPin(inputPin);
+			if (execLink)
+			{
+				if (!IsAnimationBlueprintExecPin(outputPin) || inputPin != AnimationBlueprintExecInputPin || execInputPinCount(input->m_Type) == 0)
+					return;
+
+				bool validExecOutput = false;
+				for (uint32_t pin = 0; pin < execOutputPinCount(output->m_Type); ++pin)
+				{
+					if (execOutputPinId(output->m_Type, pin) == outputPin)
+					{
+						validExecOutput = true;
+						break;
+					}
+				}
+				if (!validExecOutput)
+					return;
+			}
+			else
+			{
+				if (inputPin >= inputPinCount(input->m_Type) || outputPin >= outputPinCount(output->m_Type))
+					return;
+			}
+
+			if (input->m_Type != AnimationBlueprintNodeType::Result)
+			{
+				std::erase_if(transition.m_BlueprintLinks, [inputNode, inputPin](const AnimationControllerBlueprintLink& link)
+					{
+						return link.m_InputNode == inputNode && link.m_InputPin == inputPin;
+					});
+			}
+			std::erase_if(transition.m_BlueprintLinks, [outputNode, outputPin, inputNode, inputPin](const AnimationControllerBlueprintLink& link)
+				{
+					return link.m_OutputNode == outputNode && link.m_OutputPin == outputPin && link.m_InputNode == inputNode && link.m_InputPin == inputPin;
+				});
+
+			AnimationControllerBlueprintLink link;
+			link.m_Id = transition.m_NextBlueprintLinkId++;
+			link.m_OutputNode = outputNode;
+			link.m_OutputPin = outputPin;
+			link.m_InputNode = inputNode;
+			link.m_InputPin = inputPin;
+			transition.m_BlueprintLinks.push_back(link);
+
+			if (input->m_Type != AnimationBlueprintNodeType::Result && output->m_Type == AnimationBlueprintNodeType::Parameter)
+				input->m_Parameter = output->m_Parameter;
+		};
+
+	auto resultNodeId = [&]() -> uint32_t
+		{
+			const auto resultIt = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [](const AnimationControllerBlueprintNode& node)
+				{
+					return node.m_Type == AnimationBlueprintNodeType::Result;
+				});
+			if (resultIt != transition.m_BlueprintNodes.end())
+				return resultIt->m_Id;
+			AnimationControllerBlueprintNode& result = addNode(AnimationBlueprintNodeType::Result, { 620.0f, 96.0f });
+			return result.m_Id;
+		};
+
+	auto startNodeId = [&]() -> uint32_t
+		{
+			const auto startIt = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [](const AnimationControllerBlueprintNode& node)
+				{
+					return node.m_Type == AnimationBlueprintNodeType::Start;
+				});
+			if (startIt != transition.m_BlueprintNodes.end())
+				return startIt->m_Id;
+			AnimationControllerBlueprintNode& start = addNode(AnimationBlueprintNodeType::Start, { 28.0f, 96.0f });
+			return start.m_Id;
+		};
+
+	auto pickParameterForNode = [&](AnimationBlueprintNodeType type) -> std::string
+		{
+			if (parameters.empty())
+				return {};
+			if (type == AnimationBlueprintNodeType::If || type == AnimationBlueprintNodeType::IfNot)
+			{
+				const auto boolIt = std::find_if(parameters.begin(), parameters.end(), [](const AnimationControllerParameter& parameter)
+					{
+						return parameter.m_Type == AnimationParameterType::Bool || parameter.m_Type == AnimationParameterType::Trigger;
+				});
+				if (boolIt != parameters.end())
+					return boolIt->m_Name;
+				return {};
+			}
+			if (type == AnimationBlueprintNodeType::Greater || type == AnimationBlueprintNodeType::Less || type == AnimationBlueprintNodeType::Equals || type == AnimationBlueprintNodeType::NotEquals)
+			{
+				const auto numericIt = std::find_if(parameters.begin(), parameters.end(), [](const AnimationControllerParameter& parameter)
+					{
+						return parameter.m_Type == AnimationParameterType::Float || parameter.m_Type == AnimationParameterType::Int;
+					});
+				if (numericIt != parameters.end())
+					return numericIt->m_Name;
+				if (type == AnimationBlueprintNodeType::Greater || type == AnimationBlueprintNodeType::Less)
+					return {};
+			}
+			return parameters.front().m_Name;
+		};
+
+	auto nodeUsesParameter = [](AnimationBlueprintNodeType type)
+		{
+			return type == AnimationBlueprintNodeType::Parameter ||
+				type == AnimationBlueprintNodeType::If ||
+				type == AnimationBlueprintNodeType::IfNot ||
+				type == AnimationBlueprintNodeType::Greater ||
+				type == AnimationBlueprintNodeType::Less ||
+				type == AnimationBlueprintNodeType::Equals ||
+				type == AnimationBlueprintNodeType::NotEquals;
+		};
+
+	auto isSystemBlueprintNode = [](AnimationBlueprintNodeType type)
+		{
+			return type == AnimationBlueprintNodeType::Start || type == AnimationBlueprintNodeType::Result;
+		};
+
+	auto isConditionBlueprintNode = [](AnimationBlueprintNodeType type)
+		{
+			return type == AnimationBlueprintNodeType::If ||
+				type == AnimationBlueprintNodeType::IfNot ||
+				type == AnimationBlueprintNodeType::Greater ||
+				type == AnimationBlueprintNodeType::Less ||
+				type == AnimationBlueprintNodeType::Equals ||
+				type == AnimationBlueprintNodeType::NotEquals;
+		};
+
+	auto parameterCompatibleWithNode = [](AnimationBlueprintNodeType type, const AnimationControllerParameter& parameter)
+		{
+			switch (type)
+			{
+			case AnimationBlueprintNodeType::Parameter:
+				return true;
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::IfNot:
+				return parameter.m_Type == AnimationParameterType::Bool || parameter.m_Type == AnimationParameterType::Trigger;
+			case AnimationBlueprintNodeType::Greater:
+			case AnimationBlueprintNodeType::Less:
+				return parameter.m_Type == AnimationParameterType::Float || parameter.m_Type == AnimationParameterType::Int;
+			case AnimationBlueprintNodeType::Equals:
+			case AnimationBlueprintNodeType::NotEquals:
+				return true;
+			default:
+				return false;
+			}
+		};
+
+	auto ensureCompatibleParameter = [&](AnimationControllerBlueprintNode& node)
+		{
+			if (!nodeUsesParameter(node.m_Type))
+			{
+				node.m_Parameter.clear();
+				return;
+			}
+
+			if (const AnimationControllerParameter* parameter = findParameter(node.m_Parameter))
+			{
+				if (parameterCompatibleWithNode(node.m_Type, *parameter))
+					return;
+			}
+
+			for (const AnimationControllerParameter& parameter : parameters)
+			{
+				if (parameterCompatibleWithNode(node.m_Type, parameter))
+				{
+					node.m_Parameter = parameter.m_Name;
+					return;
+				}
+			}
+
+			node.m_Parameter.clear();
+		};
+
+	auto resetNodeDefaults = [](AnimationControllerBlueprintNode& node)
+		{
+			node.m_Threshold = 0.0f;
+			node.m_IntValue = 0;
+			node.m_BoolValue = true;
+			node.m_InputFloatValues[0] = 0.0f;
+			node.m_InputFloatValues[1] = 0.0f;
+			node.m_InputIntValues[0] = 0;
+			node.m_InputIntValues[1] = 0;
+			node.m_InputBoolValues[0] = false;
+			node.m_InputBoolValues[1] = true;
+		};
+
+	auto pruneInvalidBlueprintLinks = [&]()
+		{
+			std::erase_if(transition.m_BlueprintLinks, [&](const AnimationControllerBlueprintLink& link)
+				{
+					const AnimationControllerBlueprintNode* output = findNode(link.m_OutputNode);
+					const AnimationControllerBlueprintNode* input = findNode(link.m_InputNode);
+					if (!output || !input || output->m_Id == input->m_Id)
+						return true;
+
+					const bool execLink = IsAnimationBlueprintExecPin(link.m_OutputPin) || IsAnimationBlueprintExecPin(link.m_InputPin);
+					if (execLink)
+					{
+						if (!IsAnimationBlueprintExecPin(link.m_OutputPin) || link.m_InputPin != AnimationBlueprintExecInputPin || execInputPinCount(input->m_Type) == 0)
+							return true;
+
+						for (uint32_t pin = 0; pin < execOutputPinCount(output->m_Type); ++pin)
+						{
+							if (execOutputPinId(output->m_Type, pin) == link.m_OutputPin)
+								return false;
+						}
+						return true;
+					}
+
+					return link.m_OutputPin >= outputPinCount(output->m_Type) || link.m_InputPin >= inputPinCount(input->m_Type);
+				});
+		};
+
+	auto createConditionChain = [&](AnimationBlueprintNodeType type, glm::vec2 graphPosition, std::string parameterName = {})
+		{
+			if (parameterName.empty())
+				parameterName = pickParameterForNode(type);
+			const uint32_t resultId = resultNodeId();
+			const uint32_t parameterId = addNode(AnimationBlueprintNodeType::Parameter, graphPosition, parameterName).m_Id;
+			const uint32_t logicId = addNode(type, graphPosition + glm::vec2{ 228.0f, -12.0f }, parameterName).m_Id;
+			addLink(parameterId, 0, logicId, 0);
+			addLink(logicId, 0, resultId, 0);
+			m_SelectedBlueprintNodeId = logicId;
+		};
+
+	if (transition.m_BlueprintNodes.empty() && !transition.m_Conditions.empty())
 	{
-		drawList->AddText(ImVec2(canvasMin.x + 124.0f, canvasMin.y + 32.0f), IM_COL32(150, 162, 174, 255), "Add parameters to build conditions.");
-		ImGui::TreePop();
-		return;
+		startNodeId();
+		const uint32_t resultId = resultNodeId();
+		for (size_t index = 0; index < transition.m_Conditions.size(); ++index)
+		{
+			const AnimationControllerCondition& condition = transition.m_Conditions[index];
+			const glm::vec2 basePosition = condition.m_GraphPosition.x == 0.0f && condition.m_GraphPosition.y == 0.0f ? glm::vec2{ 32.0f, 54.0f + (float)index * 94.0f } : condition.m_GraphPosition;
+			const uint32_t parameterId = addNode(AnimationBlueprintNodeType::Parameter, basePosition, condition.m_Parameter).m_Id;
+			const uint32_t logicId = addNode(nodeTypeFromConditionMode(condition.m_Mode), basePosition + glm::vec2{ 228.0f, -12.0f }, condition.m_Parameter).m_Id;
+			if (AnimationControllerBlueprintNode* logic = findNode(logicId))
+			{
+				logic->m_Threshold = condition.m_Threshold;
+				logic->m_IntValue = condition.m_IntValue;
+				logic->m_BoolValue = condition.m_BoolValue;
+				logic->m_InputFloatValues[1] = condition.m_Threshold;
+				logic->m_InputIntValues[1] = condition.m_IntValue;
+				logic->m_InputBoolValues[1] = condition.m_BoolValue;
+			}
+			addLink(parameterId, 0, logicId, 0);
+			addLink(logicId, 0, resultId, 0);
+		}
+		m_SelectedBlueprintNodeId = 0;
+	}
+	else
+	{
+		startNodeId();
+		resultNodeId();
 	}
 
-	if (transition.m_Conditions.empty())
+	for (AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+		ensureCompatibleParameter(node);
+	pruneInvalidBlueprintLinks();
+
+	if (m_SelectedBlueprintNodeId != 0 && !findNode(m_SelectedBlueprintNodeId))
+		m_SelectedBlueprintNodeId = 0;
+
+	auto syncLegacyConditions = [&]()
+		{
+			transition.m_Conditions.clear();
+			for (const AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+			{
+				if (node.m_Type != AnimationBlueprintNodeType::If && node.m_Type != AnimationBlueprintNodeType::IfNot && node.m_Type != AnimationBlueprintNodeType::Greater && node.m_Type != AnimationBlueprintNodeType::Less && node.m_Type != AnimationBlueprintNodeType::Equals && node.m_Type != AnimationBlueprintNodeType::NotEquals)
+					continue;
+				if (node.m_Parameter.empty())
+					continue;
+
+				AnimationControllerCondition condition;
+				condition.m_Parameter = node.m_Parameter;
+				condition.m_Mode = conditionModeFromNodeType(node.m_Type);
+				condition.m_Threshold = node.m_InputFloatValues[1];
+				condition.m_IntValue = node.m_InputIntValues[1];
+				condition.m_BoolValue = node.m_InputBoolValues[1];
+				condition.m_GraphPosition = node.m_GraphPosition;
+				transition.m_Conditions.push_back(condition);
+			}
+		};
+
+	ImGui::BeginChild("##TransitionBlueprintGraph", ImVec2(0.0f, height), true);
+	ImGui::TextDisabled("Transition Blueprint");
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Auto Layout"))
 	{
-		drawList->AddLine(ImVec2(startNode.x + 92.0f, startNode.y + 24.0f), ImVec2(resultNode.x, resultNode.y + 24.0f), IM_COL32(112, 162, 210, 210), 2.0f);
-		ImGui::TreePop();
-		return;
+		float y = 52.0f;
+		uint32_t resultId = resultNodeId();
+		uint32_t startId = startNodeId();
+		for (AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+		{
+			if (node.m_Type == AnimationBlueprintNodeType::Start)
+			{
+				node.m_GraphPosition = { 28.0f, 96.0f };
+				continue;
+			}
+			if (node.m_Type == AnimationBlueprintNodeType::Result)
+				continue;
+			if (node.m_Type == AnimationBlueprintNodeType::Parameter)
+				node.m_GraphPosition = { 36.0f, y };
+			else if (node.m_Type == AnimationBlueprintNodeType::Reroute)
+				node.m_GraphPosition = { 638.0f, y + 10.0f };
+			else if (node.m_Type == AnimationBlueprintNodeType::And || node.m_Type == AnimationBlueprintNodeType::Or || node.m_Type == AnimationBlueprintNodeType::Not)
+				node.m_GraphPosition = { 518.0f, y };
+			else
+				node.m_GraphPosition = { 276.0f, y - 12.0f };
+			y += 128.0f;
+		}
+		if (AnimationControllerBlueprintNode* start = findNode(startId))
+			start->m_GraphPosition = { 28.0f, 96.0f };
+		if (AnimationControllerBlueprintNode* result = findNode(resultId))
+			result->m_GraphPosition = { 760.0f, 94.0f };
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Frame"))
+	{
+		glm::vec2 minBounds{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+		glm::vec2 maxBounds{ -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+		for (const AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+		{
+			const ImVec2 size = nodeSize(node.m_Type);
+			minBounds.x = std::min(minBounds.x, node.m_GraphPosition.x);
+			minBounds.y = std::min(minBounds.y, node.m_GraphPosition.y);
+			maxBounds.x = std::max(maxBounds.x, node.m_GraphPosition.x + size.x);
+			maxBounds.y = std::max(maxBounds.y, node.m_GraphPosition.y + size.y);
+		}
+		if (minBounds.x < std::numeric_limits<float>::max())
+			m_BlueprintGraphPan = { 34.0f - minBounds.x * m_BlueprintGraphZoom, 34.0f - minBounds.y * m_BlueprintGraphZoom };
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Zoom -"))
+		m_BlueprintGraphZoom = std::max(0.55f, m_BlueprintGraphZoom - 0.1f);
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Zoom +"))
+		m_BlueprintGraphZoom = std::min(2.0f, m_BlueprintGraphZoom + 0.1f);
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Reset View"))
+	{
+		m_BlueprintGraphPan = { 18.0f, 18.0f };
+		m_BlueprintGraphZoom = 1.0f;
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Clear Graph"))
+	{
+		transition.m_BlueprintNodes.clear();
+		transition.m_BlueprintLinks.clear();
+		transition.m_Conditions.clear();
+		transition.m_NextBlueprintNodeId = 1;
+		transition.m_NextBlueprintLinkId = 1;
+		m_SelectedBlueprintNodeId = 0;
+		m_PendingBlueprintLinkNodeId = 0;
+		m_PendingBlueprintLinkFromInput = false;
+		startNodeId();
+		resultNodeId();
+		m_SelectedBlueprintNodeId = 0;
 	}
 
-	const float parameterX = canvasMin.x + 126.0f;
-	const float operatorX = std::min(canvasMax.x - 252.0f, parameterX + 146.0f);
-	const float firstY = canvasMin.y + 22.0f;
-	for (size_t index = 0; index < transition.m_Conditions.size(); ++index)
+	const float selectedPanelHeight = 0.0f;
+	const ImVec2 canvasMin = ImGui::GetCursorScreenPos();
+	const ImVec2 available = ImGui::GetContentRegionAvail();
+	const ImVec2 canvasSize(std::max(420.0f, available.x), std::max(180.0f, available.y - selectedPanelHeight - ImGui::GetStyle().ItemSpacing.y));
+	ImGui::Dummy(canvasSize);
+	const ImVec2 canvasMax(canvasMin.x + canvasSize.x, canvasMin.y + canvasSize.y);
+	const bool canvasHovered =
+		ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
+		ImGui::IsMouseHoveringRect(canvasMin, canvasMax, true);
+	const ImVec2 mousePos = ImGui::GetIO().MousePos;
+	if (canvasHovered && ImGui::GetIO().MouseWheel != 0.0f)
 	{
-		const AnimationControllerCondition& condition = transition.m_Conditions[index];
-		const float rowY = firstY + index * 64.0f;
-		const ImVec2 parameterNode(parameterX, rowY);
-		const ImVec2 operatorNode(operatorX, rowY);
-		const std::string modeLabel = std::string(frenum::to_string(condition.m_Mode).data());
-		drawNode(parameterNode, ImVec2(116.0f, 48.0f), "Parameter", condition.m_Parameter.empty() ? "none" : condition.m_Parameter, IM_COL32(25, 35, 45, 255), IM_COL32(86, 114, 140, 220));
-		drawNode(operatorNode, ImVec2(112.0f, 48.0f), modeLabel.c_str(), conditionValueText(condition), IM_COL32(30, 42, 54, 255), IM_COL32(128, 154, 184, 220));
+		const float oldZoom = m_BlueprintGraphZoom;
+		const float newZoom = std::clamp(oldZoom + ImGui::GetIO().MouseWheel * 0.08f, 0.55f, 2.0f);
+		if (newZoom != oldZoom)
+		{
+			const glm::vec2 focusGraph
+			{
+				(mousePos.x - canvasMin.x - m_BlueprintGraphPan.x) / oldZoom,
+				(mousePos.y - canvasMin.y - m_BlueprintGraphPan.y) / oldZoom
+			};
+			m_BlueprintGraphZoom = newZoom;
+			m_BlueprintGraphPan =
+			{
+				mousePos.x - canvasMin.x - focusGraph.x * newZoom,
+				mousePos.y - canvasMin.y - focusGraph.y * newZoom
+			};
+		}
+	}
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	drawList->AddRectFilled(canvasMin, canvasMax, IM_COL32(8, 12, 16, 255), 5.0f);
+	drawList->AddRect(canvasMin, canvasMax, IM_COL32(54, 68, 82, 200), 5.0f);
 
-		const ImVec2 startOut(startNode.x + 92.0f, startNode.y + 24.0f);
-		const ImVec2 parameterIn(parameterNode.x, parameterNode.y + 24.0f);
-		const ImVec2 parameterOut(parameterNode.x + 116.0f, parameterNode.y + 24.0f);
-		const ImVec2 operatorIn(operatorNode.x, operatorNode.y + 24.0f);
-		const ImVec2 operatorOut(operatorNode.x + 112.0f, operatorNode.y + 24.0f);
-		const ImVec2 resultIn(resultNode.x, resultNode.y + 24.0f);
-		const ImU32 lineColor = IM_COL32(112, 162, 210, 210);
-		drawList->AddBezierCubic(startOut, ImVec2(startOut.x + 40.0f, startOut.y), ImVec2(parameterIn.x - 40.0f, parameterIn.y), parameterIn, lineColor, 1.8f);
-		drawList->AddLine(parameterOut, operatorIn, IM_COL32(176, 188, 200, 200), 1.6f);
-		drawList->AddBezierCubic(operatorOut, ImVec2(operatorOut.x + 34.0f, operatorOut.y), ImVec2(resultIn.x - 40.0f, resultIn.y), resultIn, lineColor, 1.8f);
+	const ImU32 gridColor = IM_COL32(46, 57, 68, 72);
+	const float blueprintZoom = m_BlueprintGraphZoom;
+	const float gridStep = 24.0f * blueprintZoom;
+	for (float x = std::fmod(m_BlueprintGraphPan.x, gridStep); x < canvasSize.x; x += gridStep)
+		drawList->AddLine(ImVec2(canvasMin.x + x, canvasMin.y), ImVec2(canvasMin.x + x, canvasMax.y), gridColor);
+	for (float y = std::fmod(m_BlueprintGraphPan.y, gridStep); y < canvasSize.y; y += gridStep)
+		drawList->AddLine(ImVec2(canvasMin.x, canvasMin.y + y), ImVec2(canvasMax.x, canvasMin.y + y), gridColor);
+
+	auto graphToScreen = [&](const glm::vec2& graph) -> ImVec2
+		{
+			return { canvasMin.x + m_BlueprintGraphPan.x + graph.x * blueprintZoom, canvasMin.y + m_BlueprintGraphPan.y + graph.y * blueprintZoom };
+		};
+
+	auto screenToGraph = [&](const ImVec2& screen) -> glm::vec2
+		{
+			return
+			{
+				(screen.x - canvasMin.x - m_BlueprintGraphPan.x) / blueprintZoom,
+				(screen.y - canvasMin.y - m_BlueprintGraphPan.y) / blueprintZoom
+			};
+		};
+
+	auto nodeScreenSize = [&](AnimationBlueprintNodeType type) -> ImVec2
+		{
+			const ImVec2 size = nodeSize(type);
+			return { size.x * blueprintZoom, size.y * blueprintZoom };
+		};
+
+	auto openBlueprintNodeMenu = [&](const glm::vec2& spawnPosition, uint32_t linkNodeId = 0, uint32_t linkPin = 0, bool fromInput = false)
+		{
+			m_BlueprintContextSpawnPosition = spawnPosition;
+			m_ContextBlueprintLinkNodeId = linkNodeId;
+			m_ContextBlueprintLinkPin = linkPin;
+			m_ContextBlueprintLinkFromInput = fromInput;
+			m_BlueprintNodeSearch.clear();
+			m_BlueprintNodeSearchFocusRequested = true;
+			ImGui::OpenPopup("##TransitionBlueprintContext");
+		};
+
+	auto spawnBlueprintNode = [&](AnimationBlueprintNodeType type, std::string parameterName = {})
+		{
+			AnimationControllerBlueprintNode& node = addNode(type, m_BlueprintContextSpawnPosition, std::move(parameterName));
+			const uint32_t nodeId = node.m_Id;
+			if (m_ContextBlueprintLinkNodeId != 0)
+			{
+				if (m_ContextBlueprintLinkFromInput)
+				{
+					const uint32_t outputPin = IsAnimationBlueprintExecPin(m_ContextBlueprintLinkPin) ? execOutputPinId(type, 0) : 0;
+					addLink(nodeId, outputPin, m_ContextBlueprintLinkNodeId, m_ContextBlueprintLinkPin);
+				}
+				else
+				{
+					const uint32_t inputPin = IsAnimationBlueprintExecPin(m_ContextBlueprintLinkPin) ? AnimationBlueprintExecInputPin : 0;
+					addLink(m_ContextBlueprintLinkNodeId, m_ContextBlueprintLinkPin, nodeId, inputPin);
+				}
+			}
+		};
+
+	auto drawBlueprintNodeMenu = [&]()
+		{
+			enum class PaletteAction
+			{
+				SpawnNode,
+				SpawnCondition,
+				ConnectResult
+			};
+
+			struct PaletteEntry
+			{
+				PaletteAction m_Action = PaletteAction::SpawnNode;
+				AnimationBlueprintNodeType m_Type = AnimationBlueprintNodeType::Parameter;
+				std::string m_Category;
+				std::string m_Name;
+				std::string m_Detail;
+				std::string m_Parameter;
+			};
+
+			const bool fromPin = m_ContextBlueprintLinkNodeId != 0;
+			const bool fromInput = fromPin && m_ContextBlueprintLinkFromInput;
+			const bool fromExecPin = fromPin && IsAnimationBlueprintExecPin(m_ContextBlueprintLinkPin);
+			std::vector<PaletteEntry> entries;
+			auto addEntry = [&](PaletteAction action, AnimationBlueprintNodeType type, std::string category, std::string name, std::string detail = {}, std::string parameterName = {})
+				{
+					entries.push_back({ action, type, std::move(category), std::move(name), std::move(detail), std::move(parameterName) });
+				};
+
+			if (fromPin && !fromInput)
+				addEntry(PaletteAction::ConnectResult, AnimationBlueprintNodeType::Result, fromExecPin ? "Flow" : "Result", "Connect To Result", fromExecPin ? "Execute transition result" : "Feed result condition");
+			if (fromPin)
+				addEntry(PaletteAction::SpawnNode, AnimationBlueprintNodeType::Reroute, "Routing", "Reroute", fromExecPin ? "Route execution flow" : "Route value wire");
+
+			if (!fromPin)
+			{
+				for (const AnimationControllerParameter& parameter : parameters)
+					addEntry(PaletteAction::SpawnNode, AnimationBlueprintNodeType::Parameter, "Parameters", parameter.m_Name, std::string("Get ") + frenum::to_string(parameter.m_Type).data(), parameter.m_Name);
+				addEntry(PaletteAction::SpawnNode, AnimationBlueprintNodeType::Reroute, "Routing", "Reroute", "Clean up long wires");
+			}
+
+			auto addConditionEntriesForParameter = [&](const AnimationControllerParameter& parameter)
+				{
+					if (parameter.m_Type == AnimationParameterType::Bool || parameter.m_Type == AnimationParameterType::Trigger)
+					{
+						addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::If, "Parameter Conditions", parameter.m_Name + " If", "True branch", parameter.m_Name);
+						addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::IfNot, "Parameter Conditions", parameter.m_Name + " If Not", "False branch", parameter.m_Name);
+						addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::Equals, "Parameter Conditions", parameter.m_Name + " Equals", "Compare bool", parameter.m_Name);
+						addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::NotEquals, "Parameter Conditions", parameter.m_Name + " Not Equals", "Compare bool", parameter.m_Name);
+						return;
+					}
+
+					addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::Greater, "Parameter Conditions", parameter.m_Name + " Greater", "Compare number", parameter.m_Name);
+					addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::Less, "Parameter Conditions", parameter.m_Name + " Less", "Compare number", parameter.m_Name);
+					addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::Equals, "Parameter Conditions", parameter.m_Name + " Equals", "Compare number", parameter.m_Name);
+					addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::NotEquals, "Parameter Conditions", parameter.m_Name + " Not Equals", "Compare number", parameter.m_Name);
+				};
+			for (const AnimationControllerParameter& parameter : parameters)
+				addConditionEntriesForParameter(parameter);
+
+			addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::If, "Conditions", "If", "Boolean condition", pickParameterForNode(AnimationBlueprintNodeType::If));
+			addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::IfNot, "Conditions", "If Not", "Inverted boolean condition", pickParameterForNode(AnimationBlueprintNodeType::IfNot));
+			addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::Greater, "Conditions", "Greater", "Number > threshold", pickParameterForNode(AnimationBlueprintNodeType::Greater));
+			addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::Less, "Conditions", "Less", "Number < threshold", pickParameterForNode(AnimationBlueprintNodeType::Less));
+			addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::Equals, "Conditions", "Equals", "Value equals target", pickParameterForNode(AnimationBlueprintNodeType::Equals));
+			addEntry(PaletteAction::SpawnCondition, AnimationBlueprintNodeType::NotEquals, "Conditions", "Not Equals", "Value differs from target", pickParameterForNode(AnimationBlueprintNodeType::NotEquals));
+			if (!fromExecPin)
+			{
+				addEntry(PaletteAction::SpawnNode, AnimationBlueprintNodeType::Not, "Logic", "Not", "Invert bool");
+				addEntry(PaletteAction::SpawnNode, AnimationBlueprintNodeType::And, "Logic", "And", "A and B");
+				addEntry(PaletteAction::SpawnNode, AnimationBlueprintNodeType::Or, "Logic", "Or", "A or B");
+			}
+
+			auto lower = [](std::string value)
+				{
+					std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c)
+						{
+							return (char)std::tolower(c);
+						});
+					return value;
+				};
+			const std::string query = lower(m_BlueprintNodeSearch);
+			auto matchesQuery = [&](const PaletteEntry& entry)
+				{
+					if (query.empty())
+						return true;
+					std::string searchable = entry.m_Category + " " + entry.m_Name + " " + entry.m_Detail + " " + entry.m_Parameter;
+					return lower(std::move(searchable)).find(query) != std::string::npos;
+				};
+
+			constexpr float paletteWidth = 520.0f;
+			ImGui::SetNextItemWidth(paletteWidth);
+			if (m_BlueprintNodeSearchFocusRequested)
+			{
+				ImGui::SetKeyboardFocusHere();
+				m_BlueprintNodeSearchFocusRequested = false;
+			}
+			ImGui::InputTextWithHint("##BlueprintNodeSearch", "Search nodes or parameters...", &m_BlueprintNodeSearch);
+			if (fromPin)
+				ImGui::TextDisabled(fromInput ? "Pick a node to auto-connect into the dragged input." : "Pick a node to auto-connect the dragged output.");
+			ImGui::Separator();
+
+			std::vector<size_t> filteredEntries;
+			for (size_t index = 0; index < entries.size(); ++index)
+			{
+				if (matchesQuery(entries[index]))
+					filteredEntries.push_back(index);
+			}
+
+			auto executeEntry = [&](const PaletteEntry& entry)
+				{
+					switch (entry.m_Action)
+					{
+					case PaletteAction::ConnectResult:
+						addLink(m_ContextBlueprintLinkNodeId, m_ContextBlueprintLinkPin, resultNodeId(), fromExecPin ? AnimationBlueprintExecInputPin : 0);
+						break;
+					case PaletteAction::SpawnCondition:
+						if (fromPin)
+							spawnBlueprintNode(entry.m_Type, entry.m_Parameter);
+						else
+							createConditionChain(entry.m_Type, m_BlueprintContextSpawnPosition, entry.m_Parameter);
+						break;
+					case PaletteAction::SpawnNode:
+						spawnBlueprintNode(entry.m_Type, entry.m_Parameter);
+						break;
+					}
+					m_ContextBlueprintLinkNodeId = 0;
+					m_ContextBlueprintLinkPin = 0;
+					m_ContextBlueprintLinkFromInput = false;
+					ImGui::CloseCurrentPopup();
+				};
+
+			if (!filteredEntries.empty() && ImGui::IsKeyPressed(ImGuiKey_Enter))
+			{
+				executeEntry(entries[filteredEntries.front()]);
+				return;
+			}
+
+			ImGui::TextDisabled("%zu result%s", filteredEntries.size(), filteredEntries.size() == 1 ? "" : "s");
+			ImGui::BeginChild("##BlueprintNodeSearchResults", ImVec2(paletteWidth, 340.0f), false);
+			if (filteredEntries.empty())
+			{
+				ImGui::TextDisabled("No nodes found.");
+				ImGui::EndChild();
+				return;
+			}
+
+			std::string lastCategory;
+			const float nameColumnWidth = 168.0f;
+			const float rowHeight = 24.0f;
+			for (size_t filteredIndex : filteredEntries)
+			{
+				const PaletteEntry& entry = entries[filteredIndex];
+				if (entry.m_Category != lastCategory)
+				{
+					if (!lastCategory.empty())
+						ImGui::Spacing();
+					ImGui::TextDisabled("%s", entry.m_Category.c_str());
+					lastCategory = entry.m_Category;
+				}
+
+				ImGui::PushID((int)filteredIndex);
+				if (ImGui::Selectable(entry.m_Name.c_str(), false, 0, ImVec2(nameColumnWidth, rowHeight)))
+					executeEntry(entry);
+				ImGui::SameLine();
+				ImGui::TextDisabled("%s", entry.m_Detail.c_str());
+				ImGui::PopID();
+			}
+			ImGui::EndChild();
+		};
+
+	if (ImGui::BeginDragDropTargetCustom(ImRect(canvasMin, canvasMax), ImGui::GetID("##TransitionBlueprintCanvasTarget")))
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ANIMATION_PARAMETER"))
+		{
+			const int parameterIndex = *static_cast<const int*>(payload->Data);
+			if (parameterIndex >= 0 && parameterIndex < (int)parameters.size())
+			{
+				const AnimationControllerParameter& parameter = parameters[parameterIndex];
+				const AnimationBlueprintNodeType conditionType = (parameter.m_Type == AnimationParameterType::Float || parameter.m_Type == AnimationParameterType::Int) ? AnimationBlueprintNodeType::Greater : AnimationBlueprintNodeType::If;
+				createConditionChain(conditionType, screenToGraph(ImGui::GetIO().MousePos), parameter.m_Name);
+			}
+		}
+		ImGui::EndDragDropTarget();
 	}
 
-	ImGui::TreePop();
+	auto nodeMin = [&](const AnimationControllerBlueprintNode& node) -> ImVec2
+		{
+			return graphToScreen(node.m_GraphPosition);
+		};
+
+	auto inputPinPosition = [&](const AnimationControllerBlueprintNode& node, uint32_t inputPin) -> ImVec2
+		{
+			const ImVec2 min = nodeMin(node);
+			const ImVec2 size = nodeScreenSize(node.m_Type);
+			if (node.m_Type == AnimationBlueprintNodeType::Result)
+				return { min.x, min.y + size.y * 0.72f };
+			if (node.m_Type == AnimationBlueprintNodeType::Reroute)
+				return { min.x, min.y + size.y * 0.70f };
+			if (node.m_Type == AnimationBlueprintNodeType::Greater || node.m_Type == AnimationBlueprintNodeType::Less || node.m_Type == AnimationBlueprintNodeType::Equals || node.m_Type == AnimationBlueprintNodeType::NotEquals)
+				return { min.x, min.y + (inputPin == 0 ? size.y * 0.50f : size.y * 0.74f) };
+			if (node.m_Type == AnimationBlueprintNodeType::If || node.m_Type == AnimationBlueprintNodeType::IfNot || node.m_Type == AnimationBlueprintNodeType::Greater || node.m_Type == AnimationBlueprintNodeType::Less || node.m_Type == AnimationBlueprintNodeType::Equals || node.m_Type == AnimationBlueprintNodeType::NotEquals)
+				return { min.x, min.y + size.y * 0.62f };
+			if (inputPinCount(node.m_Type) == 2)
+				return { min.x, min.y + (inputPin == 0 ? size.y * 0.38f : size.y * 0.70f) };
+			return { min.x, min.y + size.y * 0.5f };
+		};
+
+	auto outputPinPosition = [&](const AnimationControllerBlueprintNode& node, uint32_t outputPin) -> ImVec2
+		{
+			const ImVec2 min = nodeMin(node);
+			const ImVec2 size = nodeScreenSize(node.m_Type);
+			if (node.m_Type == AnimationBlueprintNodeType::Reroute)
+				return { min.x + size.x, min.y + size.y * 0.70f };
+			if (node.m_Type == AnimationBlueprintNodeType::If || node.m_Type == AnimationBlueprintNodeType::IfNot || node.m_Type == AnimationBlueprintNodeType::Greater || node.m_Type == AnimationBlueprintNodeType::Less || node.m_Type == AnimationBlueprintNodeType::Equals || node.m_Type == AnimationBlueprintNodeType::NotEquals)
+				return { min.x + size.x, min.y + size.y * 0.62f };
+			if (outputPinCount(node.m_Type) == 2)
+				return { min.x + size.x, min.y + (outputPin == 0 ? size.y * 0.38f : size.y * 0.70f) };
+			return { min.x + size.x, min.y + size.y * 0.5f };
+		};
+
+	auto execInputPinPosition = [&](const AnimationControllerBlueprintNode& node) -> ImVec2
+		{
+			const ImVec2 min = nodeMin(node);
+			const ImVec2 size = nodeScreenSize(node.m_Type);
+			if (node.m_Type == AnimationBlueprintNodeType::Reroute)
+				return { min.x, min.y + size.y * 0.32f };
+			return { min.x, min.y + 38.0f * blueprintZoom };
+		};
+
+	auto execOutputPinPosition = [&](const AnimationControllerBlueprintNode& node, uint32_t outputPin) -> ImVec2
+		{
+			const ImVec2 min = nodeMin(node);
+			const ImVec2 size = nodeScreenSize(node.m_Type);
+			if (node.m_Type == AnimationBlueprintNodeType::Reroute)
+				return { min.x + size.x, min.y + size.y * 0.32f };
+			if (execOutputPinCount(node.m_Type) == 2)
+				return { min.x + size.x, min.y + (outputPin == 0 ? 38.0f * blueprintZoom : size.y - 28.0f * blueprintZoom) };
+			return { min.x + size.x, min.y + 38.0f * blueprintZoom };
+		};
+
+	auto nodeDetail = [&](const AnimationControllerBlueprintNode& node) -> std::string
+		{
+			if (node.m_Type == AnimationBlueprintNodeType::Start)
+				return "Exec Entry";
+			if (node.m_Type == AnimationBlueprintNodeType::Result)
+				return "";
+			if (node.m_Type == AnimationBlueprintNodeType::And || node.m_Type == AnimationBlueprintNodeType::Or)
+				return "A / B";
+			if (node.m_Type == AnimationBlueprintNodeType::Not)
+				return "Invert";
+			if (node.m_Type == AnimationBlueprintNodeType::Reroute)
+				return "";
+			if (node.m_Type == AnimationBlueprintNodeType::Parameter)
+				return node.m_Parameter.empty() ? "No Parameter" : node.m_Parameter;
+			if (const AnimationControllerParameter* parameter = findParameter(node.m_Parameter))
+			{
+				if (parameter->m_Type == AnimationParameterType::Float)
+					return node.m_Parameter + " " + std::string(nodeLabel(node.m_Type)) + " " + FormatCompactFloat(node.m_Threshold);
+				if (parameter->m_Type == AnimationParameterType::Int)
+					return node.m_Parameter + " " + std::string(nodeLabel(node.m_Type)) + " " + std::to_string(node.m_IntValue);
+				if (node.m_Type == AnimationBlueprintNodeType::Equals || node.m_Type == AnimationBlueprintNodeType::NotEquals)
+					return node.m_Parameter + (node.m_BoolValue ? " == true" : " == false");
+				return node.m_Parameter;
+			}
+			return "Missing Parameter";
+		};
+
+	drawList->PushClipRect(canvasMin, canvasMax, true);
+	uint32_t blueprintLinkToRemove = 0;
+	bool blueprintItemHovered = false;
+	for (const AnimationControllerBlueprintLink& link : transition.m_BlueprintLinks)
+	{
+		const AnimationControllerBlueprintNode* output = findNode(link.m_OutputNode);
+		const AnimationControllerBlueprintNode* input = findNode(link.m_InputNode);
+		if (!output || !input)
+			continue;
+		const bool execLink = IsAnimationBlueprintExecPin(link.m_OutputPin) || IsAnimationBlueprintExecPin(link.m_InputPin);
+		if (execLink && (!IsAnimationBlueprintExecPin(link.m_OutputPin) || link.m_InputPin != AnimationBlueprintExecInputPin || execInputPinCount(input->m_Type) == 0))
+			continue;
+		if (!execLink && (link.m_OutputPin >= outputPinCount(output->m_Type) || link.m_InputPin >= inputPinCount(input->m_Type)))
+			continue;
+
+		ImVec2 start;
+		ImVec2 end;
+		if (execLink)
+		{
+			uint32_t execIndex = 0;
+			if (link.m_OutputPin == AnimationBlueprintFalsePin)
+				execIndex = 1;
+			start = execOutputPinPosition(*output, execIndex);
+			end = execInputPinPosition(*input);
+		}
+		else
+		{
+			start = outputPinPosition(*output, link.m_OutputPin);
+			end = inputPinPosition(*input, link.m_InputPin);
+		}
+		const NodePalette palette = nodePalette(*output);
+		const bool hovered = canvasHovered && DistanceToSegment(mousePos, start, end) <= (execLink ? 10.0f : 8.0f);
+		blueprintItemHovered |= hovered;
+		if (hovered && (ImGui::IsMouseClicked(ImGuiMouseButton_Right) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)))
+			blueprintLinkToRemove = link.m_Id;
+		const ImU32 color = hovered ? IM_COL32(255, 246, 210, 255) : execLink ? IM_COL32(222, 228, 232, 235) : palette.m_Accent;
+		const float tangent = std::max(48.0f, std::abs(end.x - start.x) * 0.42f);
+		drawList->AddBezierCubic(start, ImVec2(start.x + tangent, start.y), ImVec2(end.x - tangent, end.y), end, color, hovered ? 3.0f : execLink ? 2.4f : 2.0f);
+	}
+	if (blueprintLinkToRemove != 0)
+	{
+		std::erase_if(transition.m_BlueprintLinks, [blueprintLinkToRemove](const AnimationControllerBlueprintLink& link)
+			{
+				return link.m_Id == blueprintLinkToRemove;
+			});
+	}
+
+	uint32_t hoveredInputNode = 0;
+	uint32_t hoveredInputPin = 0;
+	uint32_t hoveredOutputNode = 0;
+	uint32_t hoveredOutputPin = 0;
+	uint32_t nodeToDuplicate = 0;
+	uint32_t nodeToRemove = 0;
+	uint32_t nodeToReset = 0;
+	const float pinHitSize = 22.0f;
+	auto removeInputLinks = [&](uint32_t nodeId, uint32_t inputPin)
+		{
+			std::erase_if(transition.m_BlueprintLinks, [nodeId, inputPin](const AnimationControllerBlueprintLink& link)
+				{
+					return link.m_InputNode == nodeId && link.m_InputPin == inputPin;
+				});
+		};
+	auto removeOutputLinks = [&](uint32_t nodeId, uint32_t outputPin)
+		{
+			std::erase_if(transition.m_BlueprintLinks, [nodeId, outputPin](const AnimationControllerBlueprintLink& link)
+				{
+					return link.m_OutputNode == nodeId && link.m_OutputPin == outputPin;
+				});
+		};
+	auto removeIncomingLinks = [&](uint32_t nodeId)
+		{
+			std::erase_if(transition.m_BlueprintLinks, [nodeId](const AnimationControllerBlueprintLink& link)
+				{
+					return link.m_InputNode == nodeId;
+				});
+		};
+	auto removeOutgoingLinks = [&](uint32_t nodeId)
+		{
+			std::erase_if(transition.m_BlueprintLinks, [nodeId](const AnimationControllerBlueprintLink& link)
+				{
+					return link.m_OutputNode == nodeId;
+				});
+		};
+	auto drawExecPin = [&](const ImVec2& pinPosition, bool hovered, bool output)
+		{
+			const ImU32 fill = hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(226, 232, 238, 255);
+			const ImU32 outline = IM_COL32(10, 16, 22, 210);
+			const float radius = hovered ? 7.0f : 6.0f;
+			const ImVec2 tip = output ? ImVec2(pinPosition.x + radius + 1.0f, pinPosition.y) : ImVec2(pinPosition.x + radius - 1.0f, pinPosition.y);
+			const ImVec2 top = ImVec2(pinPosition.x - radius + 1.0f, pinPosition.y - radius);
+			const ImVec2 bottom = ImVec2(pinPosition.x - radius + 1.0f, pinPosition.y + radius);
+			drawList->AddTriangleFilled(tip, top, bottom, fill);
+			drawList->AddTriangle(tip, top, bottom, outline, 1.2f);
+		};
+	auto hasInputLink = [&](uint32_t nodeId, uint32_t inputPin)
+		{
+			return std::any_of(transition.m_BlueprintLinks.begin(), transition.m_BlueprintLinks.end(), [nodeId, inputPin](const AnimationControllerBlueprintLink& link)
+				{
+					return link.m_InputNode == nodeId && link.m_InputPin == inputPin;
+				});
+		};
+	auto inputValueType = [&](const AnimationControllerBlueprintNode& node) -> AnimationParameterType
+		{
+			if (node.m_Type == AnimationBlueprintNodeType::If || node.m_Type == AnimationBlueprintNodeType::IfNot || node.m_Type == AnimationBlueprintNodeType::Not || node.m_Type == AnimationBlueprintNodeType::And || node.m_Type == AnimationBlueprintNodeType::Or || node.m_Type == AnimationBlueprintNodeType::Result)
+				return AnimationParameterType::Bool;
+			if (node.m_Type == AnimationBlueprintNodeType::Equals || node.m_Type == AnimationBlueprintNodeType::NotEquals)
+			{
+				if (const AnimationControllerParameter* parameter = findParameter(node.m_Parameter))
+					return parameter->m_Type;
+			}
+			if (node.m_Type == AnimationBlueprintNodeType::Greater || node.m_Type == AnimationBlueprintNodeType::Less)
+			{
+				if (const AnimationControllerParameter* parameter = findParameter(node.m_Parameter); parameter && parameter->m_Type == AnimationParameterType::Int)
+					return AnimationParameterType::Int;
+			}
+			return AnimationParameterType::Float;
+		};
+	auto drawInputDefaultEditor = [&](AnimationControllerBlueprintNode& node, uint32_t pin)
+		{
+			if (pin >= 2 || node.m_Type == AnimationBlueprintNodeType::Reroute || hasInputLink(node.m_Id, pin))
+				return false;
+
+			const ImVec2 pinPosition = inputPinPosition(node, pin);
+			const AnimationParameterType valueType = inputValueType(node);
+			ImGui::PushID((int)node.m_Id);
+			ImGui::PushID((int)pin + 7000);
+			bool active = false;
+			if (valueType == AnimationParameterType::Bool || valueType == AnimationParameterType::Trigger)
+			{
+				ImGui::SetCursorScreenPos(ImVec2(pinPosition.x + 58.0f, pinPosition.y - 10.0f));
+				if (ImGui::Checkbox("##PinDefaultBool", &node.m_InputBoolValues[pin]))
+					node.m_BoolValue = node.m_InputBoolValues[1];
+				active = ImGui::IsItemHovered() || ImGui::IsItemActive();
+			}
+			else if (valueType == AnimationParameterType::Int)
+			{
+				ImGui::SetCursorScreenPos(ImVec2(pinPosition.x + 46.0f, pinPosition.y - 11.0f));
+				ImGui::SetNextItemWidth(76.0f);
+				if (ImGui::DragInt("##PinDefaultInt", &node.m_InputIntValues[pin], 1.0f))
+				{
+					node.m_IntValue = node.m_InputIntValues[1];
+					node.m_InputFloatValues[pin] = (float)node.m_InputIntValues[pin];
+				}
+				active = ImGui::IsItemHovered() || ImGui::IsItemActive();
+			}
+			else
+			{
+				ImGui::SetCursorScreenPos(ImVec2(pinPosition.x + 46.0f, pinPosition.y - 11.0f));
+				ImGui::SetNextItemWidth(82.0f);
+				if (ImGui::DragFloat("##PinDefaultFloat", &node.m_InputFloatValues[pin], 0.01f, 0.0f, 0.0f, "%.3g"))
+					node.m_Threshold = node.m_InputFloatValues[1];
+				active = ImGui::IsItemHovered() || ImGui::IsItemActive();
+			}
+			ImGui::PopID();
+			ImGui::PopID();
+			return active;
+		};
+	for (AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+	{
+		const ImVec2 size = nodeScreenSize(node.m_Type);
+		const ImVec2 min = nodeMin(node);
+		const ImVec2 max(min.x + size.x, min.y + size.y);
+		const NodePalette palette = nodePalette(node);
+		const bool selected = m_SelectedBlueprintNodeId == node.m_Id;
+
+		drawList->AddRectFilled(ImVec2(min.x + 2.0f, min.y + 3.0f), ImVec2(max.x + 2.0f, max.y + 3.0f), IM_COL32(0, 0, 0, 80), 4.0f);
+		drawList->AddRectFilled(min, max, palette.m_Fill, 4.0f);
+		drawList->AddRect(min, max, selected ? IM_COL32(238, 244, 250, 245) : palette.m_Border, 4.0f, 0, selected ? 2.2f : 1.35f);
+		drawList->AddRectFilled(min, ImVec2(max.x, min.y + 24.0f), IM_COL32(12, 18, 25, 122), 4.0f, ImDrawFlags_RoundCornersTop);
+		drawList->AddRectFilled(min, ImVec2(min.x + 4.0f, max.y), palette.m_Accent, 4.0f, ImDrawFlags_RoundCornersLeft);
+		drawList->AddText(ImVec2(min.x + 12.0f, min.y + 6.0f), IM_COL32(238, 244, 250, 255), nodeLabel(node.m_Type));
+		const std::string detail = node.m_Type == AnimationBlueprintNodeType::Parameter ? nodeDetail(node) : std::string{};
+		if (!detail.empty())
+		{
+			const ImVec2 detailMin(min.x + 12.0f, min.y + size.y - 24.0f);
+			const ImVec2 detailMax(max.x - 42.0f, max.y - 6.0f);
+			drawList->PushClipRect(detailMin, detailMax, true);
+			drawList->AddText(detailMin, IM_COL32(154, 166, 178, 255), detail.c_str());
+			drawList->PopClipRect();
+		}
+
+		if (execInputPinCount(node.m_Type) > 0)
+		{
+			const ImVec2 pinPosition = execInputPinPosition(node);
+			const bool pending = m_PendingBlueprintLinkNodeId != 0 && !m_PendingBlueprintLinkFromInput && IsAnimationBlueprintExecPin(m_PendingBlueprintLinkPin);
+			const bool hovered = pending && ImGui::IsMouseHoveringRect(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f), ImVec2(pinPosition.x + pinHitSize * 0.5f, pinPosition.y + pinHitSize * 0.5f));
+			if (hovered)
+			{
+				hoveredInputNode = node.m_Id;
+				hoveredInputPin = AnimationBlueprintExecInputPin;
+			}
+			drawExecPin(pinPosition, hovered, false);
+			const char* label = execInputPinLabel(node.m_Type);
+			if (label[0] != '\0')
+				drawList->AddText(ImVec2(pinPosition.x + 12.0f, pinPosition.y - 7.0f), IM_COL32(210, 218, 224, 240), label);
+			ImGui::SetCursorScreenPos(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f));
+			ImGui::PushID((int)node.m_Id);
+			ImGui::PushID("ExecInput");
+			ImGui::InvisibleButton("##BlueprintExecInputPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
+			const bool execInputHovered = ImGui::IsItemHovered();
+			blueprintItemHovered |= execInputHovered;
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+			{
+				m_PendingBlueprintLinkNodeId = node.m_Id;
+				m_PendingBlueprintLinkPin = AnimationBlueprintExecInputPin;
+				m_PendingBlueprintLinkFromInput = true;
+			}
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+				removeInputLinks(node.m_Id, AnimationBlueprintExecInputPin);
+			if (execInputHovered && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && m_PendingBlueprintLinkNodeId != 0 && !m_PendingBlueprintLinkFromInput)
+			{
+				addLink(m_PendingBlueprintLinkNodeId, m_PendingBlueprintLinkPin, node.m_Id, AnimationBlueprintExecInputPin);
+				m_PendingBlueprintLinkNodeId = 0;
+				m_PendingBlueprintLinkFromInput = false;
+			}
+			ImGui::PopID();
+			ImGui::PopID();
+		}
+
+		for (uint32_t pin = 0; pin < execOutputPinCount(node.m_Type); ++pin)
+		{
+			const uint32_t pinId = execOutputPinId(node.m_Type, pin);
+			const ImVec2 pinPosition = execOutputPinPosition(node, pin);
+			const char* label = execOutputPinLabel(node.m_Type, pin);
+			const bool pending = m_PendingBlueprintLinkNodeId != 0 && m_PendingBlueprintLinkFromInput && IsAnimationBlueprintExecPin(m_PendingBlueprintLinkPin);
+			const bool hovered = pending && ImGui::IsMouseHoveringRect(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f), ImVec2(pinPosition.x + pinHitSize * 0.5f, pinPosition.y + pinHitSize * 0.5f));
+			if (hovered)
+			{
+				hoveredOutputNode = node.m_Id;
+				hoveredOutputPin = pinId;
+			}
+			if (label[0] != '\0')
+			{
+				const ImVec2 textSize = ImGui::CalcTextSize(label);
+				drawList->AddText(ImVec2(pinPosition.x - textSize.x - 14.0f, pinPosition.y - 7.0f), IM_COL32(210, 218, 224, 240), label);
+			}
+			drawExecPin(pinPosition, hovered, true);
+			ImGui::SetCursorScreenPos(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f));
+			ImGui::PushID((int)node.m_Id);
+			ImGui::PushID((int)pin + 2000);
+			ImGui::InvisibleButton("##BlueprintExecOutputPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
+			const bool execOutputHovered = ImGui::IsItemHovered();
+			blueprintItemHovered |= execOutputHovered;
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+			{
+				m_PendingBlueprintLinkNodeId = node.m_Id;
+				m_PendingBlueprintLinkPin = pinId;
+				m_PendingBlueprintLinkFromInput = false;
+			}
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+				removeOutputLinks(node.m_Id, pinId);
+			if (execOutputHovered && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && m_PendingBlueprintLinkNodeId != 0 && m_PendingBlueprintLinkFromInput)
+			{
+				addLink(node.m_Id, pinId, m_PendingBlueprintLinkNodeId, m_PendingBlueprintLinkPin);
+				m_PendingBlueprintLinkNodeId = 0;
+				m_PendingBlueprintLinkFromInput = false;
+			}
+			ImGui::PopID();
+			ImGui::PopID();
+		}
+
+		for (uint32_t pin = 0; pin < inputPinCount(node.m_Type); ++pin)
+		{
+			const ImVec2 pinPosition = inputPinPosition(node, pin);
+			const char* label = inputPinLabel(node.m_Type, pin);
+			if (label[0] != '\0')
+				drawList->AddText(ImVec2(pinPosition.x + 10.0f, pinPosition.y - 7.0f), IM_COL32(182, 194, 206, 235), label);
+			const bool pending = m_PendingBlueprintLinkNodeId != 0 && !m_PendingBlueprintLinkFromInput && !IsAnimationBlueprintExecPin(m_PendingBlueprintLinkPin);
+			const bool hovered = pending && ImGui::IsMouseHoveringRect(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f), ImVec2(pinPosition.x + pinHitSize * 0.5f, pinPosition.y + pinHitSize * 0.5f));
+			if (hovered)
+			{
+				hoveredInputNode = node.m_Id;
+				hoveredInputPin = pin;
+			}
+			drawList->AddCircleFilled(pinPosition, hovered ? 6.2f : 4.8f, hovered ? IM_COL32(122, 196, 255, 255) : IM_COL32(94, 184, 178, 255));
+			ImGui::SetCursorScreenPos(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f));
+			ImGui::PushID((int)node.m_Id);
+			ImGui::PushID((int)pin);
+			ImGui::InvisibleButton("##BlueprintInputPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
+			const bool inputPinItemHovered = ImGui::IsItemHovered();
+			blueprintItemHovered |= inputPinItemHovered;
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+			{
+				m_PendingBlueprintLinkNodeId = node.m_Id;
+				m_PendingBlueprintLinkPin = pin;
+				m_PendingBlueprintLinkFromInput = true;
+			}
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+				removeInputLinks(node.m_Id, pin);
+			if (inputPinItemHovered && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && m_PendingBlueprintLinkNodeId != 0 && !m_PendingBlueprintLinkFromInput)
+			{
+				addLink(m_PendingBlueprintLinkNodeId, m_PendingBlueprintLinkPin, node.m_Id, pin);
+				m_PendingBlueprintLinkNodeId = 0;
+				m_PendingBlueprintLinkFromInput = false;
+			}
+			ImGui::PopID();
+			ImGui::PopID();
+		}
+
+		for (uint32_t pin = 0; pin < outputPinCount(node.m_Type); ++pin)
+		{
+			const ImVec2 pinPosition = outputPinPosition(node, pin);
+			const char* label = outputPinLabel(node.m_Type, pin);
+			const bool pending = m_PendingBlueprintLinkNodeId != 0 && m_PendingBlueprintLinkFromInput && !IsAnimationBlueprintExecPin(m_PendingBlueprintLinkPin);
+			const bool hovered = pending && ImGui::IsMouseHoveringRect(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f), ImVec2(pinPosition.x + pinHitSize * 0.5f, pinPosition.y + pinHitSize * 0.5f));
+			if (hovered)
+			{
+				hoveredOutputNode = node.m_Id;
+				hoveredOutputPin = pin;
+			}
+			if (label[0] != '\0')
+			{
+				const ImVec2 textSize = ImGui::CalcTextSize(label);
+				drawList->AddText(ImVec2(pinPosition.x - textSize.x - 12.0f, pinPosition.y - 7.0f), IM_COL32(182, 194, 206, 235), label);
+			}
+			drawList->AddCircleFilled(pinPosition, hovered ? 6.2f : 4.8f, hovered ? IM_COL32(255, 255, 255, 255) : pin == 1 ? IM_COL32(214, 126, 140, 255) : palette.m_Accent);
+			ImGui::SetCursorScreenPos(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f));
+			ImGui::PushID((int)node.m_Id);
+			ImGui::PushID((int)pin + 1000);
+			ImGui::InvisibleButton("##BlueprintOutputPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
+			const bool outputPinItemHovered = ImGui::IsItemHovered();
+			blueprintItemHovered |= outputPinItemHovered;
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+			{
+				m_PendingBlueprintLinkNodeId = node.m_Id;
+				m_PendingBlueprintLinkPin = pin;
+				m_PendingBlueprintLinkFromInput = false;
+			}
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+				removeOutputLinks(node.m_Id, pin);
+			if (outputPinItemHovered && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && m_PendingBlueprintLinkNodeId != 0 && m_PendingBlueprintLinkFromInput)
+			{
+				addLink(node.m_Id, pin, m_PendingBlueprintLinkNodeId, m_PendingBlueprintLinkPin);
+				m_PendingBlueprintLinkNodeId = 0;
+				m_PendingBlueprintLinkFromInput = false;
+			}
+			ImGui::PopID();
+			ImGui::PopID();
+		}
+
+		bool hasDefaultValueEditor = false;
+		for (uint32_t pin = 0; pin < inputPinCount(node.m_Type); ++pin)
+		{
+			if (pin < 2 && node.m_Type != AnimationBlueprintNodeType::Reroute && !hasInputLink(node.m_Id, pin))
+			{
+				hasDefaultValueEditor = true;
+				break;
+			}
+		}
+		const float headerHeight = std::min(size.y, 24.0f * blueprintZoom);
+		auto drawNodeDragArea = [&](const char* id, const ImVec2& position, const ImVec2& areaSize)
+			{
+				if (areaSize.x <= 1.0f || areaSize.y <= 1.0f)
+					return;
+				ImGui::SetCursorScreenPos(position);
+				ImGui::PushID((int)node.m_Id);
+				ImGui::InvisibleButton(id, areaSize, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_AllowOverlap);
+				blueprintItemHovered |= ImGui::IsItemHovered();
+				if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+					m_SelectedBlueprintNodeId = node.m_Id;
+				if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+				{
+					const ImVec2 delta = ImGui::GetIO().MouseDelta;
+					node.m_GraphPosition.x += delta.x / blueprintZoom;
+					node.m_GraphPosition.y += delta.y / blueprintZoom;
+				}
+				if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && Length(ImGui::GetMouseDragDelta(ImGuiMouseButton_Right)) < 2.0f)
+				{
+					m_SelectedBlueprintNodeId = node.m_Id;
+					ImGui::OpenPopup("##BlueprintNodeContext");
+				}
+				ImGui::PopID();
+			};
+
+		drawNodeDragArea("##BlueprintNodeHeader", min, ImVec2(size.x, headerHeight));
+
+		const float leftGutter = hasDefaultValueEditor ? std::min(142.0f, std::max(14.0f, size.x * 0.62f)) : inputPinCount(node.m_Type) > 0 ? 14.0f : 0.0f;
+		const float rightGutter = outputPinCount(node.m_Type) > 0 ? 14.0f : 0.0f;
+		drawNodeDragArea("##BlueprintNodeBody", ImVec2(min.x + leftGutter, min.y + headerHeight), ImVec2(std::max(24.0f, size.x - leftGutter - rightGutter), std::max(1.0f, size.y - headerHeight)));
+
+		for (uint32_t pin = 0; pin < inputPinCount(node.m_Type); ++pin)
+			blueprintItemHovered |= drawInputDefaultEditor(node, pin);
+	}
+
+	if (ImGui::BeginPopup("##BlueprintNodeContext"))
+	{
+		if (AnimationControllerBlueprintNode* contextNode = findNode(m_SelectedBlueprintNodeId))
+		{
+			const bool systemNode = isSystemBlueprintNode(contextNode->m_Type);
+			ImGui::TextDisabled("%s Node", nodeLabel(contextNode->m_Type));
+			ImGui::Separator();
+
+			ImGui::BeginDisabled(systemNode);
+			if (ImGui::MenuItem("Duplicate Node", "Ctrl+D"))
+				nodeToDuplicate = contextNode->m_Id;
+			if (ImGui::MenuItem("Delete Node", "Del"))
+				nodeToRemove = contextNode->m_Id;
+			ImGui::EndDisabled();
+
+			if (ImGui::MenuItem("Break Incoming Links"))
+				removeIncomingLinks(contextNode->m_Id);
+			if (ImGui::MenuItem("Break Outgoing Links"))
+				removeOutgoingLinks(contextNode->m_Id);
+			if (ImGui::MenuItem("Break All Links"))
+				removeLinksForNode(contextNode->m_Id);
+
+			ImGui::Separator();
+			ImGui::BeginDisabled(systemNode);
+			if (ImGui::BeginMenu("Convert To"))
+			{
+				const std::array<AnimationBlueprintNodeType, 10> editableTypes =
+				{
+					AnimationBlueprintNodeType::Parameter,
+					AnimationBlueprintNodeType::If,
+					AnimationBlueprintNodeType::IfNot,
+					AnimationBlueprintNodeType::Greater,
+					AnimationBlueprintNodeType::Less,
+					AnimationBlueprintNodeType::Equals,
+					AnimationBlueprintNodeType::NotEquals,
+					AnimationBlueprintNodeType::Not,
+					AnimationBlueprintNodeType::And,
+					AnimationBlueprintNodeType::Or
+				};
+				for (AnimationBlueprintNodeType type : editableTypes)
+				{
+					const bool selected = contextNode->m_Type == type;
+					if (ImGui::MenuItem(nodeLabel(type), nullptr, selected))
+					{
+						contextNode->m_Type = type;
+						ensureCompatibleParameter(*contextNode);
+						pruneInvalidBlueprintLinks();
+					}
+				}
+				if (ImGui::MenuItem("Reroute", nullptr, contextNode->m_Type == AnimationBlueprintNodeType::Reroute))
+				{
+					contextNode->m_Type = AnimationBlueprintNodeType::Reroute;
+					ensureCompatibleParameter(*contextNode);
+					pruneInvalidBlueprintLinks();
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::EndDisabled();
+
+			if (nodeUsesParameter(contextNode->m_Type))
+			{
+				if (ImGui::BeginMenu("Parameter"))
+				{
+					bool hasCompatibleParameter = false;
+					for (const AnimationControllerParameter& parameter : parameters)
+					{
+						if (!parameterCompatibleWithNode(contextNode->m_Type, parameter))
+							continue;
+						hasCompatibleParameter = true;
+						if (ImGui::MenuItem(parameter.m_Name.c_str(), frenum::to_string(parameter.m_Type).data(), contextNode->m_Parameter == parameter.m_Name))
+							contextNode->m_Parameter = parameter.m_Name;
+					}
+					if (!hasCompatibleParameter)
+						ImGui::TextDisabled("No compatible parameters.");
+					ImGui::EndMenu();
+				}
+			}
+
+			if (isConditionBlueprintNode(contextNode->m_Type) || contextNode->m_Type == AnimationBlueprintNodeType::Not || contextNode->m_Type == AnimationBlueprintNodeType::And || contextNode->m_Type == AnimationBlueprintNodeType::Or)
+			{
+				if (ImGui::MenuItem("Reset Input Defaults"))
+					nodeToReset = contextNode->m_Id;
+			}
+		}
+		else
+			ImGui::TextDisabled("Node no longer exists.");
+		ImGui::EndPopup();
+	}
+
+	const bool blueprintGraphItemHovered = blueprintItemHovered || ImGui::IsAnyItemHovered();
+	if (canvasHovered && !blueprintGraphItemHovered)
+	{
+		ImGui::SetCursorScreenPos(canvasMin);
+		ImGui::InvisibleButton("##TransitionBlueprintCanvasCapture", canvasSize, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
+	}
+
+	if (canvasHovered && !blueprintGraphItemHovered && (ImGui::IsMouseDragging(ImGuiMouseButton_Right) || ImGui::IsMouseDragging(ImGuiMouseButton_Middle)))
+	{
+		const ImVec2 delta = ImGui::GetIO().MouseDelta;
+		m_BlueprintGraphPan.x += delta.x;
+		m_BlueprintGraphPan.y += delta.y;
+	}
+
+	if (canvasHovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && !blueprintGraphItemHovered && Length(ImGui::GetMouseDragDelta(ImGuiMouseButton_Right)) < 2.0f)
+		openBlueprintNodeMenu(screenToGraph(ImGui::GetIO().MousePos));
+
+	if (m_PendingBlueprintLinkNodeId != 0)
+	{
+		if (const AnimationControllerBlueprintNode* pendingNode = findNode(m_PendingBlueprintLinkNodeId))
+		{
+			ImVec2 start;
+			ImVec2 end = ImGui::GetIO().MousePos;
+			if (m_PendingBlueprintLinkFromInput)
+			{
+				if (IsAnimationBlueprintExecPin(m_PendingBlueprintLinkPin))
+					end = execInputPinPosition(*pendingNode);
+				else
+					end = inputPinPosition(*pendingNode, m_PendingBlueprintLinkPin);
+				start = ImGui::GetIO().MousePos;
+			}
+			else
+			{
+				if (IsAnimationBlueprintExecPin(m_PendingBlueprintLinkPin))
+				{
+					uint32_t execIndex = m_PendingBlueprintLinkPin == AnimationBlueprintFalsePin ? 1 : 0;
+					start = execOutputPinPosition(*pendingNode, execIndex);
+				}
+				else
+					start = outputPinPosition(*pendingNode, m_PendingBlueprintLinkPin);
+			}
+			const float tangent = std::max(48.0f, std::abs(end.x - start.x) * 0.35f);
+			drawList->AddBezierCubic(start, ImVec2(start.x + tangent, start.y), ImVec2(end.x - tangent, end.y), end, IsAnimationBlueprintExecPin(m_PendingBlueprintLinkPin) ? IM_COL32(222, 228, 232, 235) : IM_COL32(122, 196, 255, 230), IsAnimationBlueprintExecPin(m_PendingBlueprintLinkPin) ? 2.5f : 2.2f);
+		}
+		if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+		{
+			if (m_PendingBlueprintLinkFromInput && hoveredOutputNode != 0)
+				addLink(hoveredOutputNode, hoveredOutputPin, m_PendingBlueprintLinkNodeId, m_PendingBlueprintLinkPin);
+			else if (!m_PendingBlueprintLinkFromInput && hoveredInputNode != 0)
+				addLink(m_PendingBlueprintLinkNodeId, m_PendingBlueprintLinkPin, hoveredInputNode, hoveredInputPin);
+			else if (canvasHovered)
+				openBlueprintNodeMenu(screenToGraph(ImGui::GetIO().MousePos), m_PendingBlueprintLinkNodeId, m_PendingBlueprintLinkPin, m_PendingBlueprintLinkFromInput);
+			m_PendingBlueprintLinkNodeId = 0;
+			m_PendingBlueprintLinkFromInput = false;
+		}
+		else if (ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+		{
+			m_PendingBlueprintLinkNodeId = 0;
+			m_PendingBlueprintLinkFromInput = false;
+		}
+		else if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
+		{
+			m_PendingBlueprintLinkNodeId = 0;
+			m_PendingBlueprintLinkFromInput = false;
+		}
+	}
+
+	if (ImGui::BeginPopup("##TransitionBlueprintContext"))
+	{
+		drawBlueprintNodeMenu();
+		ImGui::EndPopup();
+	}
+	drawList->PopClipRect();
+
+	ImGui::SetCursorScreenPos(ImVec2(canvasMin.x, canvasMax.y));
+	ImGui::Dummy(ImVec2(0.0f, 0.0f));
+
+	if (nodeToReset != 0)
+	{
+		if (AnimationControllerBlueprintNode* node = findNode(nodeToReset))
+			resetNodeDefaults(*node);
+	}
+	if (nodeToDuplicate != 0)
+	{
+		if (AnimationControllerBlueprintNode* source = findNode(nodeToDuplicate))
+		{
+			AnimationControllerBlueprintNode duplicate = *source;
+			duplicate.m_Id = transition.m_NextBlueprintNodeId++;
+			duplicate.m_GraphPosition += glm::vec2{ 30.0f, 30.0f };
+			transition.m_BlueprintNodes.push_back(duplicate);
+			m_SelectedBlueprintNodeId = duplicate.m_Id;
+		}
+	}
+	if (nodeToRemove != 0)
+	{
+		removeLinksForNode(nodeToRemove);
+		std::erase_if(transition.m_BlueprintNodes, [nodeToRemove](const AnimationControllerBlueprintNode& node)
+			{
+				return node.m_Id == nodeToRemove && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
+			});
+		if (m_SelectedBlueprintNodeId == nodeToRemove)
+			m_SelectedBlueprintNodeId = 0;
+	}
+
+	syncLegacyConditions();
+	ImGui::EndChild();
 }
 
 void AnimationEditorPanel::DrawControllerValidation()
@@ -2594,8 +4218,9 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 		return;
 	}
 
+	const ImVec2 previewPixelSize = GetAnimationFramePixelSize(frame, texture);
 	const float maxPreview = std::max(48.0f, std::min(width, height - 42.0f));
-	const float aspect = texture->GetHeight() > 0 ? static_cast<float>(texture->GetWidth()) / static_cast<float>(texture->GetHeight()) : 1.0f;
+	const float aspect = previewPixelSize.y > 0.0f ? previewPixelSize.x / previewPixelSize.y : 1.0f;
 	ImVec2 previewSize(maxPreview, maxPreview);
 	if (aspect > 1.0f)
 		previewSize.y = previewSize.x / aspect;
@@ -2613,7 +4238,8 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 			if (frameIndex < 0 || frameIndex >= (int)m_CurrentAnimation->GetFrames().size())
 				return;
 
-			const AssetHandle textureHandle = m_CurrentAnimation->GetFrames()[frameIndex].m_Texture;
+			const AnimationFrame& previewFrame = m_CurrentAnimation->GetFrames()[frameIndex];
+			const AssetHandle textureHandle = previewFrame.m_Texture;
 			if (!textureHandle || !AssetManager::IsAssetHandleValid(textureHandle) || AssetManager::GetAssetType(textureHandle) != AssetType::Texture2D)
 				return;
 
@@ -2621,12 +4247,15 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 			if (!onionTexture || !onionTexture->IsLoaded())
 				return;
 
+			ImVec2 uv0;
+			ImVec2 uv1;
+			GetAnimationFrameImageUvs(previewFrame, onionTexture, uv0, uv1);
 			ImGui::GetWindowDrawList()->AddImage(
 				UI::ToImGuiTextureId(onionTexture->GetRendererId()),
 				Add(imageMin, offset),
 				Add(imageMax, offset),
-				ImVec2(0, 1),
-				ImVec2(1, 0),
+				uv0,
+				uv1,
 				tint);
 		};
 
@@ -2636,7 +4265,10 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 		drawFrameTexture(m_SelectedFrameIndex + 1, ImVec2(7.0f, 0.0f), IM_COL32(255, 186, 104, 76));
 	}
 	drawFrameTexture(m_SelectedFrameIndex, ImVec2(0.0f, 0.0f), IM_COL32(255, 255, 255, 255));
-	ImGui::TextDisabled("%ux%u", texture->GetWidth(), texture->GetHeight());
+	if (const TextureSpriteRect* sprite = GetAnimationFrameSpriteRect(frame))
+		ImGui::TextDisabled("%ux%u  %s", sprite->m_Width, sprite->m_Height, sprite->m_Name.c_str());
+	else
+		ImGui::TextDisabled("%ux%u", texture->GetWidth(), texture->GetHeight());
 }
 
 void AnimationEditorPanel::DrawFrameEditor(float width)
@@ -2684,6 +4316,12 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 	const auto dragDropCallback = [&frame](AssetHandle handle)
 		{
 			frame.m_Texture = handle;
+			frame.m_TextureSpriteIndex = -1;
+		};
+	const auto assetReferenceCallback = [&frame](AssetHandle handle, int32_t spriteIndex)
+		{
+			frame.m_Texture = handle;
+			frame.m_TextureSpriteIndex = spriteIndex;
 		};
 
 	if (ImGui::BeginTable("##AnimationFrameInspectorTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
@@ -2699,11 +4337,69 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 		if (frame.m_Texture != 0)
 		{
 			if (AssetManager::IsAssetHandleValid(frame.m_Texture) && AssetManager::GetAssetType(frame.m_Texture) == AssetType::Texture2D)
+			{
 				textureLabel = AssetManager::GetAssetMetadata(frame.m_Texture).m_Filepath.generic_string();
+				const auto& sprites = AssetManager::GetAssetMetadata(frame.m_Texture).m_TextureSettings.m_Sprites;
+				if (frame.m_TextureSpriteIndex >= 0 && frame.m_TextureSpriteIndex < static_cast<int32_t>(sprites.size()))
+					textureLabel += " / " + sprites[static_cast<size_t>(frame.m_TextureSpriteIndex)].m_Name;
+			}
 			else
 				textureLabel = "Invalid texture handle";
 		}
-		UI::DragDropTarget(AssetType::Texture2D, dragDropCallback, textureLabel.c_str(), true, std::max(160.0f, width - 140.0f), 0.0f);
+		UI::DragDropTarget(AssetType::Texture2D, dragDropCallback, textureLabel.c_str(), true, std::max(160.0f, width - 140.0f), 0.0f, true, nullptr, assetReferenceCallback);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::TextUnformatted("Sprite");
+		ImGui::TableNextColumn();
+		bool hasSlices = false;
+		if (frame.m_Texture != 0 && AssetManager::IsAssetHandleValid(frame.m_Texture) && AssetManager::GetAssetType(frame.m_Texture) == AssetType::Texture2D)
+		{
+			const AssetMetadata& metadata = AssetManager::GetAssetMetadata(frame.m_Texture);
+			const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+			hasSlices = !sprites.empty();
+			const bool validSpriteIndex = frame.m_TextureSpriteIndex >= 0 && frame.m_TextureSpriteIndex < static_cast<int32_t>(sprites.size());
+			const char* spritePreview = validSpriteIndex ? sprites[static_cast<size_t>(frame.m_TextureSpriteIndex)].m_Name.c_str() : "Full Texture";
+			if (ImGui::BeginCombo("##FrameSprite", spritePreview))
+			{
+				if (ImGui::Selectable("Full Texture", frame.m_TextureSpriteIndex < 0))
+					frame.m_TextureSpriteIndex = -1;
+				for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+				{
+					const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
+					const bool selected = frame.m_TextureSpriteIndex == spriteIndex;
+					std::string label = sprite.m_Name + "  (" + std::to_string(sprite.m_Width) + "x" + std::to_string(sprite.m_Height) + ")";
+					if (ImGui::Selectable(label.c_str(), selected))
+						frame.m_TextureSpriteIndex = spriteIndex;
+					if (selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::BeginDisabled(!hasSlices);
+			if (ImGui::Button("Add All Slices As Frames", ImVec2(-1.0f, 0.0f)))
+			{
+				auto& frames = m_CurrentAnimation->GetFrames();
+				const int firstAddedIndex = static_cast<int>(frames.size());
+				for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+				{
+					AnimationFrame sliceFrame;
+					sliceFrame.m_Texture = frame.m_Texture;
+					sliceFrame.m_TextureSpriteIndex = spriteIndex;
+					sliceFrame.m_Duration = std::max(0.001f, m_DefaultFrameDuration);
+					frames.push_back(sliceFrame);
+				}
+				if (!sprites.empty())
+					m_SelectedFrameIndex = firstAddedIndex;
+				StopPreview(false);
+			}
+			ImGui::EndDisabled();
+		}
+		else
+		{
+			frame.m_TextureSpriteIndex = -1;
+			ImGui::TextDisabled("Assign a texture with sprite slices.");
+		}
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
@@ -3233,6 +4929,21 @@ bool AnimationEditorPanel::CopySelection()
 
 	if (AnimationControllerTransition* transition = GetSelectedControllerTransition())
 	{
+		if (m_SelectedBlueprintNodeId != 0)
+		{
+			const auto nodeIt = std::find_if(transition->m_BlueprintNodes.begin(), transition->m_BlueprintNodes.end(), [this](const AnimationControllerBlueprintNode& node)
+				{
+					return node.m_Id == m_SelectedBlueprintNodeId && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
+				});
+			if (nodeIt != transition->m_BlueprintNodes.end())
+			{
+				m_Clipboard = {};
+				m_Clipboard.m_Type = AnimationEditorClipboardType::ControllerBlueprintNode;
+				m_Clipboard.m_BlueprintNode = *nodeIt;
+				return true;
+			}
+		}
+
 		m_Clipboard = {};
 		m_Clipboard.m_Type = AnimationEditorClipboardType::ControllerTransition;
 		m_Clipboard.m_Transition = *transition;
@@ -3270,6 +4981,20 @@ bool AnimationEditorPanel::PasteSelection()
 	if (m_EditorMode != AnimationEditorMode::Controller || !m_CurrentController)
 		return false;
 
+	if (m_Clipboard.m_Type == AnimationEditorClipboardType::ControllerBlueprintNode)
+	{
+		AnimationControllerTransition* transition = GetSelectedControllerTransition();
+		if (!transition || m_Clipboard.m_BlueprintNode.m_Type == AnimationBlueprintNodeType::Start || m_Clipboard.m_BlueprintNode.m_Type == AnimationBlueprintNodeType::Result)
+			return false;
+		PushHistory();
+		AnimationControllerBlueprintNode node = m_Clipboard.m_BlueprintNode;
+		node.m_Id = transition->m_NextBlueprintNodeId++;
+		node.m_GraphPosition += glm::vec2{ 30.0f, 30.0f };
+		transition->m_BlueprintNodes.push_back(node);
+		m_SelectedBlueprintNodeId = node.m_Id;
+		return true;
+	}
+
 	if (m_Clipboard.m_Type == AnimationEditorClipboardType::ControllerState)
 	{
 		PushHistory();
@@ -3304,6 +5029,24 @@ bool AnimationEditorPanel::DuplicateSelection()
 
 	if (AnimationControllerTransition* selectedTransition = GetSelectedControllerTransition())
 	{
+		if (m_SelectedBlueprintNodeId != 0)
+		{
+			const auto nodeIt = std::find_if(selectedTransition->m_BlueprintNodes.begin(), selectedTransition->m_BlueprintNodes.end(), [this](const AnimationControllerBlueprintNode& node)
+				{
+					return node.m_Id == m_SelectedBlueprintNodeId && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
+				});
+			if (nodeIt != selectedTransition->m_BlueprintNodes.end())
+			{
+				PushHistory();
+				AnimationControllerBlueprintNode duplicate = *nodeIt;
+				duplicate.m_Id = selectedTransition->m_NextBlueprintNodeId++;
+				duplicate.m_GraphPosition += glm::vec2{ 30.0f, 30.0f };
+				selectedTransition->m_BlueprintNodes.push_back(duplicate);
+				m_SelectedBlueprintNodeId = duplicate.m_Id;
+				return true;
+			}
+		}
+
 		PushHistory();
 		const AnimationControllerTransition duplicate = *selectedTransition;
 		if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
@@ -3359,8 +5102,27 @@ bool AnimationEditorPanel::DeleteSelection()
 	if (!m_CurrentController)
 		return false;
 
-	if (GetSelectedControllerTransition())
+	if (AnimationControllerTransition* selectedTransition = GetSelectedControllerTransition())
 	{
+		if (m_SelectedBlueprintNodeId != 0)
+		{
+			const auto nodeIt = std::find_if(selectedTransition->m_BlueprintNodes.begin(), selectedTransition->m_BlueprintNodes.end(), [this](const AnimationControllerBlueprintNode& node)
+				{
+					return node.m_Id == m_SelectedBlueprintNodeId && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
+				});
+			if (nodeIt != selectedTransition->m_BlueprintNodes.end())
+			{
+				PushHistory();
+				std::erase_if(selectedTransition->m_BlueprintLinks, [this](const AnimationControllerBlueprintLink& link)
+					{
+						return link.m_OutputNode == m_SelectedBlueprintNodeId || link.m_InputNode == m_SelectedBlueprintNodeId;
+					});
+				selectedTransition->m_BlueprintNodes.erase(nodeIt);
+				m_SelectedBlueprintNodeId = 0;
+				return true;
+			}
+		}
+
 		PushHistory();
 		RemoveSelectedControllerTransition();
 		return true;

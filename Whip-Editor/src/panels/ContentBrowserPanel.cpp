@@ -1,15 +1,16 @@
 #include <WhipPch.h>
 
-#include "ContentBrowserPanel.h"
+#include <Whip-Editor/panels/ContentBrowserPanel.h>
 
-#include "../Helpers/IconManager.h"
+#include <Whip-Editor/Helpers/IconManager.h>
 
 #include <Whip/Asset/AssetManager.h>
+#include <Whip/Asset/TextureSlicer.h>
 #include <Whip/Asset/AssetUtils.h>
 #include <Whip/Core/Application.h>
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Project/Project.h>
-#include <Whip/UI/UIHelpers.h>
+#include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip/Utils/PlatformUtils.h>
 
 #include <imgui.h>
@@ -177,6 +178,7 @@ void ContentBrowserPanel::OnImGuiRender()
 	}
 
 	DrawFileOperationModals();
+	DrawAutoSliceModal();
 	OnSettingsPopup();
 	ImGui::End();
 }
@@ -409,18 +411,41 @@ void ContentBrowserPanel::DrawContentGrid(const std::vector<BrowserItem>& items)
 
 void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 {
-	const std::string itemId = item.m_RelativePath.generic_string();
+	std::string itemId = item.m_RelativePath.generic_string();
+	if (item.m_SubAsset)
+		itemId += "::sprite:" + std::to_string(item.m_TextureSpriteIndex);
+	const std::string displayName = item.m_DisplayName.empty() ? item.m_RelativePath.filename().string() : item.m_DisplayName;
 	ImGui::PushID(itemId.c_str());
 	ImGui::BeginGroup();
 
 	Ref<Texture2D> thumbnail = item.m_Directory ? IconManager::Get().GetIcon(Icon::Directory) : nullptr;
+	ImVec2 thumbnailUv0 = { 0.0f, 1.0f };
+	ImVec2 thumbnailUv1 = { 1.0f, 0.0f };
+	if (!thumbnail && item.m_SubAsset && item.m_Type == AssetType::Texture2D && item.m_Handle != 0 && AssetManager::IsAssetHandleValid(item.m_Handle))
+	{
+		Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(item.m_Handle);
+		const AssetMetadata& metadata = AssetManager::GetAssetMetadata(item.m_Handle);
+		const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+		if (texture && item.m_TextureSpriteIndex >= 0 && item.m_TextureSpriteIndex < static_cast<int32_t>(sprites.size()))
+		{
+			const TextureSpriteRect& sprite = sprites[static_cast<size_t>(item.m_TextureSpriteIndex)];
+			const float textureWidth = static_cast<float>(texture->GetWidth());
+			const float textureHeight = static_cast<float>(texture->GetHeight());
+			if (textureWidth > 0.0f && textureHeight > 0.0f)
+			{
+				thumbnail = texture;
+				thumbnailUv0 = { static_cast<float>(sprite.m_X) / textureWidth, 1.0f - static_cast<float>(sprite.m_Y) / textureHeight };
+				thumbnailUv1 = { static_cast<float>(sprite.m_X + sprite.m_Width) / textureWidth, 1.0f - static_cast<float>(sprite.m_Y + sprite.m_Height) / textureHeight };
+			}
+		}
+	}
 	if (!thumbnail && item.m_Type == AssetType::Texture2D && std::filesystem::exists(item.m_AbsolutePath))
 		thumbnail = m_ThumbnailCache->GetOrCreateThumbnail(item.m_RelativePath);
 	if (!thumbnail)
 		thumbnail = IconManager::Get().GetIcon(Icon::File);
 
 	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-	const bool iconClicked = UI::ImageButton("##ContentBrowserItemIcon", UI::ToImGuiTextureId(thumbnail->GetRendererId()), { m_ThumbnailSize, m_ThumbnailSize }, { 0, 1 }, { 1, 0 });
+	const bool iconClicked = UI::ImageButton("##ContentBrowserItemIcon", UI::ToImGuiTextureId(thumbnail->GetRendererId()), { m_ThumbnailSize, m_ThumbnailSize }, thumbnailUv0, thumbnailUv1);
 	ImGui::PopStyleColor();
 
 	if (iconClicked && item.m_Directory)
@@ -437,19 +462,25 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 	if (ImGui::BeginDragDropSource())
 	{
 		std::string relativePath = item.m_RelativePath.generic_string();
-		ImGui::SetDragDropPayload("CONTENT_BROWSER_PATH", relativePath.data(), relativePath.size());
+		if (!item.m_SubAsset)
+			ImGui::SetDragDropPayload("CONTENT_BROWSER_PATH", relativePath.data(), relativePath.size());
 		if (item.m_Supported && !item.m_Directory && !item.m_Missing)
 		{
 			AssetHandle handle = item.m_Handle;
-			if (handle == 0)
+			if (handle == 0 && !item.m_SubAsset)
 			{
 				ImportFile(item.m_RelativePath);
 				handle = FindAssetHandle(item.m_RelativePath);
 			}
 			if (handle != 0)
-				ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &handle, sizeof(AssetHandle));
+			{
+				UI::AssetReferencePayload assetPayload;
+				assetPayload.m_Handle = handle;
+				assetPayload.m_TextureSpriteIndex = item.m_TextureSpriteIndex;
+				ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &assetPayload, sizeof(UI::AssetReferencePayload));
+			}
 		}
-		ImGui::TextUnformatted(item.m_RelativePath.filename().string().c_str());
+		ImGui::TextUnformatted(displayName.c_str());
 		ImGui::EndDragDropSource();
 	}
 
@@ -493,7 +524,15 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 		}
 		else
 		{
-			if (item.m_Missing)
+			if (item.m_SubAsset)
+			{
+				if (ImGui::MenuItem("Open Parent Texture Editor"))
+					InspectAsset(item);
+				if (ImGui::MenuItem("Show Parent in Explorer"))
+					Utils::OpenExternalPath(item.m_AbsolutePath.parent_path());
+				ImGui::TextDisabled("Texture Sprite Slice");
+			}
+			else if (item.m_Missing)
 			{
 				if (ImGui::MenuItem("Remove Missing Registration"))
 					RequestRemoveAsset(item.m_Handle, item.m_RelativePath);
@@ -523,6 +562,18 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 				{
 					if (ImGui::MenuItem("Open Asset Editor"))
 						InspectAsset(item);
+					if (item.m_Type == AssetType::Texture2D && ImGui::MenuItem("Slice Texture..."))
+					{
+						BrowserItem sliceItem = item;
+						if (!sliceItem.m_Imported || sliceItem.m_Handle == 0)
+						{
+							ImportFile(sliceItem.m_RelativePath);
+							sliceItem.m_Handle = FindAssetHandle(sliceItem.m_RelativePath);
+							sliceItem.m_Imported = sliceItem.m_Handle != 0;
+						}
+						if (sliceItem.m_Handle != 0)
+							RequestAutoSliceTexture(sliceItem);
+					}
 					ImGui::Separator();
 				}
 
@@ -539,7 +590,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 				if (ImGui::MenuItem("Delete"))
 					RequestDeleteItem(item);
 			}
-			if (item.m_Imported && !item.m_Missing && ImGui::MenuItem("Remove from Registry"))
+			if (!item.m_SubAsset && item.m_Imported && !item.m_Missing && ImGui::MenuItem("Remove from Registry"))
 				RequestRemoveAsset(item.m_Handle, item.m_RelativePath);
 			if (!item.m_Supported && !item.m_Missing)
 				ImGui::TextDisabled("Unsupported Asset type");
@@ -549,7 +600,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 	}
 
 	ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + m_ThumbnailSize);
-	ImGui::TextWrapped(item.m_RelativePath.filename().string().c_str());
+	ImGui::TextWrapped(displayName.c_str());
 	ImGui::PopTextWrapPos();
 	if (item.m_Missing)
 		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Missing %s", ItemTypeLabel(item).c_str());
@@ -636,6 +687,66 @@ void ContentBrowserPanel::DrawFileOperationModals()
 	ImGui::EndPopup();
 }
 
+void ContentBrowserPanel::DrawAutoSliceModal()
+{
+	const char* popupName = "Smart Slice Texture";
+	if (m_ShowAutoSlicePopup)
+	{
+		ImGui::OpenPopup(popupName);
+		m_ShowAutoSlicePopup = false;
+	}
+
+	if (!ImGui::BeginPopupModal(popupName, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		return;
+
+	ImGui::TextUnformatted("Smart Sprite Slicer");
+	ImGui::TextDisabled("%s", m_AutoSliceRelativePath.generic_string().c_str());
+	ImGui::Separator();
+	ImGui::SetNextItemWidth(260.0f);
+	ImGui::InputInt("Min Pixels", &m_AutoSliceMinPixels);
+	ImGui::SetNextItemWidth(260.0f);
+	ImGui::InputInt("Background Tolerance", &m_AutoSliceBackgroundTolerance);
+	ImGui::SetNextItemWidth(260.0f);
+	ImGui::InputInt("Fragment Merge Gap", &m_AutoSliceMergeGap);
+	ImGui::SetNextItemWidth(260.0f);
+	ImGui::InputInt("Padding", &m_AutoSlicePadding);
+	ImGui::SetNextItemWidth(260.0f);
+	ImGui::InputInt("Extrude Pixels", &m_AutoSliceExtrudePixels);
+	m_AutoSliceMinPixels = std::max(1, m_AutoSliceMinPixels);
+	m_AutoSliceBackgroundTolerance = std::clamp(m_AutoSliceBackgroundTolerance, 0, 255);
+	m_AutoSliceMergeGap = std::max(0, m_AutoSliceMergeGap);
+	m_AutoSlicePadding = std::max(0, m_AutoSlicePadding);
+	m_AutoSliceExtrudePixels = std::clamp(m_AutoSliceExtrudePixels, 0, 16);
+	ImGui::Checkbox("Separate Diagonal Touches", &m_AutoSliceSeparateDiagonalTouches);
+	ImGui::Checkbox("Replace Existing Sprite Slices", &m_AutoSliceReplaceExisting);
+	ImGui::Checkbox("Export Cropped PNGs", &m_AutoSliceExportPngs);
+	if (m_AutoSliceExportPngs)
+		ImGui::TextDisabled("Exports to <texture-name>_slices and imports the generated PNG files.");
+
+	if (!m_OperationError.empty())
+	{
+		ImGui::Spacing();
+		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "%s", m_OperationError.c_str());
+	}
+
+	ImGui::Spacing();
+	if (ImGui::Button("Slice", ImVec2(108.0f, 0.0f)))
+	{
+		if (RunPendingAutoSlice())
+			ImGui::CloseCurrentPopup();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel", ImVec2(108.0f, 0.0f)))
+	{
+		m_AutoSliceHandle = 0;
+		m_AutoSliceRelativePath.clear();
+		m_OperationError.clear();
+		ImGui::CloseCurrentPopup();
+	}
+
+	ImGui::EndPopup();
+}
+
 std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectItems() const
 {
 	std::vector<BrowserItem> items = m_Mode == Mode::Filesystem ? CollectFilesystemItems() : CollectAssetItems();
@@ -655,7 +766,15 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectItems(
 			if (left.m_Directory != right.m_Directory)
 				return left.m_Directory > right.m_Directory;
 
-			return ToLower(left.m_RelativePath.filename().string()) < ToLower(right.m_RelativePath.filename().string());
+			if (left.m_Handle != 0 && left.m_Handle == right.m_Handle && left.m_SubAsset != right.m_SubAsset)
+				return !left.m_SubAsset;
+
+			if (left.m_Handle != 0 && left.m_Handle == right.m_Handle && left.m_SubAsset && right.m_SubAsset)
+				return left.m_TextureSpriteIndex < right.m_TextureSpriteIndex;
+
+			const std::string leftName = left.m_DisplayName.empty() ? left.m_RelativePath.filename().string() : left.m_DisplayName;
+			const std::string rightName = right.m_DisplayName.empty() ? right.m_RelativePath.filename().string() : right.m_DisplayName;
+			return ToLower(leftName) < ToLower(rightName);
 		});
 
 	return items;
@@ -665,6 +784,24 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectFilesy
 {
 	std::vector<BrowserItem> items;
 	std::error_code error;
+	auto appendItem = [&](const BrowserItem& item)
+		{
+			items.push_back(item);
+			if (!item.m_Imported || item.m_Missing || item.m_Type != AssetType::Texture2D || item.m_Handle == 0)
+				return;
+
+			const AssetMetadata& metadata = m_Project->GetEditorAssetManager()->GetMetadata(item.m_Handle);
+			const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+			for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+			{
+				const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
+				BrowserItem spriteItem = item;
+				spriteItem.m_DisplayName = sprite.m_Name;
+				spriteItem.m_TextureSpriteIndex = spriteIndex;
+				spriteItem.m_SubAsset = true;
+				items.push_back(std::move(spriteItem));
+			}
+		};
 
 	if (m_SearchQuery.empty())
 	{
@@ -672,7 +809,7 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectFilesy
 		{
 			BrowserItem item = MakeFilesystemItem(entry);
 			if (!IsInternalProjectFile(item.m_RelativePath))
-				items.push_back(item);
+				appendItem(item);
 		}
 	}
 	else
@@ -681,7 +818,7 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectFilesy
 		{
 			BrowserItem item = MakeFilesystemItem(entry);
 			if (!IsInternalProjectFile(item.m_RelativePath))
-				items.push_back(item);
+				appendItem(item);
 		}
 	}
 
@@ -693,6 +830,23 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectAssetI
 	std::vector<BrowserItem> items;
 	std::set<std::filesystem::path> directoryPaths;
 	const auto& registry = m_Project->GetEditorAssetManager()->GetAssetRegistry();
+	auto appendAssetItem = [&](const BrowserItem& item, const AssetMetadata& metadata)
+		{
+			items.push_back(item);
+			if (item.m_Missing || item.m_Type != AssetType::Texture2D)
+				return;
+
+			const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+			for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+			{
+				const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
+				BrowserItem spriteItem = item;
+				spriteItem.m_DisplayName = sprite.m_Name;
+				spriteItem.m_TextureSpriteIndex = spriteIndex;
+				spriteItem.m_SubAsset = true;
+				items.push_back(std::move(spriteItem));
+			}
+		};
 
 	registry.Foreach([&](const AssetRegistry::ValueType& value)
 		{
@@ -707,13 +861,13 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectAssetI
 
 			if (!m_SearchQuery.empty())
 			{
-				items.push_back(item);
+				appendAssetItem(item, value.second);
 				return;
 			}
 
 			if (item.m_AbsolutePath.parent_path() == m_CurrentDirectory)
 			{
-				items.push_back(item);
+				appendAssetItem(item, value.second);
 				return;
 			}
 
@@ -842,6 +996,107 @@ void ContentBrowserPanel::RequestRemoveAsset(AssetHandle handle, const std::file
 	m_PendingOperationIsDirectory = false;
 	m_OperationText.clear();
 	m_OperationError.clear();
+}
+
+void ContentBrowserPanel::RequestAutoSliceTexture(const BrowserItem& item)
+{
+	m_AutoSliceHandle = item.m_Handle;
+	m_AutoSliceRelativePath = item.m_RelativePath;
+	m_AutoSliceMinPixels = 24;
+	m_AutoSliceBackgroundTolerance = 24;
+	m_AutoSliceMergeGap = 0;
+	m_AutoSlicePadding = 1;
+	m_AutoSliceExtrudePixels = 0;
+	m_AutoSliceSeparateDiagonalTouches = true;
+	m_AutoSliceExportPngs = false;
+	m_AutoSliceReplaceExisting = true;
+	m_OperationError.clear();
+	m_ShowAutoSlicePopup = true;
+}
+
+bool ContentBrowserPanel::RunPendingAutoSlice()
+{
+	if (!m_Project || !m_Project->GetEditorAssetManager() || m_AutoSliceHandle == 0)
+	{
+		m_OperationError = "No texture selected.";
+		return false;
+	}
+
+	if (!m_Project->GetEditorAssetManager()->IsAssetHandleValid(m_AutoSliceHandle) ||
+		m_Project->GetEditorAssetManager()->GetAssetType(m_AutoSliceHandle) != AssetType::Texture2D)
+	{
+		m_OperationError = "Selected Asset is not a texture.";
+		return false;
+	}
+
+	TextureSlicer::PixelBuffer buffer;
+	std::string error;
+	if (!TextureSlicer::LoadTexturePixels(m_AutoSliceHandle, buffer, error))
+	{
+		m_OperationError = error;
+		return false;
+	}
+
+	AssetMetadata metadata = m_Project->GetEditorAssetManager()->GetMetadata(m_AutoSliceHandle);
+	const std::string stem = metadata.m_Filepath.stem().empty() ? "sprite" : metadata.m_Filepath.stem().string();
+	TextureSlicer::AutoSliceOptions options;
+	options.m_MinPixels = static_cast<uint32_t>(m_AutoSliceMinPixels);
+	options.m_BackgroundTolerance = m_AutoSliceBackgroundTolerance;
+	options.m_MergeGap = static_cast<uint32_t>(m_AutoSliceMergeGap);
+	options.m_Padding = static_cast<uint32_t>(m_AutoSlicePadding);
+	options.m_ExtrudePixels = static_cast<uint32_t>(m_AutoSliceExtrudePixels);
+	options.m_SeparateDiagonalTouches = m_AutoSliceSeparateDiagonalTouches;
+
+	TextureSlicer::AutoSliceResult result = TextureSlicer::DetectSprites(buffer, stem, options);
+	if (result.m_Sprites.empty())
+	{
+		m_OperationError = result.m_Error;
+		return false;
+	}
+
+	metadata.m_TextureSettings.m_SpriteMode = TextureSpriteMode::Multiple;
+	if (m_AutoSliceReplaceExisting)
+		metadata.m_TextureSettings.m_Sprites = result.m_Sprites;
+	else
+		metadata.m_TextureSettings.m_Sprites.insert(metadata.m_TextureSettings.m_Sprites.end(), result.m_Sprites.begin(), result.m_Sprites.end());
+
+	if (!m_Project->GetEditorAssetManager()->UpdateAssetMetadata(m_AutoSliceHandle, metadata))
+	{
+		m_OperationError = "Could not update texture metadata.";
+		return false;
+	}
+
+	size_t exportedCount = 0;
+	if (m_AutoSliceExportPngs)
+	{
+		const std::filesystem::path outputDirectory = m_BaseDirectory / metadata.m_Filepath.parent_path() / (stem + "_slices");
+		std::vector<std::filesystem::path> exportedPaths;
+		if (!TextureSlicer::ExportSpritePngs(buffer, result, outputDirectory, stem, exportedPaths, error, options.m_ExtrudePixels))
+		{
+			m_OperationError = error;
+			return false;
+		}
+
+		for (const std::filesystem::path& exportedPath : exportedPaths)
+		{
+			std::error_code relativeError;
+			const std::filesystem::path relativePath = std::filesystem::relative(exportedPath, m_BaseDirectory, relativeError).lexically_normal();
+			if (!relativeError)
+			{
+				m_Project->GetEditorAssetManager()->ImportAsset(relativePath);
+				++exportedCount;
+			}
+		}
+	}
+
+	RefreshAssetTree();
+	SetStatus("Smart sliced " + std::to_string(result.m_Sprites.size()) + " sprite(s)" +
+		(exportedCount > 0 ? ", exported " + std::to_string(exportedCount) + " PNG(s)" : "") +
+		(result.m_UsedAlpha ? " using alpha." : " using background model (tol " + std::to_string(result.m_EffectiveBackgroundTolerance) + ")."));
+	m_AutoSliceHandle = 0;
+	m_AutoSliceRelativePath.clear();
+	m_OperationError.clear();
+	return true;
 }
 
 void ContentBrowserPanel::RequestRenameItem(const BrowserItem& item)
@@ -1323,10 +1578,11 @@ bool ContentBrowserPanel::MatchesSearch(const BrowserItem& item) const
 
 	const std::string query = ToLower(m_SearchQuery);
 	const std::string filename = ToLower(item.m_RelativePath.filename().string());
+	const std::string displayName = ToLower(item.m_DisplayName);
 	const std::string path = ToLower(item.m_RelativePath.generic_string());
 	const std::string type = ToLower(ItemTypeLabel(item));
 
-	return filename.find(query) != std::string::npos || path.find(query) != std::string::npos || type.find(query) != std::string::npos;
+	return filename.find(query) != std::string::npos || displayName.find(query) != std::string::npos || path.find(query) != std::string::npos || type.find(query) != std::string::npos;
 }
 
 bool ContentBrowserPanel::PassesTypeFilter(const BrowserItem& item) const
@@ -1407,6 +1663,9 @@ std::string ContentBrowserPanel::ItemTypeLabel(const BrowserItem& item) const
 {
 	if (item.m_Directory)
 		return "Folder";
+
+	if (item.m_SubAsset)
+		return "Texture Sprite";
 
 	if (item.m_Imported)
 		return std::string(frenum::to_string(item.m_Type)) + " Asset";
