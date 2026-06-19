@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Whip.h>
+#include <Whip-Editor/EditorScriptManager.h>
 #include <Whip-Editor/UI/UIProjectLoader.h>
 #include <Whip-Editor/UI/UIProject.h>
 #include <Whip-Editor/UI/UISettings.h>
@@ -15,10 +16,7 @@
 #include <Whip-Editor/panels/ConsolePanel.h>
 #include <Whip-Editor/panels/EditorPanelManager.h>
 
-#include <FileWatch.h>
-
 #include <chrono>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -110,13 +108,6 @@ private:
 	AssetHandle ImportExternalAssetFile(const std::filesystem::path& sourcePath);
 	glm::vec3 GetViewportMouseWorldPosition() const;
 
-	bool BuildProjectScripts();
-	void ReloadAssembly(bool resetAppAssemblyFilepath = true);
-	void StartScriptSourceWatcher();
-	void StopScriptSourceWatcher();
-	void HandleScriptSourceEvent(const std::string& path, filewatch::Event eventType);
-	void ProcessScriptSourceChanges();
-	void SetScriptBuildStatus(const std::string& message, bool warning = false, bool failure = false);
 	void ProcessRuntimeSceneTransition();
 	bool LoadRuntimeScene(AssetHandle handle);
 	bool UnloadRuntimeScene();
@@ -190,18 +181,7 @@ private:
 	bool m_CommandPaletteFocusSearch = false;
 	char m_CommandPaletteFilter[128]{ 0 };
 
-	Scope<filewatch::FileWatch<std::string>> m_ScriptSourceWatcher;
-	std::filesystem::path m_ScriptSourceWatchDirectory;
-	std::mutex m_ScriptSourceMutex;
-	std::chrono::steady_clock::time_point m_LastScriptSourceChangeTime{};
-	std::filesystem::path m_LastScriptSourceChangePath;
-	std::string m_LastScriptSourceChangeEvent;
-	bool m_ScriptSourceDirty = false;
-	bool m_ScriptSourceQueuedWhileRunning = false;
-	std::string m_ScriptBuildStatus = "Scripts idle";
-	std::chrono::steady_clock::time_point m_ScriptBuildStatusTime{};
-	bool m_ScriptBuildStatusWarning = false;
-	bool m_ScriptBuildStatusFailure = false;
+	EditorScriptManager m_ScriptManager;
 
 	struct ProjectHistoryEntry
 	{

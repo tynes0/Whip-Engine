@@ -4,7 +4,6 @@
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Scene/SceneSerializer.h>
 #include <Whip/Scripting/ScriptEngine.h>
-#include <Whip/Scripting/ScriptProjectGenerator.h>
 #include <Whip/Utils/PlatformUtils.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip-Editor/UI/UIProjectLoader.h>
@@ -17,14 +16,11 @@
 #include <Whip-Editor/Helpers/IconManager.h>
 
 #include <algorithm>
-#include <array>
+#include <cctype>
 #include <cmath>
-#include <cstdio>
 #include <cstdint>
-#include <cstdlib>
 #include <fstream>
 #include <iterator>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -36,13 +32,6 @@
 #include <ImGuizmo.h>
 #include <yaml-cpp/yaml.h>
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#endif
-
 _WHIP_START
 
 namespace
@@ -50,65 +39,6 @@ namespace
 	bool IsControlDown()
 	{
 		return Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl);
-	}
-
-	std::string LowerCopy(std::string value)
-	{
-		std::ranges::transform(value, value.begin(),
-		                       [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
-		return value;
-	}
-
-	bool IsIgnoredScriptWatchSegment(const std::filesystem::path& path)
-	{
-		for (const auto& segment : path)
-		{
-			const std::string name = LowerCopy(segment.string());
-			if (name == "binaries" || name == "intermediates" || name == "obj" || name == "bin" ||
-				name == ".vs" || name == ".idea" || name == "whip-scriptcore")
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-	bool IsScriptSourceWatchEvent(const std::filesystem::path& path, filewatch::Event eventType)
-	{
-		if (path.empty() || IsIgnoredScriptWatchSegment(path))
-			return false;
-
-		switch (eventType)
-		{
-		case filewatch::Event::added:
-		case filewatch::Event::removed:
-		case filewatch::Event::modified:
-		case filewatch::Event::renamed_old:
-		case filewatch::Event::renamed_new:
-			break;
-		}
-
-		const std::string extension = LowerCopy(path.extension().string());
-		return extension == ".cs" ||
-			extension == ".csproj" ||
-			extension == ".sln" ||
-			extension == ".props" ||
-			extension == ".targets" ||
-			extension == ".config" ||
-			extension == ".rsp";
-	}
-
-	std::string ScriptSourceEventName(filewatch::Event eventType)
-	{
-		switch (eventType)
-		{
-		case filewatch::Event::added: return "added";
-		case filewatch::Event::removed: return "removed";
-		case filewatch::Event::modified: return "modified";
-		case filewatch::Event::renamed_old:
-		case filewatch::Event::renamed_new: return "renamed";
-		}
-		return "changed";
 	}
 
 	int GizmoSnapIndex(int operation)
@@ -151,19 +81,6 @@ namespace
 			if (c == ' ')
 				c = '_';
 		return value;
-	}
-
-	std::string GetScriptWorkspaceName(const ProjectConfig& config)
-	{
-		const std::string fallback = SanitizePathToken(config.m_Name, "Untitled");
-		if (!config.m_ScriptModulePath.empty())
-		{
-			const std::string moduleName = config.m_ScriptModulePath.stem().string();
-			if (!moduleName.empty())
-				return SanitizePathToken(moduleName, fallback);
-		}
-
-		return fallback;
 	}
 
 	void WriteVec3(YAML::Emitter& out, const glm::vec3& value)
@@ -300,524 +217,6 @@ namespace
 		return {};
 	}
 
-	std::filesystem::path LocateScriptCoreSourceDirectory()
-	{
-		std::error_code error;
-		for (std::filesystem::path probe = std::filesystem::current_path(); !probe.empty(); probe = probe.parent_path())
-		{
-			const std::array<std::filesystem::path, 2> candidates =
-			{
-				probe / "Resources" / "Scripts" / "Whip-ScriptCore" / "Source",
-				probe / "Whip-ScriptCore" / "Source"
-			};
-
-			for (const auto& candidate : candidates)
-			{
-				if (std::filesystem::exists(candidate, error) && std::filesystem::is_directory(candidate, error))
-					return candidate;
-			}
-
-			if (probe == probe.parent_path())
-				break;
-		}
-
-		return {};
-	}
-
-	std::filesystem::path LocateScriptCoreBinary()
-	{
-		std::error_code error;
-		for (std::filesystem::path probe = std::filesystem::current_path(); !probe.empty(); probe = probe.parent_path())
-		{
-			const std::array<std::filesystem::path, 5> candidates =
-			{
-				probe / "Resources" / "Scripts" / "Whip-ScriptCore.dll",
-				probe / "Whip-ScriptCore.dll",
-				probe / "bin" / "Debug-windows-x86_64" / "Whip-Editor" / "Resources" / "Scripts" / "Whip-ScriptCore.dll",
-				probe / "bin" / "Release-windows-x86_64" / "Whip-Editor" / "Resources" / "Scripts" / "Whip-ScriptCore.dll",
-				probe / "bin" / "Dist-windows-x86_64" / "Whip-Editor" / "Resources" / "Scripts" / "Whip-ScriptCore.dll"
-			};
-
-			for (const auto& candidate : candidates)
-			{
-				if (std::filesystem::exists(candidate, error) && std::filesystem::is_regular_file(candidate, error))
-					return candidate;
-			}
-
-			if (probe == probe.parent_path())
-				break;
-		}
-
-		return {};
-	}
-
-	bool SyncScriptCoreBinary(const std::filesystem::path& scriptsDirectory)
-	{
-		const std::filesystem::path source = LocateScriptCoreBinary();
-		if (source.empty())
-		{
-			WHP_EDITOR_WARN("[Script Build] Could not find Whip-ScriptCore.dll to sync into the script workspace.");
-			return false;
-		}
-
-		const std::filesystem::path destination = scriptsDirectory / "Binaries" / "Whip-ScriptCore.dll";
-		std::error_code error;
-		std::filesystem::create_directories(destination.parent_path(), error);
-		if (error)
-		{
-			WHP_EDITOR_WARN(std::string("[Script Build] Could not create script binaries directory: ") + error.message());
-			return false;
-		}
-
-		std::filesystem::copy_file(source, destination, std::filesystem::copy_options::overwrite_existing, error);
-		if (error)
-		{
-			WHP_EDITOR_WARN(std::string("[Script Build] Could not copy Whip-ScriptCore.dll: ") + error.message());
-			return false;
-		}
-
-		const std::filesystem::path sourcePdb = source.parent_path() / "Whip-ScriptCore.pdb";
-		if (std::filesystem::exists(sourcePdb, error))
-		{
-			error.clear();
-			std::filesystem::copy_file(sourcePdb, destination.parent_path() / "Whip-ScriptCore.pdb", std::filesystem::copy_options::overwrite_existing, error);
-		}
-		return true;
-	}
-
-	bool CopyDirectoryRecursive(const std::filesystem::path& source, const std::filesystem::path& destination)
-	{
-		std::error_code error;
-		if (!std::filesystem::exists(source, error))
-			return false;
-
-		std::filesystem::create_directories(destination, error);
-		if (error)
-			return false;
-
-		for (const auto& entry : std::filesystem::recursive_directory_iterator(source, error))
-		{
-			if (error)
-				return false;
-
-			const std::filesystem::path relative = std::filesystem::relative(entry.path(), source, error);
-			if (error)
-				return false;
-
-			const std::filesystem::path target = destination / relative;
-			if (entry.is_directory(error))
-			{
-				std::filesystem::create_directories(target, error);
-			}
-			else if (entry.is_regular_file(error))
-			{
-				std::filesystem::create_directories(target.parent_path(), error);
-				if (!error)
-					std::filesystem::copy_file(entry.path(), target, std::filesystem::copy_options::overwrite_existing, error);
-			}
-
-			if (error)
-				return false;
-		}
-
-		return true;
-	}
-
-	bool RefreshScriptWorkspaceFiles(const std::filesystem::path& scriptsDirectory, const std::string& projectFolderName);
-
-	bool WriteScriptProjectFiles(const std::filesystem::path& projectDirectory, const std::string& projectFolderName)
-	{
-		const std::filesystem::path scriptsDirectory = projectDirectory / "Assets" / "Scripts";
-		if (!RefreshScriptWorkspaceFiles(scriptsDirectory, projectFolderName))
-			return false;
-
-		if (!WriteTextFile(scriptsDirectory / "Source" / "StarterEntity.cs", ScriptProjectGenerator::MakeStarterScript(projectFolderName)))
-		{
-			WHP_EDITOR_ERROR("[Whip Hub] Could not write starter script file.");
-			return false;
-		}
-
-		SyncScriptCoreBinary(scriptsDirectory);
-		return true;
-	}
-
-bool RefreshScriptWorkspaceFiles(const std::filesystem::path& scriptsDirectory, const std::string& projectFolderName)
-{
-	const std::string projectGuid = ScriptProjectGenerator::MakeStableGuid(projectFolderName + ":scripts");
-	const std::string coreGuid = ScriptProjectGenerator::MakeStableGuid(projectFolderName + ":scriptcore");
-
-	const ScriptProjectGenerator::CSharpProjectGenerationSettings csharpSettings{};
-
-	ScriptProjectGenerator::SolutionGenerationSettings solutionSettings{};
-	solutionSettings.m_Projects =
-	{
-		ScriptProjectGenerator::SolutionProjectEntry {
-			.m_Name = projectFolderName,
-			.m_RelativePath = projectFolderName + ".csproj",
-			.m_Guid = projectGuid
-		},
-		ScriptProjectGenerator::SolutionProjectEntry {
-			.m_Name = csharpSettings.m_ScriptCoreProjectName,
-			.m_RelativePath = csharpSettings.m_ScriptCoreProjectRelativePath,
-			.m_Guid = coreGuid
-		}
-	};
-
-	const std::filesystem::path scriptCoreSource = LocateScriptCoreSourceDirectory();
-	if (scriptCoreSource.empty() || !CopyDirectoryRecursive(scriptCoreSource, scriptsDirectory / "Whip-ScriptCore" / "Source"))
-	{
-		WHP_EDITOR_ERROR("[Whip Hub] Could not copy Whip-ScriptCore SDK sources.");
-		return false;
-	}
-
-	if (!WriteTextFile(scriptsDirectory / "Whip-ScriptCore" / "Whip-ScriptCore.csproj", ScriptProjectGenerator::MakeScriptCoreCsproj(csharpSettings)))
-	{
-		WHP_EDITOR_ERROR("[Whip Hub] Could not write Whip-ScriptCore Project file.");
-		return false;
-	}
-
-	if (!WriteTextFile(scriptsDirectory / "Directory.Build.props", ScriptProjectGenerator::MakeDirectoryBuildProps(projectFolderName, csharpSettings)))
-	{
-		WHP_EDITOR_ERROR("[Whip Hub] Could not write script build properties file.");
-		return false;
-	}
-
-	if (!WriteTextFile(scriptsDirectory / (projectFolderName + ".csproj"), ScriptProjectGenerator::MakeProjectCsproj(projectFolderName, coreGuid, csharpSettings)))
-	{
-		WHP_EDITOR_ERROR("[Whip Hub] Could not write script Project file.");
-		return false;
-	}
-
-	if (!WriteTextFile(scriptsDirectory / (projectFolderName + ".sln"), ScriptProjectGenerator::MakeScriptSolution(solutionSettings)))
-	{
-		WHP_EDITOR_ERROR("[Whip Hub] Could not write script solution file.");
-		return false;
-	}
-
-	return true;
-}
-
-	std::filesystem::path FindScriptProjectFile(const std::filesystem::path& scriptsDirectory, const std::string& scriptWorkspaceName)
-	{
-		std::filesystem::path preferred = scriptsDirectory / (SanitizePathToken(scriptWorkspaceName, "Untitled") + ".sln");
-		std::error_code error;
-		if (std::filesystem::exists(preferred, error))
-			return preferred;
-
-		preferred = scriptsDirectory / (SanitizePathToken(scriptWorkspaceName, "Untitled") + ".csproj");
-		if (std::filesystem::exists(preferred, error))
-			return preferred;
-
-		if (!std::filesystem::exists(scriptsDirectory, error))
-			return {};
-
-		for (const auto& entry : std::filesystem::directory_iterator(scriptsDirectory, error))
-		{
-			if (error)
-				break;
-			if (entry.is_regular_file(error) && entry.path().extension() == ".sln")
-				return entry.path();
-		}
-
-		for (const auto& entry : std::filesystem::directory_iterator(scriptsDirectory, error))
-		{
-			if (error)
-				break;
-			if (entry.is_regular_file(error) && entry.path().extension() == ".csproj")
-				return entry.path();
-		}
-
-		return {};
-	}
-
-	std::string QuoteCommandPath(const std::filesystem::path& path)
-	{
-		return std::format("\"{}\"", path.string());
-	}
-
-#ifdef _WIN32
-	int RunWindowsProcess(const std::string& command, bool logOutput, std::string* firstLine = nullptr)
-	{
-		SECURITY_ATTRIBUTES securityAttributes{};
-		securityAttributes.nLength = sizeof(SECURITY_ATTRIBUTES);
-		securityAttributes.bInheritHandle = TRUE;
-
-		HANDLE readPipe = nullptr;
-		HANDLE writePipe = nullptr;
-		if (!CreatePipe(&readPipe, &writePipe, &securityAttributes, 0))
-		{
-			WHP_EDITOR_ERROR("[Script Build] Could not create process output pipe.");
-			return -1;
-		}
-		SetHandleInformation(readPipe, HANDLE_FLAG_INHERIT, 0);
-
-		STARTUPINFOA startupInfo{};
-		startupInfo.cb = sizeof(STARTUPINFOA);
-		startupInfo.dwFlags = STARTF_USESTDHANDLES;
-		startupInfo.hStdOutput = writePipe;
-		startupInfo.hStdError = writePipe;
-		startupInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-
-		PROCESS_INFORMATION processInfo{};
-		std::string mutableCommand = command;
-		BOOL created = CreateProcessA(nullptr, mutableCommand.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo);
-		CloseHandle(writePipe);
-
-		if (!created)
-		{
-			const DWORD error = GetLastError();
-			CloseHandle(readPipe);
-			WHP_EDITOR_ERROR(std::string("[Script Build] Could not start process. Windows error ") + std::to_string(error) + ".");
-			return -1;
-		}
-
-		std::string pending;
-		std::array<char, 512> buffer{};
-		DWORD bytesRead = 0;
-		while (ReadFile(readPipe, buffer.data(), static_cast<DWORD>(buffer.size() - 1), &bytesRead, nullptr) && bytesRead > 0)
-		{
-			buffer[bytesRead] = '\0';
-			pending.append(buffer.data(), bytesRead);
-
-			size_t newline;
-			while ((newline = pending.find('\n')) != std::string::npos)
-			{
-				std::string line = pending.substr(0, newline);
-				pending.erase(0, newline + 1);
-				if (!line.empty() && line.back() == '\r')
-					line.pop_back();
-
-				if (firstLine && firstLine->empty() && !line.empty())
-					*firstLine = line;
-				if (logOutput && !line.empty())
-					WHP_EDITOR_INFO(std::string("[Script Build] ") + line);
-			}
-		}
-
-		if (!pending.empty())
-		{
-			if (!pending.empty() && pending.back() == '\r')
-				pending.pop_back();
-			if (firstLine && firstLine->empty() && !pending.empty())
-				*firstLine = pending;
-			if (logOutput && !pending.empty())
-				WHP_EDITOR_INFO(std::string("[Script Build] ") + pending);
-		}
-
-		WaitForSingleObject(processInfo.hProcess, INFINITE);
-		DWORD exitCode = 0;
-		GetExitCodeProcess(processInfo.hProcess, &exitCode);
-
-		CloseHandle(processInfo.hProcess);
-		CloseHandle(processInfo.hThread);
-		CloseHandle(readPipe);
-		return static_cast<int>(exitCode);
-	}
-#endif
-
-	std::filesystem::path PathFromEnvironment(const char* name)
-	{
-		const char* value = std::getenv(name); // NOLINT(concurrency-mt-unsafe)
-		return value ? std::filesystem::path(value) : std::filesystem::path{};
-	}
-
-	std::filesystem::path FindExecutableInPath(const std::string& executableName)
-	{
-		std::filesystem::path direct(executableName);
-		std::error_code error;
-		if ((direct.is_absolute() || direct.has_parent_path()) && std::filesystem::exists(direct, error))
-			return direct;
-
-		std::vector<std::string> candidateNames = { executableName };
-#ifdef _WIN32
-		if (std::filesystem::path(executableName).extension().empty())
-			candidateNames.push_back(executableName + ".exe");
-		constexpr char separator = ';';
-#else
-		constexpr char separator = ':';
-#endif
-
-		const char* pathEnv = std::getenv("PATH"); // NOLINT(concurrency-mt-unsafe)
-		if (!pathEnv)
-			return {};
-
-		std::stringstream stream(pathEnv);
-		std::string directory;
-		while (std::getline(stream, directory, separator))
-		{
-			if (directory.empty())
-				continue;
-
-			for (const std::string& candidateName : candidateNames)
-			{
-				std::filesystem::path candidate = std::filesystem::path(directory) / candidateName;
-				error.clear();
-				if (std::filesystem::exists(candidate, error) && std::filesystem::is_regular_file(candidate, error))
-					return candidate;
-			}
-		}
-
-		return {};
-	}
-
-	std::string RunCommandFirstLine(const std::string& command)
-	{
-#ifdef _WIN32
-		std::string firstLine;
-		RunWindowsProcess(command, false, &firstLine);
-		return firstLine;
-#else
-		FILE* pipe = popen(command.c_str(), "r");
-		if (!pipe)
-			return {};
-
-		std::array<char, 1024> buffer{};
-		std::string line;
-		if (std::fgets(buffer.data(), static_cast<int>(buffer.size()), pipe))
-			line = buffer.data();
-
-		pclose(pipe);
-
-		while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
-			line.pop_back();
-		return line;
-#endif
-	}
-
-	std::filesystem::path FindVswhereExecutable()
-	{
-		if (std::filesystem::path pathCandidate = FindExecutableInPath("vswhere.exe"); !pathCandidate.empty())
-			return pathCandidate;
-
-		std::vector<std::filesystem::path> candidates;
-		if (std::filesystem::path programFilesX86 = PathFromEnvironment("ProgramFiles(x86)"); !programFilesX86.empty())
-			candidates.push_back(programFilesX86 / "Microsoft Visual Studio" / "Installer" / "vswhere.exe");
-		if (std::filesystem::path programFiles = PathFromEnvironment("ProgramFiles"); !programFiles.empty())
-			candidates.push_back(programFiles / "Microsoft Visual Studio" / "Installer" / "vswhere.exe");
-
-		std::error_code error;
-		for (const auto& candidate : candidates)
-		{
-			if (std::filesystem::exists(candidate, error) && std::filesystem::is_regular_file(candidate, error))
-				return candidate;
-		}
-
-		return {};
-	}
-
-	std::filesystem::path FindMsbuildWithVswhere()
-	{
-		const std::filesystem::path vswhere = FindVswhereExecutable();
-		if (vswhere.empty())
-			return {};
-
-		const std::string command = QuoteCommandPath(vswhere) +
-			R"( -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe")";
-		const std::string firstLine = RunCommandFirstLine(command);
-		if (firstLine.empty())
-			return {};
-
-		std::error_code error;
-		std::filesystem::path candidate(firstLine);
-		if (std::filesystem::exists(candidate, error) && std::filesystem::is_regular_file(candidate, error))
-			return candidate;
-		return {};
-	}
-
-	std::filesystem::path FindMsbuildExecutable()
-	{
-		if (std::filesystem::path envMsbuild = PathFromEnvironment("WHIP_MSBUILD_PATH"); !envMsbuild.empty())
-		{
-			std::error_code error;
-			if (std::filesystem::exists(envMsbuild, error))
-				return envMsbuild;
-			WHP_EDITOR_WARN(std::string("[Script Build] WHIP_MSBUILD_PATH is set but does not exist: ") + envMsbuild.string());
-		}
-
-		if (std::filesystem::path pathMsbuild = FindExecutableInPath("MSBuild.exe"); !pathMsbuild.empty())
-			return pathMsbuild;
-
-		if (std::filesystem::path vswhereMsbuild = FindMsbuildWithVswhere(); !vswhereMsbuild.empty())
-			return vswhereMsbuild;
-
-		const std::array<std::filesystem::path, 12> candidates =
-		{
-			"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/Professional/MSBuild/Current/Bin/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/Professional/MSBuild/Current/Bin/amd64/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/Enterprise/MSBuild/Current/Bin/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/Enterprise/MSBuild/Current/Bin/amd64/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/Preview/MSBuild/Current/Bin/MSBuild.exe",
-			"C:/Program Files/Microsoft Visual Studio/2022/Preview/MSBuild/Current/Bin/amd64/MSBuild.exe",
-			"C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/MSBuild/Current/Bin/MSBuild.exe",
-			"C:/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/MSBuild/Current/Bin/MSBuild.exe"
-		};
-
-		std::error_code error;
-		for (const auto& candidate : candidates)
-		{
-			if (std::filesystem::exists(candidate, error))
-				return candidate;
-		}
-
-		return {};
-	}
-
-	struct ScriptBuildCommand
-	{
-		std::string command;
-		std::string toolName;
-	};
-
-	ScriptBuildCommand MakeScriptBuildCommand(const std::filesystem::path& buildFile)
-	{
-		if (std::filesystem::path msbuild = FindMsbuildExecutable(); !msbuild.empty())
-		{
-			return {
-				.command = QuoteCommandPath(msbuild) + " " + QuoteCommandPath(buildFile) + " /restore /nologo /v:minimal /p:Configuration=Debug /p:Platform=x64 /nr:false",
-				.toolName = msbuild.string()
-			};
-		}
-
-		if (std::filesystem::path dotnet = FindExecutableInPath("dotnet"); !dotnet.empty())
-		{
-			return {
-				.command = QuoteCommandPath(dotnet) + " build " + QuoteCommandPath(buildFile) + " --nologo --restore -v:minimal -p:Configuration=Debug -p:Platform=x64",
-				.toolName = dotnet.string()
-			};
-		}
-
-		return {};
-	}
-
-	int RunCommandAndLogOutput(const std::string& command)
-	{
-#ifdef _WIN32
-		return RunWindowsProcess(command, true);
-#else
-		FILE* pipe = popen(command.c_str(), "r");
-		if (!pipe)
-		{
-			WHP_EDITOR_ERROR("[Script Build] Could not start script build process.");
-			return -1;
-		}
-
-		std::array<char, 512> buffer{};
-		while (std::fgets(buffer.data(), static_cast<int>(buffer.size()), pipe))
-		{
-			std::string line(buffer.data());
-			while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
-				line.pop_back();
-			if (!line.empty())
-				WHP_EDITOR_INFO(std::string("[Script Build] ") + line);
-		}
-
-		return pclose(pipe);
-#endif
-	}
 }
 
 EditorLayer::EditorLayer()
@@ -905,7 +304,7 @@ void EditorLayer::OnDetach()
 {
 	WHP_PROFILE_FUNCTION();
 	WriteSceneRecoverySnapshot("Editor shutdown");
-	StopScriptSourceWatcher();
+	m_ScriptManager.StopSourceWatcher();
 	SaveEditorPreferences();
 	ConsolePanel::Shutdown();
 
@@ -920,7 +319,7 @@ void EditorLayer::OnUpdate(Timestep ts)
 {
 	WHP_PROFILE_FUNCTION();
 	m_Ts = ts;
-	ProcessScriptSourceChanges();
+	m_ScriptManager.ProcessSourceChanges(m_SceneState == SceneState::Edit);
 	if (m_SceneDirty && m_SceneState == SceneState::Edit)
 	{
 		const auto now = std::chrono::steady_clock::now();
@@ -1293,7 +692,7 @@ bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
 		CloseScene();
 		return true;
 	case UI::EditorShortcutAction::ReloadScripts:
-		ReloadAssembly(true);
+		m_ScriptManager.ReloadAssembly(true, m_SceneState == SceneState::Edit);
 		return true;
 	case UI::EditorShortcutAction::DuplicateEntity:
 		OnDuplicatedEntity();
@@ -2215,7 +1614,7 @@ bool EditorLayer::NewProject(const UI::ProjectCreateSettings& settings)
 	config.m_ScriptModulePath = std::filesystem::path("Scripts") / "Binaries" / (projectFolderName + ".dll");
 	config.m_StartScene = 0;
 
-	if (!WriteScriptProjectFiles(projectDirectory, projectFolderName))
+	if (!EditorScriptManager::WriteProjectFiles(projectDirectory, projectFolderName))
 	{
 		Project::SetActive(nullptr);
 		return false;
@@ -2295,7 +1694,7 @@ void EditorLayer::FinishProjectSettings()
 		return;
 
 	Project::SaveActive();
-	ReloadAssembly(true);
+	m_ScriptManager.ReloadAssembly(true, m_SceneState == SceneState::Edit);
 	m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
 	m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return HandleContentBrowserAssetOpen(handle); });
 	m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return HandleContentBrowserAssetInspect(handle); });
@@ -2402,13 +1801,13 @@ bool EditorLayer::OpenProject(const std::filesystem::path& path)
 		WHP_EDITOR_INFO("[Project] Project file loaded.");
 		MigrateProjectNativeFileExtensions();
 		WHP_EDITOR_INFO("[Project] Native file extension migration complete.");
-		const bool scriptBuildSucceeded = BuildProjectScripts();
+		const bool scriptBuildSucceeded = m_ScriptManager.BuildProjectScripts();
 		if (!scriptBuildSucceeded)
 			WHP_EDITOR_WARN("[Script Build] Project opened, but script build failed.");
 		WHP_EDITOR_INFO("[Project] Script build step complete.");
 		ScriptEngine::Init();
 		WHP_EDITOR_INFO("[Project] Script engine initialized.");
-		StartScriptSourceWatcher();
+		m_ScriptManager.StartSourceWatcher();
 		AssetHandle startScene = (Project::GetActive()->GetConfig().m_StartScene);
 		if (startScene && Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(startScene))
 		{
@@ -2451,18 +1850,12 @@ bool EditorLayer::OpenProject(const std::filesystem::path& path)
 void EditorLayer::ResetEditorProjectState()
 {
 	WriteSceneRecoverySnapshot("Project switch");
-	StopScriptSourceWatcher();
+	m_ScriptManager.StopSourceWatcher();
 	if (m_SceneState != SceneState::Edit)
 		OnSceneStop();
 
 	ScriptEngine::ClearRuntimeSceneTransitionRequest();
-	{
-		std::scoped_lock lock(m_ScriptSourceMutex);
-		m_ScriptSourceDirty = false;
-		m_ScriptSourceQueuedWhileRunning = false;
-		m_LastScriptSourceChangePath.clear();
-		m_LastScriptSourceChangeEvent.clear();
-	}
+	m_ScriptManager.Reset();
 
 	m_ContentBrowserPanel.reset();
 	m_SceneHierarchyPanel.SetContext({});
@@ -2473,7 +1866,6 @@ void EditorLayer::ResetEditorProjectState()
 	MarkSceneClean();
 	Project::SetActive(nullptr);
 	m_ProjectLoader.SetLoaded(false);
-	SetScriptBuildStatus("Scripts idle");
 }
 
 void EditorLayer::NewScene()
@@ -2932,98 +2324,6 @@ void EditorLayer::UnpackEntityTemplate(Entity entityIn)
 	WHP_EDITOR_INFO(std::string("[Entity Template] Unpacked instance ") + root.GetName());
 }
 
-bool EditorLayer::BuildProjectScripts()
-{
-	if (!HasProjectLoaded())
-		return false;
-
-	const ProjectConfig& config = Project::GetActive()->GetConfig();
-	if (config.m_ScriptModulePath.empty())
-	{
-		WHP_EDITOR_INFO("[Script Build] Project has no script module configured.");
-		SetScriptBuildStatus("No script module", true);
-		return true;
-	}
-
-	const std::filesystem::path scriptsDirectory = Project::GetActiveAssetDirectory() / "Scripts";
-	const std::string scriptWorkspaceName = GetScriptWorkspaceName(config);
-	const std::filesystem::path preferredProjectFile = scriptsDirectory / (scriptWorkspaceName + ".csproj");
-	const std::filesystem::path preferredSolutionFile = scriptsDirectory / (scriptWorkspaceName + ".sln");
-	const std::filesystem::path buildPropsFile = scriptsDirectory / "Directory.Build.props";
-	std::error_code error;
-	const bool preferredProjectExists = std::filesystem::exists(preferredProjectFile, error);
-	error.clear();
-	const bool preferredSolutionExists = std::filesystem::exists(preferredSolutionFile, error);
-	error.clear();
-	const bool buildPropsExists = std::filesystem::exists(buildPropsFile, error);
-	bool needsWorkspaceRefresh = !preferredProjectExists || !preferredSolutionExists;
-	if (!needsWorkspaceRefresh && preferredProjectExists)
-	{
-		const std::string projectFileContents = ReadTextFile(preferredProjectFile);
-		const bool generatedSdkProject = projectFileContents.find("<Project Sdk=\"Microsoft.NET.Sdk\">") != std::string::npos;
-		if (generatedSdkProject)
-		{
-			const std::string solutionFileContents = ReadTextFile(preferredSolutionFile);
-			const std::string buildPropsContents = buildPropsExists ? ReadTextFile(buildPropsFile) : "";
-			needsWorkspaceRefresh =
-				!buildPropsExists ||
-				projectFileContents.find("<ProjectReference Include=\"Whip-ScriptCore\\Whip-ScriptCore.csproj\">") == std::string::npos ||
-				projectFileContents.find("<Compile Remove=\"Whip-ScriptCore\\**\\*.cs\" />") == std::string::npos ||
-				projectFileContents.find("<Compile Remove=\"Intermediates\\**\\*.cs\" />") == std::string::npos ||
-				projectFileContents.find("<Compile Remove=\"obj\\**\\*.cs\" />") == std::string::npos ||
-				projectFileContents.find("<BaseIntermediateOutputPath>") != std::string::npos ||
-				buildPropsContents.find("ScriptIntermediates") == std::string::npos ||
-				solutionFileContents.find("Whip-ScriptCore\\Whip-ScriptCore.csproj") == std::string::npos;
-		}
-	}
-	if (needsWorkspaceRefresh)
-	{
-		WHP_EDITOR_INFO("[Script Build] Refreshing generated C# workspace files.");
-		if (!RefreshScriptWorkspaceFiles(scriptsDirectory, scriptWorkspaceName))
-			WHP_EDITOR_WARN("[Script Build] Could not refresh generated C# workspace files.");
-	}
-
-	SyncScriptCoreBinary(scriptsDirectory);
-
-	const std::filesystem::path scriptProjectFile = FindScriptProjectFile(scriptsDirectory, scriptWorkspaceName);
-	if (scriptProjectFile.empty())
-	{
-		WHP_EDITOR_WARN(std::string("[Script Build] No C# Project file found under ") + scriptsDirectory.string() + ". Reloading the existing assembly if it exists.");
-		SetScriptBuildStatus("No C# Project found", true);
-		return true;
-	}
-
-	const ScriptBuildCommand buildCommand = MakeScriptBuildCommand(scriptProjectFile);
-	if (buildCommand.command.empty())
-	{
-		WHP_EDITOR_WARN("[Script Build] Could not find MSBuild.exe or dotnet. Set WHIP_MSBUILD_PATH or add MSBuild/dotnet to PATH. Reloading the existing assembly if it exists.");
-		SetScriptBuildStatus("MSBuild/dotnet not found", true, true);
-		return true;
-	}
-
-	WHP_EDITOR_INFO(std::string("[Script Build] Building ") + scriptProjectFile.string() + " with " + buildCommand.toolName);
-	SetScriptBuildStatus("Building scripts...");
-	const int result = RunCommandAndLogOutput(buildCommand.command);
-	if (result != 0)
-	{
-		WHP_EDITOR_ERROR(std::string("[Script Build] Build failed with exit code ") + std::to_string(result) + ".");
-		SetScriptBuildStatus("Script build failed", false, true);
-		return false;
-	}
-
-	WHP_EDITOR_INFO("[Script Build] Build succeeded.");
-	SetScriptBuildStatus("Scripts built");
-	return true;
-}
-
-void EditorLayer::SetScriptBuildStatus(const std::string& message, bool warning, bool failure)
-{
-	m_ScriptBuildStatus = message;
-	m_ScriptBuildStatusTime = std::chrono::steady_clock::now();
-	m_ScriptBuildStatusWarning = warning;
-	m_ScriptBuildStatusFailure = failure;
-}
-
 void EditorLayer::ProcessRuntimeSceneTransition()
 {
 	if (m_SceneState != SceneState::Play && m_SceneState != SceneState::Simulate)
@@ -3111,136 +2411,6 @@ void EditorLayer::StartActiveRuntimeSceneForTransition(AssetHandle handle)
 	else
 		m_ActiveScene->OnRuntimeStart();
 	ScriptEngine::SetRuntimeActiveSceneHandle(handle);
-}
-
-void EditorLayer::StartScriptSourceWatcher()
-{
-	StopScriptSourceWatcher();
-
-	if (!HasProjectLoaded())
-		return;
-
-	const ProjectConfig& config = Project::GetActive()->GetConfig();
-	if (config.m_ScriptModulePath.empty())
-		return;
-
-	const std::filesystem::path scriptsDirectory = Project::GetActiveAssetDirectory() / "Scripts";
-	std::error_code error;
-	if (!std::filesystem::exists(scriptsDirectory, error) || !std::filesystem::is_directory(scriptsDirectory, error))
-		return;
-
-	try
-	{
-		m_ScriptSourceWatchDirectory = scriptsDirectory;
-		m_ScriptSourceWatcher = MakeScope<filewatch::FileWatch<std::string>>(
-			scriptsDirectory.string(),
-			[this](const std::string& path, const filewatch::Event eventType)
-			{
-				HandleScriptSourceEvent(path, eventType);
-			});
-		WHP_EDITOR_INFO(std::string("[Script Watcher] Watching C# source changes under ") + scriptsDirectory.string());
-	}
-	catch (const std::exception& exception)
-	{
-		m_ScriptSourceWatcher.reset();
-		WHP_EDITOR_WARN(std::string("[Script Watcher] Could not start source watcher: ") + exception.what());
-	}
-}
-
-void EditorLayer::StopScriptSourceWatcher()
-{
-	m_ScriptSourceWatcher.reset();
-	m_ScriptSourceWatchDirectory.clear();
-}
-
-void EditorLayer::HandleScriptSourceEvent(const std::string& path, filewatch::Event eventType)
-{
-	const std::filesystem::path changedPath(path);
-	if (!IsScriptSourceWatchEvent(changedPath, eventType))
-		return;
-
-	std::scoped_lock lock(m_ScriptSourceMutex);
-	m_ScriptSourceDirty = true;
-	m_LastScriptSourceChangeTime = std::chrono::steady_clock::now();
-	m_LastScriptSourceChangePath = changedPath;
-	m_LastScriptSourceChangeEvent = ScriptSourceEventName(eventType);
-}
-
-void EditorLayer::ProcessScriptSourceChanges()
-{
-	if (!HasProjectLoaded())
-		return;
-
-	constexpr auto debounceDuration = std::chrono::milliseconds(750);
-	std::filesystem::path changedPath;
-	std::string eventName;
-
-	{
-		std::scoped_lock lock(m_ScriptSourceMutex);
-		if (!m_ScriptSourceDirty)
-			return;
-
-		if (std::chrono::steady_clock::now() - m_LastScriptSourceChangeTime < debounceDuration)
-			return;
-
-		if (m_SceneState != SceneState::Edit)
-		{
-			if (!m_ScriptSourceQueuedWhileRunning)
-			{
-				m_ScriptSourceQueuedWhileRunning = true;
-				WHP_EDITOR_INFO("[Script Watcher] Source change detected while scene is running. Build and reload will run after Stop.");
-				SetScriptBuildStatus("Script changes queued", true);
-			}
-			return;
-		}
-
-		m_ScriptSourceDirty = false;
-		m_ScriptSourceQueuedWhileRunning = false;
-		changedPath = m_LastScriptSourceChangePath;
-		eventName = m_LastScriptSourceChangeEvent;
-	}
-
-	WHP_EDITOR_INFO(std::string("[Script Watcher] Source ") + eventName + ": " + changedPath.generic_string() + ". Building scripts.");
-	SetScriptBuildStatus("Script changes detected");
-	StopScriptSourceWatcher();
-	const bool buildSucceeded = BuildProjectScripts();
-	if (buildSucceeded)
-	{
-		AssemblyManager::ReloadAssembly(true);
-		WHP_EDITOR_INFO("[Script Watcher] Scripts rebuilt and reloaded.");
-	}
-	else
-	{
-		WHP_EDITOR_WARN("[Script Watcher] Script reload skipped because source build failed.");
-	}
-	StartScriptSourceWatcher();
-}
-
-void EditorLayer::ReloadAssembly(bool resetAppAssemblyFilepath)
-{
-	if (!HasProjectLoaded())
-	{
-		WHP_CORE_WARN("[Script Engine] Failed to reload assembly. No Project is loaded.");
-		return;
-	}
-
-	if (m_SceneState == SceneState::Edit)
-	{
-		StopScriptSourceWatcher();
-		if (!BuildProjectScripts())
-		{
-			WHP_CORE_WARN("[Script Engine] Assembly reload skipped because script build failed.");
-			StartScriptSourceWatcher();
-			return;
-		}
-		AssemblyManager::ReloadAssembly(resetAppAssemblyFilepath);
-		StartScriptSourceWatcher();
-	}
-	else
-	{
-		SetScriptBuildStatus("Stop scene before reload", true);
-		WHP_CORE_WARN("[Script Engine] Failed to reload assembly. Scene is running or simulating!");
-	}
 }
 
 void EditorLayer::SerializeScene(Ref<Scene> sceneIn, const std::filesystem::path& path)
@@ -3702,9 +2872,10 @@ void EditorLayer::UIToolbar()
 	}
 	ImGui::PopStyleVar();
 
-	if (HasProjectLoaded() && !m_ScriptBuildStatus.empty())
+	const EditorScriptManager::Status& scriptStatus = m_ScriptManager.GetStatus();
+	if (HasProjectLoaded() && !scriptStatus.m_Message.empty())
 	{
-		const ImVec2 textSize = ImGui::CalcTextSize(m_ScriptBuildStatus.c_str());
+		const ImVec2 textSize = ImGui::CalcTextSize(scriptStatus.m_Message.c_str());
 		const float statusPaddingX = 10.0f;
 		const float statusHeight = 24.0f;
 		const float statusWidth = glm::min(textSize.x + statusPaddingX * 2.0f, 260.0f);
@@ -3714,16 +2885,16 @@ void EditorLayer::UIToolbar()
 
 		if (statusPos.x > viewportMin.x + 10.0f)
 		{
-			const ImU32 statusFill = m_ScriptBuildStatusFailure ? IM_COL32(84, 34, 32, 230) :
-				m_ScriptBuildStatusWarning ? IM_COL32(78, 58, 28, 230) : IM_COL32(34, 62, 48, 220);
-			const ImU32 statusBorder = m_ScriptBuildStatusFailure ? IM_COL32(214, 94, 84, 230) :
-				m_ScriptBuildStatusWarning ? IM_COL32(226, 174, 74, 230) : IM_COL32(112, 184, 136, 220);
+			const ImU32 statusFill = scriptStatus.m_Failure ? IM_COL32(84, 34, 32, 230) :
+				scriptStatus.m_Warning ? IM_COL32(78, 58, 28, 230) : IM_COL32(34, 62, 48, 220);
+			const ImU32 statusBorder = scriptStatus.m_Failure ? IM_COL32(214, 94, 84, 230) :
+				scriptStatus.m_Warning ? IM_COL32(226, 174, 74, 230) : IM_COL32(112, 184, 136, 220);
 			ImVec2 statusEnd(statusPos.x + statusWidth, statusPos.y + statusHeight);
 			drawList->AddRectFilled(statusPos, statusEnd, statusFill, 5.0f);
 			drawList->AddRect(statusPos, statusEnd, statusBorder, 5.0f);
-			drawList->AddText(ImVec2(statusPos.x + statusPaddingX, statusPos.y + 4.0f), IM_COL32(238, 232, 220, 255), m_ScriptBuildStatus.c_str());
+			drawList->AddText(ImVec2(statusPos.x + statusPaddingX, statusPos.y + 4.0f), IM_COL32(238, 232, 220, 255), scriptStatus.m_Message.c_str());
 			if (ImGui::IsMouseHoveringRect(statusPos, statusEnd))
-				ImGui::SetTooltip("%s", m_ScriptBuildStatus.c_str());
+				ImGui::SetTooltip("%s", scriptStatus.m_Message.c_str());
 		}
 	}
 }
