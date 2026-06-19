@@ -1,5 +1,0 @@
-﻿project:
-  name: ""
-  start_scene: scenes\test.wscene
-  asset_directory: assets
-  script_module_path: ""

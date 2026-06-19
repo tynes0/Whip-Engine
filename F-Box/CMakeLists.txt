@@ -20,15 +20,11 @@ whip_suppress_external_link_warnings(F-Box)
 if(TARGET Whip-ScriptCore)
     add_dependencies(F-Box Whip-ScriptCore)
 endif()
-if(TARGET FboxScripts)
-    add_dependencies(F-Box FboxScripts)
-endif()
 
 set_target_properties(F-Box PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:F-Box>")
 
 whip_copy_directory_after_build(F-Box "${CMAKE_CURRENT_SOURCE_DIR}/assets" "assets")
 whip_copy_directory_after_build(F-Box "${CMAKE_CURRENT_SOURCE_DIR}/Resources" "Resources")
-whip_copy_directory_after_build(F-Box "${CMAKE_CURRENT_SOURCE_DIR}/FboxProject" "FboxProject")
 whip_copy_mono_runtime_after_build(F-Box)
 whip_copy_openal_runtime_after_build(F-Box)

@@ -25,7 +25,6 @@ function(whip_apply_solution_folders)
     whip_set_folder_if_exists(Whip "Whip/Engine")
     whip_set_folder_if_exists(Whip-Editor "Whip/Editor")
     whip_set_folder_if_exists(Whip-ScriptCore "Whip/Scripts")
-    whip_set_folder_if_exists(FboxScripts "Whip/Scripts")
     whip_set_folder_if_exists(F-Box "Whip/Games")
 
     foreach(target IN ITEMS
@@ -74,10 +73,6 @@ if(WHP_BUILD_SCRIPT_CORE)
     else()
         message(WARNING "WHP_BUILD_SCRIPT_CORE is ON, but CSharp targets are only enabled for Visual Studio generators. Native targets will still configure.")
     endif()
-endif()
-
-if(WHP_BUILD_FBOX_SCRIPTS AND CMAKE_GENERATOR MATCHES "Visual Studio" AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/F-Box/FboxProject/Assets/Scripts/CMakeLists.txt")
-    add_subdirectory(F-Box/FboxProject/Assets/Scripts)
 endif()
 
 if(WHP_BUILD_EDITOR)

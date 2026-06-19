@@ -3,10 +3,11 @@
 #include <Whip/Scene/SceneSerializer.h>
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Asset/AssetManager.h>
-#include <Whip/UI/UIHelpers.h>
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
+
+#include <cstdint>
 
 FBoxApp2D::FBoxApp2D() : Layer("Fbox2D") {}
 
@@ -93,8 +94,8 @@ void FBoxApp2D::OnImGuiRender()
 	// Draw Framebuffer
 	if (m_Framebuffer)
 	{
-		whip::UI::Image(
-			whip::UI::ToImGuiTextureId(m_Framebuffer->GetColorAttachmentRendererId()),
+		ImGui::Image(
+			static_cast<ImTextureID>(static_cast<uint64_t>(m_Framebuffer->GetColorAttachmentRendererId())),
 			viewportPanelSize,
 			ImVec2{ 0.0f, 1.0f },
 			ImVec2{ 1.0f, 0.0f });
@@ -103,7 +104,7 @@ void FBoxApp2D::OnImGuiRender()
 	ImGui::End();
 }
 
-void FBoxApp2D::OnEvent(whip::event& eventIn)
+void FBoxApp2D::OnEvent(whip::Event& eventIn)
 {
 	WHP_UNUSED(eventIn);
 	// Runtime viewport currently forwards no custom Layer events.

@@ -3,7 +3,6 @@ include_guard(GLOBAL)
 option(WHP_BUILD_EDITOR "Build Whip-Editor." ON)
 option(WHP_BUILD_FBOX "Build F-Box sandbox application." ON)
 option(WHP_BUILD_SCRIPT_CORE "Build Whip-ScriptCore C# assembly. Requires a Visual Studio generator." ON)
-option(WHP_BUILD_FBOX_SCRIPTS "Build F-Box C# gameplay assembly. Requires Whip-ScriptCore and a Visual Studio generator." ON)
 
 option(WHP_USE_LOCAL_VENDOR "Prefer dependency sources already present under Whip/vendor." ON)
 option(WHP_FETCH_DEPS "Fetch missing open-source dependencies with CMake FetchContent." ON)

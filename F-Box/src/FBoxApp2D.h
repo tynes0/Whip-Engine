@@ -12,7 +12,7 @@ public:
 	virtual void OnDetach() override;
 	virtual void OnUpdate(whip::Timestep timestep) override;
 	virtual void OnImGuiRender() override;
-	virtual void OnEvent(whip::event& eventIn) override;
+	virtual void OnEvent(whip::Event& eventIn) override;
 
 private:
 	bool LoadProject(const std::filesystem::path& projectPath);
@@ -26,4 +26,3 @@ private:
 	glm::vec2 m_ViewportSize = { 1280.0f, 720.0f };
 	bool m_SceneLoaded = false;
 };
-
