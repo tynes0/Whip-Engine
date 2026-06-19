@@ -365,7 +365,7 @@ namespace
 			ImGui::SetTooltip("Open in JetBrains Rider");
 		ImGui::EndDisabled();
 
-		SameLineIfFits(EstimatedSmallButtonWidth("Folder"));
+		ImGui::Spacing();
 		ImGui::BeginDisabled(!hasScriptsDirectory);
 		if (ImGui::SmallButton("Folder"))
 			Utils::OpenExternalPath(scriptsDirectory);

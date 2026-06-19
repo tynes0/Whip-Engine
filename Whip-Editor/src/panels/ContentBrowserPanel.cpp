@@ -136,6 +136,49 @@ namespace
 		if (ImGui::GetContentRegionAvail().x >= nextItemWidth + style.ItemSpacing.x)
 			ImGui::SameLine();
 	}
+
+	std::string EllipsizeText(const std::string& text, float maxWidth)
+	{
+		if (text.empty() || maxWidth <= 1.0f)
+			return {};
+
+		if (ImGui::CalcTextSize(text.c_str()).x <= maxWidth)
+			return text;
+
+		static constexpr const char* Ellipsis = "...";
+		const float ellipsisWidth = ImGui::CalcTextSize(Ellipsis).x;
+		if (ellipsisWidth >= maxWidth)
+			return ".";
+
+		size_t low = 0;
+		size_t high = text.size();
+		while (low < high)
+		{
+			const size_t mid = (low + high + 1) / 2;
+			std::string candidate = text.substr(0, mid);
+			if (ImGui::CalcTextSize(candidate.c_str()).x + ellipsisWidth <= maxWidth)
+				low = mid;
+			else
+				high = mid - 1;
+		}
+
+		return text.substr(0, low) + Ellipsis;
+	}
+
+	void DrawEllipsizedText(const std::string& text, float maxWidth, const ImVec4* color = nullptr)
+	{
+		const std::string displayText = EllipsizeText(text, maxWidth);
+		if (color)
+			ImGui::PushStyleColor(ImGuiCol_Text, *color);
+
+		ImGui::TextUnformatted(displayText.c_str());
+
+		if (color)
+			ImGui::PopStyleColor();
+
+		if (displayText != text && ImGui::IsItemHovered())
+			ImGui::SetTooltip("%s", text.c_str());
+	}
 }
 
 ContentBrowserPanel::ContentBrowserPanel()
@@ -255,26 +298,27 @@ void ContentBrowserPanel::DrawToolbar()
 			SetCurrentDirectory(m_CurrentDirectory.parent_path());
 	}
 
+	ImGui::Spacing();
 	if (m_Mode == Mode::Filesystem)
 	{
-		SameLineIfFits(EstimatedButtonWidth("Import Folder"));
 		if (ImGui::Button("Import Folder"))
 			ImportCurrentDirectory(false);
 
 		SameLineIfFits(EstimatedButtonWidth("Import Recursive"));
 		if (ImGui::Button("Import Recursive"))
 			ImportCurrentDirectory(true);
+
+		SameLineIfFits(128.0f);
+		DrawTypeFilter();
 	}
+	else
+		DrawTypeFilter();
 
-	SameLineIfFits(128.0f);
-	DrawTypeFilter();
-
-	SameLineIfFits(220.0f);
-	const float reservedWidth = EstimatedButtonWidth("Settings") + ImGui::GetStyle().ItemSpacing.x +
+	ImGui::Spacing();
+	const float sideButtonWidth = EstimatedButtonWidth("Settings") + ImGui::GetStyle().ItemSpacing.x +
 		(!m_SearchQuery.empty() ? EstimatedButtonWidth("Clear") + ImGui::GetStyle().ItemSpacing.x : 0.0f);
-	const float searchAvail = ImGui::GetContentRegionAvail().x;
-	const float searchMin = std::min(160.0f, searchAvail);
-	ImGui::SetNextItemWidth(std::max(searchMin, std::min(searchAvail, searchAvail - reservedWidth)));
+	const float searchAvail = std::max(1.0f, ImGui::GetContentRegionAvail().x - sideButtonWidth);
+	ImGui::SetNextItemWidth(searchAvail);
 	if (ImGui::InputTextWithHint("##ContentBrowserSearch", "Search assets and files", &m_SearchQuery))
 		InvalidateItems();
 
@@ -467,17 +511,19 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 	const ImGuiIO& io = ImGui::GetIO();
 	const bool selected = IsItemSelected(item);
 	const ImVec2 itemStart = ImGui::GetCursorScreenPos();
-	if (item.m_SubAsset)
+	const bool groupedTextureItem = item.m_SubAsset || item.m_SubAssetCount > 0;
+	if (groupedTextureItem)
 	{
-		const float horizontalReach = std::max(6.0f, m_Padding * 0.5f);
-		const float backgroundWidth = m_ThumbnailSize + horizontalReach * 2.0f + 2.0f;
-		const float backgroundHeight = std::max(m_ThumbnailSize + 42.0f, m_ThumbnailSize + ImGui::GetTextLineHeightWithSpacing() * 3.25f + 10.0f);
-		const ImVec2 backgroundMin(itemStart.x - horizontalReach - 1.0f, itemStart.y - 6.0f);
-		const ImVec2 backgroundMax(backgroundMin.x + backgroundWidth, backgroundMin.y + backgroundHeight);
+		const float cellWidth = m_ThumbnailSize + m_Padding;
+		const float backgroundHeight = m_ThumbnailSize + ImGui::GetTextLineHeightWithSpacing() * 2.35f + 12.0f;
+		const ImVec2 backgroundMin(itemStart.x - 1.0f, itemStart.y - 6.0f);
+		const ImVec2 backgroundMax(backgroundMin.x + cellWidth + 2.0f, backgroundMin.y + backgroundHeight);
 		ImDrawList* drawList = ImGui::GetWindowDrawList();
-		drawList->AddRectFilled(backgroundMin, backgroundMax, IM_COL32(15, 23, 28, 218), 3.0f);
-		drawList->AddLine(ImVec2(backgroundMin.x, backgroundMin.y + 1.0f), ImVec2(backgroundMax.x, backgroundMin.y + 1.0f), IM_COL32(116, 186, 238, 135), 2.0f);
-		drawList->AddRectFilled(ImVec2(backgroundMin.x, backgroundMin.y), ImVec2(backgroundMin.x + 3.0f, backgroundMax.y), IM_COL32(116, 186, 238, 105), 2.0f);
+		const ImU32 fillColor = item.m_SubAsset ? IM_COL32(14, 22, 27, 224) : IM_COL32(18, 31, 38, 232);
+		const ImU32 accentColor = item.m_SubAsset ? IM_COL32(116, 186, 238, 126) : IM_COL32(116, 186, 238, 170);
+		drawList->AddRectFilled(backgroundMin, backgroundMax, fillColor, 0.0f);
+		drawList->AddLine(ImVec2(backgroundMin.x, backgroundMin.y + 1.0f), ImVec2(backgroundMax.x, backgroundMin.y + 1.0f), accentColor, 2.0f);
+		drawList->AddRectFilled(ImVec2(backgroundMin.x, backgroundMin.y), ImVec2(backgroundMin.x + 3.0f, backgroundMax.y), accentColor, 0.0f);
 	}
 
 	Ref<Texture2D> thumbnail = item.m_Directory ? IconManager::Get().GetIcon(Icon::Directory) : nullptr;
@@ -742,28 +788,22 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 		ImGui::EndPopup();
 	}
 
-	const float textWrapX = ImGui::GetCursorPosX() + m_ThumbnailSize;
-	ImGui::PushTextWrapPos(textWrapX);
-	ImGui::TextWrapped(item.m_DisplayText.c_str());
-	ImGui::PopTextWrapPos();
-	auto drawWrappedTypeLabel = [&](const ImVec4& color, const std::string& label)
+	const float labelWidth = std::max(40.0f, m_ThumbnailSize);
+	DrawEllipsizedText(item.m_DisplayText, labelWidth);
+	auto drawTypeLabel = [&](const ImVec4& color, const std::string& label)
 		{
-			ImGui::PushTextWrapPos(textWrapX);
-			ImGui::PushStyleColor(ImGuiCol_Text, color);
-			ImGui::TextWrapped("%s", label.c_str());
-			ImGui::PopStyleColor();
-			ImGui::PopTextWrapPos();
+			DrawEllipsizedText(label, labelWidth, &color);
 		};
 
 	const std::string typeLabel = ItemTypeLabel(item);
 	if (item.m_Missing)
-		drawWrappedTypeLabel(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Missing " + typeLabel);
+		drawTypeLabel(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Missing " + typeLabel);
 	else if (item.m_Imported && !item.m_Directory)
-		drawWrappedTypeLabel(ImVec4(0.42f, 0.72f, 0.52f, 1.0f), typeLabel);
+		drawTypeLabel(ImVec4(0.42f, 0.72f, 0.52f, 1.0f), typeLabel);
 	else if (item.m_Supported || item.m_Directory)
-		drawWrappedTypeLabel(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), typeLabel);
+		drawTypeLabel(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), typeLabel);
 	else
-		drawWrappedTypeLabel(ImVec4(0.86f, 0.62f, 0.34f, 1.0f), typeLabel);
+		drawTypeLabel(ImVec4(0.86f, 0.62f, 0.34f, 1.0f), typeLabel);
 	ImGui::EndGroup();
 	ImGui::PopID();
 }
@@ -1177,6 +1217,8 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectAssetI
 			item.m_Imported = true;
 			item.m_Supported = true;
 			item.m_Missing = !std::filesystem::exists(item.m_AbsolutePath);
+			if (item.m_Missing)
+				return;
 
 			if (!m_SearchQuery.empty())
 			{

@@ -418,7 +418,8 @@ void ConsolePanel::OnImGuiRender()
 	ImGui::Checkbox("Auto-scroll", &ConsoleState.m_AutoScroll);
 	SameLineIfFits(ImGui::CalcTextSize("000 logs").x);
 	ImGui::TextDisabled("%zu logs", ConsoleState.m_Buffer.size());
-	SameLineIfFits(EstimatedButtonWidth("All"));
+
+	ImGui::Spacing();
 	if (ImGui::SmallButton("All"))
 	{
 		SetAllLevelFilters(true);
@@ -450,17 +451,26 @@ void ConsolePanel::OnImGuiRender()
 		ImGui::SetClipboardText(clipboard.c_str());
 	}
 
-	SameLineIfFits(220.0f);
-	const float filterReserve = 170.0f + ImGui::GetStyle().ItemSpacing.x;
-	const float textFilterAvail = ImGui::GetContentRegionAvail().x;
-	const float textFilterMin = std::min(180.0f, textFilterAvail);
-	ImGui::SetNextItemWidth(std::max(textFilterMin, std::min(textFilterAvail, textFilterAvail - filterReserve)));
-	ImGui::InputTextWithHint("##ConsoleTextFilter", "Filter message, level, time", &ConsoleState.m_TextFilter);
-	SameLineIfFits(170.0f);
-	const float categoryFilterAvail = ImGui::GetContentRegionAvail().x;
-	ImGui::SetNextItemWidth(std::max(1.0f, categoryFilterAvail));
-	ImGui::InputTextWithHint("##ConsoleCategoryFilter", "Filter category", &ConsoleState.m_CategoryFilter);
+	ImGui::Spacing();
+	const float filterAvail = ImGui::GetContentRegionAvail().x;
+	if (filterAvail >= 420.0f)
+	{
+		const float spacing = ImGui::GetStyle().ItemSpacing.x;
+		ImGui::SetNextItemWidth((filterAvail - spacing) * 0.62f);
+		ImGui::InputTextWithHint("##ConsoleTextFilter", "Filter message, level, time", &ConsoleState.m_TextFilter);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(std::max(1.0f, ImGui::GetContentRegionAvail().x));
+		ImGui::InputTextWithHint("##ConsoleCategoryFilter", "Filter category", &ConsoleState.m_CategoryFilter);
+	}
+	else
+	{
+		ImGui::SetNextItemWidth(std::max(1.0f, filterAvail));
+		ImGui::InputTextWithHint("##ConsoleTextFilter", "Filter message, level, time", &ConsoleState.m_TextFilter);
+		ImGui::SetNextItemWidth(std::max(1.0f, ImGui::GetContentRegionAvail().x));
+		ImGui::InputTextWithHint("##ConsoleCategoryFilter", "Filter category", &ConsoleState.m_CategoryFilter);
+	}
 
+	ImGui::Spacing();
 	for (size_t i = 0; i < ConsoleState.m_LevelFilter.size(); ++i)
 	{
 		if (i > 0)
