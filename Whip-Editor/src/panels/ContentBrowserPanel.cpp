@@ -298,25 +298,23 @@ void ContentBrowserPanel::DrawToolbar()
 			SetCurrentDirectory(m_CurrentDirectory.parent_path());
 	}
 
-	ImGui::Spacing();
 	if (m_Mode == Mode::Filesystem)
 	{
+		SameLineIfFits(EstimatedButtonWidth("Import Folder"));
 		if (ImGui::Button("Import Folder"))
 			ImportCurrentDirectory(false);
 
 		SameLineIfFits(EstimatedButtonWidth("Import Recursive"));
 		if (ImGui::Button("Import Recursive"))
 			ImportCurrentDirectory(true);
-
-		SameLineIfFits(128.0f);
-		DrawTypeFilter();
 	}
-	else
-		DrawTypeFilter();
 
-	ImGui::Spacing();
+	SameLineIfFits(128.0f);
+	DrawTypeFilter();
+
 	const float sideButtonWidth = EstimatedButtonWidth("Settings") + ImGui::GetStyle().ItemSpacing.x +
 		(!m_SearchQuery.empty() ? EstimatedButtonWidth("Clear") + ImGui::GetStyle().ItemSpacing.x : 0.0f);
+	SameLineIfFits(220.0f + sideButtonWidth);
 	const float searchAvail = std::max(1.0f, ImGui::GetContentRegionAvail().x - sideButtonWidth);
 	ImGui::SetNextItemWidth(searchAvail);
 	if (ImGui::InputTextWithHint("##ContentBrowserSearch", "Search assets and files", &m_SearchQuery))
