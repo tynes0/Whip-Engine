@@ -103,7 +103,7 @@ ContentBrowserPanel::ContentBrowserPanel()
 
 ContentBrowserPanel::ContentBrowserPanel(Ref<Project> proj)
 {
-	Init(proj);
+	Init(std::move(proj));
 }
 
 void ContentBrowserPanel::Init(Ref<Project> proj)
@@ -160,8 +160,9 @@ void ContentBrowserPanel::OnImGuiRender()
 		DrawBreadcrumbs();
 		ImGui::Separator();
 
-		std::vector<BrowserItem> items = CollectItems();
-		DrawContentGrid(items);
+		if (m_ItemsDirty)
+			RebuildCachedItems();
+		DrawContentGrid(m_CachedItems);
 
 		ImGui::EndTable();
 	}
@@ -189,6 +190,7 @@ void ContentBrowserPanel::DrawToolbar()
 	{
 		m_Mode = Mode::Filesystem;
 		m_PreferencesDirty = true;
+		InvalidateItems();
 	}
 
 	ImGui::SameLine();
@@ -196,6 +198,7 @@ void ContentBrowserPanel::DrawToolbar()
 	{
 		m_Mode = Mode::Asset;
 		m_PreferencesDirty = true;
+		InvalidateItems();
 	}
 
 	ImGui::SameLine();
@@ -223,13 +226,17 @@ void ContentBrowserPanel::DrawToolbar()
 
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(std::max(160.0f, ImGui::GetContentRegionAvail().x - 154.0f));
-	ImGui::InputTextWithHint("##ContentBrowserSearch", "Search assets and files", &m_SearchQuery);
+	if (ImGui::InputTextWithHint("##ContentBrowserSearch", "Search assets and files", &m_SearchQuery))
+		InvalidateItems();
 
 	if (!m_SearchQuery.empty())
 	{
 		ImGui::SameLine();
 		if (ImGui::Button("Clear"))
+		{
 			m_SearchQuery.clear();
+			InvalidateItems();
+		}
 	}
 
 	ImGui::SameLine();
@@ -260,6 +267,7 @@ void ContentBrowserPanel::DrawTypeFilter()
 			{
 				m_TypeFilter = type;
 				m_PreferencesDirty = true;
+				InvalidateItems();
 			}
 
 			if (selected)
@@ -272,6 +280,8 @@ void ContentBrowserPanel::DrawTypeFilter()
 void ContentBrowserPanel::DrawSidebar()
 {
 	ImGui::BeginChild("##ContentBrowserSidebar", ImVec2(0.0f, 0.0f), false);
+	if (m_DirectoryTreeDirty)
+		RebuildDirectoryTree();
 
 	ImGuiTreeNodeFlags rootFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth;
 	if (m_CurrentDirectory == m_BaseDirectory)
@@ -292,50 +302,37 @@ void ContentBrowserPanel::DrawSidebar()
 
 	if (open)
 	{
-		DrawDirectoryTree(m_BaseDirectory);
+		DrawDirectoryTree(m_DirectoryTree);
 		ImGui::TreePop();
 	}
 
 	ImGui::EndChild();
 }
 
-void ContentBrowserPanel::DrawDirectoryTree(const std::filesystem::path& directory)
+void ContentBrowserPanel::DrawDirectoryTree(const DirectoryNode& node)
 {
-	std::vector<std::filesystem::path> directories;
-	std::error_code error;
-	for (const auto& entry : std::filesystem::directory_iterator(directory, error))
-	{
-		if (entry.is_directory(error))
-			directories.push_back(entry.path());
-	}
-
-	std::sort(directories.begin(), directories.end(), [](const auto& left, const auto& right)
-		{
-			return ToLower(left.filename().string()) < ToLower(right.filename().string());
-		});
-
-	for (const auto& childDirectory : directories)
+	for (const DirectoryNode& child : node.m_Children)
 	{
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
-		if (childDirectory == m_CurrentDirectory)
+		if (child.m_Path == m_CurrentDirectory)
 			flags |= ImGuiTreeNodeFlags_Selected;
 
-		const bool open = ImGui::TreeNodeEx(childDirectory.filename().string().c_str(), flags);
+		const bool open = ImGui::TreeNodeEx(child.m_Name.c_str(), flags);
 		if (ImGui::IsItemClicked())
-			SetCurrentDirectory(childDirectory);
+			SetCurrentDirectory(child.m_Path);
 		if (ImGui::BeginDragDropTarget())
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_PATH"))
 			{
 				std::filesystem::path sourceRelativePath(std::string(static_cast<const char*>(payload->Data), payload->DataSize));
-				MovePathToDirectory(sourceRelativePath, childDirectory);
+				MovePathToDirectory(sourceRelativePath, child.m_Path);
 			}
 			ImGui::EndDragDropTarget();
 		}
 
 		if (open)
 		{
-			DrawDirectoryTree(childDirectory);
+			DrawDirectoryTree(child);
 			ImGui::TreePop();
 		}
 	}
@@ -368,11 +365,8 @@ void ContentBrowserPanel::DrawBreadcrumbs()
 void ContentBrowserPanel::DrawContentGrid(const std::vector<BrowserItem>& items)
 {
 	const char* modeLabel = m_Mode == Mode::Filesystem ? "filesystem" : "imported";
-	const size_t importedCount = static_cast<size_t>(std::count_if(items.begin(), items.end(), [](const BrowserItem& item) { return item.m_Imported && !item.m_Directory; }));
-	const size_t missingCount = static_cast<size_t>(std::count_if(items.begin(), items.end(), [](const BrowserItem& item) { return item.m_Missing; }));
-	const size_t unsupportedCount = static_cast<size_t>(std::count_if(items.begin(), items.end(), [](const BrowserItem& item) { return !item.m_Directory && !item.m_Supported; }));
 	ImGui::TextDisabled("%zu item(s) in %s view | %zu imported | %zu missing | %zu unsupported %s",
-		items.size(), modeLabel, importedCount, missingCount, unsupportedCount, m_ShowUnsupported ? "visible" : "hidden");
+		items.size(), modeLabel, m_CachedItemMetrics.m_Imported, m_CachedItemMetrics.m_Missing, m_CachedItemMetrics.m_Unsupported, m_ShowUnsupported ? "visible" : "hidden");
 
 	if (items.empty())
 	{
@@ -393,16 +387,24 @@ void ContentBrowserPanel::DrawContentGrid(const std::vector<BrowserItem>& items)
 		for (int column = 0; column < columnCount; ++column)
 			ImGui::TableSetupColumn(nullptr, ImGuiTableColumnFlags_WidthFixed, cellSize);
 
-		int columnIndex = 0;
-		for (const BrowserItem& item : items)
+		const int rowCount = static_cast<int>((items.size() + static_cast<size_t>(columnCount) - 1) / static_cast<size_t>(columnCount));
+		ImGuiListClipper clipper;
+		clipper.Begin(rowCount);
+		while (clipper.Step())
 		{
-			if (columnIndex == 0)
+			for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
+			{
 				ImGui::TableNextRow();
+				for (int column = 0; column < columnCount; ++column)
+				{
+					const size_t itemIndex = static_cast<size_t>(row) * static_cast<size_t>(columnCount) + static_cast<size_t>(column);
+					if (itemIndex >= items.size())
+						break;
 
-			ImGui::TableSetColumnIndex(columnIndex);
-			DrawItem(item);
-
-			columnIndex = (columnIndex + 1) % columnCount;
+					ImGui::TableSetColumnIndex(column);
+					DrawItem(items[itemIndex]);
+				}
+			}
 		}
 		ImGui::EndTable();
 	}
@@ -439,7 +441,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 			}
 		}
 	}
-	if (!thumbnail && item.m_Type == AssetType::Texture2D && std::filesystem::exists(item.m_AbsolutePath))
+	if (!thumbnail && item.m_Type == AssetType::Texture2D && !item.m_Missing)
 		thumbnail = m_ThumbnailCache->GetOrCreateThumbnail(item.m_RelativePath);
 	if (!thumbnail)
 		thumbnail = IconManager::Get().GetIcon(Icon::File);
@@ -772,20 +774,76 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectItems(
 			if (left.m_Handle != 0 && left.m_Handle == right.m_Handle && left.m_SubAsset && right.m_SubAsset)
 				return left.m_TextureSpriteIndex < right.m_TextureSpriteIndex;
 
-			const std::string leftName = left.m_DisplayName.empty() ? left.m_RelativePath.filename().string() : left.m_DisplayName;
-			const std::string rightName = right.m_DisplayName.empty() ? right.m_RelativePath.filename().string() : right.m_DisplayName;
-			return ToLower(leftName) < ToLower(rightName);
+			return left.m_SortName < right.m_SortName;
 		});
 
 	return items;
+}
+
+void ContentBrowserPanel::RebuildCachedItems()
+{
+	m_CachedSearchQueryLower = ToLower(m_SearchQuery);
+	m_CachedItems = CollectItems();
+	m_CachedItemMetrics = {};
+	for (const BrowserItem& item : m_CachedItems)
+	{
+		if (item.m_Imported && !item.m_Directory)
+			++m_CachedItemMetrics.m_Imported;
+		if (item.m_Missing)
+			++m_CachedItemMetrics.m_Missing;
+		if (!item.m_Directory && !item.m_Supported)
+			++m_CachedItemMetrics.m_Unsupported;
+	}
+	m_ItemsDirty = false;
+}
+
+void ContentBrowserPanel::InvalidateItems()
+{
+	m_ItemsDirty = true;
+}
+
+void ContentBrowserPanel::RebuildDirectoryTree()
+{
+	m_DirectoryTree = BuildDirectoryNode(m_BaseDirectory);
+	m_DirectoryTreeDirty = false;
+}
+
+ContentBrowserPanel::DirectoryNode ContentBrowserPanel::BuildDirectoryNode(const std::filesystem::path& directory) const
+{
+	DirectoryNode node;
+	node.m_Path = directory.lexically_normal();
+	node.m_Name = directory == m_BaseDirectory ? "Assets" : directory.filename().string();
+	node.m_SortName = ToLower(node.m_Name);
+
+	std::error_code error;
+	for (const auto& entry : std::filesystem::directory_iterator(directory, error))
+	{
+		if (entry.is_directory(error))
+			node.m_Children.push_back(BuildDirectoryNode(entry.path()));
+	}
+
+	std::sort(node.m_Children.begin(), node.m_Children.end(), [](const DirectoryNode& left, const DirectoryNode& right)
+		{
+			return left.m_SortName < right.m_SortName;
+		});
+	return node;
+}
+
+void ContentBrowserPanel::FinalizeBrowserItem(BrowserItem& item) const
+{
+	const std::string displayName = item.m_DisplayName.empty() ? item.m_RelativePath.filename().string() : item.m_DisplayName;
+	const std::string typeLabel = ItemTypeLabel(item);
+	item.m_SortName = ToLower(displayName);
+	item.m_SearchText = ToLower(item.m_RelativePath.filename().string() + " " + item.m_DisplayName + " " + item.m_RelativePath.generic_string() + " " + typeLabel);
 }
 
 std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectFilesystemItems() const
 {
 	std::vector<BrowserItem> items;
 	std::error_code error;
-	auto appendItem = [&](const BrowserItem& item)
+	auto appendItem = [&](BrowserItem item)
 		{
+			FinalizeBrowserItem(item);
 			items.push_back(item);
 			if (!item.m_Imported || item.m_Missing || item.m_Type != AssetType::Texture2D || item.m_Handle == 0)
 				return;
@@ -799,6 +857,7 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectFilesy
 				spriteItem.m_DisplayName = sprite.m_Name;
 				spriteItem.m_TextureSpriteIndex = spriteIndex;
 				spriteItem.m_SubAsset = true;
+				FinalizeBrowserItem(spriteItem);
 				items.push_back(std::move(spriteItem));
 			}
 		};
@@ -830,8 +889,9 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectAssetI
 	std::vector<BrowserItem> items;
 	std::set<std::filesystem::path> directoryPaths;
 	const auto& registry = m_Project->GetEditorAssetManager()->GetAssetRegistry();
-	auto appendAssetItem = [&](const BrowserItem& item, const AssetMetadata& metadata)
+	auto appendAssetItem = [&](BrowserItem item, const AssetMetadata& metadata)
 		{
+			FinalizeBrowserItem(item);
 			items.push_back(item);
 			if (item.m_Missing || item.m_Type != AssetType::Texture2D)
 				return;
@@ -844,6 +904,7 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectAssetI
 				spriteItem.m_DisplayName = sprite.m_Name;
 				spriteItem.m_TextureSpriteIndex = spriteIndex;
 				spriteItem.m_SubAsset = true;
+				FinalizeBrowserItem(spriteItem);
 				items.push_back(std::move(spriteItem));
 			}
 		};
@@ -892,6 +953,7 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectAssetI
 		item.m_AbsolutePath = directory;
 		item.m_RelativePath = std::filesystem::relative(directory, m_BaseDirectory);
 		item.m_Directory = true;
+		FinalizeBrowserItem(item);
 		items.push_back(item);
 	}
 
@@ -909,6 +971,7 @@ void ContentBrowserPanel::SetCurrentDirectory(const std::filesystem::path& direc
 
 	m_CurrentDirectory = directory.lexically_normal();
 	m_PreferencesDirty = true;
+	InvalidateItems();
 }
 
 bool ContentBrowserPanel::ImportFile(const std::filesystem::path& relativePath, ImportSummary* summary)
@@ -1573,16 +1636,10 @@ bool ContentBrowserPanel::IsInsideBaseDirectory(const std::filesystem::path& pat
 
 bool ContentBrowserPanel::MatchesSearch(const BrowserItem& item) const
 {
-	if (m_SearchQuery.empty())
+	if (m_CachedSearchQueryLower.empty())
 		return true;
 
-	const std::string query = ToLower(m_SearchQuery);
-	const std::string filename = ToLower(item.m_RelativePath.filename().string());
-	const std::string displayName = ToLower(item.m_DisplayName);
-	const std::string path = ToLower(item.m_RelativePath.generic_string());
-	const std::string type = ToLower(ItemTypeLabel(item));
-
-	return filename.find(query) != std::string::npos || displayName.find(query) != std::string::npos || path.find(query) != std::string::npos || type.find(query) != std::string::npos;
+	return item.m_SearchText.find(m_CachedSearchQueryLower) != std::string::npos;
 }
 
 bool ContentBrowserPanel::PassesTypeFilter(const BrowserItem& item) const
@@ -1709,7 +1766,10 @@ void ContentBrowserPanel::OnSettingsPopup()
 			if (ImGui::DragFloat("##Padding", &m_Padding, 0.05f, 0, 32))
 				m_PreferencesDirty = true;
 			if (ImGui::Checkbox("Show unsupported files", &m_ShowUnsupported))
+			{
 				m_PreferencesDirty = true;
+				InvalidateItems();
+			}
 			const float footerY = ImGui::GetWindowHeight() - ImGui::GetFrameHeightWithSpacing() - ImGui::GetStyle().WindowPadding.y;
 			if (ImGui::GetCursorPosY() < footerY)
 				ImGui::SetCursorPosY(footerY);
@@ -1733,6 +1793,9 @@ void ContentBrowserPanel::RefreshAssetTree()
 
 	if (!std::filesystem::exists(m_CurrentDirectory, error) || !IsInsideBaseDirectory(m_CurrentDirectory))
 		m_CurrentDirectory = m_BaseDirectory;
+
+	m_DirectoryTreeDirty = true;
+	InvalidateItems();
 }
 
 ContentBrowserPanel::Preferences ContentBrowserPanel::GetPreferences() const
@@ -1758,6 +1821,7 @@ void ContentBrowserPanel::ApplyPreferences(const Preferences& prefs)
 	m_TypeFilter = static_cast<AssetType>(prefs.m_TypeFilter);
 	if (!prefs.m_CurrentDirectory.empty())
 		SetCurrentDirectory(prefs.m_CurrentDirectory);
+	InvalidateItems();
 	m_PreferencesDirty = false;
 }
 

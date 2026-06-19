@@ -67,6 +67,8 @@ private:
 		std::filesystem::path m_AbsolutePath;
 		std::filesystem::path m_RelativePath;
 		std::string m_DisplayName;
+		std::string m_SortName;
+		std::string m_SearchText;
 		AssetHandle m_Handle = 0;
 		AssetType m_Type = AssetType::None;
 		int32_t m_TextureSpriteIndex = -1;
@@ -75,6 +77,21 @@ private:
 		bool m_Supported = false;
 		bool m_Missing = false;
 		bool m_SubAsset = false;
+	};
+
+	struct DirectoryNode
+	{
+		std::filesystem::path m_Path;
+		std::string m_Name;
+		std::string m_SortName;
+		std::vector<DirectoryNode> m_Children;
+	};
+
+	struct ItemMetrics
+	{
+		size_t m_Imported = 0;
+		size_t m_Missing = 0;
+		size_t m_Unsupported = 0;
 	};
 
 	enum class FileOperation
@@ -89,7 +106,7 @@ private:
 	void DrawToolbar();
 	void DrawStatusBar();
 	void DrawSidebar();
-	void DrawDirectoryTree(const std::filesystem::path& directory);
+	void DrawDirectoryTree(const DirectoryNode& node);
 	void DrawBreadcrumbs();
 	void DrawContentGrid(const std::vector<BrowserItem>& items);
 	void DrawItem(const BrowserItem& item);
@@ -100,6 +117,11 @@ private:
 	std::vector<BrowserItem> CollectItems() const;
 	std::vector<BrowserItem> CollectFilesystemItems() const;
 	std::vector<BrowserItem> CollectAssetItems() const;
+	void RebuildCachedItems();
+	void InvalidateItems();
+	void RebuildDirectoryTree();
+	DirectoryNode BuildDirectoryNode(const std::filesystem::path& directory) const;
+	void FinalizeBrowserItem(BrowserItem& item) const;
 
 	void SetCurrentDirectory(const std::filesystem::path& directory);
 	bool ImportFile(const std::filesystem::path& relativePath, ImportSummary* summary = nullptr);
@@ -170,6 +192,7 @@ private:
 	std::function<bool(AssetHandle)> m_AssetInspectCallback;
 
 	std::string m_SearchQuery;
+	std::string m_CachedSearchQueryLower;
 	std::string m_StatusMessage;
 	bool m_StatusError = false;
 	AssetType m_TypeFilter = AssetType::None;
@@ -179,6 +202,11 @@ private:
 	bool m_PreferencesDirty = false;
 	bool m_Open = true;
 	bool m_Hovered = false;
+	bool m_ItemsDirty = true;
+	bool m_DirectoryTreeDirty = true;
+	std::vector<BrowserItem> m_CachedItems;
+	ItemMetrics m_CachedItemMetrics;
+	DirectoryNode m_DirectoryTree;
 };
 
 _WHIP_END

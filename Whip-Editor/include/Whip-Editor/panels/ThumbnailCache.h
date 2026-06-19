@@ -4,11 +4,16 @@
 #include <Whip/Project/Project.h>
 #include <Whip/Render/Texture.h>
 
+#include <chrono>
+#include <filesystem>
+#include <map>
+
 _WHIP_START
 
 struct ThumbnailImage
 {
 	uint64_t m_Timestamp = 0;
+	std::chrono::steady_clock::time_point m_NextValidationTime = {};
 	Ref<Texture2D> m_Image;
 };
 
