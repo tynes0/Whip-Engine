@@ -22,6 +22,7 @@
 #include <deque>
 #include <fstream>
 #include <string>
+#include <vector>
 
 _WHIP_START
 
@@ -247,29 +248,36 @@ namespace
 		return std::max(72.0f, available - labelReserve);
 	}
 
-	void DrawFontGlyphPreview(const Ref<Font>& font, const std::string& text, float scale, const ImVec2& min, const ImVec2& max)
+	float Median(float a, float b, float c)
 	{
-		if (!font || !font->GetMsdfData() || !font->GetAtlasTexture())
-			return;
+		return std::max(std::min(a, b), std::min(std::max(a, b), c));
+	}
+
+	Ref<Texture2D> BuildFontPreviewTexture(const Ref<Font>& font, const std::string& text, float scale, uint32_t width, uint32_t height)
+	{
+		if (!font || !font->GetMsdfData() || !font->GetAtlasTexture() || width == 0 || height == 0)
+			return nullptr;
 
 		const auto& fontGeometry = font->GetMsdfData()->m_FontGeometry;
 		const auto& metrics = fontGeometry.getMetrics();
 		Ref<Texture2D> atlas = font->GetAtlasTexture();
 		if (metrics.ascenderY == metrics.descenderY || atlas->GetWidth() == 0 || atlas->GetHeight() == 0)
-			return;
+			return nullptr;
 
-		ImDrawList* drawList = ImGui::GetWindowDrawList();
-		drawList->PushClipRect(min, max, true);
+		RawBuffer atlasData = atlas->GetData();
+		if (!atlasData)
+			return nullptr;
 
 		const double fsScale = 1.0 / (metrics.ascenderY - metrics.descenderY);
 		const float pixelScale = std::max(18.0f, 42.0f * scale);
 		const float lineAdvance = static_cast<float>(fsScale * metrics.lineHeight) * pixelScale + 8.0f * scale;
-		const float texelWidth = 1.0f / static_cast<float>(atlas->GetWidth());
-		const float texelHeight = 1.0f / static_cast<float>(atlas->GetHeight());
 		const auto spaceGlyph = fontGeometry.getGlyph(' ');
 		const float spaceAdvance = (spaceGlyph ? static_cast<float>(spaceGlyph->getAdvance()) : 1.0f) * static_cast<float>(fsScale) * pixelScale;
-		float x = min.x + 16.0f;
-		float baselineY = min.y + 24.0f + static_cast<float>(metrics.ascenderY * fsScale) * pixelScale;
+		float x = 16.0f;
+		float baselineY = 24.0f + static_cast<float>(metrics.ascenderY * fsScale) * pixelScale;
+		const uint32_t atlasWidth = atlas->GetWidth();
+		const uint32_t atlasHeight = atlas->GetHeight();
+		std::vector<uint8_t> pixels(static_cast<size_t>(width) * height * 4, 0);
 
 		for (size_t index = 0; index < text.size(); ++index)
 		{
@@ -278,7 +286,7 @@ namespace
 				continue;
 			if (character == '\n')
 			{
-				x = min.x + 16.0f;
+				x = 16.0f;
 				baselineY += lineAdvance;
 				continue;
 			}
@@ -310,9 +318,47 @@ namespace
 			const ImVec2 glyphMax(
 				x + static_cast<float>(pr * fsScale) * pixelScale,
 				baselineY - static_cast<float>(pb * fsScale) * pixelScale);
-			const ImVec2 uv0(static_cast<float>(al) * texelWidth, static_cast<float>(at) * texelHeight);
-			const ImVec2 uv1(static_cast<float>(ar) * texelWidth, static_cast<float>(ab) * texelHeight);
-			drawList->AddImage(UI::ToImGuiTextureId(atlas->GetRendererId()), glyphMin, glyphMax, uv0, uv1, IM_COL32(235, 242, 248, 255));
+			const float glyphWidth = glyphMax.x - glyphMin.x;
+			const float glyphHeight = glyphMax.y - glyphMin.y;
+			const float atlasGlyphWidth = static_cast<float>(ar - al);
+			const float atlasGlyphHeight = static_cast<float>(at - ab);
+			if (glyphWidth > 0.0f && glyphHeight > 0.0f && atlasGlyphWidth > 0.0f && atlasGlyphHeight > 0.0f)
+			{
+				const int minX = std::clamp(static_cast<int>(std::floor(glyphMin.x)), 0, static_cast<int>(width));
+				const int minY = std::clamp(static_cast<int>(std::floor(glyphMin.y)), 0, static_cast<int>(height));
+				const int maxX = std::clamp(static_cast<int>(std::ceil(glyphMax.x)), 0, static_cast<int>(width));
+				const int maxY = std::clamp(static_cast<int>(std::ceil(glyphMax.y)), 0, static_cast<int>(height));
+				const float screenPxRange = std::max(1.0f, glyphWidth / atlasGlyphWidth + glyphHeight / atlasGlyphHeight);
+
+				for (int py = minY; py < maxY; ++py)
+				{
+					const float vertical = (static_cast<float>(py) + 0.5f - glyphMin.y) / glyphHeight;
+					const float sampleY = static_cast<float>(at) + vertical * static_cast<float>(ab - at);
+					const int atlasY = std::clamp(static_cast<int>(std::floor(sampleY)), 0, static_cast<int>(atlasHeight) - 1);
+					for (int px = minX; px < maxX; ++px)
+					{
+						const float horizontal = (static_cast<float>(px) + 0.5f - glyphMin.x) / glyphWidth;
+						const float sampleX = static_cast<float>(al) + horizontal * static_cast<float>(ar - al);
+						const int atlasX = std::clamp(static_cast<int>(std::floor(sampleX)), 0, static_cast<int>(atlasWidth) - 1);
+						const uint8_t* source = atlasData.m_Data + (static_cast<uint64_t>(atlasY) * atlasWidth + atlasX) * 3;
+						const float signedDistance = Median(
+							static_cast<float>(source[0]) / 255.0f,
+							static_cast<float>(source[1]) / 255.0f,
+							static_cast<float>(source[2]) / 255.0f);
+						const float opacity = std::clamp(screenPxRange * (signedDistance - 0.5f) + 0.5f, 0.0f, 1.0f);
+						if (opacity <= 0.0f)
+							continue;
+
+						const uint32_t textureY = height - 1 - static_cast<uint32_t>(py);
+						uint8_t* destination = pixels.data() + (static_cast<uint64_t>(textureY) * width + static_cast<uint32_t>(px)) * 4;
+						const uint8_t alpha = static_cast<uint8_t>(opacity * 255.0f + 0.5f);
+						destination[0] = 235;
+						destination[1] = 242;
+						destination[2] = 248;
+						destination[3] = std::max(destination[3], alpha);
+					}
+				}
+			}
 
 			double advance = glyph->getAdvance();
 			if (index + 1 < text.size())
@@ -320,7 +366,16 @@ namespace
 			x += static_cast<float>(advance * fsScale) * pixelScale;
 		}
 
-		drawList->PopClipRect();
+		atlasData.Release();
+
+		TextureSpecification specification;
+		specification.m_Width = width;
+		specification.m_Height = height;
+		specification.m_Format = ImageFormat::Rgba8;
+		specification.m_GenerateMips = false;
+		specification.m_FilterMode = TextureFilterMode::Linear;
+		specification.m_WrapMode = TextureWrapMode::ClampToEdge;
+		return Texture2D::Create(specification, RawBuffer(pixels.data(), static_cast<uint64_t>(pixels.size())));
 	}
 
 
@@ -1956,9 +2011,20 @@ void AssetEditorPanel::DrawFontInspector(AssetEditorDocument& document, const As
 	const ImVec2 min = ImGui::GetWindowPos();
 	const ImVec2 max(min.x + ImGui::GetWindowSize().x, min.y + ImGui::GetWindowSize().y);
 	drawList->AddRectFilled(min, max, IM_COL32(8, 13, 16, 255), 4.0f);
-	const float fontSize = ImGui::GetFontSize() * state.m_PreviewScale;
-	WHP_UNUSED(fontSize);
-	DrawFontGlyphPreview(font, state.m_PreviewText, state.m_PreviewScale, min, max);
+	const uint32_t previewWidth = static_cast<uint32_t>(std::max(64.0f, max.x - min.x));
+	const uint32_t previewHeightPx = static_cast<uint32_t>(std::max(64.0f, max.y - min.y));
+	if (!state.m_PreviewTexture || state.m_PreviewTextureFont != handle || state.m_PreviewTextureText != state.m_PreviewText ||
+		state.m_PreviewTextureScale != state.m_PreviewScale || state.m_PreviewTextureWidth != previewWidth || state.m_PreviewTextureHeight != previewHeightPx)
+	{
+		state.m_PreviewTexture = BuildFontPreviewTexture(font, state.m_PreviewText, state.m_PreviewScale, previewWidth, previewHeightPx);
+		state.m_PreviewTextureFont = handle;
+		state.m_PreviewTextureText = state.m_PreviewText;
+		state.m_PreviewTextureScale = state.m_PreviewScale;
+		state.m_PreviewTextureWidth = previewWidth;
+		state.m_PreviewTextureHeight = previewHeightPx;
+	}
+	if (state.m_PreviewTexture)
+		drawList->AddImage(UI::ToImGuiTextureId(state.m_PreviewTexture->GetRendererId()), min, max, ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
 	ImGui::EndChild();
 
 	ImGui::SeparatorText("Atlas");

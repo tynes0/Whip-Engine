@@ -77,6 +77,12 @@ private:
 		std::string m_PreviewText = "Whip Engine\nAsset Editor Preview";
 		float m_PreviewScale = 1.0f;
 		bool m_ShowAtlasGrid = false;
+		Ref<Texture2D> m_PreviewTexture;
+		AssetHandle m_PreviewTextureFont = 0;
+		std::string m_PreviewTextureText;
+		float m_PreviewTextureScale = 0.0f;
+		uint32_t m_PreviewTextureWidth = 0;
+		uint32_t m_PreviewTextureHeight = 0;
 	};
 
 	struct AssetEditorDocument
