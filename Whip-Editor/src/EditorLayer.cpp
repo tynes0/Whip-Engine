@@ -20,17 +20,14 @@
 #include <cmath>
 #include <cstdint>
 #include <fstream>
-#include <iterator>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <entt.hpp>
 #include <ImGuizmo.h>
-#include <yaml-cpp/yaml.h>
 
 _WHIP_START
 
@@ -81,52 +78,6 @@ namespace
 			if (c == ' ')
 				c = '_';
 		return value;
-	}
-
-	void WriteVec3(YAML::Emitter& out, const glm::vec3& value)
-	{
-		out << YAML::Flow << YAML::BeginSeq << value.x << value.y << value.z << YAML::EndSeq;
-	}
-
-	glm::vec3 ReadVec3(const YAML::Node& node, const glm::vec3& fallback)
-	{
-		if (!node || !node.IsSequence() || node.size() != 3)
-			return fallback;
-		return { node[0].as<float>(fallback.x), node[1].as<float>(fallback.y), node[2].as<float>(fallback.z) };
-	}
-
-	UI::EditorTheme ThemeFromString(const std::string& value)
-	{
-		if (value == "Graphite")
-			return UI::EditorTheme::Graphite;
-		if (value == "Ember")
-			return UI::EditorTheme::Ember;
-		if (value == "Moss")
-			return UI::EditorTheme::Moss;
-		if (value == "Porcelain" || value == "Light")
-			return UI::EditorTheme::Light;
-		return UI::EditorTheme::WhipDark;
-	}
-
-	std::string ReadTextFile(const std::filesystem::path& path)
-	{
-		std::ifstream stream(path, std::ios::binary);
-		if (!stream)
-			return {};
-
-		return std::string{ std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>() };
-	}
-
-	bool WriteTextFile(const std::filesystem::path& path, const std::string& contents)
-	{
-		std::error_code error;
-		std::filesystem::create_directories(path.parent_path(), error);
-		std::ofstream stream(path, std::ios::binary | std::ios::trunc);
-		if (!stream)
-			return false;
-
-		stream << contents;
-		return true;
 	}
 
 	std::filesystem::path NormalizeProjectListPath(const std::filesystem::path& path)
@@ -185,17 +136,9 @@ namespace
 
 EditorLayer::EditorLayer()
 	: Layer("Fbox2D"),
-	m_ProjectLoader(m_ProjectManager.GetLoader()),
-	m_RecentProjects(m_ProjectManager.GetRecentProjectsStorage()),
-	m_LastProjectPath(m_ProjectManager.GetLastProjectPathStorage()),
-	m_ContentBrowserPreferences(m_ProjectManager.GetContentBrowserPreferencesStorage()),
-	m_HasContentBrowserPreferences(m_ProjectManager.GetHasContentBrowserPreferencesStorage()),
 	m_ActiveScene(m_SceneManager.GetActiveSceneStorage()),
 	m_EditorScene(m_SceneManager.GetEditorSceneStorage()),
 	m_EditorScenePath(m_SceneManager.GetEditorScenePathStorage()),
-	m_UndoStack(m_HistoryManager.GetUndoStackStorage()),
-	m_RedoStack(m_HistoryManager.GetRedoStackStorage()),
-	m_EntityClipboard(m_HistoryManager.GetEntityClipboardStorage()),
 	m_GizmoHistoryActive(m_HistoryManager.GetGizmoHistoryActiveStorage()),
 	m_SceneDirty(m_SceneManager.GetDirtyStorage()),
 	m_LastSceneRecoverySnapshot(m_SceneManager.GetLastRecoverySnapshotStorage()),
@@ -212,11 +155,11 @@ void EditorLayer::OnAttach()
 
 	m_AnimationEditorPanel.SetRefreshAssetTreeCallback([this]() {if (m_ContentBrowserPanel) { m_ContentBrowserPanel->RefreshAssetTree(); } });
 	m_AssetEditorPanel.SetOpenSceneCallback([this](AssetHandle handle) { OpenScene(handle); });
-	m_AssetEditorPanel.SetSetStartSceneCallback([this](AssetHandle handle) { SetStartScene(handle); });
+	m_AssetEditorPanel.SetSetStartSceneCallback([this](AssetHandle handle) { m_AssetInteractionManager.SetStartScene(handle); });
 	m_AssetEditorPanel.SetOpenAnimationCallback([this](AssetHandle handle) { return m_AnimationEditorPanel.OpenAsset(handle, false); });
 	m_AssetEditorPanel.SetDrawAnimationEditorCallback([this]() { m_AnimationEditorPanel.OnImGuiRenderEmbedded(); });
 	m_AssetEditorPanel.SetRefreshAssetTreeCallback([this]() { if (m_ContentBrowserPanel) { m_ContentBrowserPanel->RefreshAssetTree(); } });
-	m_SceneHierarchyPanel.SetSceneChangeCallback([this]() { CaptureSceneHistory(); });
+	m_SceneHierarchyPanel.SetSceneChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(*this); });
 	m_SceneHierarchyPanel.SetSaveEntityTemplateCallback([this](Entity entityIn) { SaveEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetApplyEntityTemplateCallback([this](Entity entityIn) { ApplyEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetRevertEntityTemplateCallback([this](Entity entityIn) { RevertEntityTemplate(entityIn); });
@@ -225,11 +168,11 @@ void EditorLayer::OnAttach()
 		[this](AssetHandle handle) { OpenScene(handle); },
 		[this]() { CloseScene(); },
 		[this]() { return m_EditorScenePath; });
-	m_UIProject.SetBeforeChangeCallback([this]() { CaptureSceneHistory(true); });
+	m_UIProject.SetBeforeChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(*this, true); });
 	m_UIProject.SetEditorSettingsDrawer([this]() { m_UISettings.DrawContent(); });
-	SetupProjectLoader();
-	LoadEditorPreferences();
-	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
+	m_ProjectManager.SetupProjectLoader(*this);
+	m_ProjectManager.LoadEditorPreferences(*this);
+	m_ProjectManager.GetLoader().SetRecentProjects(m_ProjectManager.GetRecentProjectsStorage());
 
 	// framebuffer
     FramebufferSpecification fbSpec{};
@@ -249,7 +192,7 @@ void EditorLayer::OnAttach()
 		auto projectFilePath = commandLineArgs[1];
 		WHP_EDITOR_INFO(std::string("[Project] Opening project from command line: ") + projectFilePath);
 		if (OpenProject(projectFilePath))
-			m_ProjectLoader.SetLoaded(true);
+			m_ProjectManager.GetLoader().SetLoaded(true);
 	}
 	// camera
     m_EditorCamera = EditorCamera(30.0f, 1.778f, 0.1f, 1000.0f);
@@ -286,7 +229,7 @@ void EditorLayer::OnDetach()
 	WHP_PROFILE_FUNCTION();
 	WriteSceneRecoverySnapshot("Editor shutdown");
 	m_ScriptManager.StopSourceWatcher();
-	SaveEditorPreferences();
+	m_ProjectManager.SaveEditorPreferences(*this);
 	ConsolePanel::Shutdown();
 
 	if (m_SceneState == SceneState::Play)
@@ -408,7 +351,7 @@ void EditorLayer::OnImGuiRender()
 		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::GetStyleColorVec4(ImGuiCol_WindowBg));
 		ImGui::Begin("Whip Hub Host", nullptr, hubHostFlags);
 		DrawEditorShellTitlebar(false);
-		m_ProjectLoader.Run();
+		m_ProjectManager.GetLoader().Run();
 		ImGui::End();
 		ImGui::PopStyleColor();
 		ImGui::PopStyleVar(3);
@@ -473,7 +416,7 @@ void EditorLayer::OnImGuiRender()
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
 			{
 				const UI::AssetReferencePayload assetPayload = UI::ReadAssetReferencePayload(payload);
-				handledDrop = HandleViewportAssetDrop(assetPayload.m_Handle, assetPayload.m_TextureSpriteIndex);
+				handledDrop = m_AssetInteractionManager.HandleViewportAssetDrop(*this, assetPayload.m_Handle, assetPayload.m_TextureSpriteIndex);
 			}
 
 			if (!handledDrop)
@@ -487,7 +430,7 @@ void EditorLayer::OnImGuiRender()
 						AssetHandle handle = Project::GetActive()->GetEditorAssetManager()->GetHandleFromFilepath(RelativePath);
 						if (handle == 0 && Utils::TryGetAssetTypeFromFileExtension(RelativePath.extension()) != AssetType::None)
 							handle = Project::GetActive()->GetEditorAssetManager()->ImportAsset(RelativePath);
-						HandleViewportAssetDrop(handle);
+						m_AssetInteractionManager.HandleViewportAssetDrop(*this, handle);
 					}
 				}
 			}
@@ -533,7 +476,7 @@ void EditorLayer::OnImGuiRender()
 		    {
 				if (!m_GizmoHistoryActive)
 				{
-					CaptureSceneHistory();
+					m_HistoryManager.CaptureSceneHistory(*this);
 					m_GizmoHistoryActive = true;
 				}
 
@@ -590,7 +533,7 @@ void EditorLayer::OnImGuiRender()
 	if (m_UISettings.ConsumeDirty()
 		|| m_PanelManager.ConsumeOpenDirty()
 		|| (m_ContentBrowserPanel && m_ContentBrowserPanel->ConsumePreferencesDirty()))
-		SaveEditorPreferences();
+		m_ProjectManager.SaveEditorPreferences(*this);
 	m_PopupHandler.OnImGuiRender();
 
 }
@@ -652,7 +595,7 @@ bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
 		OpenCommandPalette();
 		return true;
 	case UI::EditorShortcutAction::OpenSettings:
-		m_UIProject.Show(UI::UIProject::UISettings, [this]() -> decltype(auto) { return this->FinishProjectSettings(); });
+		m_UIProject.Show(UI::UIProject::UISettings, [this]() { m_ProjectManager.FinishProjectSettings(*this); });
 		return true;
 	case UI::EditorShortcutAction::OpenProject:
 		OpenProject();
@@ -667,7 +610,7 @@ bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
 		SaveSceneAs();
 		return true;
 	case UI::EditorShortcutAction::SaveProject:
-		SaveProject();
+		m_ProjectManager.SaveProject();
 		return true;
 	case UI::EditorShortcutAction::CloseScene:
 		CloseScene();
@@ -676,28 +619,28 @@ bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
 		m_ScriptManager.ReloadAssembly(true, m_SceneState == SceneState::Edit);
 		return true;
 	case UI::EditorShortcutAction::DuplicateEntity:
-		OnDuplicatedEntity();
+		m_HistoryManager.DuplicateSelection(*this);
 		return true;
 	case UI::EditorShortcutAction::DeleteEntity:
-		OnDeletedEntity();
+		m_HistoryManager.DeleteSelection(*this);
 		return true;
 	case UI::EditorShortcutAction::Undo:
-		UndoScene();
+		m_HistoryManager.UndoScene(*this);
 		return true;
 	case UI::EditorShortcutAction::Redo:
-		RedoScene();
+		m_HistoryManager.RedoScene(*this);
 		return true;
 	case UI::EditorShortcutAction::SelectAll:
-		OnSelectAllEntities();
+		m_HistoryManager.SelectAll(*this);
 		return true;
 	case UI::EditorShortcutAction::Copy:
-		OnCopyEntities();
+		m_HistoryManager.CopySelection(*this);
 		return true;
 	case UI::EditorShortcutAction::Paste:
-		OnPasteEntities();
+		m_HistoryManager.PasteSelection(*this);
 		return true;
 	case UI::EditorShortcutAction::Cut:
-		OnCutEntities();
+		m_HistoryManager.CutSelection(*this);
 		return true;
 	case UI::EditorShortcutAction::Play:
 		if (m_SceneState == SceneState::Edit)
@@ -761,11 +704,11 @@ bool EditorLayer::IsEditorActionAvailable(UI::EditorShortcutAction action) const
 	case UI::EditorShortcutAction::Cut:
 		return projectLoaded && editMode && hasSelection;
 	case UI::EditorShortcutAction::Paste:
-		return projectLoaded && editMode && !m_EntityClipboard.empty();
+		return projectLoaded && editMode && m_HistoryManager.HasClipboard();
 	case UI::EditorShortcutAction::Undo:
-		return projectLoaded && editMode && !m_UndoStack.empty();
+		return projectLoaded && editMode && m_HistoryManager.CanUndo();
 	case UI::EditorShortcutAction::Redo:
-		return projectLoaded && editMode && !m_RedoStack.empty();
+		return projectLoaded && editMode && m_HistoryManager.CanRedo();
 	case UI::EditorShortcutAction::Play:
 		return projectLoaded && m_SceneState != SceneState::Simulate;
 	case UI::EditorShortcutAction::Simulate:
@@ -822,158 +765,17 @@ bool EditorLayer::OnWindowDrop(WindowDropEvent& event)
 	bool handled = false;
 	for (const auto& path : event.GetPaths())
 	{
-		AssetHandle handle = ImportExternalAssetFile(path);
+		AssetHandle handle = m_AssetInteractionManager.ImportExternalAssetFile(path);
 		if (handle != 0)
 		{
 			handled = true;
 			if (m_ViewportHovered)
-				HandleViewportAssetDrop(handle);
+				m_AssetInteractionManager.HandleViewportAssetDrop(*this, handle);
 		}
 	}
 	if (m_ContentBrowserPanel)
 		m_ContentBrowserPanel->RefreshAssetTree();
 	return handled;
-}
-
-bool EditorLayer::HandleViewportAssetDrop(AssetHandle handle, int32_t textureSpriteIndex)
-{
-	if (handle == 0 || !HasProjectLoaded())
-		return false;
-
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle))
-		return false;
-
-	const AssetType type = activeProject->GetEditorAssetManager()->GetAssetType(handle);
-	switch (type)
-	{
-	case AssetType::Scene:
-		OpenScene(handle);
-		return true;
-	case AssetType::Entity:
-		return InstantiateEntityTemplate(handle);
-	case AssetType::Texture2D:
-		return CreateSpriteEntityFromTexture(handle, GetViewportMouseWorldPosition(), textureSpriteIndex);
-	default:
-		WHP_EDITOR_WARN("[Viewport] This Asset type cannot be dropped into the viewport yet.");
-		return false;
-	}
-}
-
-bool EditorLayer::HandleContentBrowserAssetOpen(AssetHandle handle)
-{
-	if (handle == 0 || !HasProjectLoaded())
-		return false;
-
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle))
-		return false;
-
-	switch (activeProject->GetEditorAssetManager()->GetAssetType(handle))
-	{
-	case AssetType::Scene:
-		OpenScene(handle);
-		return true;
-	case AssetType::Entity:
-		return InstantiateEntityTemplate(handle);
-	default:
-		return false;
-	}
-}
-
-bool EditorLayer::HandleContentBrowserAssetInspect(AssetHandle handle)
-{
-	if (handle == 0 || !HasProjectLoaded())
-		return false;
-
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle))
-		return false;
-
-	m_AssetEditorPanel.OpenAsset(handle);
-	return true;
-}
-
-void EditorLayer::SetStartScene(AssetHandle handle)
-{
-	m_AssetInteractionManager.SetStartScene(handle);
-}
-
-bool EditorLayer::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex)
-{
-	if (!HasProjectLoaded() || !m_EditorScene || m_SceneState != SceneState::Edit)
-		return false;
-
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle) ||
-		activeProject->GetEditorAssetManager()->GetAssetType(handle) != AssetType::Texture2D)
-	{
-		return false;
-	}
-
-	CaptureSceneHistory();
-	const auto& metadata = activeProject->GetEditorAssetManager()->GetMetadata(handle);
-	const auto& sprites = metadata.m_TextureSettings.m_Sprites;
-	const bool validSpriteIndex = textureSpriteIndex >= 0 && textureSpriteIndex < static_cast<int32_t>(sprites.size());
-	const TextureSpriteRect* spriteRect = validSpriteIndex ? &sprites[static_cast<size_t>(textureSpriteIndex)] : nullptr;
-	const std::string name = spriteRect ? spriteRect->m_Name : (metadata.m_Filepath.stem().empty() ? "Sprite" : metadata.m_Filepath.stem().string());
-	Entity sprite = m_EditorScene->CreateEntity(name);
-	auto& transform = sprite.GetComponent<TransformComponent>();
-	transform.m_Translation = position;
-
-	auto texture = AssetManager::GetAsset<Texture2D>(handle);
-	if (texture && texture->IsLoaded())
-	{
-		const float pixelsPerUnit = metadata.m_TextureSettings.m_PixelsPerUnit > 0.0f ? metadata.m_TextureSettings.m_PixelsPerUnit : 100.0f;
-		const float spriteWidth = spriteRect ? static_cast<float>(spriteRect->m_Width) : static_cast<float>(texture->GetWidth());
-		const float spriteHeight = spriteRect ? static_cast<float>(spriteRect->m_Height) : static_cast<float>(texture->GetHeight());
-		transform.m_Scale = {
-			glm::max(spriteWidth / pixelsPerUnit, 0.1f),
-			glm::max(spriteHeight / pixelsPerUnit, 0.1f),
-			1.0f
-		};
-	}
-
-	auto& spriteRenderer = sprite.AddComponent<SpriteRendererComponent>();
-	spriteRenderer.m_Texture = handle;
-	spriteRenderer.m_TextureSpriteIndex = validSpriteIndex ? textureSpriteIndex : -1;
-	spriteRenderer.m_Color = glm::vec4(1.0f);
-	m_SceneHierarchyPanel.SetSelectedEntity(sprite);
-	WHP_EDITOR_INFO(std::string("[Viewport] Created sprite entity from texture ") + metadata.m_Filepath.generic_string());
-	return true;
-}
-
-AssetHandle EditorLayer::ImportExternalAssetFile(const std::filesystem::path& sourcePath)
-{
-	return m_AssetInteractionManager.ImportExternalAssetFile(sourcePath);
-}
-
-glm::vec3 EditorLayer::GetViewportMouseWorldPosition() const
-{
-	const glm::vec2 viewportSize = m_ViewportBounds[1] - m_ViewportBounds[0];
-	const glm::vec3 fallback = m_EditorCamera.GetPosition() + m_EditorCamera.GetForwardDirection() * glm::max(m_EditorCamera.GetDistance(), 1.0f);
-	if (viewportSize.x <= 0.0f || viewportSize.y <= 0.0f)
-		return { fallback.x, fallback.y, 0.0f };
-
-	const ImVec2 mouse = ImGui::GetMousePos();
-	const float x = glm::clamp((mouse.x - m_ViewportBounds[0].x) / viewportSize.x, 0.0f, 1.0f);
-	const float y = glm::clamp((mouse.y - m_ViewportBounds[0].y) / viewportSize.y, 0.0f, 1.0f);
-	const glm::vec2 ndc{ x * 2.0f - 1.0f, (1.0f - y) * 2.0f - 1.0f };
-
-	const glm::mat4 inverseViewProjection = glm::inverse(m_EditorCamera.GetViewProjection());
-	glm::vec4 nearPoint = inverseViewProjection * glm::vec4(ndc.x, ndc.y, -1.0f, 1.0f);
-	glm::vec4 farPoint = inverseViewProjection * glm::vec4(ndc.x, ndc.y, 1.0f, 1.0f);
-	nearPoint /= nearPoint.w;
-	farPoint /= farPoint.w;
-
-	const glm::vec3 rayOrigin = glm::vec3(nearPoint);
-	const glm::vec3 rayDirection = glm::normalize(glm::vec3(farPoint - nearPoint));
-	if (glm::abs(rayDirection.z) < 0.0001f)
-		return { fallback.x, fallback.y, 0.0f };
-
-	const float t = -rayOrigin.z / rayDirection.z;
-	const glm::vec3 worldPosition = rayOrigin + rayDirection * t;
-	return { worldPosition.x, worldPosition.y, 0.0f };
 }
 
 void EditorLayer::DrawEditorGrid()
@@ -1110,373 +912,6 @@ bool EditorLayer::HasProjectLoaded() const
 	return Project::GetActive() != nullptr;
 }
 
-void EditorLayer::SetupProjectLoader()
-{
-	m_ProjectLoader.SetCreateProjectCallback([this](const UI::ProjectCreateSettings& settings) { return NewProject(settings); });
-	m_ProjectLoader.SetLoadProjectCallback([this]() { return OpenProject(); });
-	m_ProjectLoader.SetOpenRecentProjectCallback([this](const std::filesystem::path& path) {
-		std::error_code error;
-		if (!std::filesystem::exists(path, error))
-		{
-			WHP_EDITOR_WARN("[Whip Hub] Recent Project no longer exists.");
-			m_ProjectLoader.SetStatus("Recent project no longer exists.");
-			LoadRecentProjects();
-			return false;
-		}
-
-		const bool opened = OpenProject(path);
-		if (!opened)
-			m_ProjectLoader.SetStatus("Project could not be opened.");
-		return opened;
-	});
-	m_ProjectLoader.SetForgetRecentProjectCallback([this](const std::filesystem::path& path) {
-		return ForgetRecentProject(path);
-	});
-	m_ProjectLoader.SetDeleteRecentProjectCallback([this](const std::filesystem::path& path) {
-		return DeleteRecentProject(path);
-	});
-}
-
-void EditorLayer::LoadRecentProjects()
-{
-	m_RecentProjects.clear();
-	bool shouldRewrite = false;
-
-	std::ifstream stream(GetRecentProjectsPath());
-	if (!stream)
-	{
-		m_ProjectLoader.SetRecentProjects(m_RecentProjects);
-		return;
-	}
-
-	std::string line;
-	while (std::getline(stream, line))
-	{
-		if (line.empty())
-			continue;
-
-		std::filesystem::path path(line);
-		std::error_code error;
-		if (!std::filesystem::exists(path, error) || !FileExtensions::IsProjectExtension(path))
-		{
-			shouldRewrite = true;
-			continue;
-		}
-
-		path = std::filesystem::weakly_canonical(path, error);
-		if (error)
-			path = std::filesystem::absolute(line, error);
-		if (!ShouldIncludeRecentProject(path))
-		{
-			shouldRewrite = true;
-			continue;
-		}
-
-		if (std::find(m_RecentProjects.begin(), m_RecentProjects.end(), path) == m_RecentProjects.end())
-			m_RecentProjects.push_back(path);
-		else
-			shouldRewrite = true;
-
-		if (m_RecentProjects.size() >= 10)
-		{
-			shouldRewrite = true;
-			break;
-		}
-	}
-
-	stream.close();
-	if (shouldRewrite)
-		SaveRecentProjects();
-	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
-}
-
-void EditorLayer::SaveRecentProjects() const
-{
-	m_ProjectManager.SaveRecentProjects();
-}
-
-void EditorLayer::AddRecentProject(const std::filesystem::path& path)
-{
-	if (path.empty())
-		return;
-
-	std::error_code error;
-	std::filesystem::path normalizedPath = std::filesystem::weakly_canonical(path, error);
-	if (error)
-	{
-		error.clear();
-		normalizedPath = std::filesystem::absolute(path, error);
-	}
-	if (error)
-		normalizedPath = path;
-	if (!ShouldIncludeRecentProject(normalizedPath))
-		return;
-
-	m_RecentProjects.erase(
-		std::remove(m_RecentProjects.begin(), m_RecentProjects.end(), normalizedPath),
-		m_RecentProjects.end());
-
-	m_RecentProjects.insert(m_RecentProjects.begin(), normalizedPath);
-	if (m_RecentProjects.size() > 10)
-		m_RecentProjects.resize(10);
-
-	m_LastProjectPath = normalizedPath;
-	SaveRecentProjects();
-	SaveEditorPreferences();
-	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
-}
-
-bool EditorLayer::ForgetRecentProject(const std::filesystem::path& path)
-{
-	if (path.empty())
-		return false;
-
-	const size_t previousSize = m_RecentProjects.size();
-	m_RecentProjects.erase(
-		std::remove_if(m_RecentProjects.begin(), m_RecentProjects.end(),
-			[&path](const std::filesystem::path& recentPath)
-			{
-				return PathsMatchForRecentProject(recentPath, path);
-			}),
-		m_RecentProjects.end());
-
-	if (m_RecentProjects.size() == previousSize)
-		return false;
-
-	if (PathsMatchForRecentProject(m_LastProjectPath, path))
-		m_LastProjectPath.clear();
-
-	SaveRecentProjects();
-	SaveEditorPreferences();
-	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
-	return true;
-}
-
-bool EditorLayer::DeleteRecentProject(const std::filesystem::path& path)
-{
-	if (path.empty() || !FileExtensions::IsProjectExtension(path))
-		return false;
-
-	std::error_code error;
-	std::filesystem::path projectPath = NormalizeProjectListPath(path);
-	const bool projectFileExists = std::filesystem::exists(projectPath, error);
-	if (error)
-		return false;
-	if (!projectFileExists)
-		return ForgetRecentProject(path);
-
-	if (!std::filesystem::is_regular_file(projectPath, error) || error)
-		return false;
-
-	const std::filesystem::path projectDirectory = NormalizeProjectListPath(projectPath.parent_path());
-	if (projectDirectory.empty() || projectDirectory == projectDirectory.root_path())
-		return false;
-
-	if (projectDirectory.filename() != projectPath.stem())
-	{
-		WHP_EDITOR_WARN(std::string("[Whip Hub] Refusing to delete Project folder because it does not match the Project file name: ") + projectDirectory.string());
-		return false;
-	}
-
-	error.clear();
-	const std::filesystem::path workingDirectory = NormalizeProjectListPath(std::filesystem::current_path());
-	if (!workingDirectory.empty() && PathIsOrIsUnder(workingDirectory, projectDirectory))
-	{
-		WHP_EDITOR_WARN(std::string("[Whip Hub] Refusing to delete a Project folder that contains the editor working directory: ") + projectDirectory.string());
-		return false;
-	}
-
-	Ref<Project> activeProject = Project::GetActive();
-	if (activeProject && PathsMatchForRecentProject(activeProject->GetProjectPath(), projectPath))
-	{
-		WHP_EDITOR_WARN("[Whip Hub] Refusing to delete the currently loaded Project.");
-		return false;
-	}
-
-	std::filesystem::remove_all(projectDirectory, error);
-	if (error)
-	{
-		WHP_EDITOR_ERROR(std::string("[Whip Hub] Could not delete Project folder ") + projectDirectory.string() + ": " + error.message());
-		return false;
-	}
-
-	return ForgetRecentProject(projectPath);
-}
-
-bool EditorLayer::ShouldIncludeRecentProject(const std::filesystem::path& path) const
-{
-	return m_ProjectManager.ShouldIncludeRecentProject(path);
-}
-
-std::filesystem::path EditorLayer::GetRecentProjectsPath() const
-{
-	return m_ProjectManager.GetRecentProjectsPath();
-}
-
-std::filesystem::path EditorLayer::GetPreferencesPath() const
-{
-	return m_ProjectManager.GetPreferencesPath();
-}
-
-void EditorLayer::LoadEditorPreferences()
-{
-	LoadRecentProjects();
-
-	const std::filesystem::path preferencesPath = GetPreferencesPath();
-	std::error_code error;
-	if (!std::filesystem::exists(preferencesPath, error))
-		return;
-
-	YAML::Node data;
-	try
-	{
-		data = YAML::LoadFile(preferencesPath.string());
-	}
-	catch (const YAML::Exception& exception)
-	{
-		WHP_EDITOR_WARN(std::string("[Editor Preferences] Could not read preferences: ") + exception.what());
-		return;
-	}
-
-	if (YAML::Node recentProjects = data["recentProjects"])
-	{
-		m_RecentProjects.clear();
-		for (const YAML::Node& recentProject : recentProjects)
-		{
-			std::filesystem::path path = recentProject.as<std::string>("");
-			if (!path.empty() && ShouldIncludeRecentProject(path))
-				m_RecentProjects.push_back(path);
-		}
-	}
-
-	m_LastProjectPath = data["last_project"].as<std::string>("");
-
-	if (YAML::Node editor = data["editor"])
-	{
-		m_UISettings.SetShowPhysicsColliders(editor["show_physics_colliders"].as<bool>(m_UISettings.GetShowPhysicsColliders()));
-		m_UISettings.SetStepFrame(editor["step_frame"].as<int>(m_UISettings.GetStepFrame()));
-		m_UISettings.SetTheme(ThemeFromString(editor["theme"].as<std::string>(UI::UISettings::GetThemeName(m_UISettings.GetTheme()))));
-
-		if (YAML::Node snap = editor["snap"])
-		{
-			m_UISettings.SetSnapValues(0, ReadVec3(snap["translation"], m_UISettings.GetSnapValues(0)));
-			m_UISettings.SetSnapValues(1, ReadVec3(snap["rotation"], m_UISettings.GetSnapValues(1)));
-			m_UISettings.SetSnapValues(2, ReadVec3(snap["scale"], m_UISettings.GetSnapValues(2)));
-		}
-
-		if (YAML::Node shortcuts = editor["shortcuts"])
-		{
-			for (size_t i = 0; i < UI::UISettings::ActionCount; ++i)
-			{
-				UI::EditorShortcutAction action = static_cast<UI::EditorShortcutAction>(i);
-				YAML::Node shortcut = shortcuts[UI::UISettings::GetActionStorageKey(action)];
-				if (!shortcut)
-					continue;
-
-				UI::ShortcutBinding binding;
-				binding.m_Key = static_cast<KeyCode>(shortcut["key"].as<int>(0));
-				binding.m_Ctrl = shortcut["ctrl"].as<bool>(false);
-				binding.m_Shift = shortcut["shift"].as<bool>(false);
-				binding.m_Alt = shortcut["alt"].as<bool>(false);
-				m_UISettings.SetShortcutBinding(action, binding);
-			}
-		}
-	}
-
-	if (YAML::Node panels = data["panels"])
-	{
-		m_AnimationEditorPanel.SetOpen(panels["animation_editor"].as<bool>(m_AnimationEditorPanel.IsOpen()));
-		m_SceneHierarchyPanel.SetOpen(panels["scene_hierarchy"].as<bool>(m_SceneHierarchyPanel.IsOpen()));
-		m_UIStatistics.SetOpen(panels["statistics"].as<bool>(m_UIStatistics.IsOpen()));
-		ConsolePanel::SetOpen(panels["console"].as<bool>(ConsolePanel::IsOpen()));
-	}
-
-	if (YAML::Node browser = data["content_browser"])
-	{
-		m_ContentBrowserPreferences.m_ThumbnailSize = browser["thumbnail_size"].as<float>(m_ContentBrowserPreferences.m_ThumbnailSize);
-		m_ContentBrowserPreferences.m_Padding = browser["padding"].as<float>(m_ContentBrowserPreferences.m_Padding);
-		m_ContentBrowserPreferences.m_ShowUnsupported = browser["show_unsupported"].as<bool>(m_ContentBrowserPreferences.m_ShowUnsupported);
-		m_ContentBrowserPreferences.m_Open = browser["open"].as<bool>(m_ContentBrowserPreferences.m_Open);
-		m_ContentBrowserPreferences.m_Mode = browser["mode"].as<int>(m_ContentBrowserPreferences.m_Mode);
-		m_ContentBrowserPreferences.m_TypeFilter = browser["type_filter"].as<int>(m_ContentBrowserPreferences.m_TypeFilter);
-		m_ContentBrowserPreferences.m_CurrentDirectory = browser["current_directory"].as<std::string>("");
-		m_HasContentBrowserPreferences = true;
-	}
-
-	m_UISettings.ConsumeDirty();
-	m_SceneHierarchyPanel.ConsumeOpenDirty();
-	m_AnimationEditorPanel.ConsumeOpenDirty();
-	m_UIStatistics.ConsumeOpenDirty();
-	ConsolePanel::ConsumeOpenDirty();
-	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
-}
-
-void EditorLayer::SaveEditorPreferences() const
-{
-	YAML::Emitter out;
-	out << YAML::BeginMap;
-	out << YAML::Key << "last_project" << YAML::Value << m_LastProjectPath.string();
-	out << YAML::Key << "recentProjects" << YAML::Value << YAML::BeginSeq;
-	for (const auto& projectPath : m_RecentProjects)
-		out << projectPath.string();
-	out << YAML::EndSeq;
-
-	out << YAML::Key << "editor" << YAML::Value << YAML::BeginMap;
-	out << YAML::Key << "show_physics_colliders" << YAML::Value << m_UISettings.GetShowPhysicsColliders();
-	out << YAML::Key << "step_frame" << YAML::Value << m_UISettings.GetStepFrame();
-	out << YAML::Key << "theme" << YAML::Value << UI::UISettings::GetThemeName(m_UISettings.GetTheme());
-	out << YAML::Key << "snap" << YAML::Value << YAML::BeginMap;
-	out << YAML::Key << "translation" << YAML::Value; WriteVec3(out, m_UISettings.GetSnapValues(0));
-	out << YAML::Key << "rotation" << YAML::Value; WriteVec3(out, m_UISettings.GetSnapValues(1));
-	out << YAML::Key << "scale" << YAML::Value; WriteVec3(out, m_UISettings.GetSnapValues(2));
-	out << YAML::EndMap;
-	out << YAML::Key << "shortcuts" << YAML::Value << YAML::BeginMap;
-	for (size_t i = 0; i < UI::UISettings::ActionCount; ++i)
-	{
-		UI::EditorShortcutAction action = static_cast<UI::EditorShortcutAction>(i);
-		UI::ShortcutBinding binding = m_UISettings.GetShortcutBinding(action);
-		out << YAML::Key << UI::UISettings::GetActionStorageKey(action) << YAML::Value << YAML::BeginMap;
-		out << YAML::Key << "key" << YAML::Value << binding.m_Key;
-		out << YAML::Key << "ctrl" << YAML::Value << binding.m_Ctrl;
-		out << YAML::Key << "shift" << YAML::Value << binding.m_Shift;
-		out << YAML::Key << "alt" << YAML::Value << binding.m_Alt;
-		out << YAML::EndMap;
-	}
-	out << YAML::EndMap;
-	out << YAML::EndMap;
-
-	out << YAML::Key << "panels" << YAML::Value << YAML::BeginMap;
-	out << YAML::Key << "animation_editor" << YAML::Value << m_AnimationEditorPanel.IsOpen();
-	out << YAML::Key << "scene_hierarchy" << YAML::Value << m_SceneHierarchyPanel.IsOpen();
-	out << YAML::Key << "statistics" << YAML::Value << m_UIStatistics.IsOpen();
-	out << YAML::Key << "console" << YAML::Value << ConsolePanel::IsOpen();
-	out << YAML::EndMap;
-
-	ContentBrowserPanel::Preferences browserPreferences = m_ContentBrowserPanel ? m_ContentBrowserPanel->GetPreferences() : m_ContentBrowserPreferences;
-	out << YAML::Key << "content_browser" << YAML::Value << YAML::BeginMap;
-	out << YAML::Key << "thumbnail_size" << YAML::Value << browserPreferences.m_ThumbnailSize;
-	out << YAML::Key << "padding" << YAML::Value << browserPreferences.m_Padding;
-	out << YAML::Key << "show_unsupported" << YAML::Value << browserPreferences.m_ShowUnsupported;
-	out << YAML::Key << "open" << YAML::Value << browserPreferences.m_Open;
-	out << YAML::Key << "mode" << YAML::Value << browserPreferences.m_Mode;
-	out << YAML::Key << "type_filter" << YAML::Value << browserPreferences.m_TypeFilter;
-	out << YAML::Key << "current_directory" << YAML::Value << browserPreferences.m_CurrentDirectory.string();
-	out << YAML::EndMap;
-
-	out << YAML::EndMap;
-
-	std::ofstream stream(GetPreferencesPath(), std::ios::trunc);
-	if (!stream)
-		return;
-	stream << out.c_str();
-}
-
-void EditorLayer::ApplyPreferencesToContentBrowser()
-{
-	if (m_ContentBrowserPanel && m_HasContentBrowserPreferences)
-		m_ContentBrowserPanel->ApplyPreferences(m_ContentBrowserPreferences);
-}
-
 bool EditorLayer::NewProject(const UI::ProjectCreateSettings& settings)
 {
 	const std::string projectName = SanitizeProjectToken(settings.m_Name, "Untitled");
@@ -1575,38 +1010,11 @@ bool EditorLayer::NewProject(const UI::ProjectCreateSettings& settings)
 	Project::SetActive(nullptr);
 	if (!settings.m_OpenAfterCreate)
 	{
-		AddRecentProject(projectPath);
+		m_ProjectManager.AddRecentProject(*this, projectPath);
 		return true;
 	}
 	return OpenProject(projectPath);
 }
-
-void EditorLayer::SaveProject()
-{
-	if (!HasProjectLoaded())
-		return;
-
-	Project::SaveActive();
-}
-
-void EditorLayer::FinishProjectSettings()
-{
-	if (!HasProjectLoaded())
-		return;
-
-	Project::SaveActive();
-	m_ScriptManager.ReloadAssembly(true, m_SceneState == SceneState::Edit);
-	m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
-	m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return HandleContentBrowserAssetOpen(handle); });
-	m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return HandleContentBrowserAssetInspect(handle); });
-	ApplyPreferencesToContentBrowser();
-}
-
-void EditorLayer::MigrateProjectNativeFileExtensions()
-{
-	m_ProjectManager.MigrateProjectNativeFileExtensions();
-}
-
 
 bool EditorLayer::OpenProject()
 {
@@ -1626,16 +1034,16 @@ bool EditorLayer::OpenProject(const std::filesystem::path& path)
 	if (!std::filesystem::exists(projectPath, error) || !FileExtensions::IsProjectExtension(projectPath))
 	{
 		WHP_EDITOR_WARN(std::string("[Project] Project file is missing or invalid: ") + projectPath.string());
-		m_ProjectLoader.SetStatus("Project file is missing or invalid.");
+		m_ProjectManager.GetLoader().SetStatus("Project file is missing or invalid.");
 		return false;
 	}
 
 	if (HasProjectLoaded() && PathsMatchForRecentProject(Project::GetActive()->GetProjectPath(), projectPath))
 	{
 		WHP_EDITOR_INFO(std::string("[Project] Project is already open: ") + projectPath.string());
-		AddRecentProject(projectPath);
-		m_ProjectLoader.SetLoaded(true);
-		m_ProjectLoader.SetStatus("Project already open.");
+		m_ProjectManager.AddRecentProject(*this, projectPath);
+		m_ProjectManager.GetLoader().SetLoaded(true);
+		m_ProjectManager.GetLoader().SetStatus("Project already open.");
 		return true;
 	}
 
@@ -1649,7 +1057,7 @@ bool EditorLayer::OpenProject(const std::filesystem::path& path)
 	if (Project::Load(projectPath))
 	{
 		WHP_EDITOR_INFO("[Project] Project file loaded.");
-		MigrateProjectNativeFileExtensions();
+		m_ProjectManager.MigrateProjectNativeFileExtensions();
 		WHP_EDITOR_INFO("[Project] Native file extension migration complete.");
 		const bool scriptBuildSucceeded = m_ScriptManager.BuildProjectScripts();
 		if (!scriptBuildSucceeded)
@@ -1682,18 +1090,18 @@ bool EditorLayer::OpenProject(const std::filesystem::path& path)
 			NewScene();
 		}
 		m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
-		m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return HandleContentBrowserAssetOpen(handle); });
-		m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return HandleContentBrowserAssetInspect(handle); });
-		ApplyPreferencesToContentBrowser();
-		AddRecentProject(projectPath);
-		m_ProjectLoader.SetLoaded(true);
-		m_ProjectLoader.SetStatus(scriptBuildSucceeded ? "Project opened." : "Project opened, script build failed.");
+		m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return m_AssetInteractionManager.HandleContentBrowserAssetOpen(*this, handle); });
+		m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return m_AssetInteractionManager.HandleContentBrowserAssetInspect(*this, handle); });
+		m_ProjectManager.ApplyPreferencesToContentBrowser(*this);
+		m_ProjectManager.AddRecentProject(*this, projectPath);
+		m_ProjectManager.GetLoader().SetLoaded(true);
+		m_ProjectManager.GetLoader().SetStatus(scriptBuildSucceeded ? "Project opened." : "Project opened, script build failed.");
 		WHP_EDITOR_INFO("[Project] Project open complete.");
 		return true;
 	}
 	ResetEditorProjectState();
 	WHP_EDITOR_WARN(std::string("[Project] Project load failed: ") + projectPath.string());
-	m_ProjectLoader.SetStatus("Project could not be opened.");
+	m_ProjectManager.GetLoader().SetStatus("Project could not be opened.");
 	return false;
 }
 
@@ -1712,10 +1120,10 @@ void EditorLayer::ResetEditorProjectState()
 	m_EditorScene = MakeRef<Scene>();
 	m_ActiveScene = m_EditorScene;
 	m_EditorScenePath.clear();
-	ClearSceneHistory();
+	m_HistoryManager.ClearSceneHistory();
 	MarkSceneClean();
 	Project::SetActive(nullptr);
-	m_ProjectLoader.SetLoaded(false);
+	m_ProjectManager.GetLoader().SetLoaded(false);
 }
 
 void EditorLayer::NewScene()
@@ -1726,7 +1134,7 @@ void EditorLayer::NewScene()
     m_ActiveScene = MakeRef<Scene>();
 	m_SceneHierarchyPanel.SetContext(m_ActiveScene);
 	m_EditorScenePath = std::filesystem::path();
-	ClearSceneHistory();
+	m_HistoryManager.ClearSceneHistory();
 	MarkSceneClean();
 }
 
@@ -1763,7 +1171,7 @@ void EditorLayer::OpenScene(AssetHandle handle)
 
 	m_ActiveScene = m_EditorScene;
 	m_EditorScenePath = scenePath;
-	ClearSceneHistory();
+	m_HistoryManager.ClearSceneHistory();
 	MarkSceneClean();
 }
 
@@ -1777,7 +1185,7 @@ void EditorLayer::CloseScene()
 	m_ActiveScene = m_EditorScene;
 	m_EditorScenePath.clear();
 	m_SceneHierarchyPanel.SetContext({});
-	ClearSceneHistory();
+	m_HistoryManager.ClearSceneHistory();
 	MarkSceneClean();
 }
 
@@ -1945,7 +1353,7 @@ bool EditorLayer::InstantiateEntityTemplate(AssetHandle handle)
 	}
 
 	const std::filesystem::path templatePath = Project::GetActiveAssetDirectory() / activeProject->GetEditorAssetManager()->GetFilepath(handle);
-	CaptureSceneHistory();
+	m_HistoryManager.CaptureSceneHistory(*this);
 	SceneSerializer serializer(m_EditorScene);
 	Entity instance = serializer.DeserializeEntityTemplate(templatePath, handle);
 	if (!instance)
@@ -2114,7 +1522,7 @@ void EditorLayer::RevertEntityTemplate(Entity entityIn)
 	if (root.HasComponent<TransformComponent>())
 		preservedTransform = root.GetComponent<TransformComponent>();
 
-	CaptureSceneHistory();
+	m_HistoryManager.CaptureSceneHistory(*this);
 	m_EditorScene->DestroyEntity(root);
 
 	SceneSerializer serializer(m_EditorScene);
@@ -2159,7 +1567,7 @@ void EditorLayer::UnpackEntityTemplate(Entity entityIn)
 		return;
 	}
 
-	CaptureSceneHistory();
+	m_HistoryManager.CaptureSceneHistory(*this);
 	RemovePrefabLinksRecursive(root);
 	m_SceneHierarchyPanel.SetSelectedEntity(root);
 	WHP_EDITOR_INFO(std::string("[Entity Template] Unpacked instance ") + root.GetName());
@@ -2346,260 +1754,6 @@ void EditorLayer::OnSceneStop()
 void EditorLayer::OnScenePause()
 {
 
-}
-
-EditorLayer::ProjectHistoryEntry EditorLayer::CaptureProjectHistory() const
-{
-	ProjectHistoryEntry entry;
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject || !activeProject->GetEditorAssetManager())
-		return entry;
-
-	entry.m_Valid = true;
-	entry.m_Config = activeProject->GetConfig();
-	entry.m_ProjectPath = activeProject->GetProjectPath();
-	entry.m_AssetRegistryPath = activeProject->GetAssetRegistryPath();
-	entry.m_ProjectFileContents = ReadTextFile(entry.m_ProjectPath);
-	entry.m_AssetRegistryContents = ReadTextFile(entry.m_AssetRegistryPath);
-
-	const AssetRegistry& registry = activeProject->GetEditorAssetManager()->GetAssetRegistry();
-	registry.Foreach(AssetType::Scene, [activeProject, &entry](const AssetRegistry::ValueType& value)
-		{
-			const std::string relativePath = value.second.m_Filepath.generic_string();
-			entry.m_SceneFileContents[relativePath] = ReadTextFile(activeProject->GetAssetDirectory() / value.second.m_Filepath);
-		});
-
-	return entry;
-}
-
-void EditorLayer::RestoreProjectHistory(const ProjectHistoryEntry& entry)
-{
-	if (!entry.m_Valid)
-		return;
-
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject || !activeProject->GetEditorAssetManager())
-		return;
-	if (!entry.m_ProjectPath.empty() && activeProject->GetProjectPath() != entry.m_ProjectPath)
-		return;
-
-	std::unordered_set<std::string> currentScenePaths;
-	const std::filesystem::path currentAssetDirectory = activeProject->GetAssetDirectory();
-	activeProject->GetEditorAssetManager()->GetAssetRegistry().Foreach(AssetType::Scene, [&currentScenePaths](const AssetRegistry::ValueType& value)
-		{
-			currentScenePaths.insert(value.second.m_Filepath.generic_string());
-		});
-
-	activeProject->GetConfig() = entry.m_Config;
-	if (!entry.m_ProjectFileContents.empty())
-		WriteTextFile(entry.m_ProjectPath, entry.m_ProjectFileContents);
-	else
-		Project::SaveActive();
-
-	const std::filesystem::path restoredAssetDirectory = entry.m_ProjectPath.parent_path() / entry.m_Config.m_AssetDirectory;
-	const std::filesystem::path restoredAssetRegistryPath = restoredAssetDirectory / entry.m_Config.m_AssetRegistryPath;
-	if (!entry.m_AssetRegistryContents.empty())
-		WriteTextFile(restoredAssetRegistryPath, entry.m_AssetRegistryContents);
-
-	for (const auto& [RelativePath, contents] : entry.m_SceneFileContents)
-		WriteTextFile(restoredAssetDirectory / RelativePath, contents);
-
-	for (const std::string& RelativePath : currentScenePaths)
-	{
-		if (entry.m_SceneFileContents.find(RelativePath) != entry.m_SceneFileContents.end())
-			continue;
-
-		std::error_code error;
-		std::filesystem::remove(currentAssetDirectory / RelativePath, error);
-		if (currentAssetDirectory != restoredAssetDirectory)
-			std::filesystem::remove(restoredAssetDirectory / RelativePath, error);
-	}
-
-	activeProject->GetEditorAssetManager()->DeserializeAssetRegistry();
-	if (m_ContentBrowserPanel)
-	{
-		m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(activeProject);
-		m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return HandleContentBrowserAssetOpen(handle); });
-		m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return HandleContentBrowserAssetInspect(handle); });
-		ApplyPreferencesToContentBrowser();
-	}
-}
-
-void EditorLayer::CaptureSceneHistory(bool includeProjectSnapshot)
-{
-	if (m_SceneState != SceneState::Edit || !m_EditorScene)
-		return;
-
-	SceneHistoryEntry entry;
-	entry.m_SceneSnapshot = Scene::Copy(m_EditorScene);
-	entry.m_EditorScenePath = m_EditorScenePath;
-	entry.m_SelectedEntities = m_SceneHierarchyPanel.GetSelectedEntityIds();
-	if (includeProjectSnapshot)
-		entry.m_ProjectSnapshot = CaptureProjectHistory();
-	m_UndoStack.push_back(entry);
-	m_RedoStack.clear();
-	MarkSceneDirty();
-
-	static constexpr size_t maxHistoryEntries = 64;
-	if (m_UndoStack.size() > maxHistoryEntries)
-		m_UndoStack.erase(m_UndoStack.begin());
-}
-
-void EditorLayer::RestoreSceneHistory(const SceneHistoryEntry& entry)
-{
-	if (!entry.m_SceneSnapshot)
-		return;
-
-	if (m_SceneState != SceneState::Edit)
-		OnSceneStop();
-
-	RestoreProjectHistory(entry.m_ProjectSnapshot);
-	m_EditorScene = Scene::Copy(entry.m_SceneSnapshot);
-	m_EditorScenePath = entry.m_EditorScenePath;
-	m_EditorScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
-	m_ActiveScene = m_EditorScene;
-	m_SceneHierarchyPanel.SetContext(m_EditorScene);
-	m_SceneHierarchyPanel.SetSelectedEntityIds(entry.m_SelectedEntities);
-}
-
-void EditorLayer::UndoScene()
-{
-	if (m_UndoStack.empty() || m_SceneState != SceneState::Edit)
-		return;
-
-	SceneHistoryEntry current;
-	current.m_SceneSnapshot = Scene::Copy(m_EditorScene);
-	current.m_EditorScenePath = m_EditorScenePath;
-	current.m_SelectedEntities = m_SceneHierarchyPanel.GetSelectedEntityIds();
-	SceneHistoryEntry entry = m_UndoStack.back();
-	if (entry.m_ProjectSnapshot.m_Valid)
-		current.m_ProjectSnapshot = CaptureProjectHistory();
-	m_RedoStack.push_back(current);
-
-	m_UndoStack.pop_back();
-	RestoreSceneHistory(entry);
-	MarkSceneDirty();
-}
-
-void EditorLayer::RedoScene()
-{
-	if (m_RedoStack.empty() || m_SceneState != SceneState::Edit)
-		return;
-
-	SceneHistoryEntry current;
-	current.m_SceneSnapshot = Scene::Copy(m_EditorScene);
-	current.m_EditorScenePath = m_EditorScenePath;
-	current.m_SelectedEntities = m_SceneHierarchyPanel.GetSelectedEntityIds();
-	SceneHistoryEntry entry = m_RedoStack.back();
-	if (entry.m_ProjectSnapshot.m_Valid)
-		current.m_ProjectSnapshot = CaptureProjectHistory();
-	m_UndoStack.push_back(current);
-
-	m_RedoStack.pop_back();
-	RestoreSceneHistory(entry);
-	MarkSceneDirty();
-}
-
-void EditorLayer::ClearSceneHistory()
-{
-	m_HistoryManager.ClearSceneHistory();
-}
-
-void EditorLayer::OnDuplicatedEntity()
-{
-	if (m_SceneState != SceneState::Edit)
-		return;
-
-	std::vector<Entity> selectedEntities = m_SceneHierarchyPanel.GetSelectedEntities();
-	if (selectedEntities.empty())
-		return;
-
-	CaptureSceneHistory();
-	bool append = false;
-	for (Entity selectedEntity : selectedEntities)
-	{
-		Entity duplicated = m_EditorScene->DuplicateEntity(selectedEntity);
-		m_SceneHierarchyPanel.SetSelectedEntity(duplicated, append);
-		append = true;
-	}
-}
-
-void EditorLayer::OnDeletedEntity()
-{
-	if(Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
-	{
-		std::vector<Entity> selectedEntities = m_SceneHierarchyPanel.GetSelectedEntities();
-		if (!selectedEntities.empty())
-		{
-			CaptureSceneHistory();
-			std::vector<UUID> selectedIds;
-			selectedIds.reserve(selectedEntities.size());
-			for (Entity selectedEntity : selectedEntities)
-				selectedIds.push_back(selectedEntity.GetUUID());
-
-			auto hasSelectedAncestor = [&](Entity selectedEntity)
-				{
-					while (selectedEntity && selectedEntity.HasComponent<HierarchyComponent>())
-					{
-						UUID parentId = selectedEntity.GetComponent<HierarchyComponent>().m_Parent;
-						if (parentId == 0)
-							return false;
-						if (std::find(selectedIds.begin(), selectedIds.end(), parentId) != selectedIds.end())
-							return true;
-						selectedEntity = m_ActiveScene->FindEntityByUUID(parentId);
-					}
-					return false;
-				};
-
-			m_SceneHierarchyPanel.ClearSelection();
-			for (Entity selectedEntity : selectedEntities)
-				if (selectedEntity && !hasSelectedAncestor(selectedEntity))
-					m_ActiveScene->DestroyEntity(selectedEntity);
-		}
-	}
-}
-
-void EditorLayer::OnSelectAllEntities()
-{
-	if (m_SceneState == SceneState::Edit)
-		m_SceneHierarchyPanel.SelectAll();
-}
-
-void EditorLayer::OnCopyEntities()
-{
-	m_EntityClipboard = m_SceneHierarchyPanel.GetSelectedEntityIds();
-}
-
-void EditorLayer::OnPasteEntities()
-{
-	if (m_SceneState != SceneState::Edit || m_EntityClipboard.empty())
-		return;
-
-	std::vector<Entity> sourceEntities;
-	for (UUID id : m_EntityClipboard)
-	{
-		Entity source = m_EditorScene->FindEntityByUUID(id);
-		if (source)
-			sourceEntities.push_back(source);
-	}
-
-	if (sourceEntities.empty())
-		return;
-
-	CaptureSceneHistory();
-	bool append = false;
-	for (Entity source : sourceEntities)
-	{
-		Entity pasted = m_EditorScene->DuplicateEntity(source);
-		m_SceneHierarchyPanel.SetSelectedEntity(pasted, append);
-		append = true;
-	}
-}
-
-void EditorLayer::OnCutEntities()
-{
-	OnCopyEntities();
-	OnDeletedEntity();
 }
 
 void EditorLayer::UIToolbar()

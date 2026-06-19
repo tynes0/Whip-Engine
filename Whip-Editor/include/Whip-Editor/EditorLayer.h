@@ -20,27 +20,6 @@
 #include <Whip-Editor/panels/EditorPanelManager.h>
 
 #include <chrono>
-#include <string>
-#include <unordered_map>
-#include <vector>
-
-// TODOLIST
-// - entity Asset
-// - Spawn and destroy entity -> cs
-// - add and destroy component (runtime) -> actually I don't think this is necessary
-// - field arrays.
-// - scene hierarchy -> update properties panel -> all of them will be table
-// - scene settings
-// - serialize runtime
-// - add new Project popup
-// - all the Project settings
-// - fix font Asset
-// - fix ContentBrowserPanel Asset tree
-// - symmetric ContentBrowserPanel settings
-// - fix animation editor drag drop size
-// - there is an issue with SceneHierarchyPanel::draw_component (i guess...)
-// - texture manager -> g_icons with this
-// - AudioSource destroy
 
 _WHIP_START
 
@@ -57,8 +36,6 @@ public:
 	void OnEvent(Event& event) override;
 private:
 	using SceneState = EditorSceneState;
-	using ProjectHistoryEntry = EditorHistoryManager::ProjectHistoryEntry;
-	using SceneHistoryEntry = EditorHistoryManager::SceneHistoryEntry;
 
 	friend class EditorAssetInteractionManager;
 	friend class EditorHistoryManager;
@@ -73,26 +50,10 @@ private:
 	void OnOverlayRender();
 
 	bool NewProject(const UI::ProjectCreateSettings& settings);
-	void SaveProject();
-	void FinishProjectSettings();
-	void MigrateProjectNativeFileExtensions();
-
 	bool OpenProject();
 	bool OpenProject(const std::filesystem::path& path);
 	void ResetEditorProjectState();
 	bool HasProjectLoaded() const;
-	void SetupProjectLoader();
-	void LoadRecentProjects();
-	void SaveRecentProjects() const;
-	void AddRecentProject(const std::filesystem::path& path);
-	bool ForgetRecentProject(const std::filesystem::path& path);
-	bool DeleteRecentProject(const std::filesystem::path& path);
-	bool ShouldIncludeRecentProject(const std::filesystem::path& path) const;
-	std::filesystem::path GetRecentProjectsPath() const;
-	std::filesystem::path GetPreferencesPath() const;
-	void LoadEditorPreferences();
-	void SaveEditorPreferences() const;
-	void ApplyPreferencesToContentBrowser();
 
 	void NewScene();
 	void OpenScene(AssetHandle handle);
@@ -110,13 +71,6 @@ private:
 	Entity FindPrefabRoot(Entity entityIn) const;
 	void RemovePrefabLinksRecursive(Entity entityIn);
 	bool InstantiateEntityTemplate(AssetHandle handle);
-	bool HandleViewportAssetDrop(AssetHandle handle, int32_t textureSpriteIndex = -1);
-	bool HandleContentBrowserAssetOpen(AssetHandle handle);
-	bool HandleContentBrowserAssetInspect(AssetHandle handle);
-	void SetStartScene(AssetHandle handle);
-	bool CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex = -1);
-	AssetHandle ImportExternalAssetFile(const std::filesystem::path& sourcePath);
-	glm::vec3 GetViewportMouseWorldPosition() const;
 
 	void ProcessRuntimeSceneTransition();
 	bool LoadRuntimeScene(AssetHandle handle);
@@ -131,19 +85,6 @@ private:
 	void OnSceneStop();
 	void OnScenePause();
 
-	void OnDuplicatedEntity();
-	void OnDeletedEntity();
-	void OnSelectAllEntities();
-	void OnCopyEntities();
-	void OnPasteEntities();
-	void OnCutEntities();
-	void UndoScene();
-	void RedoScene();
-	void CaptureSceneHistory(bool includeProjectSnapshot = false);
-	void RestoreSceneHistory(const SceneHistoryEntry& entry);
-	void ClearSceneHistory();
-	ProjectHistoryEntry CaptureProjectHistory() const;
-	void RestoreProjectHistory(const ProjectHistoryEntry& entry);
 	bool ExecuteEditorAction(UI::EditorShortcutAction action);
 	bool IsEditorActionAvailable(UI::EditorShortcutAction action) const;
 	void RebuildEditorPanelRegistry();
@@ -175,15 +116,10 @@ private:
 	EditorSceneManager m_SceneManager;
 
 	// UI's
-	UI::UIProjectLoader& m_ProjectLoader;
 	UI::UIProject m_UIProject;
 	UI::UISettings m_UISettings;
 	UI::UIStatistics m_UIStatistics;
 	UI::PopupHandler m_PopupHandler;
-	std::vector<std::filesystem::path>& m_RecentProjects;
-	std::filesystem::path& m_LastProjectPath;
-	ContentBrowserPanel::Preferences& m_ContentBrowserPreferences;
-	bool& m_HasContentBrowserPreferences;
 	bool m_CommandPaletteOpen = false;
 	bool m_CommandPaletteFocusSearch = false;
 	char m_CommandPaletteFilter[128]{ 0 };
@@ -192,9 +128,6 @@ private:
 	Ref<Scene>& m_ActiveScene;
 	Ref<Scene>& m_EditorScene;
 	std::filesystem::path& m_EditorScenePath;
-	std::vector<SceneHistoryEntry>& m_UndoStack;
-	std::vector<SceneHistoryEntry>& m_RedoStack;
-	std::vector<UUID>& m_EntityClipboard;
 	bool& m_GizmoHistoryActive;
 	bool& m_SceneDirty;
 	std::chrono::steady_clock::time_point& m_LastSceneRecoverySnapshot;
