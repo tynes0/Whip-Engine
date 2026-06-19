@@ -52,6 +52,9 @@ private:
 		bool m_LiveApply = true;
 		bool m_Dirty = false;
 		std::string m_Status;
+		std::vector<std::vector<uint8_t>> m_UndoPixels;
+		std::vector<std::vector<uint8_t>> m_RedoPixels;
+		bool m_PaintStrokeActive = false;
 		int m_SliceCellWidth = 32;
 		int m_SliceCellHeight = 32;
 		int m_SlicePadding = 0;
@@ -107,6 +110,10 @@ private:
 	void ApplyTextureEditorState(TextureEditorState& state, const Ref<Texture2D>& texture);
 	bool SaveTextureEditorState(TextureEditorState& state, const AssetMetadata& metadata);
 	bool SaveAssetMetadata(AssetHandle handle, const AssetMetadata& metadata);
+	void HandleTextureEditorShortcuts(TextureEditorState& state, const Ref<Texture2D>& texture);
+	void PushTextureUndo(TextureEditorState& state);
+	bool UndoTextureEdit(TextureEditorState& state, const Ref<Texture2D>& texture);
+	bool RedoTextureEdit(TextureEditorState& state, const Ref<Texture2D>& texture);
 	std::array<uint8_t, 4> ReadTexturePixel(const TextureEditorState& state, int x, int y) const;
 	bool WriteTexturePixel(TextureEditorState& state, int x, int y, const std::array<uint8_t, 4>& color);
 	bool PaintTextureBrush(TextureEditorState& state, int x, int y, bool erase);

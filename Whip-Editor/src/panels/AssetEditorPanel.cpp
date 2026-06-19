@@ -1039,6 +1039,92 @@ bool AssetEditorPanel::SaveAssetMetadata(AssetHandle handle, const AssetMetadata
 	return Project::GetActive()->GetEditorAssetManager()->UpdateAssetMetadata(handle, metadata);
 }
 
+void AssetEditorPanel::HandleTextureEditorShortcuts(TextureEditorState& state, const Ref<Texture2D>& texture)
+{
+	ImGuiContext* context = ImGui::GetCurrentContext();
+	if (!context)
+		return;
+
+	const ImGuiIO& io = ImGui::GetIO();
+	if (io.WantTextInput || context->ActiveId != 0 || io.KeyAlt)
+		return;
+
+	if (io.KeyCtrl)
+	{
+		if (ImGui::IsKeyPressed(ImGuiKey_Z, false))
+		{
+			UndoTextureEdit(state, texture);
+			return;
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_Y, false))
+		{
+			RedoTextureEdit(state, texture);
+			return;
+		}
+		return;
+	}
+
+	if (ImGui::IsKeyPressed(ImGuiKey_B, false))
+		state.m_Tool = TextureEditorTool::Brush;
+	else if (ImGui::IsKeyPressed(ImGuiKey_E, false))
+		state.m_Tool = TextureEditorTool::Eraser;
+	else if (ImGui::IsKeyPressed(ImGuiKey_P, false) || ImGui::IsKeyPressed(ImGuiKey_I, false))
+		state.m_Tool = TextureEditorTool::Picker;
+	else if (ImGui::IsKeyPressed(ImGuiKey_F, false))
+		state.m_Tool = TextureEditorTool::Fill;
+	else if (ImGui::IsKeyPressed(ImGuiKey_S, false))
+		state.m_Tool = TextureEditorTool::Slice;
+}
+
+void AssetEditorPanel::PushTextureUndo(TextureEditorState& state)
+{
+	if (state.m_Pixels.empty())
+		return;
+
+	if (!state.m_UndoPixels.empty() && state.m_UndoPixels.back() == state.m_Pixels)
+		return;
+
+	static constexpr size_t MaxUndoSnapshots = 32;
+	state.m_UndoPixels.push_back(state.m_Pixels);
+	if (state.m_UndoPixels.size() > MaxUndoSnapshots)
+		state.m_UndoPixels.erase(state.m_UndoPixels.begin());
+	state.m_RedoPixels.clear();
+}
+
+bool AssetEditorPanel::UndoTextureEdit(TextureEditorState& state, const Ref<Texture2D>& texture)
+{
+	if (state.m_UndoPixels.empty())
+	{
+		state.m_Status = "Nothing to undo.";
+		return false;
+	}
+
+	state.m_RedoPixels.push_back(state.m_Pixels);
+	state.m_Pixels = std::move(state.m_UndoPixels.back());
+	state.m_UndoPixels.pop_back();
+	state.m_Dirty = true;
+	ApplyTextureEditorState(state, texture);
+	state.m_Status = "Undo texture edit.";
+	return true;
+}
+
+bool AssetEditorPanel::RedoTextureEdit(TextureEditorState& state, const Ref<Texture2D>& texture)
+{
+	if (state.m_RedoPixels.empty())
+	{
+		state.m_Status = "Nothing to redo.";
+		return false;
+	}
+
+	state.m_UndoPixels.push_back(state.m_Pixels);
+	state.m_Pixels = std::move(state.m_RedoPixels.back());
+	state.m_RedoPixels.pop_back();
+	state.m_Dirty = true;
+	ApplyTextureEditorState(state, texture);
+	state.m_Status = "Redo texture edit.";
+	return true;
+}
+
 std::array<uint8_t, 4> AssetEditorPanel::ReadTexturePixel(const TextureEditorState& state, int x, int y) const
 {
 	if (x < 0 || y < 0 || x >= static_cast<int>(state.m_Width) || y >= static_cast<int>(state.m_Height) || state.m_Pixels.empty())
@@ -1163,6 +1249,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "%s", state.m_Status.c_str());
 		return;
 	}
+	HandleTextureEditorShortcuts(state, texture);
 
 	AssetMetadata editedMetadata = metadata;
 	TextureImportSettings& importSettings = editedMetadata.m_TextureSettings;
@@ -1177,7 +1264,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 	ImGui::TextDisabled("- %s", TextureEditorToolHint(state.m_Tool));
 	ImGui::Spacing();
 
-	auto toolButton = [&](TextureEditorTool tool, const char* label)
+	auto toolButton = [&](TextureEditorTool tool, const char* label, const char* shortcut)
 	{
 		const bool selected = state.m_Tool == tool;
 		if (selected)
@@ -1186,15 +1273,17 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 			state.m_Tool = tool;
 		if (selected)
 			ImGui::PopStyleColor();
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("%s", shortcut);
 	};
 
-	toolButton(TextureEditorTool::Brush, "Brush");
+	toolButton(TextureEditorTool::Brush, "Brush", "Shortcut: B");
 	ImGui::SameLine();
-	toolButton(TextureEditorTool::Eraser, "Eraser");
-	toolButton(TextureEditorTool::Picker, "Picker");
+	toolButton(TextureEditorTool::Eraser, "Eraser", "Shortcut: E");
+	toolButton(TextureEditorTool::Picker, "Picker", "Shortcut: P or I");
 	ImGui::SameLine();
-	toolButton(TextureEditorTool::Fill, "Fill");
-	toolButton(TextureEditorTool::Slice, "Slice");
+	toolButton(TextureEditorTool::Fill, "Fill", "Shortcut: F");
+	toolButton(TextureEditorTool::Slice, "Slice", "Shortcut: S");
 
 	ImGui::SeparatorText("Paint");
 	ImGui::PushItemWidth(TextureInspectorItemWidth());
@@ -1646,6 +1735,14 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 
 			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) || (ImGui::IsMouseDown(ImGuiMouseButton_Left) && (state.m_Tool == TextureEditorTool::Brush || state.m_Tool == TextureEditorTool::Eraser)))
 			{
+				const bool mutatesPixels = state.m_Tool == TextureEditorTool::Brush || state.m_Tool == TextureEditorTool::Eraser || state.m_Tool == TextureEditorTool::Fill;
+				const bool startsNewStroke = ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
+					(!state.m_PaintStrokeActive && ImGui::IsMouseDown(ImGuiMouseButton_Left) && (state.m_Tool == TextureEditorTool::Brush || state.m_Tool == TextureEditorTool::Eraser));
+				if (mutatesPixels && startsNewStroke)
+				{
+					PushTextureUndo(state);
+					state.m_PaintStrokeActive = true;
+				}
 				switch (state.m_Tool)
 				{
 				case TextureEditorTool::Brush:
@@ -1670,6 +1767,8 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 			}
 		}
 	}
+	if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+		state.m_PaintStrokeActive = false;
 
 	if (state.m_IsSlicing && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !overPixel)
 		state.m_IsSlicing = false;

@@ -462,7 +462,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 			}
 		}
 	}
-	if (!thumbnail && item.m_Type == AssetType::Texture2D && !item.m_Missing)
+	if (!thumbnail && item.m_Type == AssetType::Texture2D && !item.m_Missing && !item.m_SubAsset)
 		thumbnail = m_ThumbnailCache->GetThumbnail(item.m_RelativePath);
 	if (!thumbnail)
 		thumbnail = IconManager::Get().GetIcon(Icon::File);
@@ -660,17 +660,28 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 		ImGui::EndPopup();
 	}
 
-	ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + m_ThumbnailSize);
+	const float textWrapX = ImGui::GetCursorPosX() + m_ThumbnailSize;
+	ImGui::PushTextWrapPos(textWrapX);
 	ImGui::TextWrapped(item.m_DisplayText.c_str());
 	ImGui::PopTextWrapPos();
+	auto drawWrappedTypeLabel = [&](const ImVec4& color, const std::string& label)
+		{
+			ImGui::PushTextWrapPos(textWrapX);
+			ImGui::PushStyleColor(ImGuiCol_Text, color);
+			ImGui::TextWrapped("%s", label.c_str());
+			ImGui::PopStyleColor();
+			ImGui::PopTextWrapPos();
+		};
+
+	const std::string typeLabel = ItemTypeLabel(item);
 	if (item.m_Missing)
-		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Missing %s", ItemTypeLabel(item).c_str());
+		drawWrappedTypeLabel(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Missing " + typeLabel);
 	else if (item.m_Imported && !item.m_Directory)
-		ImGui::TextColored(ImVec4(0.42f, 0.72f, 0.52f, 1.0f), "%s", ItemTypeLabel(item).c_str());
+		drawWrappedTypeLabel(ImVec4(0.42f, 0.72f, 0.52f, 1.0f), typeLabel);
 	else if (item.m_Supported || item.m_Directory)
-		ImGui::TextDisabled("%s", ItemTypeLabel(item).c_str());
+		drawWrappedTypeLabel(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), typeLabel);
 	else
-		ImGui::TextColored(ImVec4(0.86f, 0.62f, 0.34f, 1.0f), "%s", ItemTypeLabel(item).c_str());
+		drawWrappedTypeLabel(ImVec4(0.86f, 0.62f, 0.34f, 1.0f), typeLabel);
 	ImGui::EndGroup();
 	ImGui::PopID();
 }
@@ -2060,6 +2071,7 @@ void ContentBrowserPanel::RefreshAssetTree()
 		m_CurrentDirectory = m_BaseDirectory;
 
 	m_DirectoryTreeDirty = true;
+	m_SelectedItemIds.clear();
 	InvalidateItems();
 }
 
