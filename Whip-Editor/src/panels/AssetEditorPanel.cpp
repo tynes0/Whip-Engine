@@ -5,6 +5,7 @@
 #include <Whip/Audio/AudioEngine.h>
 #include <Whip/Audio/AudioSource.h>
 #include <Whip/Render/Font.h>
+#include <Whip/Render/MsdfData.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip/Utils/PlatformUtils.h>
 
@@ -198,6 +199,128 @@ namespace
 		case TextureSpriteMode::Multiple: return "Multiple";
 		default: return "Single";
 		}
+	}
+
+	const char* TextureEditorToolName(AssetEditorPanel::TextureEditorTool tool)
+	{
+		switch (tool)
+		{
+		case AssetEditorPanel::TextureEditorTool::Brush: return "Brush";
+		case AssetEditorPanel::TextureEditorTool::Eraser: return "Eraser";
+		case AssetEditorPanel::TextureEditorTool::Picker: return "Picker";
+		case AssetEditorPanel::TextureEditorTool::Fill: return "Fill";
+		case AssetEditorPanel::TextureEditorTool::Slice: return "Slice";
+		default: return "Tool";
+		}
+	}
+
+	const char* TextureEditorToolHint(AssetEditorPanel::TextureEditorTool tool)
+	{
+		switch (tool)
+		{
+		case AssetEditorPanel::TextureEditorTool::Brush: return "paint pixels";
+		case AssetEditorPanel::TextureEditorTool::Eraser: return "erase to transparent";
+		case AssetEditorPanel::TextureEditorTool::Picker: return "pick color";
+		case AssetEditorPanel::TextureEditorTool::Fill: return "fill region";
+		case AssetEditorPanel::TextureEditorTool::Slice: return "draw sprite rect";
+		default: return "";
+		}
+	}
+
+	ImU32 TextureEditorToolColor(AssetEditorPanel::TextureEditorTool tool)
+	{
+		switch (tool)
+		{
+		case AssetEditorPanel::TextureEditorTool::Brush: return IM_COL32(116, 186, 238, 235);
+		case AssetEditorPanel::TextureEditorTool::Eraser: return IM_COL32(236, 132, 126, 235);
+		case AssetEditorPanel::TextureEditorTool::Picker: return IM_COL32(108, 206, 181, 235);
+		case AssetEditorPanel::TextureEditorTool::Fill: return IM_COL32(242, 190, 96, 235);
+		case AssetEditorPanel::TextureEditorTool::Slice: return IM_COL32(184, 145, 238, 235);
+		default: return IM_COL32(180, 190, 200, 235);
+		}
+	}
+
+	float TextureInspectorItemWidth()
+	{
+		const float available = ImGui::GetContentRegionAvail().x;
+		const float labelReserve = std::clamp(available * 0.40f, 104.0f, 148.0f);
+		return std::max(72.0f, available - labelReserve);
+	}
+
+	void DrawFontGlyphPreview(const Ref<Font>& font, const std::string& text, float scale, const ImVec2& min, const ImVec2& max)
+	{
+		if (!font || !font->GetMsdfData() || !font->GetAtlasTexture())
+			return;
+
+		const auto& fontGeometry = font->GetMsdfData()->m_FontGeometry;
+		const auto& metrics = fontGeometry.getMetrics();
+		Ref<Texture2D> atlas = font->GetAtlasTexture();
+		if (metrics.ascenderY == metrics.descenderY || atlas->GetWidth() == 0 || atlas->GetHeight() == 0)
+			return;
+
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+		drawList->PushClipRect(min, max, true);
+
+		const double fsScale = 1.0 / (metrics.ascenderY - metrics.descenderY);
+		const float pixelScale = std::max(18.0f, 42.0f * scale);
+		const float lineAdvance = static_cast<float>(fsScale * metrics.lineHeight) * pixelScale + 8.0f * scale;
+		const float texelWidth = 1.0f / static_cast<float>(atlas->GetWidth());
+		const float texelHeight = 1.0f / static_cast<float>(atlas->GetHeight());
+		const auto spaceGlyph = fontGeometry.getGlyph(' ');
+		const float spaceAdvance = (spaceGlyph ? static_cast<float>(spaceGlyph->getAdvance()) : 1.0f) * static_cast<float>(fsScale) * pixelScale;
+		float x = min.x + 16.0f;
+		float baselineY = min.y + 24.0f + static_cast<float>(metrics.ascenderY * fsScale) * pixelScale;
+
+		for (size_t index = 0; index < text.size(); ++index)
+		{
+			const char character = text[index];
+			if (character == '\r')
+				continue;
+			if (character == '\n')
+			{
+				x = min.x + 16.0f;
+				baselineY += lineAdvance;
+				continue;
+			}
+			if (character == ' ')
+			{
+				x += spaceAdvance;
+				continue;
+			}
+			if (character == '\t')
+			{
+				x += spaceAdvance * 4.0f;
+				continue;
+			}
+
+			auto glyph = fontGeometry.getGlyph(static_cast<unsigned char>(character));
+			if (!glyph)
+				glyph = fontGeometry.getGlyph('?');
+			if (!glyph)
+				continue;
+
+			double al, ab, ar, at;
+			glyph->getQuadAtlasBounds(al, ab, ar, at);
+			double pl, pb, pr, pt;
+			glyph->getQuadPlaneBounds(pl, pb, pr, pt);
+
+			const ImVec2 glyphMin(
+				x + static_cast<float>(pl * fsScale) * pixelScale,
+				baselineY - static_cast<float>(pt * fsScale) * pixelScale);
+			const ImVec2 glyphMax(
+				x + static_cast<float>(pr * fsScale) * pixelScale,
+				baselineY - static_cast<float>(pb * fsScale) * pixelScale);
+			const ImVec2 uv0(static_cast<float>(al) * texelWidth, static_cast<float>(at) * texelHeight);
+			const ImVec2 uv1(static_cast<float>(ar) * texelWidth, static_cast<float>(ab) * texelHeight);
+			drawList->AddImage(UI::ToImGuiTextureId(atlas->GetRendererId()), glyphMin, glyphMax, uv0, uv1, IM_COL32(235, 242, 248, 255));
+
+			double advance = glyph->getAdvance();
+			if (index + 1 < text.size())
+				fontGeometry.getAdvance(advance, character, text[index + 1]);
+			x += static_cast<float>(advance * fsScale) * pixelScale;
+		}
+
+		drawList->PopClipRect();
 	}
 
 
@@ -1045,10 +1168,13 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 	TextureImportSettings& importSettings = editedMetadata.m_TextureSettings;
 	if (state.m_SelectedSpriteIndex >= static_cast<int>(importSettings.m_Sprites.size()))
 		state.m_SelectedSpriteIndex = importSettings.m_Sprites.empty() ? -1 : static_cast<int>(importSettings.m_Sprites.size()) - 1;
-	const float toolsWidth = std::min(280.0f, std::max(220.0f, ImGui::GetContentRegionAvail().x * 0.25f));
+	const float toolsWidth = std::min(360.0f, std::max(280.0f, ImGui::GetContentRegionAvail().x * 0.28f));
 	ImGui::BeginChild("##TextureEditorTools", ImVec2(toolsWidth, 0.0f), true);
 	ImGui::TextUnformatted("Texture Editor");
 	ImGui::TextDisabled("%u x %u  %s", state.m_Width, state.m_Height, ImageFormatName(state.m_Format));
+	ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(TextureEditorToolColor(state.m_Tool)), "%s", TextureEditorToolName(state.m_Tool));
+	ImGui::SameLine();
+	ImGui::TextDisabled("- %s", TextureEditorToolHint(state.m_Tool));
 	ImGui::Spacing();
 
 	auto toolButton = [&](TextureEditorTool tool, const char* label)
@@ -1071,11 +1197,15 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 	toolButton(TextureEditorTool::Slice, "Slice");
 
 	ImGui::SeparatorText("Paint");
+	ImGui::PushItemWidth(TextureInspectorItemWidth());
 	ImGui::ColorEdit4("Color", state.m_BrushColor.data(), ImGuiColorEditFlags_AlphaBar);
 	ImGui::SliderInt("Brush Size", &state.m_BrushSize, 1, 32);
+	ImGui::PopItemWidth();
 	ImGui::Checkbox("Live Apply", &state.m_LiveApply);
 	ImGui::Checkbox("Grid", &state.m_ShowGrid);
+	ImGui::PushItemWidth(TextureInspectorItemWidth());
 	ImGui::SliderFloat("Zoom", &state.m_Zoom, 1.0f, 64.0f, "%.1fx", ImGuiSliderFlags_Logarithmic);
+	ImGui::PopItemWidth();
 
 	if (ImGui::Button("Reset View", ImVec2(-1.0f, 0.0f)))
 	{
@@ -1086,6 +1216,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 
 	ImGui::SeparatorText("Import Settings");
 	bool importSettingsDirty = false;
+	ImGui::PushItemWidth(TextureInspectorItemWidth());
 	if (ImGui::BeginCombo("Filter", TextureFilterModeName(importSettings.m_FilterMode)))
 	{
 		for (TextureFilterMode mode : { TextureFilterMode::Nearest, TextureFilterMode::Linear })
@@ -1136,6 +1267,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 	importSettingsDirty |= ImGui::DragFloat("Pixels Per Unit", &importSettings.m_PixelsPerUnit, 1.0f, 1.0f, 10000.0f, "%.0f");
 	if (importSettings.m_PixelsPerUnit < 1.0f)
 		importSettings.m_PixelsPerUnit = 1.0f;
+	ImGui::PopItemWidth();
 	if (importSettingsDirty && SaveAssetMetadata(handle, editedMetadata))
 		state.m_Status = "Import settings saved. Reimport to apply sampler changes.";
 	if (ImGui::Button("Reimport With Settings", ImVec2(-1.0f, 0.0f)))
@@ -1155,10 +1287,12 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 	if (importSettings.m_SpriteMode == TextureSpriteMode::Multiple)
 	{
 		ImGui::SeparatorText("Sprite Sheet");
+		ImGui::PushItemWidth(TextureInspectorItemWidth());
 		ImGui::InputInt("Cell W", &state.m_SliceCellWidth);
 		ImGui::InputInt("Cell H", &state.m_SliceCellHeight);
 		ImGui::InputInt("Padding", &state.m_SlicePadding);
 		ImGui::InputInt("Spacing", &state.m_SliceSpacing);
+		ImGui::PopItemWidth();
 		state.m_SliceCellWidth = std::max(1, state.m_SliceCellWidth);
 		state.m_SliceCellHeight = std::max(1, state.m_SliceCellHeight);
 		state.m_SlicePadding = std::max(0, state.m_SlicePadding);
@@ -1188,11 +1322,13 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 				state.m_Status = "Sprite grid generated.";
 		}
 		ImGui::SeparatorText("Smart Slice");
+		ImGui::PushItemWidth(TextureInspectorItemWidth());
 		ImGui::InputInt("Min Pixels", &state.m_AutoSliceMinPixels);
 		ImGui::InputInt("Background Tolerance", &state.m_AutoSliceBackgroundTolerance);
 		ImGui::InputInt("Fragment Merge Gap", &state.m_AutoSliceMergeGap);
 		ImGui::InputInt("Auto Padding", &state.m_AutoSlicePadding);
 		ImGui::InputInt("Extrude Pixels", &state.m_AutoSliceExtrudePixels);
+		ImGui::PopItemWidth();
 		state.m_AutoSliceMinPixels = std::max(1, state.m_AutoSliceMinPixels);
 		state.m_AutoSliceBackgroundTolerance = std::clamp(state.m_AutoSliceBackgroundTolerance, 0, 255);
 		state.m_AutoSliceMergeGap = std::max(0, state.m_AutoSliceMergeGap);
@@ -1280,6 +1416,16 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 			if (SaveAssetMetadata(handle, editedMetadata))
 				state.m_Status = "Sprite added.";
 		}
+		ImGui::BeginDisabled(importSettings.m_Sprites.empty());
+		if (ImGui::Button("Clear Sprite Slices", ImVec2(-1.0f, 0.0f)))
+		{
+			const size_t removedCount = importSettings.m_Sprites.size();
+			importSettings.m_Sprites.clear();
+			state.m_SelectedSpriteIndex = -1;
+			if (SaveAssetMetadata(handle, editedMetadata))
+				state.m_Status = "Cleared " + std::to_string(removedCount) + " sprite slice(s).";
+		}
+		ImGui::EndDisabled();
 		ImGui::TextDisabled("%zu sprite(s)", importSettings.m_Sprites.size());
 		ImGui::BeginChild("##TextureSpriteList", ImVec2(0.0f, 118.0f), true);
 		for (int i = 0; i < static_cast<int>(importSettings.m_Sprites.size()); ++i)
@@ -1296,6 +1442,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 		{
 			TextureSpriteRect& sprite = importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex)];
 			bool spriteChanged = false;
+			ImGui::PushItemWidth(TextureInspectorItemWidth());
 			spriteChanged |= ImGui::InputText("Name", &sprite.m_Name);
 			int rect[4] = {
 				static_cast<int>(sprite.m_X),
@@ -1315,6 +1462,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 				sprite.m_Height = static_cast<uint32_t>(rect[3]);
 				spriteChanged = true;
 			}
+			ImGui::PopItemWidth();
 			if (spriteChanged && SaveAssetMetadata(handle, editedMetadata))
 				state.m_Status = "Sprite updated.";
 			if (ImGui::Button("Remove Sprite", ImVec2(-1.0f, 0.0f)))
@@ -1380,6 +1528,15 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 	drawList->AddRectFilled(canvasMin, canvasMax, IM_COL32(9, 13, 16, 255));
 	drawList->PushClipRect(canvasMin, canvasMax, true);
+	{
+		const ImVec2 badgeMin(canvasMin.x + 12.0f, canvasMin.y + 10.0f);
+		const ImVec2 badgeMax(badgeMin.x + 172.0f, badgeMin.y + 28.0f);
+		const ImU32 toolColor = TextureEditorToolColor(state.m_Tool);
+		drawList->AddRectFilled(badgeMin, badgeMax, IM_COL32(12, 18, 24, 226), 5.0f);
+		drawList->AddRectFilled(badgeMin, ImVec2(badgeMin.x + 4.0f, badgeMax.y), toolColor, 5.0f, ImDrawFlags_RoundCornersLeft);
+		drawList->AddText(ImVec2(badgeMin.x + 12.0f, badgeMin.y + 6.0f), IM_COL32(226, 234, 240, 240), TextureEditorToolName(state.m_Tool));
+		drawList->AddText(ImVec2(badgeMin.x + 72.0f, badgeMin.y + 6.0f), IM_COL32(142, 156, 166, 230), TextureEditorToolHint(state.m_Tool));
+	}
 
 	if (canvasHovered && io.MouseWheel != 0.0f)
 	{
@@ -1532,6 +1689,37 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 	if (changed && state.m_LiveApply)
 		ApplyTextureEditorState(state, texture);
 
+	if (overPixel)
+	{
+		ImGui::SetMouseCursor(ImGuiMouseCursor_None);
+		const ImVec2 mouse = io.MousePos;
+		const ImU32 cursorColor = TextureEditorToolColor(state.m_Tool);
+		if (state.m_Tool == TextureEditorTool::Brush || state.m_Tool == TextureEditorTool::Eraser)
+		{
+			const float halfSize = std::max(4.0f, static_cast<float>(std::max(1, state.m_BrushSize)) * state.m_Zoom * 0.5f);
+			drawList->AddRect(ImVec2(mouse.x - halfSize, mouse.y - halfSize), ImVec2(mouse.x + halfSize, mouse.y + halfSize), cursorColor, 2.0f, 0, 1.8f);
+			if (state.m_Tool == TextureEditorTool::Eraser)
+				drawList->AddLine(ImVec2(mouse.x - halfSize, mouse.y + halfSize), ImVec2(mouse.x + halfSize, mouse.y - halfSize), cursorColor, 1.6f);
+		}
+		else if (state.m_Tool == TextureEditorTool::Picker)
+		{
+			drawList->AddCircle(mouse, 8.0f, cursorColor, 16, 1.8f);
+			drawList->AddLine(ImVec2(mouse.x - 12.0f, mouse.y), ImVec2(mouse.x + 12.0f, mouse.y), cursorColor, 1.4f);
+			drawList->AddLine(ImVec2(mouse.x, mouse.y - 12.0f), ImVec2(mouse.x, mouse.y + 12.0f), cursorColor, 1.4f);
+		}
+		else if (state.m_Tool == TextureEditorTool::Fill)
+		{
+			drawList->AddTriangleFilled(ImVec2(mouse.x, mouse.y - 10.0f), ImVec2(mouse.x + 10.0f, mouse.y + 8.0f), ImVec2(mouse.x - 10.0f, mouse.y + 8.0f), cursorColor);
+			drawList->AddCircleFilled(ImVec2(mouse.x + 11.0f, mouse.y + 11.0f), 3.0f, cursorColor);
+		}
+		else if (state.m_Tool == TextureEditorTool::Slice)
+		{
+			drawList->AddRect(ImVec2(mouse.x - 10.0f, mouse.y - 8.0f), ImVec2(mouse.x + 10.0f, mouse.y + 8.0f), cursorColor, 0.0f, 0, 1.8f);
+			drawList->AddLine(ImVec2(mouse.x - 14.0f, mouse.y), ImVec2(mouse.x + 14.0f, mouse.y), cursorColor, 1.2f);
+			drawList->AddLine(ImVec2(mouse.x, mouse.y - 12.0f), ImVec2(mouse.x, mouse.y + 12.0f), cursorColor, 1.2f);
+		}
+	}
+
 	drawList->PopClipRect();
 	if (overPixel)
 	{
@@ -1670,7 +1858,8 @@ void AssetEditorPanel::DrawFontInspector(AssetEditorDocument& document, const As
 	const ImVec2 max(min.x + ImGui::GetWindowSize().x, min.y + ImGui::GetWindowSize().y);
 	drawList->AddRectFilled(min, max, IM_COL32(8, 13, 16, 255), 4.0f);
 	const float fontSize = ImGui::GetFontSize() * state.m_PreviewScale;
-	drawList->AddText(ImGui::GetFont(), fontSize, ImVec2(min.x + 14.0f, min.y + 14.0f), IM_COL32(225, 235, 241, 255), state.m_PreviewText.c_str(), nullptr, max.x - min.x - 28.0f);
+	WHP_UNUSED(fontSize);
+	DrawFontGlyphPreview(font, state.m_PreviewText, state.m_PreviewScale, min, max);
 	ImGui::EndChild();
 
 	ImGui::SeparatorText("Atlas");

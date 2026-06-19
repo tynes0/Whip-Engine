@@ -25,7 +25,6 @@ public:
 	void SetOpenAnimationCallback(std::function<bool(AssetHandle)> callback) { m_OpenAnimationCallback = std::move(callback); }
 	void SetDrawAnimationEditorCallback(std::function<void()> callback) { m_DrawAnimationEditorCallback = std::move(callback); }
 
-private:
 	enum class TextureEditorTool
 	{
 		Brush = 0,
@@ -35,6 +34,7 @@ private:
 		Slice
 	};
 
+private:
 	struct TextureEditorState
 	{
 		AssetHandle m_LoadedHandle = 0;

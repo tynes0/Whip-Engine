@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -79,6 +80,7 @@ private:
 		bool m_Supported = false;
 		bool m_Missing = false;
 		bool m_SubAsset = false;
+		bool m_ScriptFile = false;
 	};
 
 	struct DirectoryNode
@@ -137,6 +139,9 @@ private:
 	bool OpenAsset(const BrowserItem& item);
 	bool InspectAsset(const BrowserItem& item);
 	bool SetSceneAsStartScene(const BrowserItem& item);
+	bool RemoveSpriteSlice(const BrowserItem& item);
+	bool ClearTextureSprites(const BrowserItem& item);
+	bool CreateAnimationFromSelection();
 	void ClearPendingOperation();
 	bool RenamePendingItem();
 	bool MovePendingItem();
@@ -150,6 +155,10 @@ private:
 	bool IsInsideBaseDirectory(const std::filesystem::path& path) const;
 	bool MatchesSearch(const BrowserItem& item) const;
 	bool PassesTypeFilter(const BrowserItem& item) const;
+	bool IsItemSelected(const BrowserItem& item) const;
+	void SelectItem(const BrowserItem& item, bool additive);
+	std::vector<BrowserItem> GetSelectedItems() const;
+	bool SelectionContainsOnlyTextures(const std::vector<BrowserItem>& items) const;
 	BrowserItem MakeFilesystemItem(const std::filesystem::directory_entry& entry) const;
 	AssetHandle FindAssetHandle(const std::filesystem::path& relativePath) const;
 	std::filesystem::path MakeRelativePath(const std::filesystem::path& absolutePath) const;
@@ -209,6 +218,7 @@ private:
 	std::vector<BrowserItem> m_CachedItems;
 	ItemMetrics m_CachedItemMetrics;
 	DirectoryNode m_DirectoryTree;
+	std::set<std::string> m_SelectedItemIds;
 };
 
 _WHIP_END

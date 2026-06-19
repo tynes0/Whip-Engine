@@ -289,7 +289,14 @@ void AudioEngine::Rewind(const Ref<AudioSource>& source)
 {
 	if (!CheckNull(source))
 		return;
+	ALint state = AL_STOPPED;
+	alGetSourcei(source->m_SourceHandle, AL_SOURCE_STATE, &state);
+	alSourceStop(source->m_SourceHandle);
+	if (!source->IsStreaming())
+		alSourcef(source->m_SourceHandle, AL_SEC_OFFSET, 0.0f);
 	alSourceRewind(source->m_SourceHandle);
+	if (state == AL_PLAYING)
+		alSourcePlay(source->m_SourceHandle);
 }
 
 void AudioEngine::Seek(const Ref<AudioSource>& source, float seconds)
