@@ -75,6 +75,7 @@ private:
 		AssetHandle m_Handle = 0;
 		AssetType m_Type = AssetType::None;
 		int32_t m_TextureSpriteIndex = -1;
+		size_t m_SubAssetCount = 0;
 		bool m_Directory = false;
 		bool m_Imported = false;
 		bool m_Supported = false;
@@ -126,6 +127,9 @@ private:
 	void RebuildDirectoryTree();
 	DirectoryNode BuildDirectoryNode(const std::filesystem::path& directory) const;
 	void FinalizeBrowserItem(BrowserItem& item) const;
+	void AppendTextureSpriteItems(std::vector<BrowserItem>& items, const BrowserItem& parentItem, const AssetMetadata& metadata) const;
+	bool AreTextureSpritesCollapsed(const BrowserItem& item) const;
+	void ToggleTextureSprites(const BrowserItem& item);
 
 	void SetCurrentDirectory(const std::filesystem::path& directory);
 	bool ImportFile(const std::filesystem::path& relativePath, ImportSummary* summary = nullptr);
@@ -219,6 +223,7 @@ private:
 	ItemMetrics m_CachedItemMetrics;
 	DirectoryNode m_DirectoryTree;
 	std::set<std::string> m_SelectedItemIds;
+	std::set<std::string> m_CollapsedTextureSpriteParents;
 };
 
 _WHIP_END

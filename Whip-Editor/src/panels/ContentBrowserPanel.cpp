@@ -468,8 +468,9 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 		thumbnail = IconManager::Get().GetIcon(Icon::File);
 
 	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-	const bool iconClicked = UI::ImageButton("##ContentBrowserItemIcon", UI::ToImGuiTextureId(thumbnail->GetRendererId()), { m_ThumbnailSize, m_ThumbnailSize }, thumbnailUv0, thumbnailUv1);
+	bool iconClicked = UI::ImageButton("##ContentBrowserItemIcon", UI::ToImGuiTextureId(thumbnail->GetRendererId()), { m_ThumbnailSize, m_ThumbnailSize }, thumbnailUv0, thumbnailUv1);
 	ImGui::PopStyleColor();
+	const bool iconHovered = ImGui::IsItemHovered();
 	const ImVec2 iconMin = ImGui::GetItemRectMin();
 	const ImVec2 iconMax = ImGui::GetItemRectMax();
 	if (selected)
@@ -479,15 +480,51 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 		drawList->AddRect(ImVec2(iconMin.x - 4.0f, iconMin.y - 4.0f), ImVec2(iconMax.x + 4.0f, iconMax.y + 4.0f), IM_COL32(116, 186, 238, 190), 6.0f, 0, 1.4f);
 	}
 
+	if (!item.m_SubAsset && item.m_SubAssetCount > 0)
+	{
+		const bool collapsed = AreTextureSpritesCollapsed(item);
+		const float foldoutSize = std::clamp(m_ThumbnailSize * 0.30f, 16.0f, 22.0f);
+		const ImVec2 foldoutMin(iconMin.x + 4.0f, iconMin.y + 4.0f);
+		const ImVec2 foldoutMax(foldoutMin.x + foldoutSize, foldoutMin.y + foldoutSize);
+		const bool foldoutHovered = io.MousePos.x >= foldoutMin.x && io.MousePos.x <= foldoutMax.x && io.MousePos.y >= foldoutMin.y && io.MousePos.y <= foldoutMax.y;
+		if (foldoutHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+		{
+			ToggleTextureSprites(item);
+			iconClicked = false;
+		}
+
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+		drawList->AddRectFilled(foldoutMin, foldoutMax, foldoutHovered ? IM_COL32(92, 113, 126, 238) : IM_COL32(20, 27, 32, 224), foldoutSize * 0.5f);
+		drawList->AddRect(foldoutMin, foldoutMax, IM_COL32(180, 194, 204, 150), foldoutSize * 0.5f, 0, 1.0f);
+		const ImVec2 center((foldoutMin.x + foldoutMax.x) * 0.5f, (foldoutMin.y + foldoutMax.y) * 0.5f);
+		const ImU32 arrowColor = IM_COL32(232, 238, 242, 245);
+		if (collapsed)
+		{
+			drawList->AddTriangleFilled(
+				ImVec2(center.x - 3.0f, center.y - 5.0f),
+				ImVec2(center.x - 3.0f, center.y + 5.0f),
+				ImVec2(center.x + 4.0f, center.y),
+				arrowColor);
+		}
+		else
+		{
+			drawList->AddTriangleFilled(
+				ImVec2(center.x - 5.0f, center.y - 2.0f),
+				ImVec2(center.x + 5.0f, center.y - 2.0f),
+				ImVec2(center.x, center.y + 5.0f),
+				arrowColor);
+		}
+	}
+
 	if (iconClicked)
 		SelectItem(item, io.KeyCtrl || io.KeyShift);
 
 	if (iconClicked && item.m_Directory && !(io.KeyCtrl || io.KeyShift))
 		SetCurrentDirectory(item.m_AbsolutePath);
 
-	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && item.m_Directory)
+	if (iconHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && item.m_Directory)
 		SetCurrentDirectory(item.m_AbsolutePath);
-	else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !item.m_Directory)
+	else if (iconHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !item.m_Directory)
 	{
 		if (!InspectAsset(item))
 			OpenAsset(item);
@@ -615,6 +652,12 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 				{
 					if (ImGui::MenuItem("Open Asset Editor"))
 						InspectAsset(item);
+					if (item.m_Type == AssetType::Texture2D && item.m_SubAssetCount > 0)
+					{
+						const bool collapsed = AreTextureSpritesCollapsed(item);
+						if (ImGui::MenuItem(collapsed ? "Show Sprite Slices" : "Hide Sprite Slices"))
+							ToggleTextureSprites(item);
+					}
 					if (item.m_Type == AssetType::Texture2D && ImGui::MenuItem("Slice Texture..."))
 					{
 						BrowserItem sliceItem = item;
@@ -920,29 +963,69 @@ void ContentBrowserPanel::FinalizeBrowserItem(BrowserItem& item) const
 	item.m_SearchText = ToLower(item.m_RelativePath.filename().string() + " " + item.m_DisplayName + " " + item.m_RelativePath.generic_string() + " " + typeLabel);
 }
 
+void ContentBrowserPanel::AppendTextureSpriteItems(std::vector<BrowserItem>& items, const BrowserItem& parentItem, const AssetMetadata& metadata) const
+{
+	if (parentItem.m_Missing || parentItem.m_Type != AssetType::Texture2D || parentItem.m_Handle == 0)
+		return;
+
+	const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+	if (sprites.empty())
+		return;
+
+	const bool showSprites = !AreTextureSpritesCollapsed(parentItem) || !m_SearchQuery.empty();
+	if (!showSprites)
+		return;
+
+	for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+	{
+		const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
+		BrowserItem spriteItem = parentItem;
+		spriteItem.m_DisplayName = sprite.m_Name;
+		spriteItem.m_TextureSpriteIndex = spriteIndex;
+		spriteItem.m_SubAssetCount = 0;
+		spriteItem.m_SubAsset = true;
+		FinalizeBrowserItem(spriteItem);
+		spriteItem.m_SortName = parentItem.m_SortName + "/" + std::to_string(spriteIndex) + " " + spriteItem.m_SortName;
+		items.push_back(std::move(spriteItem));
+	}
+}
+
+bool ContentBrowserPanel::AreTextureSpritesCollapsed(const BrowserItem& item) const
+{
+	return item.m_SubAssetCount > 0 && m_CollapsedTextureSpriteParents.find(item.m_DrawId) != m_CollapsedTextureSpriteParents.end();
+}
+
+void ContentBrowserPanel::ToggleTextureSprites(const BrowserItem& item)
+{
+	if (item.m_SubAsset || item.m_SubAssetCount == 0)
+		return;
+
+	if (auto it = m_CollapsedTextureSpriteParents.find(item.m_DrawId); it != m_CollapsedTextureSpriteParents.end())
+		m_CollapsedTextureSpriteParents.erase(it);
+	else
+		m_CollapsedTextureSpriteParents.insert(item.m_DrawId);
+
+	InvalidateItems();
+}
+
 std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectFilesystemItems() const
 {
 	std::vector<BrowserItem> items;
 	std::error_code error;
 	auto appendItem = [&](BrowserItem item)
 		{
+			if (item.m_Imported && !item.m_Missing && item.m_Type == AssetType::Texture2D && item.m_Handle != 0)
+			{
+				const AssetMetadata& metadata = m_Project->GetEditorAssetManager()->GetMetadata(item.m_Handle);
+				item.m_SubAssetCount = metadata.m_TextureSettings.m_Sprites.size();
+				FinalizeBrowserItem(item);
+				items.push_back(item);
+				AppendTextureSpriteItems(items, item, metadata);
+				return;
+			}
+
 			FinalizeBrowserItem(item);
 			items.push_back(item);
-			if (!item.m_Imported || item.m_Missing || item.m_Type != AssetType::Texture2D || item.m_Handle == 0)
-				return;
-
-			const AssetMetadata& metadata = m_Project->GetEditorAssetManager()->GetMetadata(item.m_Handle);
-			const auto& sprites = metadata.m_TextureSettings.m_Sprites;
-			for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
-			{
-				const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
-				BrowserItem spriteItem = item;
-				spriteItem.m_DisplayName = sprite.m_Name;
-				spriteItem.m_TextureSpriteIndex = spriteIndex;
-				spriteItem.m_SubAsset = true;
-				FinalizeBrowserItem(spriteItem);
-				items.push_back(std::move(spriteItem));
-			}
 		};
 
 	if (m_SearchQuery.empty())
@@ -974,22 +1057,12 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectAssetI
 	const auto& registry = m_Project->GetEditorAssetManager()->GetAssetRegistry();
 	auto appendAssetItem = [&](BrowserItem item, const AssetMetadata& metadata)
 		{
+			if (!item.m_Missing && item.m_Type == AssetType::Texture2D)
+				item.m_SubAssetCount = metadata.m_TextureSettings.m_Sprites.size();
+
 			FinalizeBrowserItem(item);
 			items.push_back(item);
-			if (item.m_Missing || item.m_Type != AssetType::Texture2D)
-				return;
-
-			const auto& sprites = metadata.m_TextureSettings.m_Sprites;
-			for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
-			{
-				const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
-				BrowserItem spriteItem = item;
-				spriteItem.m_DisplayName = sprite.m_Name;
-				spriteItem.m_TextureSpriteIndex = spriteIndex;
-				spriteItem.m_SubAsset = true;
-				FinalizeBrowserItem(spriteItem);
-				items.push_back(std::move(spriteItem));
-			}
+			AppendTextureSpriteItems(items, item, metadata);
 		};
 
 	registry.Foreach([&](const AssetRegistry::ValueType& value)
@@ -1999,6 +2072,12 @@ std::string ContentBrowserPanel::ItemTypeLabel(const BrowserItem& item) const
 
 	if (item.m_ScriptFile)
 		return "Script file";
+
+	if (!item.m_SubAsset && item.m_Type == AssetType::Texture2D && item.m_SubAssetCount > 0)
+	{
+		std::string baseLabel = item.m_Imported ? "Texture2D Asset" : "Texture2D file";
+		return baseLabel + " - " + std::to_string(item.m_SubAssetCount) + " sprite(s)";
+	}
 
 	if (item.m_Imported)
 		return std::string(frenum::to_string(item.m_Type)) + " Asset";
