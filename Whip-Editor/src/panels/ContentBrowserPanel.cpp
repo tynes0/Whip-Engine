@@ -440,6 +440,21 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 	ImGui::BeginGroup();
 	const ImGuiIO& io = ImGui::GetIO();
 	const bool selected = IsItemSelected(item);
+	const ImVec2 itemStart = ImGui::GetCursorScreenPos();
+	if (item.m_SubAsset)
+	{
+		const float backgroundWidth = m_ThumbnailSize + std::max(10.0f, m_Padding * 0.55f);
+		const float backgroundHeight = std::max(m_ThumbnailSize + 42.0f, m_ThumbnailSize + ImGui::GetTextLineHeightWithSpacing() * 3.25f + 10.0f);
+		const ImVec2 backgroundMin(itemStart.x - 6.0f, itemStart.y - 6.0f);
+		const ImVec2 backgroundMax(backgroundMin.x + backgroundWidth, backgroundMin.y + backgroundHeight);
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+		drawList->AddRectFilled(backgroundMin, backgroundMax, IM_COL32(16, 24, 29, 205), 7.0f);
+		drawList->AddRect(backgroundMin, backgroundMax, IM_COL32(82, 139, 186, 72), 7.0f, 0, 1.0f);
+		drawList->AddRectFilled(backgroundMin, ImVec2(backgroundMin.x + 3.0f, backgroundMax.y), IM_COL32(116, 186, 238, 145), 7.0f, ImDrawFlags_RoundCornersLeft);
+		const ImVec2 linkStart(backgroundMin.x + 8.0f, backgroundMin.y + 10.0f);
+		drawList->AddCircleFilled(linkStart, 2.0f, IM_COL32(116, 186, 238, 180));
+		drawList->AddLine(linkStart, ImVec2(linkStart.x + 14.0f, linkStart.y), IM_COL32(116, 186, 238, 105), 1.0f);
+	}
 
 	Ref<Texture2D> thumbnail = item.m_Directory ? IconManager::Get().GetIcon(Icon::Directory) : nullptr;
 	ImVec2 thumbnailUv0 = { 0.0f, 1.0f };
