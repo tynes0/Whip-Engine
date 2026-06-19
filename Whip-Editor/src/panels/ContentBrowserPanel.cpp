@@ -163,6 +163,7 @@ void ContentBrowserPanel::OnImGuiRender()
 		if (m_ItemsDirty)
 			RebuildCachedItems();
 		DrawContentGrid(m_CachedItems);
+		m_ThumbnailCache->ProcessPendingThumbnails(2);
 
 		ImGui::EndTable();
 	}
@@ -413,11 +414,7 @@ void ContentBrowserPanel::DrawContentGrid(const std::vector<BrowserItem>& items)
 
 void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 {
-	std::string itemId = item.m_RelativePath.generic_string();
-	if (item.m_SubAsset)
-		itemId += "::sprite:" + std::to_string(item.m_TextureSpriteIndex);
-	const std::string displayName = item.m_DisplayName.empty() ? item.m_RelativePath.filename().string() : item.m_DisplayName;
-	ImGui::PushID(itemId.c_str());
+	ImGui::PushID(item.m_DrawId.c_str());
 	ImGui::BeginGroup();
 
 	Ref<Texture2D> thumbnail = item.m_Directory ? IconManager::Get().GetIcon(Icon::Directory) : nullptr;
@@ -442,7 +439,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 		}
 	}
 	if (!thumbnail && item.m_Type == AssetType::Texture2D && !item.m_Missing)
-		thumbnail = m_ThumbnailCache->GetOrCreateThumbnail(item.m_RelativePath);
+		thumbnail = m_ThumbnailCache->GetThumbnail(item.m_RelativePath);
 	if (!thumbnail)
 		thumbnail = IconManager::Get().GetIcon(Icon::File);
 
@@ -482,7 +479,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 				ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &assetPayload, sizeof(UI::AssetReferencePayload));
 			}
 		}
-		ImGui::TextUnformatted(displayName.c_str());
+		ImGui::TextUnformatted(item.m_DisplayText.c_str());
 		ImGui::EndDragDropSource();
 	}
 
@@ -602,7 +599,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 	}
 
 	ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + m_ThumbnailSize);
-	ImGui::TextWrapped(displayName.c_str());
+	ImGui::TextWrapped(item.m_DisplayText.c_str());
 	ImGui::PopTextWrapPos();
 	if (item.m_Missing)
 		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Missing %s", ItemTypeLabel(item).c_str());
@@ -831,9 +828,12 @@ ContentBrowserPanel::DirectoryNode ContentBrowserPanel::BuildDirectoryNode(const
 
 void ContentBrowserPanel::FinalizeBrowserItem(BrowserItem& item) const
 {
-	const std::string displayName = item.m_DisplayName.empty() ? item.m_RelativePath.filename().string() : item.m_DisplayName;
+	item.m_DisplayText = item.m_DisplayName.empty() ? item.m_RelativePath.filename().string() : item.m_DisplayName;
+	item.m_DrawId = item.m_RelativePath.generic_string();
+	if (item.m_SubAsset)
+		item.m_DrawId += "::sprite:" + std::to_string(item.m_TextureSpriteIndex);
 	const std::string typeLabel = ItemTypeLabel(item);
-	item.m_SortName = ToLower(displayName);
+	item.m_SortName = ToLower(item.m_DisplayText);
 	item.m_SearchText = ToLower(item.m_RelativePath.filename().string() + " " + item.m_DisplayName + " " + item.m_RelativePath.generic_string() + " " + typeLabel);
 }
 

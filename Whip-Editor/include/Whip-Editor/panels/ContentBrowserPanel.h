@@ -67,6 +67,8 @@ private:
 		std::filesystem::path m_AbsolutePath;
 		std::filesystem::path m_RelativePath;
 		std::string m_DisplayName;
+		std::string m_DisplayText;
+		std::string m_DrawId;
 		std::string m_SortName;
 		std::string m_SearchText;
 		AssetHandle m_Handle = 0;
