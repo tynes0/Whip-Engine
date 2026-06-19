@@ -129,6 +129,16 @@ namespace
 			ImGui::SameLine();
 	}
 
+	std::string SingleLineText(std::string text)
+	{
+		for (char& character : text)
+		{
+			if (character == '\r' || character == '\n' || character == '\t')
+				character = ' ';
+		}
+		return text;
+	}
+
 	ConsoleEntry ParseEntry(Log::Level level, std::string rawMessage)
 	{
 		ConsoleEntry entry;
@@ -407,7 +417,16 @@ void ConsolePanel::OnImGuiRender()
 	}
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 6.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(7.0f, 5.0f));
+
+	auto copyVisibleToClipboard = []
+		{
+			std::string clipboard;
+			for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
+				if (EntryVisible(entry))
+					clipboard += FormatEntryForClipboard(entry);
+			ImGui::SetClipboardText(clipboard.c_str());
+		};
 
 	if (ImGui::Button("Clear", ImVec2(74.0f, 0.0f)))
 	{
@@ -419,77 +438,68 @@ void ConsolePanel::OnImGuiRender()
 	SameLineIfFits(ImGui::CalcTextSize("000 logs").x);
 	ImGui::TextDisabled("%zu logs", ConsoleState.m_Buffer.size());
 
-	ImGui::Spacing();
-	if (ImGui::SmallButton("All"))
+	SameLineIfFits(EstimatedButtonWidth("Filters"));
+	if (ImGui::SmallButton("Filters"))
+		ImGui::OpenPopup("##ConsoleFiltersPopup");
+	if (ImGui::BeginPopup("##ConsoleFiltersPopup"))
 	{
-		SetAllLevelFilters(true);
-		ConsoleState.m_TextFilter.clear();
-		ConsoleState.m_CategoryFilter.clear();
+		if (ImGui::SmallButton("All"))
+		{
+			SetAllLevelFilters(true);
+			ConsoleState.m_TextFilter.clear();
+			ConsoleState.m_CategoryFilter.clear();
+		}
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Warn+"))
+			SetWarningsAndErrorsFilter();
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Errors"))
+			SetErrorsFilter();
+
+		ImGui::SeparatorText("Category");
+		if (ImGui::SmallButton("Scripts"))
+			ConsoleState.m_CategoryFilter = "Script";
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Assets"))
+			ConsoleState.m_CategoryFilter = "Asset";
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Project"))
+			ConsoleState.m_CategoryFilter = "Project";
+		ImGui::SetNextItemWidth(220.0f);
+		ImGui::InputTextWithHint("##ConsoleCategoryFilter", "Filter category", &ConsoleState.m_CategoryFilter);
+
+		ImGui::SeparatorText("Levels");
+		for (size_t i = 0; i < ConsoleState.m_LevelFilter.size(); ++i)
+		{
+			if (i % 2 == 1)
+				ImGui::SameLine(130.0f);
+			ImGui::Checkbox(LevelName(static_cast<Log::Level>(i)), &ConsoleState.m_LevelFilter[i]);
+		}
+
+		ImGui::EndPopup();
 	}
-	SameLineIfFits(EstimatedButtonWidth("Warn+"));
-	if (ImGui::SmallButton("Warn+"))
-		SetWarningsAndErrorsFilter();
-	SameLineIfFits(EstimatedButtonWidth("Errors"));
-	if (ImGui::SmallButton("Errors"))
-		SetErrorsFilter();
-	SameLineIfFits(EstimatedButtonWidth("Scripts"));
-	if (ImGui::SmallButton("Scripts"))
-		ConsoleState.m_CategoryFilter = "Script";
-	SameLineIfFits(EstimatedButtonWidth("Assets"));
-	if (ImGui::SmallButton("Assets"))
-		ConsoleState.m_CategoryFilter = "Asset";
-	SameLineIfFits(EstimatedButtonWidth("Project"));
-	if (ImGui::SmallButton("Project"))
-		ConsoleState.m_CategoryFilter = "Project";
+
 	SameLineIfFits(EstimatedButtonWidth("Copy visible"));
 	if (ImGui::SmallButton("Copy visible"))
-	{
-		std::string clipboard;
-		for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
-			if (EntryVisible(entry))
-				clipboard += FormatEntryForClipboard(entry);
-		ImGui::SetClipboardText(clipboard.c_str());
-	}
+		copyVisibleToClipboard();
 
-	ImGui::Spacing();
-	const float filterAvail = ImGui::GetContentRegionAvail().x;
-	if (filterAvail >= 420.0f)
-	{
-		const float spacing = ImGui::GetStyle().ItemSpacing.x;
-		ImGui::SetNextItemWidth((filterAvail - spacing) * 0.62f);
-		ImGui::InputTextWithHint("##ConsoleTextFilter", "Filter message, level, time", &ConsoleState.m_TextFilter);
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(std::max(1.0f, ImGui::GetContentRegionAvail().x));
-		ImGui::InputTextWithHint("##ConsoleCategoryFilter", "Filter category", &ConsoleState.m_CategoryFilter);
-	}
-	else
-	{
-		ImGui::SetNextItemWidth(std::max(1.0f, filterAvail));
-		ImGui::InputTextWithHint("##ConsoleTextFilter", "Filter message, level, time", &ConsoleState.m_TextFilter);
-		ImGui::SetNextItemWidth(std::max(1.0f, ImGui::GetContentRegionAvail().x));
-		ImGui::InputTextWithHint("##ConsoleCategoryFilter", "Filter category", &ConsoleState.m_CategoryFilter);
-	}
-
-	ImGui::Spacing();
-	for (size_t i = 0; i < ConsoleState.m_LevelFilter.size(); ++i)
-	{
-		if (i > 0)
-			SameLineIfFits(EstimatedCheckboxWidth(LevelName(static_cast<Log::Level>(i))));
-		ImGui::Checkbox(LevelName(static_cast<Log::Level>(i)), &ConsoleState.m_LevelFilter[i]);
-	}
 	const size_t visibleCount = std::ranges::count_if(ConsoleState.m_Buffer, [](const ConsoleEntry& entry) { return EntryVisible(entry); });
 	SameLineIfFits(ImGui::CalcTextSize("000 visible").x);
 	ImGui::TextDisabled("%zu visible", visibleCount);
 
+	ImGui::SetNextItemWidth(std::max(1.0f, ImGui::GetContentRegionAvail().x));
+	ImGui::InputTextWithHint("##ConsoleTextFilter", "Search message, level, time", &ConsoleState.m_TextFilter);
+
 	ImGui::Separator();
 	ImGui::BeginChild("##ConsoleScroll", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
 
-	if (ImGui::BeginTable("##ConsoleTable", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+	if (ImGui::BeginTable("##ConsoleTable", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollX | ImGuiTableFlags_SizingFixedFit))
 	{
-		ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, 82.0f);
-		ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 82.0f);
-		ImGui::TableSetupColumn("Category", ImGuiTableColumnFlags_WidthFixed, 190.0f);
-		ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupScrollFreeze(0, 1);
+		ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, 78.0f);
+		ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 72.0f);
+		ImGui::TableSetupColumn("Category", ImGuiTableColumnFlags_WidthFixed, 220.0f);
+		ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthFixed, 1180.0f);
 		ImGui::TableHeadersRow();
 
 		for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
@@ -505,7 +515,8 @@ void ConsolePanel::OnImGuiRender()
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(entry.m_Category.c_str());
 			ImGui::TableNextColumn();
-			ImGui::TextWrapped("%s", entry.m_Message.c_str());
+			const std::string message = SingleLineText(entry.m_Message);
+			ImGui::TextUnformatted(message.c_str());
 		}
 		ImGui::EndTable();
 	}
