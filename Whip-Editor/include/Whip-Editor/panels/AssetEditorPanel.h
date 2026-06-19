@@ -24,6 +24,7 @@ public:
 	void SetSetStartSceneCallback(std::function<void(AssetHandle)> callback) { m_SetStartSceneCallback = std::move(callback); }
 	void SetOpenAnimationCallback(std::function<bool(AssetHandle)> callback) { m_OpenAnimationCallback = std::move(callback); }
 	void SetDrawAnimationEditorCallback(std::function<void()> callback) { m_DrawAnimationEditorCallback = std::move(callback); }
+	void SetRefreshAssetTreeCallback(std::function<void()> callback) { m_RefreshAssetTreeCallback = std::move(callback); }
 
 	enum class TextureEditorTool
 	{
@@ -144,6 +145,7 @@ private:
 	std::function<void(AssetHandle)> m_SetStartSceneCallback;
 	std::function<bool(AssetHandle)> m_OpenAnimationCallback;
 	std::function<void()> m_DrawAnimationEditorCallback;
+	std::function<void()> m_RefreshAssetTreeCallback;
 };
 
 _WHIP_END

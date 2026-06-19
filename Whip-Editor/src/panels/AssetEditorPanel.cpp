@@ -1091,7 +1091,10 @@ bool AssetEditorPanel::SaveAssetMetadata(AssetHandle handle, const AssetMetadata
 	if (!Project::GetActive() || !Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(handle))
 		return false;
 
-	return Project::GetActive()->GetEditorAssetManager()->UpdateAssetMetadata(handle, metadata);
+	const bool saved = Project::GetActive()->GetEditorAssetManager()->UpdateAssetMetadata(handle, metadata);
+	if (saved && m_RefreshAssetTreeCallback)
+		m_RefreshAssetTreeCallback();
+	return saved;
 }
 
 void AssetEditorPanel::HandleTextureEditorShortcuts(TextureEditorState& state, const Ref<Texture2D>& texture)
