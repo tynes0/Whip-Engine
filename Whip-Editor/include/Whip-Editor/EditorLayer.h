@@ -13,6 +13,7 @@
 #include <Whip-Editor/panels/AnimationEditorPanel.h>
 #include <Whip-Editor/panels/AssetEditorPanel.h>
 #include <Whip-Editor/panels/ConsolePanel.h>
+#include <Whip-Editor/panels/EditorPanelManager.h>
 
 #include <FileWatch.h>
 
@@ -46,13 +47,13 @@ class EditorLayer : public Layer
 {
 public:
 	EditorLayer();
-	virtual ~EditorLayer() = default;
+	~EditorLayer() override = default;
 
-	virtual void OnAttach() override;
-	virtual void OnDetach() override;
-	virtual void OnUpdate(Timestep ts) override;
-	virtual void OnImGuiRender() override;
-	virtual void OnEvent(Event& event) override;
+	void OnAttach() override;
+	void OnDetach() override;
+	void OnUpdate(Timestep ts) override;
+	void OnImGuiRender() override;
+	void OnEvent(Event& event) override;
 private:
 	struct SceneHistoryEntry;
 
@@ -145,13 +146,9 @@ private:
 	void RestoreProjectHistory(const ProjectHistoryEntry& entry);
 	bool ExecuteEditorAction(UI::EditorShortcutAction action);
 	bool IsEditorActionAvailable(UI::EditorShortcutAction action) const;
-	void AddPanel(EditorPanel& panel);
 	void RebuildEditorPanelRegistry();
-	void RenderRegisteredPanels();
-	bool ConsumeRegisteredPanelOpenDirty();
 	void DrawEditorShellTitlebar(bool projectLoaded);
 	void DrawEditorMenuBar(bool projectLoaded);
-	void DrawAddPanelMenu(bool projectLoaded);
 	void OpenCommandPalette();
 	void DrawCommandPalette();
 
@@ -248,7 +245,7 @@ private:
 	SceneState m_SceneState = SceneState::Edit;
 
 	// panels
-	std::vector<EditorPanel*> m_EditorPanels;
+	EditorPanelManager m_PanelManager;
 	Scope<CallbackEditorPanel> m_StatisticsPanelAdapter;
 	Scope<CallbackEditorPanel> m_ConsolePanelAdapter;
 	SceneHierarchyPanel m_SceneHierarchyPanel;

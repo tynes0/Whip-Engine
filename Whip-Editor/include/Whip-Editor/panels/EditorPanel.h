@@ -11,8 +11,8 @@ _WHIP_START
 class EditorPanel
 {
 public:
-	EditorPanel(std::string name, bool open = true)
-		: m_Name(std::move(name)), m_Open(open)
+	EditorPanel(std::string name, bool open = true, bool requiresProject = true)
+		: m_Name(std::move(name)), m_Open(open), m_RequiresProject(requiresProject)
 	{
 	}
 
@@ -39,11 +39,13 @@ public:
 	}
 
 	virtual bool CanOpenFromMenu() const { return true; }
+	bool RequiresProject() const { return m_RequiresProject; }
 
 protected:
 	std::string m_Name;
 	bool m_Open = true;
 	bool m_OpenDirty = false;
+	bool m_RequiresProject = true;
 };
 
 class CallbackEditorPanel : public EditorPanel
@@ -54,8 +56,9 @@ public:
 		std::function<void()> renderCallback,
 		std::function<bool()> isOpenCallback,
 		std::function<void(bool)> setOpenCallback,
-		std::function<bool()> consumeDirtyCallback = {})
-		: EditorPanel(std::move(name)),
+		std::function<bool()> consumeDirtyCallback = {},
+		bool requiresProject = true)
+		: EditorPanel(std::move(name), true, requiresProject),
 		m_RenderCallback(std::move(renderCallback)),
 		m_IsOpenCallback(std::move(isOpenCallback)),
 		m_SetOpenCallback(std::move(setOpenCallback)),
