@@ -14,6 +14,9 @@ class EditorLayer;
 class EditorHistoryManager
 {
 public:
+	explicit EditorHistoryManager(EditorLayer* boundedLayer = nullptr);
+	~EditorHistoryManager();
+
 	struct ProjectHistoryEntry
 	{
 		bool m_Valid = false;
@@ -40,28 +43,28 @@ public:
 	bool IsGizmoHistoryActive() const { return m_GizmoHistoryActive; }
 	void SetGizmoHistoryActive(bool active) { m_GizmoHistoryActive = active; }
 
-	std::vector<SceneHistoryEntry>& GetUndoStackStorage() { return m_UndoStack; }
-	std::vector<SceneHistoryEntry>& GetRedoStackStorage() { return m_RedoStack; }
-	std::vector<UUID>& GetEntityClipboardStorage() { return m_EntityClipboard; }
-	bool& GetGizmoHistoryActiveStorage() { return m_GizmoHistoryActive; }
+	void Bind(EditorLayer& layer);
 
-	ProjectHistoryEntry CaptureProjectHistory(const EditorLayer& layer) const;
-	void RestoreProjectHistory(EditorLayer& layer, const ProjectHistoryEntry& entry);
+	ProjectHistoryEntry CaptureProjectHistory() const;
+	void RestoreProjectHistory(const ProjectHistoryEntry& entry);
 
-	void CaptureSceneHistory(EditorLayer& layer, bool includeProjectSnapshot = false);
-	void RestoreSceneHistory(EditorLayer& layer, const SceneHistoryEntry& entry);
-	void UndoScene(EditorLayer& layer);
-	void RedoScene(EditorLayer& layer);
+	void CaptureSceneHistory(bool includeProjectSnapshot = false);
+	void RestoreSceneHistory(const SceneHistoryEntry& entry);
+	void UndoScene();
+	void RedoScene();
 	void ClearSceneHistory();
 
-	void DuplicateSelection(EditorLayer& layer);
-	void DeleteSelection(EditorLayer& layer);
-	void SelectAll(EditorLayer& layer);
-	void CopySelection(EditorLayer& layer);
-	void PasteSelection(EditorLayer& layer);
-	void CutSelection(EditorLayer& layer);
+	void DuplicateSelection();
+	void DeleteSelection();
+	void SelectAll();
+	void CopySelection();
+	void PasteSelection();
+	void CutSelection();
 
 private:
+	EditorLayer& GetLayer() const;
+
+	EditorLayer* m_BoundedLayer = nullptr;
 	std::vector<SceneHistoryEntry> m_UndoStack;
 	std::vector<SceneHistoryEntry> m_RedoStack;
 	std::vector<UUID> m_EntityClipboard;

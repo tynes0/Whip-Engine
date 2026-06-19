@@ -1,6 +1,6 @@
 #include <WhipPch.h>
 
-#include <Whip-Editor/panels/EditorPanelManager.h>
+#include <Whip-Editor/Panels/EditorPanelManager.h>
 
 #include <algorithm>
 

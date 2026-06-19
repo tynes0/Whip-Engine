@@ -35,7 +35,25 @@ namespace
 	}
 }
 
-EditorHistoryManager::ProjectHistoryEntry EditorHistoryManager::CaptureProjectHistory(const EditorLayer& layer) const
+EditorHistoryManager::EditorHistoryManager(EditorLayer* boundedLayer)
+	: m_BoundedLayer(boundedLayer)
+{
+}
+
+EditorHistoryManager::~EditorHistoryManager() = default;
+
+void EditorHistoryManager::Bind(EditorLayer& layer)
+{
+	m_BoundedLayer = &layer;
+}
+
+EditorLayer& EditorHistoryManager::GetLayer() const
+{
+	WHP_CORE_ASSERT(m_BoundedLayer, "EditorHistoryManager is not bound to an EditorLayer.");
+	return *m_BoundedLayer;
+}
+
+EditorHistoryManager::ProjectHistoryEntry EditorHistoryManager::CaptureProjectHistory() const
 {
 	ProjectHistoryEntry entry;
 	Ref<Project> activeProject = Project::GetActive();
@@ -59,8 +77,9 @@ EditorHistoryManager::ProjectHistoryEntry EditorHistoryManager::CaptureProjectHi
 	return entry;
 }
 
-void EditorHistoryManager::RestoreProjectHistory(EditorLayer& layer, const ProjectHistoryEntry& entry)
+void EditorHistoryManager::RestoreProjectHistory(const ProjectHistoryEntry& entry)
 {
+	EditorLayer& layer = GetLayer();
 	if (!entry.m_Valid)
 		return;
 
@@ -106,85 +125,89 @@ void EditorHistoryManager::RestoreProjectHistory(EditorLayer& layer, const Proje
 	if (layer.m_ContentBrowserPanel)
 	{
 		layer.m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(activeProject);
-		layer.m_ContentBrowserPanel->SetAssetOpenCallback([&layer](AssetHandle handle) { return layer.m_AssetInteractionManager.HandleContentBrowserAssetOpen(layer, handle); });
-		layer.m_ContentBrowserPanel->SetAssetInspectCallback([&layer](AssetHandle handle) { return layer.m_AssetInteractionManager.HandleContentBrowserAssetInspect(layer, handle); });
-		layer.m_ProjectManager.ApplyPreferencesToContentBrowser(layer);
+		layer.m_ContentBrowserPanel->SetAssetOpenCallback([&layer](AssetHandle handle) { return layer.m_AssetInteractionManager.HandleContentBrowserAssetOpen(handle); });
+		layer.m_ContentBrowserPanel->SetAssetInspectCallback([&layer](AssetHandle handle) { return layer.m_AssetInteractionManager.HandleContentBrowserAssetInspect(handle); });
+		layer.m_ProjectManager.ApplyPreferencesToContentBrowser();
 	}
 }
 
-void EditorHistoryManager::CaptureSceneHistory(EditorLayer& layer, bool includeProjectSnapshot)
+void EditorHistoryManager::CaptureSceneHistory(bool includeProjectSnapshot)
 {
-	if (layer.m_SceneState != EditorSceneState::Edit || !layer.m_EditorScene)
+	EditorLayer& layer = GetLayer();
+	if (layer.m_SceneManager.State() != EditorSceneState::Edit || !layer.m_SceneManager.EditorScene())
 		return;
 
 	SceneHistoryEntry entry;
-	entry.m_SceneSnapshot = Scene::Copy(layer.m_EditorScene);
-	entry.m_EditorScenePath = layer.m_EditorScenePath;
+	entry.m_SceneSnapshot = Scene::Copy(layer.m_SceneManager.EditorScene());
+	entry.m_EditorScenePath = layer.m_SceneManager.EditorScenePath();
 	entry.m_SelectedEntities = layer.m_SceneHierarchyPanel.GetSelectedEntityIds();
 	if (includeProjectSnapshot)
-		entry.m_ProjectSnapshot = CaptureProjectHistory(layer);
+		entry.m_ProjectSnapshot = CaptureProjectHistory();
 	m_UndoStack.push_back(entry);
 	m_RedoStack.clear();
-	layer.MarkSceneDirty();
+	layer.m_SceneManager.MarkDirty();
 
 	static constexpr size_t maxHistoryEntries = 64;
 	if (m_UndoStack.size() > maxHistoryEntries)
 		m_UndoStack.erase(m_UndoStack.begin());
 }
 
-void EditorHistoryManager::RestoreSceneHistory(EditorLayer& layer, const SceneHistoryEntry& entry)
+void EditorHistoryManager::RestoreSceneHistory(const SceneHistoryEntry& entry)
 {
+	EditorLayer& layer = GetLayer();
 	if (!entry.m_SceneSnapshot)
 		return;
 
-	if (layer.m_SceneState != EditorSceneState::Edit)
-		layer.OnSceneStop();
+	if (layer.m_SceneManager.State() != EditorSceneState::Edit)
+		layer.m_SceneManager.OnSceneStop();
 
-	RestoreProjectHistory(layer, entry.m_ProjectSnapshot);
-	layer.m_EditorScene = Scene::Copy(entry.m_SceneSnapshot);
-	layer.m_EditorScenePath = entry.m_EditorScenePath;
-	layer.m_EditorScene->OnViewportResize((uint32_t)layer.m_ViewportSize.x, (uint32_t)layer.m_ViewportSize.y);
-	layer.m_ActiveScene = layer.m_EditorScene;
-	layer.m_SceneHierarchyPanel.SetContext(layer.m_EditorScene);
+	RestoreProjectHistory(entry.m_ProjectSnapshot);
+	layer.m_SceneManager.SetEditorScene(Scene::Copy(entry.m_SceneSnapshot));
+	layer.m_SceneManager.SetEditorScenePath(entry.m_EditorScenePath);
+	layer.m_SceneManager.EditorScene()->OnViewportResize((uint32_t)layer.m_ViewportSize.x, (uint32_t)layer.m_ViewportSize.y);
+	layer.m_SceneManager.SetActiveScene(layer.m_SceneManager.EditorScene());
+	layer.m_SceneHierarchyPanel.SetContext(layer.m_SceneManager.EditorScene());
 	layer.m_SceneHierarchyPanel.SetSelectedEntityIds(entry.m_SelectedEntities);
 }
 
-void EditorHistoryManager::UndoScene(EditorLayer& layer)
+void EditorHistoryManager::UndoScene()
 {
-	if (m_UndoStack.empty() || layer.m_SceneState != EditorSceneState::Edit)
+	EditorLayer& layer = GetLayer();
+	if (m_UndoStack.empty() || layer.m_SceneManager.State() != EditorSceneState::Edit)
 		return;
 
 	SceneHistoryEntry current;
-	current.m_SceneSnapshot = Scene::Copy(layer.m_EditorScene);
-	current.m_EditorScenePath = layer.m_EditorScenePath;
+	current.m_SceneSnapshot = Scene::Copy(layer.m_SceneManager.EditorScene());
+	current.m_EditorScenePath = layer.m_SceneManager.EditorScenePath();
 	current.m_SelectedEntities = layer.m_SceneHierarchyPanel.GetSelectedEntityIds();
 	SceneHistoryEntry entry = m_UndoStack.back();
 	if (entry.m_ProjectSnapshot.m_Valid)
-		current.m_ProjectSnapshot = CaptureProjectHistory(layer);
+		current.m_ProjectSnapshot = CaptureProjectHistory();
 	m_RedoStack.push_back(current);
 
 	m_UndoStack.pop_back();
-	RestoreSceneHistory(layer, entry);
-	layer.MarkSceneDirty();
+	RestoreSceneHistory(entry);
+	layer.m_SceneManager.MarkDirty();
 }
 
-void EditorHistoryManager::RedoScene(EditorLayer& layer)
+void EditorHistoryManager::RedoScene()
 {
-	if (m_RedoStack.empty() || layer.m_SceneState != EditorSceneState::Edit)
+	EditorLayer& layer = GetLayer();
+	if (m_RedoStack.empty() || layer.m_SceneManager.State() != EditorSceneState::Edit)
 		return;
 
 	SceneHistoryEntry current;
-	current.m_SceneSnapshot = Scene::Copy(layer.m_EditorScene);
-	current.m_EditorScenePath = layer.m_EditorScenePath;
+	current.m_SceneSnapshot = Scene::Copy(layer.m_SceneManager.EditorScene());
+	current.m_EditorScenePath = layer.m_SceneManager.EditorScenePath();
 	current.m_SelectedEntities = layer.m_SceneHierarchyPanel.GetSelectedEntityIds();
 	SceneHistoryEntry entry = m_RedoStack.back();
 	if (entry.m_ProjectSnapshot.m_Valid)
-		current.m_ProjectSnapshot = CaptureProjectHistory(layer);
+		current.m_ProjectSnapshot = CaptureProjectHistory();
 	m_UndoStack.push_back(current);
 
 	m_RedoStack.pop_back();
-	RestoreSceneHistory(layer, entry);
-	layer.MarkSceneDirty();
+	RestoreSceneHistory(entry);
+	layer.m_SceneManager.MarkDirty();
 }
 
 void EditorHistoryManager::ClearSceneHistory()
@@ -194,27 +217,29 @@ void EditorHistoryManager::ClearSceneHistory()
 	m_GizmoHistoryActive = false;
 }
 
-void EditorHistoryManager::DuplicateSelection(EditorLayer& layer)
+void EditorHistoryManager::DuplicateSelection()
 {
-	if (layer.m_SceneState != EditorSceneState::Edit)
+	EditorLayer& layer = GetLayer();
+	if (layer.m_SceneManager.State() != EditorSceneState::Edit)
 		return;
 
 	std::vector<Entity> selectedEntities = layer.m_SceneHierarchyPanel.GetSelectedEntities();
 	if (selectedEntities.empty())
 		return;
 
-	CaptureSceneHistory(layer);
+	CaptureSceneHistory();
 	bool append = false;
 	for (Entity selectedEntity : selectedEntities)
 	{
-		Entity duplicated = layer.m_EditorScene->DuplicateEntity(selectedEntity);
+		Entity duplicated = layer.m_SceneManager.EditorScene()->DuplicateEntity(selectedEntity);
 		layer.m_SceneHierarchyPanel.SetSelectedEntity(duplicated, append);
 		append = true;
 	}
 }
 
-void EditorHistoryManager::DeleteSelection(EditorLayer& layer)
+void EditorHistoryManager::DeleteSelection()
 {
+	EditorLayer& layer = GetLayer();
 	if (Application::Get().GetImGuiLayer()->GetActiveWidgetID() != 0)
 		return;
 
@@ -222,7 +247,7 @@ void EditorHistoryManager::DeleteSelection(EditorLayer& layer)
 	if (selectedEntities.empty())
 		return;
 
-	CaptureSceneHistory(layer);
+	CaptureSceneHistory();
 	std::vector<UUID> selectedIds;
 	selectedIds.reserve(selectedEntities.size());
 	for (Entity selectedEntity : selectedEntities)
@@ -237,7 +262,7 @@ void EditorHistoryManager::DeleteSelection(EditorLayer& layer)
 					return false;
 				if (std::find(selectedIds.begin(), selectedIds.end(), parentId) != selectedIds.end())
 					return true;
-				selectedEntity = layer.m_ActiveScene->FindEntityByUUID(parentId);
+				selectedEntity = layer.m_SceneManager.ActiveScene()->FindEntityByUUID(parentId);
 			}
 			return false;
 		};
@@ -245,29 +270,31 @@ void EditorHistoryManager::DeleteSelection(EditorLayer& layer)
 	layer.m_SceneHierarchyPanel.ClearSelection();
 	for (Entity selectedEntity : selectedEntities)
 		if (selectedEntity && !hasSelectedAncestor(selectedEntity))
-			layer.m_ActiveScene->DestroyEntity(selectedEntity);
+			layer.m_SceneManager.ActiveScene()->DestroyEntity(selectedEntity);
 }
 
-void EditorHistoryManager::SelectAll(EditorLayer& layer)
+void EditorHistoryManager::SelectAll()
 {
-	if (layer.m_SceneState == EditorSceneState::Edit)
+	EditorLayer& layer = GetLayer();
+	if (layer.m_SceneManager.State() == EditorSceneState::Edit)
 		layer.m_SceneHierarchyPanel.SelectAll();
 }
 
-void EditorHistoryManager::CopySelection(EditorLayer& layer)
+void EditorHistoryManager::CopySelection()
 {
-	m_EntityClipboard = layer.m_SceneHierarchyPanel.GetSelectedEntityIds();
+	m_EntityClipboard = GetLayer().m_SceneHierarchyPanel.GetSelectedEntityIds();
 }
 
-void EditorHistoryManager::PasteSelection(EditorLayer& layer)
+void EditorHistoryManager::PasteSelection()
 {
-	if (layer.m_SceneState != EditorSceneState::Edit || m_EntityClipboard.empty())
+	EditorLayer& layer = GetLayer();
+	if (layer.m_SceneManager.State() != EditorSceneState::Edit || m_EntityClipboard.empty())
 		return;
 
 	std::vector<Entity> sourceEntities;
 	for (UUID id : m_EntityClipboard)
 	{
-		Entity source = layer.m_EditorScene->FindEntityByUUID(id);
+		Entity source = layer.m_SceneManager.EditorScene()->FindEntityByUUID(id);
 		if (source)
 			sourceEntities.push_back(source);
 	}
@@ -275,20 +302,20 @@ void EditorHistoryManager::PasteSelection(EditorLayer& layer)
 	if (sourceEntities.empty())
 		return;
 
-	CaptureSceneHistory(layer);
+	CaptureSceneHistory();
 	bool append = false;
 	for (Entity source : sourceEntities)
 	{
-		Entity pasted = layer.m_EditorScene->DuplicateEntity(source);
+		Entity pasted = layer.m_SceneManager.EditorScene()->DuplicateEntity(source);
 		layer.m_SceneHierarchyPanel.SetSelectedEntity(pasted, append);
 		append = true;
 	}
 }
 
-void EditorHistoryManager::CutSelection(EditorLayer& layer)
+void EditorHistoryManager::CutSelection()
 {
-	CopySelection(layer);
-	DeleteSelection(layer);
+	CopySelection();
+	DeleteSelection();
 }
 
 _WHIP_END

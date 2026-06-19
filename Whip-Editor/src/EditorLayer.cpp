@@ -3,25 +3,18 @@
 #include <Whip/Core/EntryPoint.h>
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Scene/SceneSerializer.h>
-#include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Utils/PlatformUtils.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip-Editor/UI/UIProjectLoader.h>
 #include <Whip/Math/Math.h>
-#include <Whip/Asset/AssetManager.h>
-#include <Whip/Asset/AssetMetadata.h>
 #include <Whip/Asset/AssetUtils.h>
-#include <Whip/Asset/SceneImporter.h>
 
 #include <Whip-Editor/Helpers/IconManager.h>
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <cstdint>
-#include <fstream>
 #include <string>
-#include <string_view>
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -54,55 +47,6 @@ namespace
 		return ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b, a));
 	}
 
-	std::string SanitizeProjectToken(std::string value, const std::string& fallback)
-	{
-		std::erase_if(value, [](unsigned char c)
-		{
-			return !std::isalnum(c) && c != '_' && c != '-' && c != ' ';
-		});
-
-		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())))
-			value.erase(value.begin());
-		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back())))
-			value.pop_back();
-
-		if (value.empty())
-			value = fallback;
-		return value;
-	}
-
-	std::string SanitizePathToken(std::string value, const std::string& fallback)
-	{
-		value = SanitizeProjectToken(std::move(value), fallback);
-		for (char& c : value)
-			if (c == ' ')
-				c = '_';
-		return value;
-	}
-
-	std::filesystem::path NormalizeProjectListPath(const std::filesystem::path& path)
-	{
-		if (path.empty())
-			return {};
-
-		std::error_code error;
-		std::filesystem::path normalizedPath = std::filesystem::weakly_canonical(path, error);
-		if (error)
-		{
-			error.clear();
-			normalizedPath = std::filesystem::absolute(path, error);
-		}
-
-		return error ? path : normalizedPath.lexically_normal();
-	}
-
-	bool PathsMatchForRecentProject(const std::filesystem::path& left, const std::filesystem::path& right)
-	{
-		const std::filesystem::path normalizedLeft = NormalizeProjectListPath(left);
-		const std::filesystem::path normalizedRight = NormalizeProjectListPath(right);
-		return !normalizedLeft.empty() && normalizedLeft == normalizedRight;
-	}
-
 	bool PathIsOrIsUnder(const std::filesystem::path& path, const std::filesystem::path& directory)
 	{
 		const std::filesystem::path normalizedPath = path.lexically_normal();
@@ -120,30 +64,15 @@ namespace
 
 		return true;
 	}
-
-	bool CreateDirectoryChecked(const std::filesystem::path& path, std::string_view label)
-	{
-		std::error_code error;
-		std::filesystem::create_directories(path, error);
-		if (!error)
-			return true;
-
-		WHP_EDITOR_ERROR("[Whip Hub] Could not create {}: {} ({})", label, path.string(), error.message());
-		return false;
-	}
-
 }
 
 EditorLayer::EditorLayer()
 	: Layer("Fbox2D"),
-	m_ActiveScene(m_SceneManager.GetActiveSceneStorage()),
-	m_EditorScene(m_SceneManager.GetEditorSceneStorage()),
-	m_EditorScenePath(m_SceneManager.GetEditorScenePathStorage()),
-	m_GizmoHistoryActive(m_HistoryManager.GetGizmoHistoryActiveStorage()),
-	m_SceneDirty(m_SceneManager.GetDirtyStorage()),
-	m_LastSceneRecoverySnapshot(m_SceneManager.GetLastRecoverySnapshotStorage()),
-	m_SceneState(m_SceneManager.GetStateStorage()),
 	m_EditorCamera(),
+	m_AssetInteractionManager(this),
+	m_HistoryManager(this),
+	m_ProjectManager(this),
+	m_SceneManager(this),
 	m_GizmoType(ImGuizmo::OPERATION::TRANSLATE)
 {
 }
@@ -154,25 +83,25 @@ void EditorLayer::OnAttach()
 	WHP_EDITOR_INFO("[Editor] Attaching EditorLayer.");
 
 	m_AnimationEditorPanel.SetRefreshAssetTreeCallback([this]() {if (m_ContentBrowserPanel) { m_ContentBrowserPanel->RefreshAssetTree(); } });
-	m_AssetEditorPanel.SetOpenSceneCallback([this](AssetHandle handle) { OpenScene(handle); });
+	m_AssetEditorPanel.SetOpenSceneCallback([this](AssetHandle handle) { m_SceneManager.OpenScene(handle); });
 	m_AssetEditorPanel.SetSetStartSceneCallback([this](AssetHandle handle) { m_AssetInteractionManager.SetStartScene(handle); });
 	m_AssetEditorPanel.SetOpenAnimationCallback([this](AssetHandle handle) { return m_AnimationEditorPanel.OpenAsset(handle, false); });
 	m_AssetEditorPanel.SetDrawAnimationEditorCallback([this]() { m_AnimationEditorPanel.OnImGuiRenderEmbedded(); });
 	m_AssetEditorPanel.SetRefreshAssetTreeCallback([this]() { if (m_ContentBrowserPanel) { m_ContentBrowserPanel->RefreshAssetTree(); } });
-	m_SceneHierarchyPanel.SetSceneChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(*this); });
+	m_SceneHierarchyPanel.SetSceneChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(); });
 	m_SceneHierarchyPanel.SetSaveEntityTemplateCallback([this](Entity entityIn) { SaveEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetApplyEntityTemplateCallback([this](Entity entityIn) { ApplyEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetRevertEntityTemplateCallback([this](Entity entityIn) { RevertEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetUnpackEntityTemplateCallback([this](Entity entityIn) { UnpackEntityTemplate(entityIn); });
 	m_UIProject.SetSceneCallbacks(
-		[this](AssetHandle handle) { OpenScene(handle); },
-		[this]() { CloseScene(); },
-		[this]() { return m_EditorScenePath; });
-	m_UIProject.SetBeforeChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(*this, true); });
+		[this](AssetHandle handle) { m_SceneManager.OpenScene(handle); },
+		[this]() { m_SceneManager.CloseScene(); },
+		[this]() { return m_SceneManager.EditorScenePath(); });
+	m_UIProject.SetBeforeChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(true); });
 	m_UIProject.SetEditorSettingsDrawer([this]() { m_UISettings.DrawContent(); });
-	m_ProjectManager.SetupProjectLoader(*this);
-	m_ProjectManager.LoadEditorPreferences(*this);
-	m_ProjectManager.GetLoader().SetRecentProjects(m_ProjectManager.GetRecentProjectsStorage());
+	m_ProjectManager.SetupProjectLoader();
+	m_ProjectManager.LoadEditorPreferences();
+	m_ProjectManager.GetLoader().SetRecentProjects(m_ProjectManager.GetRecentProjects());
 
 	// framebuffer
     FramebufferSpecification fbSpec{};
@@ -182,8 +111,7 @@ void EditorLayer::OnAttach()
     m_Framebuffer = Framebuffer::Create(fbSpec);
 
 	// scene
-    m_EditorScene = MakeRef<Scene>();
-	m_ActiveScene = m_EditorScene;
+	m_SceneManager.ResetToEmptyScene();
 
 	// Project
 	auto commandLineArgs = Application::Get().GetSpecification().m_CommandLineArgs;
@@ -191,7 +119,7 @@ void EditorLayer::OnAttach()
 	{
 		auto projectFilePath = commandLineArgs[1];
 		WHP_EDITOR_INFO(std::string("[Project] Opening project from command line: ") + projectFilePath);
-		if (OpenProject(projectFilePath))
+		if (m_ProjectManager.OpenProject(projectFilePath))
 			m_ProjectManager.GetLoader().SetLoaded(true);
 	}
 	// camera
@@ -227,15 +155,15 @@ void EditorLayer::OnAttach()
 void EditorLayer::OnDetach()
 {
 	WHP_PROFILE_FUNCTION();
-	WriteSceneRecoverySnapshot("Editor shutdown");
+	m_SceneManager.WriteRecoverySnapshot("Editor shutdown");
 	m_ScriptManager.StopSourceWatcher();
-	m_ProjectManager.SaveEditorPreferences(*this);
+	m_ProjectManager.SaveEditorPreferences();
 	ConsolePanel::Shutdown();
 
-	if (m_SceneState == SceneState::Play)
-		m_ActiveScene->OnRuntimeStop();
-	else if (m_SceneState == SceneState::Simulate)
-		m_ActiveScene->OnSimulationStop();
+	if (m_SceneManager.State() == SceneState::Play)
+		m_SceneManager.ActiveScene()->OnRuntimeStop();
+	else if (m_SceneManager.State() == SceneState::Simulate)
+		m_SceneManager.ActiveScene()->OnSimulationStop();
 
 }
 
@@ -243,17 +171,17 @@ void EditorLayer::OnUpdate(Timestep ts)
 {
 	WHP_PROFILE_FUNCTION();
 	m_Ts = ts;
-	m_ScriptManager.ProcessSourceChanges(m_SceneState == SceneState::Edit);
-	if (m_SceneDirty && m_SceneState == SceneState::Edit)
+	m_ScriptManager.ProcessSourceChanges(m_SceneManager.State() == SceneState::Edit);
+	if (m_SceneManager.IsSceneDirty() && m_SceneManager.State() == SceneState::Edit)
 	{
 		const auto now = std::chrono::steady_clock::now();
-		if (m_LastSceneRecoverySnapshot == std::chrono::steady_clock::time_point{} || now - m_LastSceneRecoverySnapshot > std::chrono::seconds(30))
-			WriteSceneRecoverySnapshot("Autosave");
+		if (m_SceneManager.LastRecoverySnapshot() == std::chrono::steady_clock::time_point{} || now - m_SceneManager.LastRecoverySnapshot() > std::chrono::seconds(30))
+			m_SceneManager.WriteRecoverySnapshot("Autosave");
 	}
 
 	{
 		WHP_PROFILE_SCOPE("Viewport Size");
-		m_ActiveScene->OnViewportResize(static_cast<uint32_t>(m_ViewportSize.x), static_cast<uint32_t>(m_ViewportSize.y));
+		m_SceneManager.ActiveScene()->OnViewportResize(static_cast<uint32_t>(m_ViewportSize.x), static_cast<uint32_t>(m_ViewportSize.y));
 		if (FramebufferSpecification spec = m_Framebuffer->GetSpecification();
 			m_ViewportSize.x > 0.0f &&
 			m_ViewportSize.y > 0.0f &&
@@ -273,20 +201,20 @@ void EditorLayer::OnUpdate(Timestep ts)
 
 		m_Framebuffer->ClearAttachment(1, -1);
 
-		switch (m_SceneState)
+		switch (m_SceneManager.State())
 		{
 		case SceneState::Edit:
 		{
 			if (!m_GizmoUsing)
 				m_EditorCamera.OnUpdate(ts);
 			DrawEditorGrid();
-			m_ActiveScene->OnUpdateEditor(ts, m_EditorCamera);
+			m_SceneManager.ActiveScene()->OnUpdateEditor(ts, m_EditorCamera);
 			break;
 		}
 		case SceneState::Play:
 		{
-			m_ActiveScene->OnUpdateRuntime(ts);
-			ProcessRuntimeSceneTransition();
+			m_SceneManager.ActiveScene()->OnUpdateRuntime(ts);
+			m_SceneManager.ProcessRuntimeSceneTransition();
 			break;
 		}
 		case SceneState::Simulate:
@@ -294,8 +222,8 @@ void EditorLayer::OnUpdate(Timestep ts)
 			if (!m_GizmoUsing)
 				m_EditorCamera.OnUpdate(ts);
 			DrawEditorGrid();
-			m_ActiveScene->OnUpdateSimulation(ts, m_EditorCamera);
-			ProcessRuntimeSceneTransition();
+			m_SceneManager.ActiveScene()->OnUpdateSimulation(ts, m_EditorCamera);
+			m_SceneManager.ProcessRuntimeSceneTransition();
 			break;
 		}
 		}
@@ -314,7 +242,7 @@ void EditorLayer::OnUpdate(Timestep ts)
 		if (mouseX >= 0 && mouseY >= 0 && mouseX < static_cast<int>(viewportSize.x) && mouseY < static_cast<int>(viewportSize.y))
 		{
 			int pixelData = m_Framebuffer->ReadPixel(1, mouseX, mouseY); // This is taking too much time
-			m_HoveredEntity = pixelData == -1 ? Entity() : Entity(static_cast<entt::entity>(pixelData), m_ActiveScene.get());
+			m_HoveredEntity = pixelData == -1 ? Entity() : Entity(static_cast<entt::entity>(pixelData), m_SceneManager.ActiveScene().get());
 		}
 	}
 
@@ -416,7 +344,7 @@ void EditorLayer::OnImGuiRender()
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
 			{
 				const UI::AssetReferencePayload assetPayload = UI::ReadAssetReferencePayload(payload);
-				handledDrop = m_AssetInteractionManager.HandleViewportAssetDrop(*this, assetPayload.m_Handle, assetPayload.m_TextureSpriteIndex);
+				handledDrop = m_AssetInteractionManager.HandleViewportAssetDrop(assetPayload.m_Handle, assetPayload.m_TextureSpriteIndex);
 			}
 
 			if (!handledDrop)
@@ -430,7 +358,7 @@ void EditorLayer::OnImGuiRender()
 						AssetHandle handle = Project::GetActive()->GetEditorAssetManager()->GetHandleFromFilepath(RelativePath);
 						if (handle == 0 && Utils::TryGetAssetTypeFromFileExtension(RelativePath.extension()) != AssetType::None)
 							handle = Project::GetActive()->GetEditorAssetManager()->ImportAsset(RelativePath);
-						m_AssetInteractionManager.HandleViewportAssetDrop(*this, handle);
+						m_AssetInteractionManager.HandleViewportAssetDrop(handle);
 					}
 				}
 			}
@@ -439,7 +367,7 @@ void EditorLayer::OnImGuiRender()
 
 		// gizmos
 		Entity selectedEntity = m_SceneHierarchyPanel.GetSelectedEntity();
-		if (selectedEntity && m_GizmoType != -1 && m_SceneState != SceneState::Play)
+		if (selectedEntity && m_GizmoType != -1 && m_SceneManager.State() != SceneState::Play)
 		{
 		    ImGuizmo::SetDrawlist();
 			ImGuizmo::SetOrthographic(false);
@@ -474,10 +402,10 @@ void EditorLayer::OnImGuiRender()
 
 		    if (m_GizmoUsing)
 		    {
-				if (!m_GizmoHistoryActive)
+				if (!m_HistoryManager.IsGizmoHistoryActive())
 				{
-					m_HistoryManager.CaptureSceneHistory(*this);
-					m_GizmoHistoryActive = true;
+					m_HistoryManager.CaptureSceneHistory();
+					m_HistoryManager.SetGizmoHistoryActive(true);
 				}
 
 		        glm::vec3 translation, rotation, scale;
@@ -514,7 +442,7 @@ void EditorLayer::OnImGuiRender()
 		    }
 		}
 		if (!m_GizmoUsing)
-			m_GizmoHistoryActive = false;
+			m_HistoryManager.SetGizmoHistoryActive(false);
 		UIToolbar();
 		Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered || m_GizmoHovered || m_GizmoUsing);
 		ImGui::End();
@@ -533,7 +461,7 @@ void EditorLayer::OnImGuiRender()
 	if (m_UISettings.ConsumeDirty()
 		|| m_PanelManager.ConsumeOpenDirty()
 		|| (m_ContentBrowserPanel && m_ContentBrowserPanel->ConsumePreferencesDirty()))
-		m_ProjectManager.SaveEditorPreferences(*this);
+		m_ProjectManager.SaveEditorPreferences();
 	m_PopupHandler.OnImGuiRender();
 
 }
@@ -541,7 +469,7 @@ _WHP_PRAGMA_WARNING(pop)
 
 void EditorLayer::OnEvent(Event& event)
 {
-	if (m_SceneState == SceneState::Edit && !m_GizmoHovered && !m_GizmoUsing && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
+	if (m_SceneManager.State() == SceneState::Edit && !m_GizmoHovered && !m_GizmoUsing && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
 		m_EditorCamera.OnEvent(event);
     EventDispatcher dispatcher(event);
     dispatcher.Dispatch<KeyPressedEvent>([this](auto&&... args) -> decltype(auto) { return this->OnKeyPressed(std::forward<decltype(args)>(args)...); });
@@ -595,70 +523,70 @@ bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
 		OpenCommandPalette();
 		return true;
 	case UI::EditorShortcutAction::OpenSettings:
-		m_UIProject.Show(UI::UIProject::UISettings, [this]() { m_ProjectManager.FinishProjectSettings(*this); });
+		m_UIProject.Show(UI::UIProject::UISettings, [this]() { m_ProjectManager.FinishProjectSettings(); });
 		return true;
 	case UI::EditorShortcutAction::OpenProject:
-		OpenProject();
+		m_ProjectManager.OpenProject();
 		return true;
 	case UI::EditorShortcutAction::NewScene:
-		NewScene();
+		m_SceneManager.NewScene();
 		return true;
 	case UI::EditorShortcutAction::SaveScene:
-		SaveScene();
+		m_SceneManager.SaveScene();
 		return true;
 	case UI::EditorShortcutAction::SaveSceneAs:
-		SaveSceneAs();
+		m_SceneManager.SaveSceneAs();
 		return true;
 	case UI::EditorShortcutAction::SaveProject:
 		m_ProjectManager.SaveProject();
 		return true;
 	case UI::EditorShortcutAction::CloseScene:
-		CloseScene();
+		m_SceneManager.CloseScene();
 		return true;
 	case UI::EditorShortcutAction::ReloadScripts:
-		m_ScriptManager.ReloadAssembly(true, m_SceneState == SceneState::Edit);
+		m_ScriptManager.ReloadAssembly(true, m_SceneManager.State() == SceneState::Edit);
 		return true;
 	case UI::EditorShortcutAction::DuplicateEntity:
-		m_HistoryManager.DuplicateSelection(*this);
+		m_HistoryManager.DuplicateSelection();
 		return true;
 	case UI::EditorShortcutAction::DeleteEntity:
-		m_HistoryManager.DeleteSelection(*this);
+		m_HistoryManager.DeleteSelection();
 		return true;
 	case UI::EditorShortcutAction::Undo:
-		m_HistoryManager.UndoScene(*this);
+		m_HistoryManager.UndoScene();
 		return true;
 	case UI::EditorShortcutAction::Redo:
-		m_HistoryManager.RedoScene(*this);
+		m_HistoryManager.RedoScene();
 		return true;
 	case UI::EditorShortcutAction::SelectAll:
-		m_HistoryManager.SelectAll(*this);
+		m_HistoryManager.SelectAll();
 		return true;
 	case UI::EditorShortcutAction::Copy:
-		m_HistoryManager.CopySelection(*this);
+		m_HistoryManager.CopySelection();
 		return true;
 	case UI::EditorShortcutAction::Paste:
-		m_HistoryManager.PasteSelection(*this);
+		m_HistoryManager.PasteSelection();
 		return true;
 	case UI::EditorShortcutAction::Cut:
-		m_HistoryManager.CutSelection(*this);
+		m_HistoryManager.CutSelection();
 		return true;
 	case UI::EditorShortcutAction::Play:
-		if (m_SceneState == SceneState::Edit)
-			OnScenePlay();
-		else if (m_SceneState == SceneState::Play)
-			OnSceneStop();
+		if (m_SceneManager.State() == SceneState::Edit)
+			m_SceneManager.OnScenePlay();
+		else if (m_SceneManager.State() == SceneState::Play)
+			m_SceneManager.OnSceneStop();
 		return true;
 	case UI::EditorShortcutAction::Simulate:
-		if (m_SceneState == SceneState::Edit)
-			OnSceneSimulate();
-		else if (m_SceneState == SceneState::Simulate)
-			OnSceneStop();
+		if (m_SceneManager.State() == SceneState::Edit)
+			m_SceneManager.OnSceneSimulate();
+		else if (m_SceneManager.State() == SceneState::Simulate)
+			m_SceneManager.OnSceneStop();
 		return true;
 	case UI::EditorShortcutAction::Stop:
-		OnSceneStop();
+		m_SceneManager.OnSceneStop();
 		return true;
 	case UI::EditorShortcutAction::Pause:
-		m_ActiveScene->SetPaused(!m_ActiveScene->IsPaused());
+		m_SceneManager.ActiveScene()->SetPaused(!m_SceneManager.ActiveScene()->IsPaused());
 		return true;
 	case UI::EditorShortcutAction::GizmoNone:
 		m_GizmoType = -1;
@@ -680,7 +608,7 @@ bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
 bool EditorLayer::IsEditorActionAvailable(UI::EditorShortcutAction action) const
 {
 	const bool projectLoaded = HasProjectLoaded();
-	const bool editMode = m_SceneState == SceneState::Edit;
+	const bool editMode = m_SceneManager.State() == SceneState::Edit;
 	const bool hasSelection = (bool)m_SceneHierarchyPanel.GetSelectedEntity();
 
 	switch (action)
@@ -710,13 +638,13 @@ bool EditorLayer::IsEditorActionAvailable(UI::EditorShortcutAction action) const
 	case UI::EditorShortcutAction::Redo:
 		return projectLoaded && editMode && m_HistoryManager.CanRedo();
 	case UI::EditorShortcutAction::Play:
-		return projectLoaded && m_SceneState != SceneState::Simulate;
+		return projectLoaded && m_SceneManager.State() != SceneState::Simulate;
 	case UI::EditorShortcutAction::Simulate:
-		return projectLoaded && m_SceneState != SceneState::Play;
+		return projectLoaded && m_SceneManager.State() != SceneState::Play;
 	case UI::EditorShortcutAction::Stop:
-		return m_SceneState == SceneState::Play || m_SceneState == SceneState::Simulate;
+		return m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
 	case UI::EditorShortcutAction::Pause:
-		return projectLoaded && m_SceneState != SceneState::Edit;
+		return projectLoaded && m_SceneManager.State() != SceneState::Edit;
 	case UI::EditorShortcutAction::GizmoNone:
 	case UI::EditorShortcutAction::GizmoTranslate:
 	case UI::EditorShortcutAction::GizmoRotate:
@@ -770,7 +698,7 @@ bool EditorLayer::OnWindowDrop(WindowDropEvent& event)
 		{
 			handled = true;
 			if (m_ViewportHovered)
-				m_AssetInteractionManager.HandleViewportAssetDrop(*this, handle);
+				m_AssetInteractionManager.HandleViewportAssetDrop(handle);
 		}
 	}
 	if (m_ContentBrowserPanel)
@@ -842,9 +770,9 @@ void EditorLayer::DrawEditorGrid()
 void EditorLayer::OnOverlayRender()
 {
 	WHP_PROFILE_FUNCTION();
-	if (m_SceneState == SceneState::Play)
+	if (m_SceneManager.State() == SceneState::Play)
 	{
-		Entity cam = m_ActiveScene->GetPrimaryCameraEntity();
+		Entity cam = m_SceneManager.ActiveScene()->GetPrimaryCameraEntity();
 		if (!cam)
 			return;
 		Renderer2D::BeginScene(cam.GetComponent<CameraComponent>().m_Camera, cam.GetComponent<TransformComponent>().GetTransform());
@@ -858,7 +786,7 @@ void EditorLayer::OnOverlayRender()
 	{
 		// Box Colliders
 		{
-			auto view = m_ActiveScene->GetAllEntitiesWith<TransformComponent, BoxCollider2DComponent>();
+			auto view = m_SceneManager.ActiveScene()->GetAllEntitiesWith<TransformComponent, BoxCollider2DComponent>();
 			for (auto Entity : view)
 			{
 				auto [tc, bc2d] = view.get<TransformComponent, BoxCollider2DComponent>(Entity);
@@ -877,7 +805,7 @@ void EditorLayer::OnOverlayRender()
 
 		// Circle Colliders
 		{
-			auto view = m_ActiveScene->GetAllEntitiesWith<TransformComponent, CircleCollider2DComponent>();
+			auto view = m_SceneManager.ActiveScene()->GetAllEntitiesWith<TransformComponent, CircleCollider2DComponent>();
 			for (auto Entity : view)
 			{
 				auto [tc, cc2d] = view.get<TransformComponent, CircleCollider2DComponent>(Entity);
@@ -912,389 +840,6 @@ bool EditorLayer::HasProjectLoaded() const
 	return Project::GetActive() != nullptr;
 }
 
-bool EditorLayer::NewProject(const UI::ProjectCreateSettings& settings)
-{
-	const std::string projectName = SanitizeProjectToken(settings.m_Name, "Untitled");
-	const std::string projectFolderName = SanitizePathToken(projectName, "Untitled");
-	const std::string initialSceneName = SanitizePathToken(settings.m_InitialSceneName, "Main");
-	if (settings.m_Location.empty())
-		return false;
-
-	std::filesystem::path projectDirectory = settings.m_Location / projectFolderName;
-	std::filesystem::path projectPath = projectDirectory / (projectFolderName + FileExtensions::Project);
-	std::error_code error;
-	if (std::filesystem::exists(projectPath, error))
-	{
-		WHP_EDITOR_WARN(std::string("[Whip Hub] Project file already exists: ") + projectPath.string());
-		return false;
-	}
-
-	if (!CreateDirectoryChecked(projectDirectory / "Assets" / "Scenes", "Project scenes directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "Scripts" / "Source", "script source directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "Scripts" / "Binaries", "script binaries directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "Animations", "animations directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "Audios", "audio directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "fonts", "font directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "textures", "texture directory"))
-	{
-		return false;
-	}
-
-	Ref<Project> newProject = Project::NewProject();
-	Project::SetActiveProjectPath(projectPath);
-
-	ProjectConfig& config = newProject->GetConfig();
-	config.m_Name = projectName;
-	config.m_AssetDirectory = "Assets";
-	config.m_AssetRegistryPath = FileExtensions::AssetRegistryFilename;
-	config.m_ScriptModulePath = std::filesystem::path("Scripts") / "Binaries" / (projectFolderName + ".dll");
-	config.m_StartScene = 0;
-
-	if (!EditorScriptManager::WriteProjectFiles(projectDirectory, projectFolderName))
-	{
-		Project::SetActive(nullptr);
-		return false;
-	}
-
-	std::filesystem::path startSceneRelativePath;
-	AssetHandle startSceneHandle = 0;
-	if (settings.m_CreateStartScene)
-	{
-		startSceneHandle = AssetHandle{};
-		config.m_StartScene = startSceneHandle;
-		startSceneRelativePath = std::filesystem::path("Scenes") / (initialSceneName + FileExtensions::Scene);
-
-	Ref<Scene> startScene = MakeRef<Scene>(startSceneHandle);
-		if (settings.m_TemplateIndex == 1 || settings.m_TemplateIndex == 2)
-		{
-			Entity camera = startScene->CreateEntity("Main Camera");
-			camera.AddComponent<CameraComponent>();
-			camera.GetComponent<TransformComponent>().m_Translation = { 0.0f, 0.0f, 8.0f };
-
-			Entity sprite = startScene->CreateEntity(settings.m_TemplateIndex == 2 ? "Starter Entity" : "Sprite");
-			sprite.AddComponent<SpriteRendererComponent>(glm::vec4{ 0.86f, 0.58f, 0.28f, 1.0f });
-			if (settings.m_TemplateIndex == 2)
-				sprite.AddComponent<ScriptComponent>().m_ClassName = projectFolderName + ".StarterEntity";
-		}
-
-		SceneImporter::SaveScene(startScene, startSceneRelativePath);
-	}
-
-	if (!Project::SaveActive(projectPath))
-	{
-		Project::SetActive(nullptr);
-		return false;
-	}
-
-	std::ofstream registry(projectPath.parent_path() / config.m_AssetDirectory / config.m_AssetRegistryPath, std::ios::trunc);
-	if (!registry)
-	{
-		WHP_EDITOR_ERROR("[Whip Hub] Could not write Asset registry.");
-		Project::SetActive(nullptr);
-		return false;
-	}
-
-	if (settings.m_CreateStartScene)
-	{
-		registry << "AssetRegistry:\n";
-		registry << "  - handle: " << (uint64_t)startSceneHandle << '\n';
-		registry << "    filepath: " << startSceneRelativePath.generic_string() << '\n';
-		registry << "    type: scene\n";
-	}
-	else
-	{
-		registry << "AssetRegistry: []\n";
-	}
-	registry.close();
-
-	Project::SetActive(nullptr);
-	if (!settings.m_OpenAfterCreate)
-	{
-		m_ProjectManager.AddRecentProject(*this, projectPath);
-		return true;
-	}
-	return OpenProject(projectPath);
-}
-
-bool EditorLayer::OpenProject()
-{
-	std::string filepath = FileDialogs::OpenFile("Whip Project (*.wproj)\0*.wproj\0");
-	if (filepath.empty())
-		return false;
-	return OpenProject(filepath);
-}
-
-bool EditorLayer::OpenProject(const std::filesystem::path& path)
-{
-	if (path.empty())
-		return false;
-
-	std::filesystem::path projectPath = NormalizeProjectListPath(path);
-	std::error_code error;
-	if (!std::filesystem::exists(projectPath, error) || !FileExtensions::IsProjectExtension(projectPath))
-	{
-		WHP_EDITOR_WARN(std::string("[Project] Project file is missing or invalid: ") + projectPath.string());
-		m_ProjectManager.GetLoader().SetStatus("Project file is missing or invalid.");
-		return false;
-	}
-
-	if (HasProjectLoaded() && PathsMatchForRecentProject(Project::GetActive()->GetProjectPath(), projectPath))
-	{
-		WHP_EDITOR_INFO(std::string("[Project] Project is already open: ") + projectPath.string());
-		m_ProjectManager.AddRecentProject(*this, projectPath);
-		m_ProjectManager.GetLoader().SetLoaded(true);
-		m_ProjectManager.GetLoader().SetStatus("Project already open.");
-		return true;
-	}
-
-	WHP_EDITOR_INFO(std::string("[Project] Opening Project: ") + projectPath.string());
-	if (HasProjectLoaded())
-	{
-		WHP_EDITOR_INFO("[Project] Unloading current Project before opening a new one.");
-		ResetEditorProjectState();
-	}
-
-	if (Project::Load(projectPath))
-	{
-		WHP_EDITOR_INFO("[Project] Project file loaded.");
-		m_ProjectManager.MigrateProjectNativeFileExtensions();
-		WHP_EDITOR_INFO("[Project] Native file extension migration complete.");
-		const bool scriptBuildSucceeded = m_ScriptManager.BuildProjectScripts();
-		if (!scriptBuildSucceeded)
-			WHP_EDITOR_WARN("[Script Build] Project opened, but script build failed.");
-		WHP_EDITOR_INFO("[Project] Script build step complete.");
-		ScriptEngine::Init();
-		WHP_EDITOR_INFO("[Project] Script engine initialized.");
-		m_ScriptManager.StartSourceWatcher();
-		AssetHandle startScene = (Project::GetActive()->GetConfig().m_StartScene);
-		if (startScene && Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(startScene))
-		{
-			const std::filesystem::path startScenePath = Project::GetActive()->GetEditorAssetManager()->GetFilepath(startScene);
-			if (std::filesystem::exists(Project::GetActiveAssetDirectory() / startScenePath))
-				OpenScene(startScene);
-			else
-			{
-				WHP_EDITOR_WARN("[Project] Start scene file is missing. Resetting Project start scene.");
-				Project::GetActive()->GetConfig().m_StartScene = 0;
-				Project::SaveActive();
-			}
-		}
-		else if (startScene)
-		{
-			WHP_EDITOR_WARN("[Project] Start scene is missing. Resetting Project start scene.");
-			Project::GetActive()->GetConfig().m_StartScene = 0;
-			Project::SaveActive();
-		}
-		else
-		{
-			NewScene();
-		}
-		m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
-		m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return m_AssetInteractionManager.HandleContentBrowserAssetOpen(*this, handle); });
-		m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return m_AssetInteractionManager.HandleContentBrowserAssetInspect(*this, handle); });
-		m_ProjectManager.ApplyPreferencesToContentBrowser(*this);
-		m_ProjectManager.AddRecentProject(*this, projectPath);
-		m_ProjectManager.GetLoader().SetLoaded(true);
-		m_ProjectManager.GetLoader().SetStatus(scriptBuildSucceeded ? "Project opened." : "Project opened, script build failed.");
-		WHP_EDITOR_INFO("[Project] Project open complete.");
-		return true;
-	}
-	ResetEditorProjectState();
-	WHP_EDITOR_WARN(std::string("[Project] Project load failed: ") + projectPath.string());
-	m_ProjectManager.GetLoader().SetStatus("Project could not be opened.");
-	return false;
-}
-
-void EditorLayer::ResetEditorProjectState()
-{
-	WriteSceneRecoverySnapshot("Project switch");
-	m_ScriptManager.StopSourceWatcher();
-	if (m_SceneState != SceneState::Edit)
-		OnSceneStop();
-
-	ScriptEngine::ClearRuntimeSceneTransitionRequest();
-	m_ScriptManager.Reset();
-
-	m_ContentBrowserPanel.reset();
-	m_SceneHierarchyPanel.SetContext({});
-	m_EditorScene = MakeRef<Scene>();
-	m_ActiveScene = m_EditorScene;
-	m_EditorScenePath.clear();
-	m_HistoryManager.ClearSceneHistory();
-	MarkSceneClean();
-	Project::SetActive(nullptr);
-	m_ProjectManager.GetLoader().SetLoaded(false);
-}
-
-void EditorLayer::NewScene()
-{
-	if (!HasProjectLoaded())
-		return;
-
-    m_ActiveScene = MakeRef<Scene>();
-	m_SceneHierarchyPanel.SetContext(m_ActiveScene);
-	m_EditorScenePath = std::filesystem::path();
-	m_HistoryManager.ClearSceneHistory();
-	MarkSceneClean();
-}
-
-void EditorLayer::OpenScene(AssetHandle handle)
-{
-	if (!HasProjectLoaded())
-		return;
-
-	if (m_SceneState != SceneState::Edit)
-		OnSceneStop();
-
-	if (!Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(handle))
-	{
-		WHP_EDITOR_WARN("[Scene] Failed to open scene. Asset handle is not registered.");
-		return;
-	}
-	const std::filesystem::path scenePath = Project::GetActive()->GetEditorAssetManager()->GetFilepath(handle);
-	if (!std::filesystem::exists(Project::GetActiveAssetDirectory() / scenePath))
-	{
-		WHP_EDITOR_WARN(std::string("[Scene] Failed to open scene. File is missing: ") + scenePath.string());
-		return;
-	}
-
-	Ref<Scene> readOnlyScene = AssetManager::GetAsset<Scene>(handle);
-	if (!readOnlyScene)
-	{
-		WHP_EDITOR_WARN("[Scene] Failed to open scene. Asset is missing or failed to import.");
-		return;
-	}
-	Ref<Scene> NewScene = Scene::Copy(readOnlyScene);
-
-	m_EditorScene = NewScene;
-	m_SceneHierarchyPanel.SetContext(m_EditorScene);
-
-	m_ActiveScene = m_EditorScene;
-	m_EditorScenePath = scenePath;
-	m_HistoryManager.ClearSceneHistory();
-	MarkSceneClean();
-}
-
-void EditorLayer::CloseScene()
-{
-	if (m_SceneState != SceneState::Edit)
-		OnSceneStop();
-	Ref<Scene> NewScene = MakeRef<Scene>();
-	m_EditorScene = NewScene;
-	m_EditorScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
-	m_ActiveScene = m_EditorScene;
-	m_EditorScenePath.clear();
-	m_SceneHierarchyPanel.SetContext({});
-	m_HistoryManager.ClearSceneHistory();
-	MarkSceneClean();
-}
-
-void EditorLayer::SaveScene()
-{
-	if (!HasProjectLoaded())
-		return;
-
-	if (!m_EditorScenePath.empty())
-	{
-		SerializeScene(m_ActiveScene, m_EditorScenePath);
-		MarkSceneClean();
-	}
-	else
-		SaveSceneAs();
-}
-
-void EditorLayer::SaveSceneAs()
-{
-	if (!HasProjectLoaded())
-		return;
-
-	const std::filesystem::path scenesDirectory = Project::GetActiveAssetDirectory() / "Scenes";
-	std::error_code error;
-	std::filesystem::create_directories(scenesDirectory, error);
-
-    std::string filepath = FileDialogs::SaveFile("Whip Scene (*.wscene)\0*.wscene\0", scenesDirectory.string().c_str());
-	if (filepath.empty())
-		return;
-
-	std::filesystem::path scenePath(filepath);
-	if (!FileExtensions::IsSceneExtension(scenePath))
-		scenePath.replace_extension(FileExtensions::Scene);
-	else if (FileExtensions::IsLegacySceneExtension(scenePath))
-		scenePath.replace_extension(FileExtensions::Scene);
-
-	SerializeScene(m_ActiveScene, scenePath);
-
-	const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
-	if (PathIsOrIsUnder(scenePath, assetDirectory))
-	{
-		error.clear();
-		const std::filesystem::path RelativePath = std::filesystem::relative(scenePath, assetDirectory, error).lexically_normal();
-		if (!error)
-		{
-			m_EditorScenePath = RelativePath;
-			AssetHandle handle = Project::GetActive()->GetEditorAssetManager()->GetHandleFromFilepath(RelativePath);
-			if (handle == 0)
-				handle = Project::GetActive()->GetEditorAssetManager()->ImportAsset(RelativePath);
-			if (handle != 0)
-			{
-				m_ActiveScene->m_Handle = handle;
-				if (m_EditorScene)
-					m_EditorScene->m_Handle = handle;
-			}
-		}
-		else
-		{
-			m_EditorScenePath = scenePath;
-		}
-	}
-	else
-	{
-		m_EditorScenePath = scenePath;
-	}
-
-	if (m_ContentBrowserPanel)
-		m_ContentBrowserPanel->RefreshAssetTree();
-	MarkSceneClean();
-}
-
-void EditorLayer::MarkSceneDirty()
-{
-	if (m_SceneState == SceneState::Edit && m_EditorScene)
-		m_SceneManager.MarkDirty();
-}
-
-void EditorLayer::MarkSceneClean()
-{
-	m_SceneManager.MarkClean();
-}
-
-std::filesystem::path EditorLayer::GetSceneRecoveryPath() const
-{
-	return m_SceneManager.GetRecoveryPath();
-}
-
-void EditorLayer::WriteSceneRecoverySnapshot(const char* reason)
-{
-	if (!HasProjectLoaded() || !m_EditorScene || !m_SceneDirty || m_SceneState != SceneState::Edit)
-		return;
-
-	const std::filesystem::path recoveryPath = GetSceneRecoveryPath();
-	if (recoveryPath.empty())
-		return;
-
-	std::error_code error;
-	std::filesystem::create_directories(recoveryPath.parent_path(), error);
-	if (error)
-	{
-		WHP_EDITOR_WARN(std::string("[Scene Recovery] Could not create recovery directory: ") + error.message());
-		return;
-	}
-
-	SceneImporter::SaveScene(m_EditorScene, recoveryPath);
-	m_LastSceneRecoverySnapshot = std::chrono::steady_clock::now();
-	WHP_EDITOR_INFO(std::string("[Scene Recovery] Snapshot written (") + reason + "): " + recoveryPath.string());
-}
-
 void EditorLayer::SaveEntityTemplate(Entity entityIn)
 {
 	if (!HasProjectLoaded() || !entityIn)
@@ -1312,7 +857,7 @@ void EditorLayer::SaveEntityTemplate(Entity entityIn)
 	if (!FileExtensions::IsEntityTemplateExtension(templatePath))
 		templatePath.replace_extension(FileExtensions::EntityTemplate);
 
-	SceneSerializer serializer(m_EditorScene);
+	SceneSerializer serializer(m_SceneManager.EditorScene());
 	if (!serializer.SerializeEntityTemplate(entityIn, templatePath))
 	{
 		WHP_EDITOR_ERROR(std::string("[Entity Template] Could not save template: ") + templatePath.string());
@@ -1336,7 +881,7 @@ void EditorLayer::SaveEntityTemplate(Entity entityIn)
 
 bool EditorLayer::InstantiateEntityTemplate(AssetHandle handle)
 {
-	if (!HasProjectLoaded() || !m_EditorScene)
+	if (!HasProjectLoaded() || !m_SceneManager.EditorScene())
 		return false;
 
 	Ref<Project> activeProject = Project::GetActive();
@@ -1346,15 +891,15 @@ bool EditorLayer::InstantiateEntityTemplate(AssetHandle handle)
 		return false;
 	}
 
-	if (m_SceneState != SceneState::Edit)
+	if (m_SceneManager.State() != SceneState::Edit)
 	{
 		WHP_EDITOR_WARN("[Entity Template] Templates can only be instantiated while editing.");
 		return false;
 	}
 
 	const std::filesystem::path templatePath = Project::GetActiveAssetDirectory() / activeProject->GetEditorAssetManager()->GetFilepath(handle);
-	m_HistoryManager.CaptureSceneHistory(*this);
-	SceneSerializer serializer(m_EditorScene);
+	m_HistoryManager.CaptureSceneHistory();
+	SceneSerializer serializer(m_SceneManager.EditorScene());
 	Entity instance = serializer.DeserializeEntityTemplate(templatePath, handle);
 	if (!instance)
 	{
@@ -1387,7 +932,7 @@ Entity EditorLayer::FindPrefabRoot(Entity entityIn) const
 		if (hierarchy.m_Parent == 0)
 			break;
 
-		current = m_EditorScene ? m_EditorScene->FindEntityByUUID(hierarchy.m_Parent) : Entity{};
+		current = m_SceneManager.EditorScene() ? m_SceneManager.EditorScene()->FindEntityByUUID(hierarchy.m_Parent) : Entity{};
 	}
 
 	return entityIn.GetComponent<PrefabComponent>().m_Root ? entityIn : Entity{};
@@ -1407,7 +952,7 @@ void EditorLayer::RemovePrefabLinksRecursive(Entity entityIn)
 
 	for (UUID childId : children)
 	{
-		Entity child = m_EditorScene ? m_EditorScene->FindEntityByUUID(childId) : Entity{};
+		Entity child = m_SceneManager.EditorScene() ? m_SceneManager.EditorScene()->FindEntityByUUID(childId) : Entity{};
 		if (child)
 			RemovePrefabLinksRecursive(child);
 	}
@@ -1415,7 +960,7 @@ void EditorLayer::RemovePrefabLinksRecursive(Entity entityIn)
 
 void EditorLayer::ApplyEntityTemplate(Entity entityIn)
 {
-	if (!HasProjectLoaded() || !m_EditorScene)
+	if (!HasProjectLoaded() || !m_SceneManager.EditorScene())
 		return;
 
 	Entity root = FindPrefabRoot(entityIn);
@@ -1442,7 +987,7 @@ void EditorLayer::ApplyEntityTemplate(Entity entityIn)
 		return;
 	}
 
-	SceneSerializer serializer(m_EditorScene);
+	SceneSerializer serializer(m_SceneManager.EditorScene());
 	if (!serializer.SerializeEntityTemplate(root, templatePath))
 	{
 		WHP_EDITOR_ERROR(std::string("[Entity Template] Could not apply instance to template: ") + templatePath.string());
@@ -1458,7 +1003,7 @@ void EditorLayer::ApplyEntityTemplate(Entity entityIn)
 
 void EditorLayer::RevertEntityTemplate(Entity entityIn)
 {
-	if (!HasProjectLoaded() || !m_EditorScene)
+	if (!HasProjectLoaded() || !m_SceneManager.EditorScene())
 		return;
 
 	Entity root = FindPrefabRoot(entityIn);
@@ -1504,7 +1049,7 @@ void EditorLayer::RevertEntityTemplate(Entity entityIn)
 		parentId = hierarchy.m_Parent;
 		if (parentId != 0)
 		{
-			Entity parent = m_EditorScene->FindEntityByUUID(parentId);
+			Entity parent = m_SceneManager.EditorScene()->FindEntityByUUID(parentId);
 			if (parent && parent.HasComponent<HierarchyComponent>())
 			{
 				const auto& siblings = parent.GetComponent<HierarchyComponent>().m_Children;
@@ -1522,10 +1067,10 @@ void EditorLayer::RevertEntityTemplate(Entity entityIn)
 	if (root.HasComponent<TransformComponent>())
 		preservedTransform = root.GetComponent<TransformComponent>();
 
-	m_HistoryManager.CaptureSceneHistory(*this);
-	m_EditorScene->DestroyEntity(root);
+	m_HistoryManager.CaptureSceneHistory();
+	m_SceneManager.EditorScene()->DestroyEntity(root);
 
-	SceneSerializer serializer(m_EditorScene);
+	SceneSerializer serializer(m_SceneManager.EditorScene());
 	Entity reverted = serializer.DeserializeEntityTemplate(templatePath, handle);
 	if (!reverted)
 	{
@@ -1538,7 +1083,7 @@ void EditorLayer::RevertEntityTemplate(Entity entityIn)
 
 	if (parentId != 0 && reverted.HasComponent<HierarchyComponent>())
 	{
-		Entity parent = m_EditorScene->FindEntityByUUID(parentId);
+		Entity parent = m_SceneManager.EditorScene()->FindEntityByUUID(parentId);
 		if (parent && parent.HasComponent<HierarchyComponent>())
 		{
 			auto& hierarchy = reverted.GetComponent<HierarchyComponent>();
@@ -1557,7 +1102,7 @@ void EditorLayer::RevertEntityTemplate(Entity entityIn)
 
 void EditorLayer::UnpackEntityTemplate(Entity entityIn)
 {
-	if (!HasProjectLoaded() || !m_EditorScene)
+	if (!HasProjectLoaded() || !m_SceneManager.EditorScene())
 		return;
 
 	Entity root = FindPrefabRoot(entityIn);
@@ -1567,193 +1112,10 @@ void EditorLayer::UnpackEntityTemplate(Entity entityIn)
 		return;
 	}
 
-	m_HistoryManager.CaptureSceneHistory(*this);
+	m_HistoryManager.CaptureSceneHistory();
 	RemovePrefabLinksRecursive(root);
 	m_SceneHierarchyPanel.SetSelectedEntity(root);
 	WHP_EDITOR_INFO(std::string("[Entity Template] Unpacked instance ") + root.GetName());
-}
-
-void EditorLayer::ProcessRuntimeSceneTransition()
-{
-	if (m_SceneState != SceneState::Play && m_SceneState != SceneState::Simulate)
-	{
-		ScriptEngine::ClearRuntimeSceneTransitionRequest();
-		return;
-	}
-
-	const RuntimeSceneTransitionRequest request = ScriptEngine::ConsumeRuntimeSceneTransitionRequest();
-	switch (request.m_Type)
-	{
-	case RuntimeSceneTransitionType::Load:
-	case RuntimeSceneTransitionType::Reload:
-		LoadRuntimeScene(request.m_SceneHandle);
-		break;
-	case RuntimeSceneTransitionType::Unload:
-		UnloadRuntimeScene();
-		break;
-	default:
-		break;
-	}
-}
-
-bool EditorLayer::LoadRuntimeScene(AssetHandle handle)
-{
-	if (!HasProjectLoaded() || handle == 0)
-		return false;
-
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject->GetRuntimeAssetManager()->IsAssetHandleValid(handle) ||
-		activeProject->GetRuntimeAssetManager()->GetAssetType(handle) != AssetType::Scene)
-	{
-		WHP_EDITOR_WARN("[Scene Manager] Runtime scene load failed. Invalid scene handle.");
-		return false;
-	}
-
-	Ref<Scene> sourceScene = AssetManager::GetAsset<Scene>(handle);
-	if (!sourceScene)
-	{
-		WHP_EDITOR_WARN("[Scene Manager] Runtime scene load failed. Scene Asset could not be loaded.");
-		return false;
-	}
-
-	StopActiveRuntimeSceneForTransition();
-	m_ActiveScene = Scene::Copy(sourceScene);
-	m_ActiveScene->OnViewportResize(static_cast<uint32_t>(m_ViewportSize.x), static_cast<uint32_t>(m_ViewportSize.y));
-	m_SceneHierarchyPanel.SetContext(m_ActiveScene);
-	m_SceneHierarchyPanel.SetSelectedEntity({});
-	StartActiveRuntimeSceneForTransition(handle);
-	WHP_EDITOR_INFO(std::string("[Scene Manager] Runtime scene loaded: ") + activeProject->GetRuntimeAssetManager()->GetFilepath(handle).generic_string());
-	return true;
-}
-
-bool EditorLayer::UnloadRuntimeScene()
-{
-	if (m_SceneState != SceneState::Play && m_SceneState != SceneState::Simulate)
-		return false;
-
-	StopActiveRuntimeSceneForTransition();
-	m_ActiveScene = MakeRef<Scene>();
-	m_ActiveScene->OnViewportResize(static_cast<uint32_t>(m_ViewportSize.x), static_cast<uint32_t>(m_ViewportSize.y));
-	m_SceneHierarchyPanel.SetContext(m_ActiveScene);
-	m_SceneHierarchyPanel.SetSelectedEntity({});
-	StartActiveRuntimeSceneForTransition(0);
-	WHP_EDITOR_INFO("[Scene Manager] Runtime scene unloaded.");
-	return true;
-}
-
-void EditorLayer::StopActiveRuntimeSceneForTransition()
-{
-	m_SceneManager.StopActiveRuntimeSceneForTransition();
-}
-
-void EditorLayer::StartActiveRuntimeSceneForTransition(AssetHandle handle)
-{
-	m_SceneManager.StartActiveRuntimeSceneForTransition(handle);
-}
-
-void EditorLayer::SerializeScene(Ref<Scene> sceneIn, const std::filesystem::path& path)
-{
-	SceneImporter::SaveScene(sceneIn, path);
-
-	if (!HasProjectLoaded() || !sceneIn)
-		return;
-
-	const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
-	std::filesystem::path scenePath = path;
-	if (!scenePath.is_absolute())
-		scenePath = assetDirectory / scenePath;
-	scenePath = scenePath.lexically_normal();
-
-	if (!PathIsOrIsUnder(scenePath, assetDirectory))
-		return;
-
-	std::error_code error;
-	const std::filesystem::path RelativePath = std::filesystem::relative(scenePath, assetDirectory, error).lexically_normal();
-	if (error || RelativePath.empty() || !FileExtensions::IsSceneExtension(RelativePath))
-		return;
-
-	Ref<EditorAssetManager> EditorAssetManager = Project::GetActive()->GetEditorAssetManager();
-	if (!EditorAssetManager)
-		return;
-
-	AssetHandle handle = EditorAssetManager->GetHandleFromFilepath(RelativePath);
-	if (handle == 0)
-		handle = EditorAssetManager->ImportAsset(RelativePath);
-
-	if (handle == 0)
-		return;
-
-	sceneIn->m_Handle = handle;
-	if (m_EditorScene)
-		m_EditorScene->m_Handle = handle;
-	if (m_ActiveScene)
-		m_ActiveScene->m_Handle = handle;
-
-	EditorAssetManager->SetLoadedAsset(handle, Scene::Copy(sceneIn));
-}
-
-void EditorLayer::OnScenePlay()
-{
-	if (!HasProjectLoaded())
-		return;
-
-	if (m_SceneState == SceneState::Simulate)
-		OnSceneStop();
-	WriteSceneRecoverySnapshot("Before play");
-	Project::RunState(true);
-	m_SceneState = SceneState::Play;
-	ScriptEngine::SetFilewatcherState(false);
-	m_ActiveScene = Scene::Copy(m_EditorScene);
-	ScriptEngine::SetRuntimeActiveSceneHandle(m_ActiveScene->m_Handle);
-	m_ActiveScene->OnRuntimeStart();
-	ScriptEngine::SetRuntimeActiveSceneHandle(m_ActiveScene->m_Handle);
-	m_LastSelectedEntity = m_SceneHierarchyPanel.GetSelectedEntity();
-	m_SceneHierarchyPanel.SetContext(m_ActiveScene);
-}
-
-void EditorLayer::OnSceneSimulate()
-{
-	if (!HasProjectLoaded())
-		return;
-
-	if (m_SceneState == SceneState::Play)
-		OnSceneStop();
-
-	WriteSceneRecoverySnapshot("Before simulate");
-	Project::RunState(true);
-	m_SceneState = SceneState::Simulate;
-	ScriptEngine::SetFilewatcherState(false);
-	m_ActiveScene = Scene::Copy(m_EditorScene);
-	ScriptEngine::SetRuntimeActiveSceneHandle(m_ActiveScene->m_Handle);
-	m_ActiveScene->OnSimulationStart();
-	ScriptEngine::SetRuntimeActiveSceneHandle(m_ActiveScene->m_Handle);
-	m_LastSelectedEntity = m_SceneHierarchyPanel.GetSelectedEntity();
-	m_SceneHierarchyPanel.SetContext(m_ActiveScene);
-	// maybe do not ??
-	if(m_LastSelectedEntity)
-		m_SceneHierarchyPanel.SetSelectedEntity(m_ActiveScene->FindEntityByUUID(m_LastSelectedEntity.GetUUID()));
-}
-
-void EditorLayer::OnSceneStop()
-{
-	WHP_CORE_ASSERT(m_SceneState == SceneState::Play || m_SceneState == SceneState::Simulate, "invalid SceneState!");
-	Project::RunState(false);
-	if (m_SceneState == SceneState::Play)
-		m_ActiveScene->OnRuntimeStop();
-	else if (m_SceneState == SceneState::Simulate)
-		m_ActiveScene->OnSimulationStop();
-	m_SceneState = SceneState::Edit;
-	ScriptEngine::ClearRuntimeSceneTransitionRequest();
-	ScriptEngine::SetRuntimeActiveSceneHandle(0);
-	ScriptEngine::SetFilewatcherState(true);
-	m_ActiveScene = m_EditorScene;
-	m_SceneHierarchyPanel.SetContext(m_ActiveScene);
-	m_SceneHierarchyPanel.SetSelectedEntity(m_LastSelectedEntity);
-}
-
-void EditorLayer::OnScenePause()
-{
-
 }
 
 void EditorLayer::UIToolbar()
@@ -1764,10 +1126,11 @@ void EditorLayer::UIToolbar()
 	if (!toolbarEnabled)
 		tintColor.w = 0.5f;
 
-	bool hasPlayButton = m_SceneState == SceneState::Edit|| m_SceneState == SceneState::Play;
-	bool hasSimulateButton = m_SceneState == SceneState::Edit || m_SceneState == SceneState::Simulate;
-	bool hasPauseButton = m_SceneState != SceneState::Edit;
-	bool isPaused = hasPauseButton && m_ActiveScene->IsPaused();
+	const SceneState sceneState = m_SceneManager.State();
+	bool hasPlayButton = sceneState == SceneState::Edit|| sceneState == SceneState::Play;
+	bool hasSimulateButton = sceneState == SceneState::Edit || sceneState == SceneState::Simulate;
+	bool hasPauseButton = sceneState != SceneState::Edit;
+	bool isPaused = hasPauseButton && m_SceneManager.ActiveScene()->IsPaused();
 	bool hasStepButton = hasPauseButton && isPaused;
 
 	const float buttonSize = 36.0f;
@@ -1817,39 +1180,39 @@ void EditorLayer::UIToolbar()
 
 	if(hasPlayButton)
 	{
-		Icon playIcon = m_SceneState == SceneState::Play ? Icon::Stop : Icon::Play;
-		if (drawIconButton("##ViewportToolbarPlay", playIcon, ColorU32(0.58f, 0.70f, 0.42f, tintColor.w), m_SceneState == SceneState::Play ? "Stop" : "Play"))
+		Icon playIcon = sceneState == SceneState::Play ? Icon::Stop : Icon::Play;
+		if (drawIconButton("##ViewportToolbarPlay", playIcon, ColorU32(0.58f, 0.70f, 0.42f, tintColor.w), sceneState == SceneState::Play ? "Stop" : "Play"))
 		{
-			if (m_SceneState == SceneState::Edit || m_SceneState == SceneState::Simulate)
-				OnScenePlay();
-			else if (m_SceneState == SceneState::Play)
-				OnSceneStop();
+			if (sceneState == SceneState::Edit || sceneState == SceneState::Simulate)
+				m_SceneManager.OnScenePlay();
+			else if (sceneState == SceneState::Play)
+				m_SceneManager.OnSceneStop();
 		}
 	}
 	if(hasSimulateButton)
 	{
 		if(hasPlayButton)
 			ImGui::SameLine();
-		Icon simulateIcon = m_SceneState == SceneState::Simulate ? Icon::Stop : Icon::Simulate;
-		if (drawIconButton("##ViewportToolbarSimulate", simulateIcon, ColorU32(0.66f, 0.55f, 0.42f, tintColor.w), m_SceneState == SceneState::Simulate ? "Stop simulation" : "Simulate"))
+		Icon simulateIcon = sceneState == SceneState::Simulate ? Icon::Stop : Icon::Simulate;
+		if (drawIconButton("##ViewportToolbarSimulate", simulateIcon, ColorU32(0.66f, 0.55f, 0.42f, tintColor.w), sceneState == SceneState::Simulate ? "Stop simulation" : "Simulate"))
 		{
-			if (m_SceneState == SceneState::Edit || m_SceneState == SceneState::Play)
-				OnSceneSimulate();
-			else if (m_SceneState == SceneState::Simulate)
-				OnSceneStop();
+			if (sceneState == SceneState::Edit || sceneState == SceneState::Play)
+				m_SceneManager.OnSceneSimulate();
+			else if (sceneState == SceneState::Simulate)
+				m_SceneManager.OnSceneStop();
 		}
 	}
 	if (hasPauseButton)
 	{
 		ImGui::SameLine();
 		if (drawIconButton("##ViewportToolbarPause", Icon::Pause, ColorU32(0.86f, 0.64f, 0.32f, tintColor.w), isPaused ? "Resume" : "Pause"))
-			m_ActiveScene->SetPaused(!isPaused);
+			m_SceneManager.ActiveScene()->SetPaused(!isPaused);
 
 		if (isPaused)
 		{
 			ImGui::SameLine();
 			if (drawIconButton("##ViewportToolbarStepForward", Icon::StepForward, ColorU32(0.86f, 0.64f, 0.32f, tintColor.w), "Step"))
-				m_ActiveScene->Step(m_UISettings.GetStepFrame());
+				m_SceneManager.ActiveScene()->Step(m_UISettings.GetStepFrame());
 		}
 	}
 	ImGui::PopStyleVar();

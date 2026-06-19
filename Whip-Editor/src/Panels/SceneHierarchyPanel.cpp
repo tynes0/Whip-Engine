@@ -1,4 +1,4 @@
-#include <Whip-Editor/panels/SceneHierarchyPanel.h>
+#include <Whip-Editor/Panels/SceneHierarchyPanel.h>
 
 #include <Whip/Scene/Components.h>
 #include <Whip-Editor/UI/UIHelpers.h>

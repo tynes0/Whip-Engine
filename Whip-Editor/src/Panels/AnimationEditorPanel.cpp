@@ -1,4 +1,4 @@
-#include <Whip-Editor/panels/AnimationEditorPanel.h>
+#include <Whip-Editor/Panels/AnimationEditorPanel.h>
 #include <Whip/Core/Application.h>
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Utils/Utility.h>

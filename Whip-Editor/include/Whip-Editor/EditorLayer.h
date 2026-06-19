@@ -12,14 +12,12 @@
 #include <Whip/Render/EditorCamera.h>
 #include <Whip/Audio/AudioEngine.h>
 
-#include <Whip-Editor/panels/SceneHierarchyPanel.h>
-#include <Whip-Editor/panels/ContentBrowserPanel.h>
-#include <Whip-Editor/panels/AnimationEditorPanel.h>
-#include <Whip-Editor/panels/AssetEditorPanel.h>
-#include <Whip-Editor/panels/ConsolePanel.h>
-#include <Whip-Editor/panels/EditorPanelManager.h>
-
-#include <chrono>
+#include <Whip-Editor/Panels/SceneHierarchyPanel.h>
+#include <Whip-Editor/Panels/ContentBrowserPanel.h>
+#include <Whip-Editor/Panels/AnimationEditorPanel.h>
+#include <Whip-Editor/Panels/AssetEditorPanel.h>
+#include <Whip-Editor/Panels/ConsolePanel.h>
+#include <Whip-Editor/Panels/EditorPanelManager.h>
 
 _WHIP_START
 
@@ -49,21 +47,8 @@ private:
 	void DrawEditorGrid();
 	void OnOverlayRender();
 
-	bool NewProject(const UI::ProjectCreateSettings& settings);
-	bool OpenProject();
-	bool OpenProject(const std::filesystem::path& path);
-	void ResetEditorProjectState();
 	bool HasProjectLoaded() const;
 
-	void NewScene();
-	void OpenScene(AssetHandle handle);
-	void CloseScene();
-	void SaveScene();
-	void SaveSceneAs();
-	void MarkSceneDirty();
-	void MarkSceneClean();
-	void WriteSceneRecoverySnapshot(const char* reason);
-	std::filesystem::path GetSceneRecoveryPath() const;
 	void SaveEntityTemplate(Entity entityIn);
 	void ApplyEntityTemplate(Entity entityIn);
 	void RevertEntityTemplate(Entity entityIn);
@@ -71,19 +56,6 @@ private:
 	Entity FindPrefabRoot(Entity entityIn) const;
 	void RemovePrefabLinksRecursive(Entity entityIn);
 	bool InstantiateEntityTemplate(AssetHandle handle);
-
-	void ProcessRuntimeSceneTransition();
-	bool LoadRuntimeScene(AssetHandle handle);
-	bool UnloadRuntimeScene();
-	void StopActiveRuntimeSceneForTransition();
-	void StartActiveRuntimeSceneForTransition(AssetHandle handle);
-
-	void SerializeScene(Ref<Scene> sceneIn, const std::filesystem::path& path);
-
-	void OnScenePlay();
-	void OnSceneSimulate();
-	void OnSceneStop();
-	void OnScenePause();
 
 	bool ExecuteEditorAction(UI::EditorShortcutAction action);
 	bool IsEditorActionAvailable(UI::EditorShortcutAction action) const;
@@ -124,14 +96,6 @@ private:
 	bool m_CommandPaletteFocusSearch = false;
 	char m_CommandPaletteFilter[128]{ 0 };
 
-	// scene
-	Ref<Scene>& m_ActiveScene;
-	Ref<Scene>& m_EditorScene;
-	std::filesystem::path& m_EditorScenePath;
-	bool& m_GizmoHistoryActive;
-	bool& m_SceneDirty;
-	std::chrono::steady_clock::time_point& m_LastSceneRecoverySnapshot;
-
 	// framebuffer
 	Ref<Framebuffer> m_Framebuffer;
 
@@ -139,9 +103,6 @@ private:
 	int m_GizmoType = -1;
 	bool m_GizmoHovered = false;
 	bool m_GizmoUsing = false;
-
-	// states
-	SceneState& m_SceneState;
 
 	// panels
 	EditorPanelManager m_PanelManager;

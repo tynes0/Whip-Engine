@@ -6,7 +6,6 @@
 #include <Whip/Asset/AssetMetadata.h>
 #include <Whip/Asset/AssetUtils.h>
 
-#include <algorithm>
 #include <imgui.h>
 
 _WHIP_START
@@ -68,8 +67,27 @@ namespace
 	}
 }
 
-bool EditorAssetInteractionManager::HandleViewportAssetDrop(EditorLayer& layer, AssetHandle handle, int32_t textureSpriteIndex) const
+EditorAssetInteractionManager::EditorAssetInteractionManager(EditorLayer* boundedLayer)
+	: m_BoundedLayer(boundedLayer)
 {
+}
+
+EditorAssetInteractionManager::~EditorAssetInteractionManager() = default;
+
+void EditorAssetInteractionManager::Bind(EditorLayer& layer)
+{
+	m_BoundedLayer = &layer;
+}
+
+EditorLayer& EditorAssetInteractionManager::GetLayer() const
+{
+	WHP_CORE_ASSERT(m_BoundedLayer, "EditorAssetInteractionManager is not bound to an EditorLayer.");
+	return *m_BoundedLayer;
+}
+
+bool EditorAssetInteractionManager::HandleViewportAssetDrop(AssetHandle handle, int32_t textureSpriteIndex) const
+{
+	EditorLayer& layer = GetLayer();
 	if (handle == 0 || !layer.HasProjectLoaded())
 		return false;
 
@@ -81,20 +99,21 @@ bool EditorAssetInteractionManager::HandleViewportAssetDrop(EditorLayer& layer, 
 	switch (type)
 	{
 	case AssetType::Scene:
-		layer.OpenScene(handle);
+		layer.m_SceneManager.OpenScene(handle);
 		return true;
 	case AssetType::Entity:
 		return layer.InstantiateEntityTemplate(handle);
 	case AssetType::Texture2D:
-		return CreateSpriteEntityFromTexture(layer, handle, GetViewportMouseWorldPosition(layer), textureSpriteIndex);
+		return CreateSpriteEntityFromTexture(handle, GetViewportMouseWorldPosition(), textureSpriteIndex);
 	default:
 		WHP_EDITOR_WARN("[Viewport] This Asset type cannot be dropped into the viewport yet.");
 		return false;
 	}
 }
 
-bool EditorAssetInteractionManager::HandleContentBrowserAssetOpen(EditorLayer& layer, AssetHandle handle) const
+bool EditorAssetInteractionManager::HandleContentBrowserAssetOpen(AssetHandle handle) const
 {
+	EditorLayer& layer = GetLayer();
 	if (handle == 0 || !layer.HasProjectLoaded())
 		return false;
 
@@ -105,7 +124,7 @@ bool EditorAssetInteractionManager::HandleContentBrowserAssetOpen(EditorLayer& l
 	switch (activeProject->GetEditorAssetManager()->GetAssetType(handle))
 	{
 	case AssetType::Scene:
-		layer.OpenScene(handle);
+		layer.m_SceneManager.OpenScene(handle);
 		return true;
 	case AssetType::Entity:
 		return layer.InstantiateEntityTemplate(handle);
@@ -114,8 +133,9 @@ bool EditorAssetInteractionManager::HandleContentBrowserAssetOpen(EditorLayer& l
 	}
 }
 
-bool EditorAssetInteractionManager::HandleContentBrowserAssetInspect(EditorLayer& layer, AssetHandle handle) const
+bool EditorAssetInteractionManager::HandleContentBrowserAssetInspect(AssetHandle handle) const
 {
+	EditorLayer& layer = GetLayer();
 	if (handle == 0 || !layer.HasProjectLoaded())
 		return false;
 
@@ -144,9 +164,10 @@ void EditorAssetInteractionManager::SetStartScene(AssetHandle handle) const
 	WHP_EDITOR_INFO(std::string("[Project] Start scene set: ") + activeProject->GetEditorAssetManager()->GetFilepath(handle).generic_string());
 }
 
-bool EditorAssetInteractionManager::CreateSpriteEntityFromTexture(EditorLayer& layer, AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex) const
+bool EditorAssetInteractionManager::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex) const
 {
-	if (!layer.HasProjectLoaded() || !layer.m_EditorScene || layer.m_SceneState != EditorSceneState::Edit)
+	EditorLayer& layer = GetLayer();
+	if (!layer.HasProjectLoaded() || !layer.m_SceneManager.EditorScene() || layer.m_SceneManager.State() != EditorSceneState::Edit)
 		return false;
 
 	Ref<Project> activeProject = Project::GetActive();
@@ -156,13 +177,13 @@ bool EditorAssetInteractionManager::CreateSpriteEntityFromTexture(EditorLayer& l
 		return false;
 	}
 
-	layer.m_HistoryManager.CaptureSceneHistory(layer);
+	layer.m_HistoryManager.CaptureSceneHistory();
 	const auto& metadata = activeProject->GetEditorAssetManager()->GetMetadata(handle);
 	const auto& sprites = metadata.m_TextureSettings.m_Sprites;
 	const bool validSpriteIndex = textureSpriteIndex >= 0 && textureSpriteIndex < static_cast<int32_t>(sprites.size());
 	const TextureSpriteRect* spriteRect = validSpriteIndex ? &sprites[static_cast<size_t>(textureSpriteIndex)] : nullptr;
 	const std::string name = spriteRect ? spriteRect->m_Name : (metadata.m_Filepath.stem().empty() ? "Sprite" : metadata.m_Filepath.stem().string());
-	Entity sprite = layer.m_EditorScene->CreateEntity(name);
+	Entity sprite = layer.m_SceneManager.EditorScene()->CreateEntity(name);
 	auto& transform = sprite.GetComponent<TransformComponent>();
 	transform.m_Translation = position;
 
@@ -238,8 +259,9 @@ AssetHandle EditorAssetInteractionManager::ImportExternalAssetFile(const std::fi
 	return activeProject->GetEditorAssetManager()->ImportAsset(relativePath);
 }
 
-glm::vec3 EditorAssetInteractionManager::GetViewportMouseWorldPosition(const EditorLayer& layer) const
+glm::vec3 EditorAssetInteractionManager::GetViewportMouseWorldPosition() const
 {
+	const EditorLayer& layer = GetLayer();
 	const glm::vec2 viewportSize = layer.m_ViewportBounds[1] - layer.m_ViewportBounds[0];
 	const glm::vec3 fallback = layer.m_EditorCamera.GetPosition() + layer.m_EditorCamera.GetForwardDirection() * glm::max(layer.m_EditorCamera.GetDistance(), 1.0f);
 	if (viewportSize.x <= 0.0f || viewportSize.y <= 0.0f)

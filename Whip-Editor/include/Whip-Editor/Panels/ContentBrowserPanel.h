@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Whip-Editor/panels/EditorPanel.h>
-#include <Whip-Editor/panels/ThumbnailCache.h>
+#include <Whip-Editor/Panels/EditorPanel.h>
+#include <Whip-Editor/Panels/ThumbnailCache.h>
 
 #include <Whip/Core/Core.h>
 #include <Whip/Asset/Asset.h>

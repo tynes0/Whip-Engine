@@ -1,4 +1,4 @@
-#include <Whip-Editor/panels/AssetEditorPanel.h>
+#include <Whip-Editor/Panels/AssetEditorPanel.h>
 
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/TextureSlicer.h>

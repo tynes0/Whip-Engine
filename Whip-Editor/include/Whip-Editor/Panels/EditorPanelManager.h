@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Whip-Editor/panels/EditorPanel.h>
+#include <Whip-Editor/Panels/EditorPanel.h>
 
 #include <vector>
 

@@ -1,5 +1,5 @@
 #include <WhipPch.h>
-#include <Whip-Editor/panels/ThumbnailCache.h>
+#include <Whip-Editor/Panels/ThumbnailCache.h>
 
 #include <Whip/Asset/TextureImporter.h>
 

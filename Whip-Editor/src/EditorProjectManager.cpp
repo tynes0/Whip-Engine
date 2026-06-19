@@ -2,13 +2,18 @@
 
 #include <Whip-Editor/EditorLayer.h>
 #include <Whip-Editor/EditorScriptManager.h>
-#include <Whip-Editor/panels/ConsolePanel.h>
+#include <Whip-Editor/Panels/ConsolePanel.h>
 
 #include <Whip/Asset/AssetMetadata.h>
+#include <Whip/Asset/SceneImporter.h>
+#include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Utils/FileExtensions.h>
+#include <Whip/Utils/PlatformUtils.h>
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
+#include <string_view>
 #include <yaml-cpp/yaml.h>
 
 _WHIP_START
@@ -25,6 +30,32 @@ namespace
 		if (!node || !node.IsSequence() || node.size() != 3)
 			return fallback;
 		return { node[0].as<float>(fallback.x), node[1].as<float>(fallback.y), node[2].as<float>(fallback.z) };
+	}
+
+	std::string SanitizeProjectToken(std::string value, const std::string& fallback)
+	{
+		std::erase_if(value, [](unsigned char c)
+		{
+			return !std::isalnum(c) && c != '_' && c != '-' && c != ' ';
+		});
+
+		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())))
+			value.erase(value.begin());
+		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back())))
+			value.pop_back();
+
+		if (value.empty())
+			value = fallback;
+		return value;
+	}
+
+	std::string SanitizePathToken(std::string value, const std::string& fallback)
+	{
+		value = SanitizeProjectToken(std::move(value), fallback);
+		for (char& c : value)
+			if (c == ' ')
+				c = '_';
+		return value;
 	}
 
 	UI::EditorTheme ThemeFromString(const std::string& value)
@@ -80,36 +111,65 @@ namespace
 
 		return true;
 	}
+
+	bool CreateDirectoryChecked(const std::filesystem::path& path, std::string_view label)
+	{
+		std::error_code error;
+		std::filesystem::create_directories(path, error);
+		if (!error)
+			return true;
+
+		WHP_EDITOR_ERROR("[Whip Hub] Could not create {}: {} ({})", label, path.string(), error.message());
+		return false;
+	}
 }
 
-void EditorProjectManager::SetupProjectLoader(EditorLayer& layer)
+EditorProjectManager::EditorProjectManager(EditorLayer* boundedLayer)
+	: m_BoundedLayer(boundedLayer)
 {
-	m_ProjectLoader.SetCreateProjectCallback([&layer](const UI::ProjectCreateSettings& settings) { return layer.NewProject(settings); });
-	m_ProjectLoader.SetLoadProjectCallback([&layer]() { return layer.OpenProject(); });
-	m_ProjectLoader.SetOpenRecentProjectCallback([this, &layer](const std::filesystem::path& path) {
+}
+
+EditorProjectManager::~EditorProjectManager() = default;
+
+void EditorProjectManager::Bind(EditorLayer& layer)
+{
+	m_BoundedLayer = &layer;
+}
+
+EditorLayer& EditorProjectManager::GetLayer() const
+{
+	WHP_CORE_ASSERT(m_BoundedLayer, "EditorProjectManager is not bound to an EditorLayer.");
+	return *m_BoundedLayer;
+}
+
+void EditorProjectManager::SetupProjectLoader()
+{
+	m_ProjectLoader.SetCreateProjectCallback([this](const UI::ProjectCreateSettings& settings) { return NewProject(settings); });
+	m_ProjectLoader.SetLoadProjectCallback([this]() { return OpenProject(); });
+	m_ProjectLoader.SetOpenRecentProjectCallback([this](const std::filesystem::path& path) {
 		std::error_code error;
 		if (!std::filesystem::exists(path, error))
 		{
 			WHP_EDITOR_WARN("[Whip Hub] Recent Project no longer exists.");
 			m_ProjectLoader.SetStatus("Recent project no longer exists.");
-			LoadRecentProjects(layer);
+			LoadRecentProjects();
 			return false;
 		}
 
-		const bool opened = layer.OpenProject(path);
+		const bool opened = OpenProject(path);
 		if (!opened)
 			m_ProjectLoader.SetStatus("Project could not be opened.");
 		return opened;
 	});
-	m_ProjectLoader.SetForgetRecentProjectCallback([this, &layer](const std::filesystem::path& path) {
-		return ForgetRecentProject(layer, path);
+	m_ProjectLoader.SetForgetRecentProjectCallback([this](const std::filesystem::path& path) {
+		return ForgetRecentProject(path);
 	});
-	m_ProjectLoader.SetDeleteRecentProjectCallback([this, &layer](const std::filesystem::path& path) {
-		return DeleteRecentProject(layer, path);
+	m_ProjectLoader.SetDeleteRecentProjectCallback([this](const std::filesystem::path& path) {
+		return DeleteRecentProject(path);
 	});
 }
 
-void EditorProjectManager::LoadRecentProjects(EditorLayer& layer)
+void EditorProjectManager::LoadRecentProjects()
 {
 	m_RecentProjects.clear();
 	bool shouldRewrite = false;
@@ -172,7 +232,7 @@ void EditorProjectManager::SaveRecentProjects() const
 		stream << projectPath.string() << '\n';
 }
 
-void EditorProjectManager::AddRecentProject(EditorLayer& layer, const std::filesystem::path& path)
+void EditorProjectManager::AddRecentProject(const std::filesystem::path& path)
 {
 	if (path.empty())
 		return;
@@ -199,11 +259,11 @@ void EditorProjectManager::AddRecentProject(EditorLayer& layer, const std::files
 
 	m_LastProjectPath = normalizedPath;
 	SaveRecentProjects();
-	SaveEditorPreferences(layer);
+	SaveEditorPreferences();
 	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
 }
 
-bool EditorProjectManager::ForgetRecentProject(EditorLayer& layer, const std::filesystem::path& path)
+bool EditorProjectManager::ForgetRecentProject(const std::filesystem::path& path)
 {
 	if (path.empty())
 		return false;
@@ -224,12 +284,12 @@ bool EditorProjectManager::ForgetRecentProject(EditorLayer& layer, const std::fi
 		m_LastProjectPath.clear();
 
 	SaveRecentProjects();
-	SaveEditorPreferences(layer);
+	SaveEditorPreferences();
 	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
 	return true;
 }
 
-bool EditorProjectManager::DeleteRecentProject(EditorLayer& layer, const std::filesystem::path& path)
+bool EditorProjectManager::DeleteRecentProject(const std::filesystem::path& path)
 {
 	if (path.empty() || !FileExtensions::IsProjectExtension(path))
 		return false;
@@ -240,7 +300,7 @@ bool EditorProjectManager::DeleteRecentProject(EditorLayer& layer, const std::fi
 	if (error)
 		return false;
 	if (!projectFileExists)
-		return ForgetRecentProject(layer, path);
+		return ForgetRecentProject(path);
 
 	if (!std::filesystem::is_regular_file(projectPath, error) || error)
 		return false;
@@ -277,7 +337,7 @@ bool EditorProjectManager::DeleteRecentProject(EditorLayer& layer, const std::fi
 		return false;
 	}
 
-	return ForgetRecentProject(layer, projectPath);
+	return ForgetRecentProject(projectPath);
 }
 
 bool EditorProjectManager::ShouldIncludeRecentProject(const std::filesystem::path& path) const
@@ -314,9 +374,10 @@ std::filesystem::path EditorProjectManager::GetPreferencesPath() const
 	return std::filesystem::current_path() / "WhipEditorPreferences.yaml";
 }
 
-void EditorProjectManager::LoadEditorPreferences(EditorLayer& layer)
+void EditorProjectManager::LoadEditorPreferences()
 {
-	LoadRecentProjects(layer);
+	EditorLayer& layer = GetLayer();
+	LoadRecentProjects();
 
 	const std::filesystem::path preferencesPath = GetPreferencesPath();
 	std::error_code error;
@@ -407,8 +468,10 @@ void EditorProjectManager::LoadEditorPreferences(EditorLayer& layer)
 	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
 }
 
-void EditorProjectManager::SaveEditorPreferences(const EditorLayer& layer) const
+void EditorProjectManager::SaveEditorPreferences() const
 {
+	const EditorLayer& layer = GetLayer();
+
 	YAML::Emitter out;
 	out << YAML::BeginMap;
 	out << YAML::Key << "last_project" << YAML::Value << m_LastProjectPath.string();
@@ -467,15 +530,11 @@ void EditorProjectManager::SaveEditorPreferences(const EditorLayer& layer) const
 	stream << out.c_str();
 }
 
-void EditorProjectManager::ApplyPreferencesToContentBrowser(EditorLayer& layer)
+void EditorProjectManager::ApplyPreferencesToContentBrowser()
 {
+	EditorLayer& layer = GetLayer();
 	if (layer.m_ContentBrowserPanel && m_HasContentBrowserPreferences)
 		layer.m_ContentBrowserPanel->ApplyPreferences(m_ContentBrowserPreferences);
-}
-
-bool EditorProjectManager::NewProject(EditorLayer& layer, const UI::ProjectCreateSettings& settings)
-{
-	return layer.NewProject(settings);
 }
 
 void EditorProjectManager::SaveProject() const
@@ -486,17 +545,122 @@ void EditorProjectManager::SaveProject() const
 	Project::SaveActive();
 }
 
-void EditorProjectManager::FinishProjectSettings(EditorLayer& layer)
+bool EditorProjectManager::NewProject(const UI::ProjectCreateSettings& settings)
 {
+	const std::string projectName = SanitizeProjectToken(settings.m_Name, "Untitled");
+	const std::string projectFolderName = SanitizePathToken(projectName, "Untitled");
+	const std::string initialSceneName = SanitizePathToken(settings.m_InitialSceneName, "Main");
+	if (settings.m_Location.empty())
+		return false;
+
+	std::filesystem::path projectDirectory = settings.m_Location / projectFolderName;
+	std::filesystem::path projectPath = projectDirectory / (projectFolderName + FileExtensions::Project);
+	std::error_code error;
+	if (std::filesystem::exists(projectPath, error))
+	{
+		WHP_EDITOR_WARN(std::string("[Whip Hub] Project file already exists: ") + projectPath.string());
+		return false;
+	}
+
+	if (!CreateDirectoryChecked(projectDirectory / "Assets" / "Scenes", "Project scenes directory") ||
+		!CreateDirectoryChecked(projectDirectory / "Assets" / "Scripts" / "Source", "script source directory") ||
+		!CreateDirectoryChecked(projectDirectory / "Assets" / "Scripts" / "Binaries", "script binaries directory") ||
+		!CreateDirectoryChecked(projectDirectory / "Assets" / "Animations", "animations directory") ||
+		!CreateDirectoryChecked(projectDirectory / "Assets" / "Audios", "audio directory") ||
+		!CreateDirectoryChecked(projectDirectory / "Assets" / "fonts", "font directory") ||
+		!CreateDirectoryChecked(projectDirectory / "Assets" / "textures", "texture directory"))
+	{
+		return false;
+	}
+
+	Ref<Project> newProject = Project::NewProject();
+	Project::SetActiveProjectPath(projectPath);
+
+	ProjectConfig& config = newProject->GetConfig();
+	config.m_Name = projectName;
+	config.m_AssetDirectory = "Assets";
+	config.m_AssetRegistryPath = FileExtensions::AssetRegistryFilename;
+	config.m_ScriptModulePath = std::filesystem::path("Scripts") / "Binaries" / (projectFolderName + ".dll");
+	config.m_StartScene = 0;
+
+	if (!EditorScriptManager::WriteProjectFiles(projectDirectory, projectFolderName))
+	{
+		Project::SetActive(nullptr);
+		return false;
+	}
+
+	std::filesystem::path startSceneRelativePath;
+	AssetHandle startSceneHandle = 0;
+	if (settings.m_CreateStartScene)
+	{
+		startSceneHandle = AssetHandle{};
+		config.m_StartScene = startSceneHandle;
+		startSceneRelativePath = std::filesystem::path("Scenes") / (initialSceneName + FileExtensions::Scene);
+
+		Ref<Scene> startScene = MakeRef<Scene>(startSceneHandle);
+		if (settings.m_TemplateIndex == 1 || settings.m_TemplateIndex == 2)
+		{
+			Entity camera = startScene->CreateEntity("Main Camera");
+			camera.AddComponent<CameraComponent>();
+			camera.GetComponent<TransformComponent>().m_Translation = { 0.0f, 0.0f, 8.0f };
+
+			Entity sprite = startScene->CreateEntity(settings.m_TemplateIndex == 2 ? "Starter Entity" : "Sprite");
+			sprite.AddComponent<SpriteRendererComponent>(glm::vec4{ 0.86f, 0.58f, 0.28f, 1.0f });
+			if (settings.m_TemplateIndex == 2)
+				sprite.AddComponent<ScriptComponent>().m_ClassName = projectFolderName + ".StarterEntity";
+		}
+
+		SceneImporter::SaveScene(startScene, projectDirectory / config.m_AssetDirectory / startSceneRelativePath);
+	}
+
+	if (!Project::SaveActive(projectPath))
+	{
+		Project::SetActive(nullptr);
+		return false;
+	}
+
+	std::ofstream registry(projectPath.parent_path() / config.m_AssetDirectory / config.m_AssetRegistryPath, std::ios::trunc);
+	if (!registry)
+	{
+		WHP_EDITOR_ERROR("[Whip Hub] Could not write Asset registry.");
+		Project::SetActive(nullptr);
+		return false;
+	}
+
+	if (settings.m_CreateStartScene)
+	{
+		registry << "AssetRegistry:\n";
+		registry << "  - handle: " << (uint64_t)startSceneHandle << '\n';
+		registry << "    filepath: " << startSceneRelativePath.generic_string() << '\n';
+		registry << "    type: scene\n";
+	}
+	else
+	{
+		registry << "AssetRegistry: []\n";
+	}
+	registry.close();
+
+	Project::SetActive(nullptr);
+	if (!settings.m_OpenAfterCreate)
+	{
+		AddRecentProject(projectPath);
+		return true;
+	}
+	return OpenProject(projectPath);
+}
+
+void EditorProjectManager::FinishProjectSettings()
+{
+	EditorLayer& layer = GetLayer();
 	if (!layer.HasProjectLoaded())
 		return;
 
 	Project::SaveActive();
-	layer.m_ScriptManager.ReloadAssembly(true, layer.m_SceneState == EditorSceneState::Edit);
+	layer.m_ScriptManager.ReloadAssembly(true, layer.m_SceneManager.State() == EditorSceneState::Edit);
 	layer.m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
-	layer.m_ContentBrowserPanel->SetAssetOpenCallback([&layer](AssetHandle handle) { return layer.m_AssetInteractionManager.HandleContentBrowserAssetOpen(layer, handle); });
-	layer.m_ContentBrowserPanel->SetAssetInspectCallback([&layer](AssetHandle handle) { return layer.m_AssetInteractionManager.HandleContentBrowserAssetInspect(layer, handle); });
-	ApplyPreferencesToContentBrowser(layer);
+	layer.m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetOpen(handle); });
+	layer.m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetInspect(handle); });
+	ApplyPreferencesToContentBrowser();
 }
 
 void EditorProjectManager::MigrateProjectNativeFileExtensions() const
@@ -552,19 +716,113 @@ void EditorProjectManager::MigrateProjectNativeFileExtensions() const
 		WHP_EDITOR_INFO(std::string("[Project] Migrated ") + std::to_string(migratedCount) + " scene file extension(s) to .wscene.");
 }
 
-bool EditorProjectManager::OpenProject(EditorLayer& layer)
+bool EditorProjectManager::OpenProject()
 {
-	return layer.OpenProject();
+	std::string filepath = FileDialogs::OpenFile("Whip Project (*.wproj)\0*.wproj\0");
+	if (filepath.empty())
+		return false;
+	return OpenProject(filepath);
 }
 
-bool EditorProjectManager::OpenProject(EditorLayer& layer, const std::filesystem::path& path)
+bool EditorProjectManager::OpenProject(const std::filesystem::path& path)
 {
-	return layer.OpenProject(path);
+	EditorLayer& layer = GetLayer();
+	if (path.empty())
+		return false;
+
+	std::filesystem::path projectPath = NormalizeProjectListPath(path);
+	std::error_code error;
+	if (!std::filesystem::exists(projectPath, error) || !FileExtensions::IsProjectExtension(projectPath))
+	{
+		WHP_EDITOR_WARN(std::string("[Project] Project file is missing or invalid: ") + projectPath.string());
+		m_ProjectLoader.SetStatus("Project file is missing or invalid.");
+		return false;
+	}
+
+	if (layer.HasProjectLoaded() && PathsMatchForRecentProject(Project::GetActive()->GetProjectPath(), projectPath))
+	{
+		WHP_EDITOR_INFO(std::string("[Project] Project is already open: ") + projectPath.string());
+		AddRecentProject(projectPath);
+		m_ProjectLoader.SetLoaded(true);
+		m_ProjectLoader.SetStatus("Project already open.");
+		return true;
+	}
+
+	WHP_EDITOR_INFO(std::string("[Project] Opening Project: ") + projectPath.string());
+	if (layer.HasProjectLoaded())
+	{
+		WHP_EDITOR_INFO("[Project] Unloading current Project before opening a new one.");
+		ResetEditorProjectState();
+	}
+
+	if (Project::Load(projectPath))
+	{
+		WHP_EDITOR_INFO("[Project] Project file loaded.");
+		MigrateProjectNativeFileExtensions();
+		WHP_EDITOR_INFO("[Project] Native file extension migration complete.");
+		const bool scriptBuildSucceeded = layer.m_ScriptManager.BuildProjectScripts();
+		if (!scriptBuildSucceeded)
+			WHP_EDITOR_WARN("[Script Build] Project opened, but script build failed.");
+		WHP_EDITOR_INFO("[Project] Script build step complete.");
+		ScriptEngine::Init();
+		WHP_EDITOR_INFO("[Project] Script engine initialized.");
+		layer.m_ScriptManager.StartSourceWatcher();
+		AssetHandle startScene = (Project::GetActive()->GetConfig().m_StartScene);
+		if (startScene && Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(startScene))
+		{
+			const std::filesystem::path startScenePath = Project::GetActive()->GetEditorAssetManager()->GetFilepath(startScene);
+			if (std::filesystem::exists(Project::GetActiveAssetDirectory() / startScenePath))
+				layer.m_SceneManager.OpenScene(startScene);
+			else
+			{
+				WHP_EDITOR_WARN("[Project] Start scene file is missing. Resetting Project start scene.");
+				Project::GetActive()->GetConfig().m_StartScene = 0;
+				Project::SaveActive();
+			}
+		}
+		else if (startScene)
+		{
+			WHP_EDITOR_WARN("[Project] Start scene is missing. Resetting Project start scene.");
+			Project::GetActive()->GetConfig().m_StartScene = 0;
+			Project::SaveActive();
+		}
+		else
+		{
+			layer.m_SceneManager.NewScene();
+		}
+		layer.m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
+		layer.m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetOpen(handle); });
+		layer.m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetInspect(handle); });
+		ApplyPreferencesToContentBrowser();
+		AddRecentProject(projectPath);
+		m_ProjectLoader.SetLoaded(true);
+		m_ProjectLoader.SetStatus(scriptBuildSucceeded ? "Project opened." : "Project opened, script build failed.");
+		WHP_EDITOR_INFO("[Project] Project open complete.");
+		return true;
+	}
+	ResetEditorProjectState();
+	WHP_EDITOR_WARN(std::string("[Project] Project load failed: ") + projectPath.string());
+	m_ProjectLoader.SetStatus("Project could not be opened.");
+	return false;
 }
 
-void EditorProjectManager::ResetEditorProjectState(EditorLayer& layer)
+void EditorProjectManager::ResetEditorProjectState()
 {
-	layer.ResetEditorProjectState();
+	EditorLayer& layer = GetLayer();
+	layer.m_SceneManager.WriteRecoverySnapshot("Project switch");
+	layer.m_ScriptManager.StopSourceWatcher();
+	if (layer.m_SceneManager.State() != EditorSceneState::Edit)
+		layer.m_SceneManager.OnSceneStop();
+
+	ScriptEngine::ClearRuntimeSceneTransitionRequest();
+	layer.m_ScriptManager.Reset();
+
+	layer.m_ContentBrowserPanel.reset();
+	layer.m_SceneHierarchyPanel.SetContext({});
+	layer.m_SceneManager.ResetToEmptyScene();
+	layer.m_HistoryManager.ClearSceneHistory();
+	Project::SetActive(nullptr);
+	m_ProjectLoader.SetLoaded(false);
 }
 
 _WHIP_END

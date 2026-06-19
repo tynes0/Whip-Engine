@@ -11,13 +11,23 @@ class EditorLayer;
 class EditorAssetInteractionManager
 {
 public:
-	bool HandleViewportAssetDrop(EditorLayer& layer, AssetHandle handle, int32_t textureSpriteIndex = -1) const;
-	bool HandleContentBrowserAssetOpen(EditorLayer& layer, AssetHandle handle) const;
-	bool HandleContentBrowserAssetInspect(EditorLayer& layer, AssetHandle handle) const;
+	explicit EditorAssetInteractionManager(EditorLayer* boundedLayer = nullptr);
+	~EditorAssetInteractionManager();
+
+	void Bind(EditorLayer& layer);
+
+	bool HandleViewportAssetDrop(AssetHandle handle, int32_t textureSpriteIndex = -1) const;
+	bool HandleContentBrowserAssetOpen(AssetHandle handle) const;
+	bool HandleContentBrowserAssetInspect(AssetHandle handle) const;
 	void SetStartScene(AssetHandle handle) const;
-	bool CreateSpriteEntityFromTexture(EditorLayer& layer, AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex = -1) const;
+	bool CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex = -1) const;
 	AssetHandle ImportExternalAssetFile(const std::filesystem::path& sourcePath) const;
-	glm::vec3 GetViewportMouseWorldPosition(const EditorLayer& layer) const;
+	glm::vec3 GetViewportMouseWorldPosition() const;
+
+private:
+	EditorLayer& GetLayer() const;
+
+	EditorLayer* m_BoundedLayer = nullptr;
 };
 
 _WHIP_END

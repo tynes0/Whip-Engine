@@ -1,6 +1,6 @@
 #include <WhipPch.h>
 
-#include <Whip-Editor/panels/ContentBrowserPanel.h>
+#include <Whip-Editor/Panels/ContentBrowserPanel.h>
 
 #include <Whip-Editor/Helpers/IconManager.h>
 

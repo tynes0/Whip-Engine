@@ -1,4 +1,4 @@
-#include <Whip-Editor/panels/ConsolePanel.h>
+#include <Whip-Editor/Panels/ConsolePanel.h>
 
 #include <array>
 #include <cctype>
