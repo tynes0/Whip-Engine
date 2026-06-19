@@ -1,8 +1,11 @@
 #pragma once
 
 #include <Whip.h>
+#include <Whip-Editor/EditorAssetInteractionManager.h>
+#include <Whip-Editor/EditorHistoryManager.h>
 #include <Whip-Editor/EditorScriptManager.h>
-#include <Whip-Editor/UI/UIProjectLoader.h>
+#include <Whip-Editor/EditorProjectManager.h>
+#include <Whip-Editor/EditorSceneManager.h>
 #include <Whip-Editor/UI/UIProject.h>
 #include <Whip-Editor/UI/UISettings.h>
 #include <Whip-Editor/UI/UIStatistics.h>
@@ -53,7 +56,14 @@ public:
 	void OnImGuiRender() override;
 	void OnEvent(Event& event) override;
 private:
-	struct SceneHistoryEntry;
+	using SceneState = EditorSceneState;
+	using ProjectHistoryEntry = EditorHistoryManager::ProjectHistoryEntry;
+	using SceneHistoryEntry = EditorHistoryManager::SceneHistoryEntry;
+
+	friend class EditorAssetInteractionManager;
+	friend class EditorHistoryManager;
+	friend class EditorProjectManager;
+	friend class EditorSceneManager;
 
 	bool OnKeyPressed(KeyPressedEvent& event);
 	bool OnMouseButtonPressed(MouseButtonPressedEvent& event);
@@ -132,7 +142,6 @@ private:
 	void CaptureSceneHistory(bool includeProjectSnapshot = false);
 	void RestoreSceneHistory(const SceneHistoryEntry& entry);
 	void ClearSceneHistory();
-	struct ProjectHistoryEntry;
 	ProjectHistoryEntry CaptureProjectHistory() const;
 	void RestoreProjectHistory(const ProjectHistoryEntry& entry);
 	bool ExecuteEditorAction(UI::EditorShortcutAction action);
@@ -144,14 +153,6 @@ private:
 	void DrawCommandPalette();
 
 	void UIToolbar();
-private:
-	enum class SceneState
-	{
-		Edit = 0,
-		Play = 1,
-		Simulate = 2
-	};
-
 	Timestep m_Ts;
 
 	// camera
@@ -167,51 +168,36 @@ private:
 	Entity m_HoveredEntity;
 	Entity m_LastSelectedEntity;
 
+	EditorAssetInteractionManager m_AssetInteractionManager;
+	EditorHistoryManager m_HistoryManager;
+	EditorProjectManager m_ProjectManager;
+	EditorScriptManager m_ScriptManager;
+	EditorSceneManager m_SceneManager;
+
 	// UI's
-	UI::UIProjectLoader m_ProjectLoader;
+	UI::UIProjectLoader& m_ProjectLoader;
 	UI::UIProject m_UIProject;
 	UI::UISettings m_UISettings;
 	UI::UIStatistics m_UIStatistics;
 	UI::PopupHandler m_PopupHandler;
-	std::vector<std::filesystem::path> m_RecentProjects;
-	std::filesystem::path m_LastProjectPath;
-	ContentBrowserPanel::Preferences m_ContentBrowserPreferences;
-	bool m_HasContentBrowserPreferences = false;
+	std::vector<std::filesystem::path>& m_RecentProjects;
+	std::filesystem::path& m_LastProjectPath;
+	ContentBrowserPanel::Preferences& m_ContentBrowserPreferences;
+	bool& m_HasContentBrowserPreferences;
 	bool m_CommandPaletteOpen = false;
 	bool m_CommandPaletteFocusSearch = false;
 	char m_CommandPaletteFilter[128]{ 0 };
 
-	EditorScriptManager m_ScriptManager;
-
-	struct ProjectHistoryEntry
-	{
-		bool m_Valid = false;
-		ProjectConfig m_Config;
-		std::filesystem::path m_ProjectPath;
-		std::filesystem::path m_AssetRegistryPath;
-		std::string m_ProjectFileContents;
-		std::string m_AssetRegistryContents;
-		std::unordered_map<std::string, std::string> m_SceneFileContents;
-	};
-
-	struct SceneHistoryEntry
-	{
-		Ref<Scene> m_SceneSnapshot;
-		std::filesystem::path m_EditorScenePath;
-		std::vector<UUID> m_SelectedEntities;
-		ProjectHistoryEntry m_ProjectSnapshot;
-	};
-
 	// scene
-	Ref<Scene> m_ActiveScene;
-	Ref<Scene> m_EditorScene;
-	std::filesystem::path m_EditorScenePath;
-	std::vector<SceneHistoryEntry> m_UndoStack;
-	std::vector<SceneHistoryEntry> m_RedoStack;
-	std::vector<UUID> m_EntityClipboard;
-	bool m_GizmoHistoryActive = false;
-	bool m_SceneDirty = false;
-	std::chrono::steady_clock::time_point m_LastSceneRecoverySnapshot{};
+	Ref<Scene>& m_ActiveScene;
+	Ref<Scene>& m_EditorScene;
+	std::filesystem::path& m_EditorScenePath;
+	std::vector<SceneHistoryEntry>& m_UndoStack;
+	std::vector<SceneHistoryEntry>& m_RedoStack;
+	std::vector<UUID>& m_EntityClipboard;
+	bool& m_GizmoHistoryActive;
+	bool& m_SceneDirty;
+	std::chrono::steady_clock::time_point& m_LastSceneRecoverySnapshot;
 
 	// framebuffer
 	Ref<Framebuffer> m_Framebuffer;
@@ -222,7 +208,7 @@ private:
 	bool m_GizmoUsing = false;
 
 	// states
-	SceneState m_SceneState = SceneState::Edit;
+	SceneState& m_SceneState;
 
 	// panels
 	EditorPanelManager m_PanelManager;

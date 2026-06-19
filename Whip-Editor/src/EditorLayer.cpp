@@ -181,46 +181,27 @@ namespace
 		return false;
 	}
 
-	std::filesystem::path MakeUniquePath(const std::filesystem::path& targetPath)
-	{
-		std::error_code error;
-		if (!std::filesystem::exists(targetPath, error))
-			return targetPath;
-
-		const std::filesystem::path parent = targetPath.parent_path();
-		const std::string stem = targetPath.stem().string();
-		const std::string extension = targetPath.extension().string();
-		for (uint32_t index = 1; index < 10000; ++index)
-		{
-			std::filesystem::path candidate = parent / std::format("{}_{}{}", stem, index, extension);
-			error.clear();
-			if (!std::filesystem::exists(candidate, error))
-				return candidate;
-		}
-
-		return targetPath;
-	}
-
-	std::filesystem::path DefaultImportDirectoryForType(AssetType type)
-	{
-		switch (type)
-		{
-		case AssetType::Scene: return "Scenes";
-		case AssetType::Texture2D: return "textures";
-		case AssetType::Audio: return "Audios";
-		case AssetType::Font: return "fonts";
-		case AssetType::Animation: return "Animations";
-		case AssetType::AnimationController: return "Animations";
-		case AssetType::Entity: return "EntityTemplates";
-		case AssetType::None: return {};
-		}
-		return {};
-	}
-
 }
 
 EditorLayer::EditorLayer()
-	: Layer("Fbox2D"), m_EditorCamera(), m_GizmoType(ImGuizmo::OPERATION::TRANSLATE)
+	: Layer("Fbox2D"),
+	m_ProjectLoader(m_ProjectManager.GetLoader()),
+	m_RecentProjects(m_ProjectManager.GetRecentProjectsStorage()),
+	m_LastProjectPath(m_ProjectManager.GetLastProjectPathStorage()),
+	m_ContentBrowserPreferences(m_ProjectManager.GetContentBrowserPreferencesStorage()),
+	m_HasContentBrowserPreferences(m_ProjectManager.GetHasContentBrowserPreferencesStorage()),
+	m_ActiveScene(m_SceneManager.GetActiveSceneStorage()),
+	m_EditorScene(m_SceneManager.GetEditorSceneStorage()),
+	m_EditorScenePath(m_SceneManager.GetEditorScenePathStorage()),
+	m_UndoStack(m_HistoryManager.GetUndoStackStorage()),
+	m_RedoStack(m_HistoryManager.GetRedoStackStorage()),
+	m_EntityClipboard(m_HistoryManager.GetEntityClipboardStorage()),
+	m_GizmoHistoryActive(m_HistoryManager.GetGizmoHistoryActiveStorage()),
+	m_SceneDirty(m_SceneManager.GetDirtyStorage()),
+	m_LastSceneRecoverySnapshot(m_SceneManager.GetLastRecoverySnapshotStorage()),
+	m_SceneState(m_SceneManager.GetStateStorage()),
+	m_EditorCamera(),
+	m_GizmoType(ImGuizmo::OPERATION::TRANSLATE)
 {
 }
 
@@ -915,19 +896,7 @@ bool EditorLayer::HandleContentBrowserAssetInspect(AssetHandle handle)
 
 void EditorLayer::SetStartScene(AssetHandle handle)
 {
-	if (handle == 0 || !HasProjectLoaded())
-		return;
-
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle) ||
-		activeProject->GetEditorAssetManager()->GetAssetType(handle) != AssetType::Scene)
-	{
-		return;
-	}
-
-	activeProject->GetConfig().m_StartScene = handle;
-	Project::SaveActive();
-	WHP_EDITOR_INFO(std::string("[Project] Start scene set: ") + activeProject->GetEditorAssetManager()->GetFilepath(handle).generic_string());
+	m_AssetInteractionManager.SetStartScene(handle);
 }
 
 bool EditorLayer::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex)
@@ -976,51 +945,7 @@ bool EditorLayer::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::v
 
 AssetHandle EditorLayer::ImportExternalAssetFile(const std::filesystem::path& sourcePath)
 {
-	if (!HasProjectLoaded())
-		return 0;
-
-	std::error_code error;
-	if (!std::filesystem::exists(sourcePath, error) || !std::filesystem::is_regular_file(sourcePath, error))
-		return 0;
-
-	const AssetType type = Utils::TryGetAssetTypeFromFileExtension(sourcePath.extension());
-	if (type == AssetType::None)
-	{
-		WHP_EDITOR_WARN(std::string("[Asset Import] Unsupported dropped file: ") + sourcePath.string());
-		return 0;
-	}
-
-	const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
-	std::filesystem::path assetPath = sourcePath;
-	if (!PathIsOrIsUnder(sourcePath, assetDirectory))
-	{
-		const std::filesystem::path importDirectory = assetDirectory / DefaultImportDirectoryForType(type);
-		std::filesystem::create_directories(importDirectory, error);
-		if (error)
-		{
-			WHP_EDITOR_WARN(std::string("[Asset Import] Could not create import directory: ") + error.message());
-			return 0;
-		}
-
-		assetPath = MakeUniquePath(importDirectory / sourcePath.filename());
-		error.clear();
-		std::filesystem::copy_file(sourcePath, assetPath, std::filesystem::copy_options::none, error);
-		if (error)
-		{
-			WHP_EDITOR_WARN(std::string("[Asset Import] Could not copy dropped file: ") + error.message());
-			return 0;
-		}
-	}
-
-	error.clear();
-	std::filesystem::path RelativePath = std::filesystem::relative(assetPath, assetDirectory, error).lexically_normal();
-	if (error)
-		return 0;
-
-	if (AssetHandle existingHandle = Project::GetActive()->GetEditorAssetManager()->GetHandleFromFilepath(RelativePath); existingHandle != 0)
-		return existingHandle;
-
-	return Project::GetActive()->GetEditorAssetManager()->ImportAsset(RelativePath);
+	return m_AssetInteractionManager.ImportExternalAssetFile(sourcePath);
 }
 
 glm::vec3 EditorLayer::GetViewportMouseWorldPosition() const
@@ -1267,12 +1192,7 @@ void EditorLayer::LoadRecentProjects()
 
 void EditorLayer::SaveRecentProjects() const
 {
-	std::ofstream stream(GetRecentProjectsPath(), std::ios::trunc);
-	if (!stream)
-		return;
-
-	for (const auto& projectPath : m_RecentProjects)
-		stream << projectPath.string() << '\n';
+	m_ProjectManager.SaveRecentProjects();
 }
 
 void EditorLayer::AddRecentProject(const std::filesystem::path& path)
@@ -1385,36 +1305,17 @@ bool EditorLayer::DeleteRecentProject(const std::filesystem::path& path)
 
 bool EditorLayer::ShouldIncludeRecentProject(const std::filesystem::path& path) const
 {
-	std::error_code error;
-	std::filesystem::path normalizedPath = std::filesystem::weakly_canonical(path, error);
-	if (error)
-		normalizedPath = path;
-
-	error.clear();
-	std::filesystem::path workingDirectory = std::filesystem::weakly_canonical(std::filesystem::current_path(), error);
-	if (error)
-		workingDirectory = std::filesystem::current_path();
-
-	error.clear();
-	std::filesystem::path RelativePath = std::filesystem::relative(normalizedPath, workingDirectory, error);
-	if (!error && !RelativePath.empty())
-	{
-		const std::filesystem::path firstComponent = *RelativePath.begin();
-		if (firstComponent != ".." && firstComponent != ".")
-			return false;
-	}
-
-	return true;
+	return m_ProjectManager.ShouldIncludeRecentProject(path);
 }
 
 std::filesystem::path EditorLayer::GetRecentProjectsPath() const
 {
-	return std::filesystem::current_path() / "WhipHubRecentProjects.txt";
+	return m_ProjectManager.GetRecentProjectsPath();
 }
 
 std::filesystem::path EditorLayer::GetPreferencesPath() const
 {
-	return std::filesystem::current_path() / "WhipEditorPreferences.yaml";
+	return m_ProjectManager.GetPreferencesPath();
 }
 
 void EditorLayer::LoadEditorPreferences()
@@ -1703,58 +1604,7 @@ void EditorLayer::FinishProjectSettings()
 
 void EditorLayer::MigrateProjectNativeFileExtensions()
 {
-	if (!HasProjectLoaded())
-		return;
-
-	Ref<EditorAssetManager> AssetManager = Project::GetActive()->GetEditorAssetManager();
-	if (!AssetManager)
-		return;
-
-	std::vector<std::pair<AssetHandle, std::filesystem::path>> scenePaths;
-	const auto& scenes = AssetManager->GetAssetRegistry().GetFiltered(AssetType::Scene);
-	scenePaths.reserve(scenes.size());
-	for (const auto& [handle, metadata] : scenes)
-	{
-		if (FileExtensions::IsLegacySceneExtension(metadata.m_Filepath))
-			scenePaths.emplace_back(handle, metadata.m_Filepath);
-	}
-
-	size_t migratedCount = 0;
-	const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
-	for (const auto& [handle, legacyRelativePath] : scenePaths)
-	{
-		std::filesystem::path modernRelativePath = legacyRelativePath;
-		modernRelativePath.replace_extension(FileExtensions::Scene);
-
-		const std::filesystem::path legacyPath = assetDirectory / legacyRelativePath;
-		const std::filesystem::path modernPath = assetDirectory / modernRelativePath;
-
-		std::error_code error;
-		const bool modernExists = std::filesystem::exists(modernPath, error);
-		error.clear();
-		const bool legacyExists = std::filesystem::exists(legacyPath, error);
-		if (!modernExists && legacyExists)
-		{
-			error.clear();
-			std::filesystem::rename(legacyPath, modernPath, error);
-			if (error)
-			{
-				WHP_EDITOR_WARN(std::string("[Project] Could not migrate scene extension '") +
-					legacyPath.string() + "' -> '" + modernPath.string() + "': " + error.message());
-				continue;
-			}
-		}
-		else if (!modernExists)
-		{
-			continue;
-		}
-
-		if (AssetManager->UpdateAssetFilepath(handle, modernRelativePath))
-			++migratedCount;
-	}
-
-	if (migratedCount > 0)
-		WHP_EDITOR_INFO(std::string("[Project] Migrated ") + std::to_string(migratedCount) + " scene file extension(s) to .wscene.");
+	m_ProjectManager.MigrateProjectNativeFileExtensions();
 }
 
 
@@ -2002,26 +1852,17 @@ void EditorLayer::SaveSceneAs()
 void EditorLayer::MarkSceneDirty()
 {
 	if (m_SceneState == SceneState::Edit && m_EditorScene)
-		m_SceneDirty = true;
+		m_SceneManager.MarkDirty();
 }
 
 void EditorLayer::MarkSceneClean()
 {
-	m_SceneDirty = false;
+	m_SceneManager.MarkClean();
 }
 
 std::filesystem::path EditorLayer::GetSceneRecoveryPath() const
 {
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject)
-		return {};
-
-	std::filesystem::path recoveryDirectory = activeProject->GetProjectDirectory() / ".whip_recovery";
-	std::string sceneName = m_EditorScenePath.empty() ? "Untitled" : m_EditorScenePath.filename().stem().string();
-	if (sceneName.empty())
-		sceneName = "Untitled";
-
-	return recoveryDirectory / (sceneName + ".recovery" + FileExtensions::Scene);
+	return m_SceneManager.GetRecoveryPath();
 }
 
 void EditorLayer::WriteSceneRecoverySnapshot(const char* reason)
@@ -2394,23 +2235,12 @@ bool EditorLayer::UnloadRuntimeScene()
 
 void EditorLayer::StopActiveRuntimeSceneForTransition()
 {
-	if (!m_ActiveScene)
-		return;
-
-	if (m_SceneState == SceneState::Simulate)
-		m_ActiveScene->OnSimulationStop();
-	else
-		m_ActiveScene->OnRuntimeStop();
+	m_SceneManager.StopActiveRuntimeSceneForTransition();
 }
 
 void EditorLayer::StartActiveRuntimeSceneForTransition(AssetHandle handle)
 {
-	ScriptEngine::SetRuntimeActiveSceneHandle(handle);
-	if (m_SceneState == SceneState::Simulate)
-		m_ActiveScene->OnSimulationStart();
-	else
-		m_ActiveScene->OnRuntimeStart();
-	ScriptEngine::SetRuntimeActiveSceneHandle(handle);
+	m_SceneManager.StartActiveRuntimeSceneForTransition(handle);
 }
 
 void EditorLayer::SerializeScene(Ref<Scene> sceneIn, const std::filesystem::path& path)
@@ -2672,9 +2502,7 @@ void EditorLayer::RedoScene()
 
 void EditorLayer::ClearSceneHistory()
 {
-	m_UndoStack.clear();
-	m_RedoStack.clear();
-	m_GizmoHistoryActive = false;
+	m_HistoryManager.ClearSceneHistory();
 }
 
 void EditorLayer::OnDuplicatedEntity()
