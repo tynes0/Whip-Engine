@@ -283,6 +283,7 @@ namespace
 }
 
 AnimationEditorPanel::AnimationEditorPanel()
+	: EditorPanel("Animation Editor", false)
 {
 }
 

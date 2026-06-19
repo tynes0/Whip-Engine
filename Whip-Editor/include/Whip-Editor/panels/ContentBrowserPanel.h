@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Whip-Editor/panels/EditorPanel.h>
 #include <Whip-Editor/panels/ThumbnailCache.h>
 
 #include <Whip/Core/Core.h>
@@ -16,7 +17,7 @@
 
 _WHIP_START
 
-class ContentBrowserPanel
+class ContentBrowserPanel : public EditorPanel
 {
 public:
 	ContentBrowserPanel();
@@ -44,14 +45,14 @@ public:
 	
 	void Init(Ref<Project> proj);
 
-	void OnImGuiRender();
+	void OnImGuiRender() override;
 	void OnSettingsPopup();
 	void RefreshAssetTree();
 	Preferences GetPreferences() const;
 	void ApplyPreferences(const Preferences& prefs);
 	bool ConsumePreferencesDirty();
-	void SetOpen(bool open);
-	bool IsOpen() const { return m_Open; }
+	void SetOpen(bool open) override;
+	bool IsOpen() const override { return m_Open; }
 	bool IsHovered() const { return m_Hovered; }
 	void SetAssetOpenCallback(std::function<bool(AssetHandle)> callback) { m_AssetOpenCallback = std::move(callback); }
 	void SetAssetInspectCallback(std::function<bool(AssetHandle)> callback) { m_AssetInspectCallback = std::move(callback); }
@@ -217,7 +218,6 @@ private:
 	bool m_ShowUnsupported = false;
 	bool m_Initialized = false;
 	bool m_PreferencesDirty = false;
-	bool m_Open = true;
 	bool m_Hovered = false;
 	bool m_ItemsDirty = true;
 	bool m_DirectoryTreeDirty = true;

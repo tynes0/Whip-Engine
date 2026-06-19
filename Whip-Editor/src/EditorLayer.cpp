@@ -996,6 +996,18 @@ void EditorLayer::OnAttach()
 	// camera
     m_EditorCamera = EditorCamera(30.0f, 1.778f, 0.1f, 1000.0f);
 	ConsolePanel::Initialize();
+	m_StatisticsPanelAdapter = MakeScope<CallbackEditorPanel>(
+		"Statistics",
+		[this]() { m_UIStatistics.OnImGuiRender(m_Ts); },
+		[this]() { return m_UIStatistics.IsOpen(); },
+		[this](bool open) { m_UIStatistics.SetOpen(open); },
+		[this]() { return m_UIStatistics.ConsumeOpenDirty(); });
+	m_ConsolePanelAdapter = MakeScope<CallbackEditorPanel>(
+		"Console",
+		[]() { ConsolePanel::OnImGuiRender(); },
+		[]() { return ConsolePanel::IsOpen(); },
+		[](bool open) { ConsolePanel::SetOpen(open); },
+		[]() { return ConsolePanel::ConsumeOpenDirty(); });
 	static float v1 = 0, v2 = 0;
 	m_PopupHandler
 		.SetPopupName("Popup Testing")
@@ -1312,21 +1324,11 @@ void EditorLayer::OnImGuiRender()
     ImGui::End(); // dockspace
 
 	// other renders
-	m_UIStatistics.OnImGuiRender(m_Ts);
-    m_SceneHierarchyPanel.OnImGuiRender();
-    m_AnimationEditorPanel.OnImGuiRender();
-	m_AssetEditorPanel.OnImGuiRender();
+	RenderRegisteredPanels();
 	m_AnimationEditorPanel.HandleShortcutInput(m_UISettings);
-	ConsolePanel::OnImGuiRender();
-	if (m_ContentBrowserPanel)
-		m_ContentBrowserPanel->OnImGuiRender();
 	DrawCommandPalette();
 	if (m_UISettings.ConsumeDirty()
-		|| m_SceneHierarchyPanel.ConsumeOpenDirty()
-		|| m_AssetEditorPanel.ConsumeOpenDirty()
-		|| m_AnimationEditorPanel.ConsumeOpenDirty()
-		|| m_UIStatistics.ConsumeOpenDirty()
-		|| ConsolePanel::ConsumeOpenDirty()
+		|| ConsumeRegisteredPanelOpenDirty()
 		|| (m_ContentBrowserPanel && m_ContentBrowserPanel->ConsumePreferencesDirty()))
 		SaveEditorPreferences();
 	m_PopupHandler.OnImGuiRender();
@@ -1522,6 +1524,41 @@ bool EditorLayer::IsEditorActionAvailable(UI::EditorShortcutAction action) const
 	}
 }
 
+void EditorLayer::AddPanel(EditorPanel& panel)
+{
+	if (std::ranges::find(m_EditorPanels, &panel) == m_EditorPanels.end())
+		m_EditorPanels.push_back(&panel);
+}
+
+void EditorLayer::RebuildEditorPanelRegistry()
+{
+	m_EditorPanels.clear();
+	if (m_StatisticsPanelAdapter)
+		AddPanel(*m_StatisticsPanelAdapter);
+	AddPanel(m_SceneHierarchyPanel);
+	AddPanel(m_AnimationEditorPanel);
+	AddPanel(m_AssetEditorPanel);
+	if (m_ConsolePanelAdapter)
+		AddPanel(*m_ConsolePanelAdapter);
+	if (m_ContentBrowserPanel)
+		AddPanel(*m_ContentBrowserPanel);
+}
+
+void EditorLayer::RenderRegisteredPanels()
+{
+	RebuildEditorPanelRegistry();
+	for (EditorPanel* panel : m_EditorPanels)
+		panel->OnImGuiRender();
+}
+
+bool EditorLayer::ConsumeRegisteredPanelOpenDirty()
+{
+	bool dirty = false;
+	for (EditorPanel* panel : m_EditorPanels)
+		dirty |= panel->ConsumeOpenDirty();
+	return dirty;
+}
+
 void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
 {
 	constexpr float TitlebarHeight = 30.0f;
@@ -1571,6 +1608,43 @@ void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
 		Application::Get().Close();
 
 	ImGui::EndChild();
+}
+
+void EditorLayer::DrawAddPanelMenu(bool projectLoaded)
+{
+	RebuildEditorPanelRegistry();
+
+	auto panelRequiresProject = [](const EditorPanel& panel)
+		{
+			return panel.GetName() != "Console";
+		};
+
+	if (ImGui::BeginMenu("Add Panel"))
+	{
+		for (EditorPanel* panel : m_EditorPanels)
+		{
+			const bool disabled = (panelRequiresProject(*panel) && !projectLoaded) || panel->IsOpen() || !panel->CanOpenFromMenu();
+			ImGui::BeginDisabled(disabled);
+			if (ImGui::MenuItem(panel->GetName().c_str()))
+				panel->SetOpen(true);
+			ImGui::EndDisabled();
+		}
+		ImGui::EndMenu();
+	}
+
+	ImGui::Separator();
+	for (EditorPanel* panel : m_EditorPanels)
+	{
+		if (!panel->CanOpenFromMenu() && !panel->IsOpen())
+			continue;
+
+		const bool disabled = panelRequiresProject(*panel) && !projectLoaded;
+		bool requestedOpen = panel->IsOpen();
+		ImGui::BeginDisabled(disabled);
+		if (ImGui::MenuItem(panel->GetName().c_str(), nullptr, &requestedOpen))
+			panel->SetOpen(requestedOpen);
+		ImGui::EndDisabled();
+	}
 }
 
 void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
@@ -1648,27 +1722,14 @@ void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
 		}
 		if (ImGui::BeginMenu("Window"))
 		{
-			auto drawPanelToggle = [](const char* label, bool open, auto&& setter)
-				{
-					bool requestedOpen = open;
-					if (ImGui::MenuItem(label, nullptr, &requestedOpen))
-						setter(requestedOpen);
-				};
-
+			DrawAddPanelMenu(projectLoaded);
+			ImGui::Separator();
 			ImGui::BeginDisabled(!projectLoaded);
-			drawPanelToggle("Scene Hierarchy", m_SceneHierarchyPanel.IsOpen(), [this](bool open) { m_SceneHierarchyPanel.SetOpen(open); });
-			drawPanelToggle("Statistics", m_UIStatistics.IsOpen(), [this](bool open) { m_UIStatistics.SetOpen(open); });
-			drawPanelToggle("Animation Editor", m_AnimationEditorPanel.IsOpen(), [this](bool open) { m_AnimationEditorPanel.SetOpen(open); });
-			if (m_ContentBrowserPanel)
-				drawPanelToggle("Content Browser", m_ContentBrowserPanel->IsOpen(), [this](bool open) { m_ContentBrowserPanel->SetOpen(open); });
-			else
-				ImGui::MenuItem("Content Browser", nullptr, false, false);
 			ImGui::BeginDisabled(!m_AssetEditorPanel.HasOpenEditors());
 			if (ImGui::MenuItem("Close Asset Editors"))
 				m_AssetEditorPanel.CloseAll();
 			ImGui::EndDisabled();
 			ImGui::EndDisabled();
-			drawPanelToggle("Console", ConsolePanel::IsOpen(), [](bool open) { ConsolePanel::SetOpen(open); });
 			ImGui::EndMenu();
 		}
 

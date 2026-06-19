@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Whip-Editor/panels/EditorPanel.h>
+
 #include <Whip.h>
 
 #include <functional>
@@ -11,14 +13,19 @@
 
 _WHIP_START
 
-class AssetEditorPanel
+class AssetEditorPanel : public EditorPanel
 {
 public:
+	AssetEditorPanel();
+
 	void OpenAsset(AssetHandle handle);
 	void CloseAll();
-	void OnImGuiRender();
+	void OnImGuiRender() override;
+	void SetOpen(bool open) override;
+	bool IsOpen() const override { return m_Open; }
+	bool CanOpenFromMenu() const override { return HasOpenEditors(); }
 	bool HasOpenEditors() const;
-	bool ConsumeOpenDirty();
+	bool ConsumeOpenDirty() override;
 
 	void SetOpenSceneCallback(std::function<void(AssetHandle)> callback) { m_OpenSceneCallback = std::move(callback); }
 	void SetSetStartSceneCallback(std::function<void(AssetHandle)> callback) { m_SetStartSceneCallback = std::move(callback); }
@@ -131,7 +138,6 @@ private:
 	std::vector<AssetEditorDocument> m_Documents;
 	AssetHandle m_ActiveDocument = 0;
 	AssetHandle m_EmbeddedAnimationHandle = 0;
-	bool m_Open = false;
 	bool m_Minimized = false;
 	bool m_Fullscreen = false;
 	bool m_FullscreenRequested = false;
@@ -139,7 +145,6 @@ private:
 	bool m_HasRestoreRect = false;
 	glm::vec2 m_RestorePosition{ 120.0f, 90.0f };
 	glm::vec2 m_RestoreSize{ 1040.0f, 640.0f };
-	bool m_OpenDirty = false;
 
 	std::function<void(AssetHandle)> m_OpenSceneCallback;
 	std::function<void(AssetHandle)> m_SetStartSceneCallback;

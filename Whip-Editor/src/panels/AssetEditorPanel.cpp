@@ -557,6 +557,11 @@ namespace
 	}
 }
 
+AssetEditorPanel::AssetEditorPanel()
+	: EditorPanel("Asset Workspace", false)
+{
+}
+
 void AssetEditorPanel::OpenAsset(AssetHandle handle)
 {
 	if (handle == 0 || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(handle))
@@ -603,6 +608,22 @@ void AssetEditorPanel::CloseAll()
 	m_ActiveDocument = 0;
 	m_EmbeddedAnimationHandle = 0;
 	m_OpenDirty = true;
+}
+
+void AssetEditorPanel::SetOpen(bool open)
+{
+	if (open)
+	{
+		if (m_Documents.empty())
+			return;
+
+		EditorPanel::SetOpen(true);
+		m_Minimized = false;
+		m_FocusRequested = true;
+		return;
+	}
+
+	CloseAll();
 }
 
 bool AssetEditorPanel::HasOpenEditors() const

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Whip-Editor/panels/EditorPanel.h>
+
 #include <Whip/Core/Core.h>
 #include <Whip/Core/UUID.h>
 #include <Whip/Asset/Asset.h>
@@ -17,7 +19,7 @@
 
 _WHIP_START
 
-class AnimationEditorPanel
+class AnimationEditorPanel : public EditorPanel
 {
 public:
 	AnimationEditorPanel();
@@ -25,11 +27,11 @@ public:
 
 	void Open() { SetOpen(true); }
 	void Close() { SetOpen(false); }
-	void SetOpen(bool open);
-	bool IsOpen() const { return m_Open; }
-	bool ConsumeOpenDirty();
+	void SetOpen(bool open) override;
+	bool IsOpen() const override { return m_Open; }
+	bool ConsumeOpenDirty() override;
 
-	void OnImGuiRender();
+	void OnImGuiRender() override;
 	void OnImGuiRenderEmbedded();
 	bool OpenAsset(AssetHandle handle, bool openWindow = true);
 	bool WantsShortcutCapture() const { return m_ShortcutContextActive; }
@@ -209,8 +211,6 @@ private:
 	glm::vec2 m_RestoreSize{ 1120.0f, 680.0f };
 	float m_PreviewElapsed = 0.0f;
 	float m_DefaultFrameDuration = 0.1f;
-	bool m_Open = false;
-	bool m_OpenDirty = false;
 	bool m_ShortcutContextActive = false;
 	std::vector<AnimationEditorSnapshot> m_UndoStack;
 	std::vector<AnimationEditorSnapshot> m_RedoStack;

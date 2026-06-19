@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Whip-Editor/panels/EditorPanel.h>
+
 #include <Whip/Core/Core.h>
 #include <Whip/Scene/Scene.h>
 #include <Whip/Scene/Entity.h>
@@ -11,24 +13,24 @@
 
 _WHIP_START
 
-class SceneHierarchyPanel
+class SceneHierarchyPanel : public EditorPanel
 {
 public:
-	SceneHierarchyPanel() = default;
+	SceneHierarchyPanel();
 	SceneHierarchyPanel(const Ref<Scene> context);
 
 	void SetContext(const Ref<Scene>& context);
 	Ref<Scene>& GetContext() { return m_Context; }
 
-	void OnImGuiRender();
+	void OnImGuiRender() override;
 	void SetSceneChangeCallback(std::function<void()> callback) { m_SceneChangeCallback = std::move(callback); }
 	void SetSaveEntityTemplateCallback(std::function<void(Entity)> callback) { m_SaveEntityTemplateCallback = std::move(callback); }
 	void SetApplyEntityTemplateCallback(std::function<void(Entity)> callback) { m_ApplyEntityTemplateCallback = std::move(callback); }
 	void SetRevertEntityTemplateCallback(std::function<void(Entity)> callback) { m_RevertEntityTemplateCallback = std::move(callback); }
 	void SetUnpackEntityTemplateCallback(std::function<void(Entity)> callback) { m_UnpackEntityTemplateCallback = std::move(callback); }
-	void SetOpen(bool open);
-	bool IsOpen() const { return m_Open; }
-	bool ConsumeOpenDirty();
+	void SetOpen(bool open) override;
+	bool IsOpen() const override { return m_Open; }
+	bool ConsumeOpenDirty() override;
 
 	Entity GetSelectedEntity() const { return m_SelectionContext; }
 	std::vector<Entity> GetSelectedEntities() const;
@@ -80,8 +82,6 @@ private:
 	std::function<void(Entity)> m_RevertEntityTemplateCallback;
 	std::function<void(Entity)> m_UnpackEntityTemplateCallback;
 	bool m_PropertyEditHistoryActive = false;
-	bool m_Open = true;
-	bool m_OpenDirty = false;
 };
 
 _WHIP_END

@@ -145,8 +145,13 @@ private:
 	void RestoreProjectHistory(const ProjectHistoryEntry& entry);
 	bool ExecuteEditorAction(UI::EditorShortcutAction action);
 	bool IsEditorActionAvailable(UI::EditorShortcutAction action) const;
+	void AddPanel(EditorPanel& panel);
+	void RebuildEditorPanelRegistry();
+	void RenderRegisteredPanels();
+	bool ConsumeRegisteredPanelOpenDirty();
 	void DrawEditorShellTitlebar(bool projectLoaded);
 	void DrawEditorMenuBar(bool projectLoaded);
+	void DrawAddPanelMenu(bool projectLoaded);
 	void OpenCommandPalette();
 	void DrawCommandPalette();
 
@@ -243,6 +248,9 @@ private:
 	SceneState m_SceneState = SceneState::Edit;
 
 	// panels
+	std::vector<EditorPanel*> m_EditorPanels;
+	Scope<CallbackEditorPanel> m_StatisticsPanelAdapter;
+	Scope<CallbackEditorPanel> m_ConsolePanelAdapter;
 	SceneHierarchyPanel m_SceneHierarchyPanel;
 	AnimationEditorPanel m_AnimationEditorPanel;
 	AssetEditorPanel m_AssetEditorPanel;

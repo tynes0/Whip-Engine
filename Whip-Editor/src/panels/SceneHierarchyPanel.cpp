@@ -441,7 +441,13 @@ static void DrawComponent(const std::string& name, Entity entityIn, const std::f
 	}
 }
 
+SceneHierarchyPanel::SceneHierarchyPanel()
+	: EditorPanel("Scene Hierarchy", true)
+{
+}
+
 SceneHierarchyPanel::SceneHierarchyPanel(const Ref<Scene> context)
+	: EditorPanel("Scene Hierarchy", true)
 {
 	SetContext(context);
 }

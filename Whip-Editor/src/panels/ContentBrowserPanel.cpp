@@ -182,10 +182,12 @@ namespace
 }
 
 ContentBrowserPanel::ContentBrowserPanel()
+	: EditorPanel("Content Browser", true)
 {
 }
 
 ContentBrowserPanel::ContentBrowserPanel(Ref<Project> proj)
+	: EditorPanel("Content Browser", true)
 {
 	Init(std::move(proj));
 }
