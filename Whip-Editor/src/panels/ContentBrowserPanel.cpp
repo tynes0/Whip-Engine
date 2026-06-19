@@ -117,6 +117,25 @@ namespace
 			candidate = directory / (stem + " " + std::to_string(suffix++) + extension.string());
 		return candidate;
 	}
+
+	float EstimatedButtonWidth(const char* label)
+	{
+		const ImGuiStyle& style = ImGui::GetStyle();
+		return ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+	}
+
+	float EstimatedRadioWidth(const char* label)
+	{
+		const ImGuiStyle& style = ImGui::GetStyle();
+		return ImGui::GetFrameHeight() + style.ItemInnerSpacing.x + ImGui::CalcTextSize(label).x;
+	}
+
+	void SameLineIfFits(float nextItemWidth)
+	{
+		const ImGuiStyle& style = ImGui::GetStyle();
+		if (ImGui::GetContentRegionAvail().x >= nextItemWidth + style.ItemSpacing.x)
+			ImGui::SameLine();
+	}
 }
 
 ContentBrowserPanel::ContentBrowserPanel()
@@ -165,6 +184,7 @@ void ContentBrowserPanel::OnImGuiRender()
 		return;
 	}
 
+	ValidateVisibleDirectory();
 	DrawToolbar();
 	DrawStatusBar();
 	ImGui::Separator();
@@ -216,7 +236,7 @@ void ContentBrowserPanel::DrawToolbar()
 		InvalidateItems();
 	}
 
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedRadioWidth("Imported"));
 	if (ImGui::RadioButton("Imported", m_Mode == Mode::Asset))
 	{
 		m_Mode = Mode::Asset;
@@ -224,37 +244,43 @@ void ContentBrowserPanel::DrawToolbar()
 		InvalidateItems();
 	}
 
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedButtonWidth("Refresh"));
 	if (ImGui::Button("Refresh"))
 		RefreshAssetTree();
 
-	ImGui::SameLine();
-	if (m_CurrentDirectory != m_BaseDirectory && ImGui::Button("Up"))
-		SetCurrentDirectory(m_CurrentDirectory.parent_path());
+	if (m_CurrentDirectory != m_BaseDirectory)
+	{
+		SameLineIfFits(EstimatedButtonWidth("Up"));
+		if (ImGui::Button("Up"))
+			SetCurrentDirectory(m_CurrentDirectory.parent_path());
+	}
 
-	ImGui::SameLine();
 	if (m_Mode == Mode::Filesystem)
 	{
+		SameLineIfFits(EstimatedButtonWidth("Import Folder"));
 		if (ImGui::Button("Import Folder"))
 			ImportCurrentDirectory(false);
 
-		ImGui::SameLine();
+		SameLineIfFits(EstimatedButtonWidth("Import Recursive"));
 		if (ImGui::Button("Import Recursive"))
 			ImportCurrentDirectory(true);
-
-		ImGui::SameLine();
 	}
 
+	SameLineIfFits(128.0f);
 	DrawTypeFilter();
 
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(std::max(160.0f, ImGui::GetContentRegionAvail().x - 154.0f));
+	SameLineIfFits(220.0f);
+	const float reservedWidth = EstimatedButtonWidth("Settings") + ImGui::GetStyle().ItemSpacing.x +
+		(!m_SearchQuery.empty() ? EstimatedButtonWidth("Clear") + ImGui::GetStyle().ItemSpacing.x : 0.0f);
+	const float searchAvail = ImGui::GetContentRegionAvail().x;
+	const float searchMin = std::min(160.0f, searchAvail);
+	ImGui::SetNextItemWidth(std::max(searchMin, std::min(searchAvail, searchAvail - reservedWidth)));
 	if (ImGui::InputTextWithHint("##ContentBrowserSearch", "Search assets and files", &m_SearchQuery))
 		InvalidateItems();
 
 	if (!m_SearchQuery.empty())
 	{
-		ImGui::SameLine();
+		SameLineIfFits(EstimatedButtonWidth("Clear"));
 		if (ImGui::Button("Clear"))
 		{
 			m_SearchQuery.clear();
@@ -262,7 +288,7 @@ void ContentBrowserPanel::DrawToolbar()
 		}
 	}
 
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedButtonWidth("Settings"));
 	if (ImGui::Button("Settings"))
 		m_ShowSettingsPopup = true;
 }
@@ -443,17 +469,15 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 	const ImVec2 itemStart = ImGui::GetCursorScreenPos();
 	if (item.m_SubAsset)
 	{
-		const float backgroundWidth = m_ThumbnailSize + std::max(10.0f, m_Padding * 0.55f);
+		const float horizontalReach = std::max(6.0f, m_Padding * 0.5f);
+		const float backgroundWidth = m_ThumbnailSize + horizontalReach * 2.0f + 2.0f;
 		const float backgroundHeight = std::max(m_ThumbnailSize + 42.0f, m_ThumbnailSize + ImGui::GetTextLineHeightWithSpacing() * 3.25f + 10.0f);
-		const ImVec2 backgroundMin(itemStart.x - 6.0f, itemStart.y - 6.0f);
+		const ImVec2 backgroundMin(itemStart.x - horizontalReach - 1.0f, itemStart.y - 6.0f);
 		const ImVec2 backgroundMax(backgroundMin.x + backgroundWidth, backgroundMin.y + backgroundHeight);
 		ImDrawList* drawList = ImGui::GetWindowDrawList();
-		drawList->AddRectFilled(backgroundMin, backgroundMax, IM_COL32(16, 24, 29, 205), 7.0f);
-		drawList->AddRect(backgroundMin, backgroundMax, IM_COL32(82, 139, 186, 72), 7.0f, 0, 1.0f);
-		drawList->AddRectFilled(backgroundMin, ImVec2(backgroundMin.x + 3.0f, backgroundMax.y), IM_COL32(116, 186, 238, 145), 7.0f, ImDrawFlags_RoundCornersLeft);
-		const ImVec2 linkStart(backgroundMin.x + 8.0f, backgroundMin.y + 10.0f);
-		drawList->AddCircleFilled(linkStart, 2.0f, IM_COL32(116, 186, 238, 180));
-		drawList->AddLine(linkStart, ImVec2(linkStart.x + 14.0f, linkStart.y), IM_COL32(116, 186, 238, 105), 1.0f);
+		drawList->AddRectFilled(backgroundMin, backgroundMax, IM_COL32(15, 23, 28, 218), 3.0f);
+		drawList->AddLine(ImVec2(backgroundMin.x, backgroundMin.y + 1.0f), ImVec2(backgroundMax.x, backgroundMin.y + 1.0f), IM_COL32(116, 186, 238, 135), 2.0f);
+		drawList->AddRectFilled(ImVec2(backgroundMin.x, backgroundMin.y), ImVec2(backgroundMin.x + 3.0f, backgroundMax.y), IM_COL32(116, 186, 238, 105), 2.0f);
 	}
 
 	Ref<Texture2D> thumbnail = item.m_Directory ? IconManager::Get().GetIcon(Icon::Directory) : nullptr;
@@ -940,6 +964,21 @@ void ContentBrowserPanel::InvalidateItems()
 	m_ItemsDirty = true;
 }
 
+void ContentBrowserPanel::ValidateVisibleDirectory()
+{
+	const double now = ImGui::GetTime();
+	if (now < m_NextFilesystemValidationTime)
+		return;
+
+	m_NextFilesystemValidationTime = now + 0.5;
+	const uint64_t fingerprint = ComputeDirectoryFingerprint(m_CurrentDirectory);
+	if (fingerprint == m_CurrentDirectoryFingerprint)
+		return;
+
+	m_CurrentDirectoryFingerprint = fingerprint;
+	RefreshAssetTree();
+}
+
 void ContentBrowserPanel::RebuildDirectoryTree()
 {
 	m_DirectoryTree = BuildDirectoryNode(m_BaseDirectory);
@@ -1021,6 +1060,54 @@ void ContentBrowserPanel::ToggleTextureSprites(const BrowserItem& item)
 		m_CollapsedTextureSpriteParents.insert(item.m_DrawId);
 
 	InvalidateItems();
+}
+
+uint64_t ContentBrowserPanel::ComputeDirectoryFingerprint(const std::filesystem::path& directory) const
+{
+	std::error_code error;
+	if (!std::filesystem::exists(directory, error) || !std::filesystem::is_directory(directory, error))
+		return 0;
+
+	std::vector<std::filesystem::directory_entry> entries;
+	for (const auto& entry : std::filesystem::directory_iterator(directory, error))
+		entries.push_back(entry);
+	std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right)
+		{
+			return left.path().generic_string() < right.path().generic_string();
+		});
+
+	uint64_t hash = 1469598103934665603ull;
+	auto mix = [&hash](uint64_t value)
+		{
+			hash ^= value;
+			hash *= 1099511628211ull;
+		};
+
+	mix(static_cast<uint64_t>(entries.size()));
+	for (const auto& entry : entries)
+	{
+		const std::string path = entry.path().filename().generic_string();
+		for (unsigned char character : path)
+			mix(character);
+
+		error.clear();
+		mix(entry.is_directory(error) ? 1ull : 0ull);
+
+		error.clear();
+		const auto writeTime = std::filesystem::last_write_time(entry.path(), error);
+		if (!error)
+			mix(static_cast<uint64_t>(writeTime.time_since_epoch().count()));
+
+		error.clear();
+		if (entry.is_regular_file(error))
+		{
+			error.clear();
+			const auto size = std::filesystem::file_size(entry.path(), error);
+			if (!error)
+				mix(static_cast<uint64_t>(size));
+		}
+	}
+	return hash;
 }
 
 std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectFilesystemItems() const
@@ -2164,6 +2251,8 @@ void ContentBrowserPanel::RefreshAssetTree()
 	if (!std::filesystem::exists(m_CurrentDirectory, error) || !IsInsideBaseDirectory(m_CurrentDirectory))
 		m_CurrentDirectory = m_BaseDirectory;
 
+	m_CurrentDirectoryFingerprint = ComputeDirectoryFingerprint(m_CurrentDirectory);
+	m_NextFilesystemValidationTime = 0.0;
 	m_DirectoryTreeDirty = true;
 	m_SelectedItemIds.clear();
 	InvalidateItems();

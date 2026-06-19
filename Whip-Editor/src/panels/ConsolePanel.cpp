@@ -110,6 +110,25 @@ namespace
 		}
 	}
 
+	float EstimatedButtonWidth(const char* label)
+	{
+		const ImGuiStyle& style = ImGui::GetStyle();
+		return ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+	}
+
+	float EstimatedCheckboxWidth(const char* label)
+	{
+		const ImGuiStyle& style = ImGui::GetStyle();
+		return ImGui::GetFrameHeight() + style.ItemInnerSpacing.x + ImGui::CalcTextSize(label).x;
+	}
+
+	void SameLineIfFits(float nextItemWidth)
+	{
+		const ImGuiStyle& style = ImGui::GetStyle();
+		if (ImGui::GetContentRegionAvail().x >= nextItemWidth + style.ItemSpacing.x)
+			ImGui::SameLine();
+	}
+
 	ConsoleEntry ParseEntry(Log::Level level, std::string rawMessage)
 	{
 		ConsoleEntry entry;
@@ -395,33 +414,33 @@ void ConsolePanel::OnImGuiRender()
 		ConsoleState.m_Buffer.clear();
 		SkipToEnd();
 	}
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedCheckboxWidth("Auto-scroll"));
 	ImGui::Checkbox("Auto-scroll", &ConsoleState.m_AutoScroll);
-	ImGui::SameLine();
+	SameLineIfFits(ImGui::CalcTextSize("000 logs").x);
 	ImGui::TextDisabled("%zu logs", ConsoleState.m_Buffer.size());
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedButtonWidth("All"));
 	if (ImGui::SmallButton("All"))
 	{
 		SetAllLevelFilters(true);
 		ConsoleState.m_TextFilter.clear();
 		ConsoleState.m_CategoryFilter.clear();
 	}
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedButtonWidth("Warn+"));
 	if (ImGui::SmallButton("Warn+"))
 		SetWarningsAndErrorsFilter();
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedButtonWidth("Errors"));
 	if (ImGui::SmallButton("Errors"))
 		SetErrorsFilter();
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedButtonWidth("Scripts"));
 	if (ImGui::SmallButton("Scripts"))
 		ConsoleState.m_CategoryFilter = "Script";
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedButtonWidth("Assets"));
 	if (ImGui::SmallButton("Assets"))
 		ConsoleState.m_CategoryFilter = "Asset";
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedButtonWidth("Project"));
 	if (ImGui::SmallButton("Project"))
 		ConsoleState.m_CategoryFilter = "Project";
-	ImGui::SameLine();
+	SameLineIfFits(EstimatedButtonWidth("Copy visible"));
 	if (ImGui::SmallButton("Copy visible"))
 	{
 		std::string clipboard;
@@ -431,20 +450,25 @@ void ConsolePanel::OnImGuiRender()
 		ImGui::SetClipboardText(clipboard.c_str());
 	}
 
-	ImGui::SetNextItemWidth(std::max(180.0f, ImGui::GetContentRegionAvail().x * 0.58f));
+	SameLineIfFits(220.0f);
+	const float filterReserve = 170.0f + ImGui::GetStyle().ItemSpacing.x;
+	const float textFilterAvail = ImGui::GetContentRegionAvail().x;
+	const float textFilterMin = std::min(180.0f, textFilterAvail);
+	ImGui::SetNextItemWidth(std::max(textFilterMin, std::min(textFilterAvail, textFilterAvail - filterReserve)));
 	ImGui::InputTextWithHint("##ConsoleTextFilter", "Filter message, level, time", &ConsoleState.m_TextFilter);
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(std::max(160.0f, ImGui::GetContentRegionAvail().x));
+	SameLineIfFits(170.0f);
+	const float categoryFilterAvail = ImGui::GetContentRegionAvail().x;
+	ImGui::SetNextItemWidth(std::max(1.0f, categoryFilterAvail));
 	ImGui::InputTextWithHint("##ConsoleCategoryFilter", "Filter category", &ConsoleState.m_CategoryFilter);
 
 	for (size_t i = 0; i < ConsoleState.m_LevelFilter.size(); ++i)
 	{
 		if (i > 0)
-			ImGui::SameLine();
+			SameLineIfFits(EstimatedCheckboxWidth(LevelName(static_cast<Log::Level>(i))));
 		ImGui::Checkbox(LevelName(static_cast<Log::Level>(i)), &ConsoleState.m_LevelFilter[i]);
 	}
 	const size_t visibleCount = std::ranges::count_if(ConsoleState.m_Buffer, [](const ConsoleEntry& entry) { return EntryVisible(entry); });
-	ImGui::SameLine();
+	SameLineIfFits(ImGui::CalcTextSize("000 visible").x);
 	ImGui::TextDisabled("%zu visible", visibleCount);
 
 	ImGui::Separator();

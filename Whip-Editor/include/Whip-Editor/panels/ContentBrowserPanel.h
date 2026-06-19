@@ -124,12 +124,14 @@ private:
 	std::vector<BrowserItem> CollectAssetItems() const;
 	void RebuildCachedItems();
 	void InvalidateItems();
+	void ValidateVisibleDirectory();
 	void RebuildDirectoryTree();
 	DirectoryNode BuildDirectoryNode(const std::filesystem::path& directory) const;
 	void FinalizeBrowserItem(BrowserItem& item) const;
 	void AppendTextureSpriteItems(std::vector<BrowserItem>& items, const BrowserItem& parentItem, const AssetMetadata& metadata) const;
 	bool AreTextureSpritesCollapsed(const BrowserItem& item) const;
 	void ToggleTextureSprites(const BrowserItem& item);
+	uint64_t ComputeDirectoryFingerprint(const std::filesystem::path& directory) const;
 
 	void SetCurrentDirectory(const std::filesystem::path& directory);
 	bool ImportFile(const std::filesystem::path& relativePath, ImportSummary* summary = nullptr);
@@ -224,6 +226,8 @@ private:
 	DirectoryNode m_DirectoryTree;
 	std::set<std::string> m_SelectedItemIds;
 	std::set<std::string> m_CollapsedTextureSpriteParents;
+	double m_NextFilesystemValidationTime = 0.0;
+	uint64_t m_CurrentDirectoryFingerprint = 0;
 };
 
 _WHIP_END

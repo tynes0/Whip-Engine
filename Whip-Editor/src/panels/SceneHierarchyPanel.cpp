@@ -326,6 +326,19 @@ namespace
 		return false;
 	}
 
+	float EstimatedSmallButtonWidth(const char* label)
+	{
+		const ImGuiStyle& style = ImGui::GetStyle();
+		return ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+	}
+
+	void SameLineIfFits(float nextItemWidth)
+	{
+		const ImGuiStyle& style = ImGui::GetStyle();
+		if (ImGui::GetContentRegionAvail().x >= nextItemWidth + style.ItemSpacing.x)
+			ImGui::SameLine();
+	}
+
 	void DrawScriptWorkspaceActions()
 	{
 		ImGui::PushID("ScriptWorkspaceActions");
@@ -340,19 +353,19 @@ namespace
 			OpenWorkspaceWithDefaultApp(workspaceFile);
 		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
 			ImGui::SetTooltip("Open the C# solution with the default IDE");
-		ImGui::SameLine();
+		SameLineIfFits(EstimatedSmallButtonWidth("VS"));
 		if (ImGui::SmallButton("VS"))
 			OpenWorkspaceWithApp("Visual Studio", VisualStudioExecutable(), workspaceFile);
 		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
 			ImGui::SetTooltip("Open in Visual Studio");
-		ImGui::SameLine();
+		SameLineIfFits(EstimatedSmallButtonWidth("Rider"));
 		if (ImGui::SmallButton("Rider"))
 			OpenWorkspaceWithApp("Rider", RiderExecutable(), workspaceFile);
 		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
 			ImGui::SetTooltip("Open in JetBrains Rider");
 		ImGui::EndDisabled();
 
-		ImGui::SameLine();
+		SameLineIfFits(EstimatedSmallButtonWidth("Folder"));
 		ImGui::BeginDisabled(!hasScriptsDirectory);
 		if (ImGui::SmallButton("Folder"))
 			Utils::OpenExternalPath(scriptsDirectory);
