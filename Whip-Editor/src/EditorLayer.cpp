@@ -544,6 +544,11 @@ void EditorLayer::OnImGuiRender()
 	// other renders
 	RebuildEditorPanelRegistry();
 	m_PanelManager.OnImGuiRender();
+	if (Application::Get().GetImGuiLayer()->IsBlockingEvents() && ImGui::GetIO().WantCaptureKeyboard)
+	{
+		const bool hasActiveWidget = Application::Get().GetImGuiLayer()->GetActiveWidgetID() != 0;
+		m_ShortcutManager.HandleImGuiShortcuts(hasActiveWidget);
+	}
 	DrawCommandPalette();
 	if (m_UISettings.ConsumeDirty()
 		|| m_ShortcutManager.ConsumeDirty()

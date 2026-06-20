@@ -23,6 +23,7 @@ public:
 	void End();
 
 	void BlockEvents(bool block) { m_BlockEvents = block; }
+	bool IsBlockingEvents() const { return m_BlockEvents; }
 
 	uint32_t GetActiveWidgetID() const;
 private:

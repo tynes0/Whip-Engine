@@ -70,6 +70,7 @@ public:
 		const EditorShortcutOptions& options = {});
 
 	bool HandleKeyPressed(KeyPressedEvent& event, bool hasActiveWidget);
+	bool HandleImGuiShortcuts(bool hasActiveWidget);
 	void DrawSettings();
 
 	bool ConsumeDirty();
@@ -97,6 +98,7 @@ private:
 	EditorShortcut* FindShortcut(std::string_view id);
 	const EditorShortcut* FindShortcut(std::string_view id) const;
 	bool IsShortcutActive(const EditorShortcut& shortcut) const;
+	bool HandleShortcut(KeyCode key, bool ctrl, bool shift, bool alt, bool hasActiveWidget) const;
 	bool Matches(const EditorShortcut& shortcut, KeyCode key, bool ctrl, bool shift, bool alt) const;
 	bool Execute(const EditorShortcut& shortcut, bool hasActiveWidget, bool ignoreTextInput = false, bool ignoreContext = false) const;
 	bool HasConflict(const EditorShortcut& shortcut) const;

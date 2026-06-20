@@ -348,9 +348,10 @@ void AnimationEditorPanel::OnImGuiRenderEmbedded()
 	m_Minimized = false;
 	m_Fullscreen = false;
 	m_FullscreenRequested = false;
-	m_ShortcutContextActive = m_ShortcutContextActive || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
 	UpdatePreview();
 	DrawEditorContent(false);
+	m_ShortcutContextActive = m_ShortcutContextActive || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
 }
 
 void AnimationEditorPanel::DrawEditorContent(bool showWindowControls)
