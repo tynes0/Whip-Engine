@@ -29,6 +29,25 @@ namespace
 			key == Key::LeftAlt || key == Key::RightAlt;
 	}
 
+	bool IsTextEditingBinding(const UI::ShortcutBinding& binding)
+	{
+		if (!binding.m_Ctrl || binding.m_Alt)
+			return false;
+
+		switch (binding.m_Key)
+		{
+		case Key::A:
+		case Key::C:
+		case Key::V:
+		case Key::X:
+		case Key::Y:
+		case Key::Z:
+			return true;
+		default:
+			return false;
+		}
+	}
+
 	std::string LowerCopy(std::string value)
 	{
 		std::ranges::transform(value, value.begin(),
@@ -522,10 +541,12 @@ bool EditorShortcutManager::Matches(const EditorShortcut& shortcut, KeyCode key,
 
 bool EditorShortcutManager::Execute(const EditorShortcut& shortcut, bool hasActiveWidget, bool ignoreTextInput, bool ignoreContext) const
 {
-	if (!ignoreTextInput && ImGui::GetIO().WantTextInput && !shortcut.m_Options.m_AllowWhenTextInput)
+	const bool modifiedShortcut = shortcut.m_Binding.m_Ctrl || shortcut.m_Binding.m_Shift || shortcut.m_Binding.m_Alt;
+	if (!ignoreTextInput && ImGui::GetIO().WantTextInput && !shortcut.m_Options.m_AllowWhenTextInput &&
+		(!modifiedShortcut || IsTextEditingBinding(shortcut.m_Binding)))
 		return false;
 
-	if (hasActiveWidget && !shortcut.m_Options.m_AllowWhenActiveWidget)
+	if (hasActiveWidget && !modifiedShortcut && !shortcut.m_Options.m_AllowWhenActiveWidget)
 		return false;
 
 	if (!ignoreContext && shortcut.m_Scope != EditorShortcutScope::Global && !IsShortcutActive(shortcut))
