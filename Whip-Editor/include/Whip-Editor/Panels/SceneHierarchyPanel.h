@@ -23,6 +23,7 @@ public:
 	Ref<Scene>& GetContext();
 
 	void OnImGuiRender() override;
+	void RegisterShortcuts(EditorShortcutManager& shortcuts) override;
 	void SetSceneChangeCallback(std::function<void()> callback);
 	void SetSaveEntityTemplateCallback(std::function<void(Entity)> callback);
 	void SetApplyEntityTemplateCallback(std::function<void(Entity)> callback);
@@ -39,6 +40,14 @@ public:
 	void SetSelectedEntityIds(const std::vector<UUID>& ids);
 	void SelectAll();
 	void ClearSelection();
+	bool IsShortcutContextActive() const;
+	bool CreateEntityShortcut();
+	bool CreateGroupShortcut();
+	bool MoveSelectionToRootShortcut();
+	bool SaveSelectedTemplateShortcut();
+	bool ApplySelectedTemplateShortcut();
+	bool RevertSelectedTemplateShortcut();
+	bool UnpackSelectedTemplateShortcut();
 private:
 	void DrawEntityNode(Entity entityIn);
 	void DrawComponents(Entity entityIn);
@@ -82,6 +91,7 @@ private:
 	std::function<void(Entity)> m_RevertEntityTemplateCallback;
 	std::function<void(Entity)> m_UnpackEntityTemplateCallback;
 	bool m_PropertyEditHistoryActive = false;
+	bool m_Focused = false;
 };
 
 _WHIP_END

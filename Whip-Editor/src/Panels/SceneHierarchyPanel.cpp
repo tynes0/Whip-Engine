@@ -1,5 +1,6 @@
 #include <Whip-Editor/Panels/SceneHierarchyPanel.h>
 
+#include <Whip-Editor/Managers/EditorShortcutManager.h>
 #include <Whip/Scene/Components.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip-Editor/UI/UIScopedStyle.h>
@@ -467,6 +468,31 @@ void SceneHierarchyPanel::SetUnpackEntityTemplateCallback(std::function<void(Ent
 	m_UnpackEntityTemplateCallback = std::move(callback);
 }
 
+void SceneHierarchyPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
+{
+	auto add = [this, &shortcuts](const char* id, const char* displayName, const char* category, const UI::ShortcutBinding& binding, std::function<bool()> callback, std::function<bool()> isAvailable = {})
+	{
+		shortcuts.Add(
+			EditorShortcutScope::SceneHierarchy,
+			std::string("scene_hierarchy.") + id,
+			displayName,
+			category,
+			binding,
+			std::move(callback),
+			std::move(isAvailable),
+			[this]() { return IsShortcutContextActive(); });
+	};
+
+	add("create_entity", "Create Entity", "Scene", { Key::N, true, true, false }, [this]() { return CreateEntityShortcut(); }, [this]() { return m_Context != nullptr; });
+	add("create_group", "Create Group", "Scene", { Key::G, true, true, false }, [this]() { return CreateGroupShortcut(); }, [this]() { return m_Context != nullptr; });
+	add("clear_selection", "Clear Selection", "Selection", { Key::Escape, false, false, false }, [this]() { ClearSelection(); return true; }, [this]() { return m_SelectionContext; });
+	add("move_to_root", "Move Selection To Root", "Hierarchy", { Key::Home, true, true, false }, [this]() { return MoveSelectionToRootShortcut(); }, [this]() { return m_SelectionContext; });
+	add("save_template", "Save Selected Entity Template", "Entity Template", { Key::T, true, true, false }, [this]() { return SaveSelectedTemplateShortcut(); }, [this]() { return m_SelectionContext && m_SaveEntityTemplateCallback; });
+	add("apply_template", "Apply Selected Entity Template", "Entity Template", { Key::T, true, false, false }, [this]() { return ApplySelectedTemplateShortcut(); }, [this]() { return m_SelectionContext && m_ApplyEntityTemplateCallback; });
+	add("revert_template", "Revert Selected Entity Template", "Entity Template", { Key::T, true, false, true }, [this]() { return RevertSelectedTemplateShortcut(); }, [this]() { return m_SelectionContext && m_RevertEntityTemplateCallback; });
+	add("unpack_template", "Unpack Selected Entity Template", "Entity Template", { Key::U, true, true, false }, [this]() { return UnpackSelectedTemplateShortcut(); }, [this]() { return m_SelectionContext && m_UnpackEntityTemplateCallback; });
+}
+
 bool SceneHierarchyPanel::IsOpen() const
 {
 	return m_Open;
@@ -485,10 +511,14 @@ std::vector<UUID> SceneHierarchyPanel::GetSelectedEntityIds() const
 void SceneHierarchyPanel::OnImGuiRender()
 {
 	if (!m_Open)
+	{
+		m_Focused = false;
 		return;
+	}
 
 	bool open = m_Open;
 	ImGui::Begin("Scene Hierarchy", &open);
+	m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
 	if (open != m_Open)
 		SetOpen(open);
 
@@ -536,6 +566,7 @@ void SceneHierarchyPanel::OnImGuiRender()
 	ImGui::End();
 
 	ImGui::Begin("Properties");
+	m_Focused = m_Focused || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
 	if (!m_Context)
 	{
 		ImGui::TextDisabled("No scene loaded.");
@@ -661,6 +692,91 @@ void SceneHierarchyPanel::ClearSelection()
 {
 	m_SelectionContext = {};
 	m_SelectionContexts.clear();
+}
+
+bool SceneHierarchyPanel::IsShortcutContextActive() const
+{
+	return m_Open && m_Focused;
+}
+
+bool SceneHierarchyPanel::CreateEntityShortcut()
+{
+	if (!m_Context)
+		return false;
+	NotifySceneChange();
+	SetSelectedEntity(m_Context->CreateEntity("New Entity"));
+	return true;
+}
+
+bool SceneHierarchyPanel::CreateGroupShortcut()
+{
+	if (!m_Context)
+		return false;
+	NotifySceneChange();
+	Entity groupEntity = m_Context->CreateEntity("Group");
+	groupEntity.GetComponent<HierarchyComponent>().m_IsGroup = true;
+	SetSelectedEntity(groupEntity);
+	return true;
+}
+
+bool SceneHierarchyPanel::MoveSelectionToRootShortcut()
+{
+	std::vector<Entity> selectedEntities = GetSelectedEntities();
+	if (selectedEntities.empty())
+		return false;
+
+	bool changed = false;
+	for (Entity selected : selectedEntities)
+	{
+		if (!selected.HasComponent<HierarchyComponent>() || selected.GetComponent<HierarchyComponent>().m_Parent == 0)
+			continue;
+		SetEntityParent(selected, {});
+		changed = true;
+	}
+	if (changed)
+		NotifySceneChange();
+	return changed;
+}
+
+bool SceneHierarchyPanel::SaveSelectedTemplateShortcut()
+{
+	if (!m_SelectionContext || !m_SaveEntityTemplateCallback)
+		return false;
+	m_SaveEntityTemplateCallback(m_SelectionContext);
+	return true;
+}
+
+bool SceneHierarchyPanel::ApplySelectedTemplateShortcut()
+{
+	if (!m_SelectionContext || !m_ApplyEntityTemplateCallback)
+		return false;
+	Entity prefabRoot = FindPrefabRoot(m_SelectionContext);
+	if (!prefabRoot)
+		return false;
+	m_ApplyEntityTemplateCallback(prefabRoot);
+	return true;
+}
+
+bool SceneHierarchyPanel::RevertSelectedTemplateShortcut()
+{
+	if (!m_SelectionContext || !m_RevertEntityTemplateCallback)
+		return false;
+	Entity prefabRoot = FindPrefabRoot(m_SelectionContext);
+	if (!prefabRoot)
+		return false;
+	m_RevertEntityTemplateCallback(prefabRoot);
+	return true;
+}
+
+bool SceneHierarchyPanel::UnpackSelectedTemplateShortcut()
+{
+	if (!m_SelectionContext || !m_UnpackEntityTemplateCallback)
+		return false;
+	Entity prefabRoot = FindPrefabRoot(m_SelectionContext);
+	if (!prefabRoot)
+		return false;
+	m_UnpackEntityTemplateCallback(prefabRoot);
+	return true;
 }
 
 void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)

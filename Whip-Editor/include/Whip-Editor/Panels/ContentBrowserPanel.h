@@ -45,6 +45,7 @@ public:
 	void Init(const Ref<Project>& proj);
 
 	void OnImGuiRender() override;
+	void RegisterShortcuts(EditorShortcutManager& shortcuts) override;
 	void OnSettingsPopup();
 	void RefreshAssetTree();
 	Preferences GetPreferences() const;
@@ -158,6 +159,17 @@ private:
 	void ImportSupportedFilesUnder(const std::filesystem::path& directory, ImportSummary& summary);
 	bool ImportExternalPath(const std::filesystem::path& sourcePath, ImportSummary& summary);
 
+	bool IsShortcutContextActive() const;
+	bool FocusSearch();
+	bool GoUpDirectory();
+	bool OpenSelectedItem();
+	bool InspectSelectedItem();
+	bool RenameSelectedItem();
+	bool DeleteSelectedItem();
+	bool DuplicateSelectedItem();
+	bool ToggleSelectedTextureSprites();
+	bool ClearSearch();
+	bool SelectAllVisible();
 	bool IsInsideBaseDirectory(const std::filesystem::path& path) const;
 	bool MatchesSearch(const BrowserItem& item) const;
 	bool PassesTypeFilter(const BrowserItem& item) const;
@@ -218,6 +230,8 @@ private:
 	bool m_Initialized = false;
 	bool m_PreferencesDirty = false;
 	bool m_Hovered = false;
+	bool m_Focused = false;
+	bool m_RequestSearchFocus = false;
 	bool m_ItemsDirty = true;
 	bool m_DirectoryTreeDirty = true;
 	std::vector<BrowserItem> m_CachedItems;

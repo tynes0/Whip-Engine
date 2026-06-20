@@ -81,6 +81,11 @@ void EditorShortcutManager::Add(EditorShortcut shortcut)
 		return;
 
 	shortcut.m_Binding = shortcut.m_Binding.m_Key == 0 ? shortcut.m_DefaultBinding : shortcut.m_Binding;
+	if (auto pendingIt = m_PendingBindings.find(shortcut.m_Id); pendingIt != m_PendingBindings.end())
+	{
+		shortcut.m_Binding = pendingIt->second;
+		m_PendingBindings.erase(pendingIt);
+	}
 
 	if (EditorShortcut* existing = FindShortcut(shortcut.m_Id))
 	{
@@ -132,7 +137,8 @@ bool EditorShortcutManager::HandleKeyPressed(KeyPressedEvent& event, bool hasAct
 	{
 		if (shortcut.m_Scope == EditorShortcutScope::Global || !IsShortcutActive(shortcut) || !Matches(shortcut, key, control, shift, alt))
 			continue;
-		return Execute(shortcut, hasActiveWidget);
+		if (Execute(shortcut, hasActiveWidget))
+			return true;
 	}
 
 	for (const EditorShortcut& shortcut : m_Shortcuts)
@@ -152,8 +158,37 @@ void EditorShortcutManager::DrawSettings()
 	ImGui::SetNextItemWidth(260.0f);
 	ImGui::InputTextWithHint("##ShortcutSearch", "Search shortcuts...", m_SearchBuffer, sizeof(m_SearchBuffer));
 	ImGui::SameLine();
+	ImGui::SetNextItemWidth(170.0f);
+	if (ImGui::BeginCombo("##ShortcutScopeFilter", m_SettingsScopeFilter < 0 ? "All Scopes" : GetScopeName(static_cast<EditorShortcutScope>(m_SettingsScopeFilter))))
+	{
+		if (ImGui::Selectable("All Scopes", m_SettingsScopeFilter < 0))
+			m_SettingsScopeFilter = -1;
+		for (EditorShortcutScope scope : {
+			EditorShortcutScope::Global,
+			EditorShortcutScope::Viewport,
+			EditorShortcutScope::SceneHierarchy,
+			EditorShortcutScope::ContentBrowser,
+			EditorShortcutScope::AssetEditor,
+			EditorShortcutScope::AnimationEditor,
+			EditorShortcutScope::Console,
+			EditorShortcutScope::Statistics,
+			EditorShortcutScope::ProjectHub })
+		{
+			const int scopeIndex = static_cast<int>(scope);
+			if (ImGui::Selectable(GetScopeName(scope), m_SettingsScopeFilter == scopeIndex))
+				m_SettingsScopeFilter = scopeIndex;
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::SameLine();
 	if (ImGui::Button("Reset Defaults", ImVec2(128.0f, 0.0f)))
 		ResetToDefaults();
+	if (m_SettingsScopeFilter >= 0)
+	{
+		ImGui::SameLine();
+		if (ImGui::Button("Reset Scope", ImVec2(118.0f, 0.0f)))
+			ResetScopeToDefaults(static_cast<EditorShortcutScope>(m_SettingsScopeFilter));
+	}
 
 	constexpr EditorShortcutScope Scopes[] =
 	{
@@ -170,6 +205,9 @@ void EditorShortcutManager::DrawSettings()
 
 	for (EditorShortcutScope scope : Scopes)
 	{
+		if (m_SettingsScopeFilter >= 0 && static_cast<int>(scope) != m_SettingsScopeFilter)
+			continue;
+
 		bool hasVisibleShortcut = false;
 		for (const EditorShortcut& shortcut : m_Shortcuts)
 		{
@@ -269,23 +307,42 @@ void EditorShortcutManager::ResetToDefaults()
 	MarkDirty();
 }
 
+void EditorShortcutManager::ResetScopeToDefaults(EditorShortcutScope scope)
+{
+	for (EditorShortcut& shortcut : m_Shortcuts)
+		if (shortcut.m_Scope == scope)
+			shortcut.m_Binding = shortcut.m_DefaultBinding;
+	MarkDirty();
+}
+
 void EditorShortcutManager::LoadBindings(const YAML::Node& shortcuts)
 {
 	if (!shortcuts)
 		return;
 
-	for (EditorShortcut& shortcut : m_Shortcuts)
+	for (auto it = shortcuts.begin(); it != shortcuts.end(); ++it)
 	{
-		YAML::Node bindingNode = shortcuts[shortcut.m_Id];
-		if (!bindingNode)
+		const std::string id = it->first.as<std::string>("");
+		const YAML::Node bindingNode = it->second;
+		if (id.empty() || !bindingNode)
 			continue;
 
 		UI::ShortcutBinding binding;
-		binding.m_Key = static_cast<KeyCode>(bindingNode["key"].as<int>(shortcut.m_Binding.m_Key));
-		binding.m_Ctrl = bindingNode["ctrl"].as<bool>(shortcut.m_Binding.m_Ctrl);
-		binding.m_Shift = bindingNode["shift"].as<bool>(shortcut.m_Binding.m_Shift);
-		binding.m_Alt = bindingNode["alt"].as<bool>(shortcut.m_Binding.m_Alt);
-		shortcut.m_Binding = binding;
+		binding.m_Key = static_cast<KeyCode>(bindingNode["key"].as<int>(0));
+		binding.m_Ctrl = bindingNode["ctrl"].as<bool>(false);
+		binding.m_Shift = bindingNode["shift"].as<bool>(false);
+		binding.m_Alt = bindingNode["alt"].as<bool>(false);
+		m_PendingBindings[id] = binding;
+	}
+
+	for (EditorShortcut& shortcut : m_Shortcuts)
+	{
+		auto pendingIt = m_PendingBindings.find(shortcut.m_Id);
+		if (pendingIt == m_PendingBindings.end())
+			continue;
+
+		shortcut.m_Binding = pendingIt->second;
+		m_PendingBindings.erase(pendingIt);
 	}
 }
 
@@ -311,6 +368,24 @@ void EditorShortcutManager::SyncLegacyGlobalBindings(const UI::UISettings& setti
 		if (EditorShortcut* shortcut = FindShortcut(id))
 			shortcut->m_Binding = settings.GetShortcutBinding(action);
 	}
+}
+
+bool EditorShortcutManager::ExecuteShortcut(std::string_view id, bool hasActiveWidget, bool ignoreTextInput, bool ignoreContext) const
+{
+	const EditorShortcut* shortcut = FindShortcut(id);
+	return shortcut && Execute(*shortcut, hasActiveWidget, ignoreTextInput, ignoreContext);
+}
+
+bool EditorShortcutManager::IsShortcutAvailable(std::string_view id, bool requireActiveContext) const
+{
+	const EditorShortcut* shortcut = FindShortcut(id);
+	if (!shortcut)
+		return false;
+	if (requireActiveContext && shortcut->m_Scope != EditorShortcutScope::Global && !IsShortcutActive(*shortcut))
+		return false;
+	if (shortcut->m_IsAvailable && !shortcut->m_IsAvailable())
+		return false;
+	return !HasConflict(*shortcut);
 }
 
 UI::ShortcutBinding EditorShortcutManager::GetBinding(std::string_view id, const UI::ShortcutBinding& fallback) const
@@ -398,12 +473,15 @@ bool EditorShortcutManager::Matches(const EditorShortcut& shortcut, KeyCode key,
 		shortcut.m_Binding.m_Alt == alt;
 }
 
-bool EditorShortcutManager::Execute(const EditorShortcut& shortcut, bool hasActiveWidget) const
+bool EditorShortcutManager::Execute(const EditorShortcut& shortcut, bool hasActiveWidget, bool ignoreTextInput, bool ignoreContext) const
 {
-	if (ImGui::GetIO().WantTextInput && !shortcut.m_Options.m_AllowWhenTextInput)
+	if (!ignoreTextInput && ImGui::GetIO().WantTextInput && !shortcut.m_Options.m_AllowWhenTextInput)
 		return false;
 
 	if (hasActiveWidget && !shortcut.m_Options.m_AllowWhenActiveWidget)
+		return false;
+
+	if (!ignoreContext && shortcut.m_Scope != EditorShortcutScope::Global && !IsShortcutActive(shortcut))
 		return false;
 
 	if (shortcut.m_IsAvailable && !shortcut.m_IsAvailable())

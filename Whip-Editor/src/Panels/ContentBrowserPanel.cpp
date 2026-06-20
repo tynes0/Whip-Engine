@@ -3,6 +3,7 @@
 #include <Whip-Editor/Panels/ContentBrowserPanel.h>
 
 #include <Whip-Editor/Helpers/IconManager.h>
+#include <Whip-Editor/Managers/EditorShortcutManager.h>
 
 #include <Whip/Animation/Animation2D.h>
 #include <Whip/Asset/AssetManager.h>
@@ -213,12 +214,14 @@ void ContentBrowserPanel::OnImGuiRender()
 	if (!m_Open)
 	{
 		m_Hovered = false;
+		m_Focused = false;
 		return;
 	}
 
 	bool open = m_Open;
 	ImGui::Begin("Content Browser", &open);
 	m_Hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
+	m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
 	if (open != m_Open)
 		SetOpen(open);
 
@@ -272,6 +275,37 @@ void ContentBrowserPanel::OnImGuiRender()
 	ImGui::End();
 }
 
+void ContentBrowserPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
+{
+	auto add = [this, &shortcuts](const char* id, const char* displayName, const char* category, const UI::ShortcutBinding& binding, std::function<bool()> callback, std::function<bool()> isAvailable = {})
+	{
+		shortcuts.Add(
+			EditorShortcutScope::ContentBrowser,
+			std::string("content_browser.") + id,
+			displayName,
+			category,
+			binding,
+			std::move(callback),
+			std::move(isAvailable),
+			[this]() { return IsShortcutContextActive(); });
+	};
+
+	add("focus_search", "Focus Search", "Navigation", { Key::F, true, false, false }, [this]() { return FocusSearch(); });
+	add("clear_search", "Clear Search", "Navigation", { Key::Escape, false, false, false }, [this]() { return ClearSearch(); }, [this]() { return !m_SearchQuery.empty(); });
+	add("refresh", "Refresh Browser", "Navigation", { Key::R, true, false, false }, [this]() { RefreshAssetTree(); return true; });
+	add("up", "Go Up Folder", "Navigation", { Key::Up, false, false, true }, [this]() { return GoUpDirectory(); }, [this]() { return m_CurrentDirectory != m_BaseDirectory; });
+	add("open", "Open Selected Asset", "Assets", { Key::Enter, false, false, false }, [this]() { return OpenSelectedItem(); }, [this]() { return !m_SelectedItemIds.empty(); });
+	add("inspect", "Open Selected In Asset Editor", "Assets", { Key::Enter, true, false, false }, [this]() { return InspectSelectedItem(); }, [this]() { return !m_SelectedItemIds.empty(); });
+	add("rename", "Rename Selected Asset", "Assets", { Key::F2, false, false, false }, [this]() { return RenameSelectedItem(); }, [this]() { return !m_SelectedItemIds.empty(); });
+	add("duplicate", "Duplicate Selected Asset", "Assets", { Key::D, true, false, false }, [this]() { return DuplicateSelectedItem(); }, [this]() { return !m_SelectedItemIds.empty(); });
+	add("delete", "Delete Selected Asset", "Assets", { Key::Delete, false, false, false }, [this]() { return DeleteSelectedItem(); }, [this]() { return !m_SelectedItemIds.empty(); });
+	add("select_all", "Select Visible Items", "Selection", { Key::A, true, false, false }, [this]() { return SelectAllVisible(); });
+	add("import_folder", "Import Current Folder", "Import", { Key::I, true, false, false }, [this]() { ImportCurrentDirectory(false); return true; }, [this]() { return m_Mode == Mode::Filesystem; });
+	add("import_recursive", "Import Current Folder Recursive", "Import", { Key::I, true, true, false }, [this]() { ImportCurrentDirectory(true); return true; }, [this]() { return m_Mode == Mode::Filesystem; });
+	add("create_animation", "Create Animation From Selection", "Assets", { Key::A, true, true, false }, [this]() { return CreateAnimationFromSelection(); }, [this]() { return SelectionContainsOnlyTextures(GetSelectedItems()); });
+	add("toggle_sprites", "Toggle Texture Sprite Children", "Assets", { Key::Space, false, false, false }, [this]() { return ToggleSelectedTextureSprites(); }, [this]() { return !m_SelectedItemIds.empty(); });
+}
+
 void ContentBrowserPanel::DrawToolbar()
 {
 	if (ImGui::RadioButton("Files", m_Mode == Mode::Filesystem))
@@ -319,6 +353,11 @@ void ContentBrowserPanel::DrawToolbar()
 	SameLineIfFits(220.0f + sideButtonWidth);
 	const float searchAvail = std::max(1.0f, ImGui::GetContentRegionAvail().x - sideButtonWidth);
 	ImGui::SetNextItemWidth(searchAvail);
+	if (m_RequestSearchFocus)
+	{
+		ImGui::SetKeyboardFocusHere();
+		m_RequestSearchFocus = false;
+	}
 	if (ImGui::InputTextWithHint("##ContentBrowserSearch", "Search assets and files", &m_SearchQuery))
 		InvalidateItems();
 
@@ -2068,6 +2107,122 @@ bool ContentBrowserPanel::ImportExternalPath(const std::filesystem::path& source
 
 	++summary.m_Unsupported;
 	return false;
+}
+
+bool ContentBrowserPanel::IsShortcutContextActive() const
+{
+	return m_Open && (m_Focused || m_Hovered);
+}
+
+bool ContentBrowserPanel::FocusSearch()
+{
+	if (!m_Open)
+		return false;
+	m_RequestSearchFocus = true;
+	return true;
+}
+
+bool ContentBrowserPanel::GoUpDirectory()
+{
+	if (m_CurrentDirectory == m_BaseDirectory)
+		return false;
+	SetCurrentDirectory(m_CurrentDirectory.parent_path());
+	return true;
+}
+
+bool ContentBrowserPanel::OpenSelectedItem()
+{
+	std::vector<BrowserItem> selectedItems = GetSelectedItems();
+	if (selectedItems.empty())
+		return false;
+	if (selectedItems.front().m_Directory)
+	{
+		SetCurrentDirectory(selectedItems.front().m_AbsolutePath);
+		return true;
+	}
+	return OpenAsset(selectedItems.front());
+}
+
+bool ContentBrowserPanel::InspectSelectedItem()
+{
+	std::vector<BrowserItem> selectedItems = GetSelectedItems();
+	if (selectedItems.empty())
+		return false;
+	return InspectAsset(selectedItems.front());
+}
+
+bool ContentBrowserPanel::RenameSelectedItem()
+{
+	std::vector<BrowserItem> selectedItems = GetSelectedItems();
+	if (selectedItems.empty())
+		return false;
+	RequestRenameItem(selectedItems.front());
+	return true;
+}
+
+bool ContentBrowserPanel::DeleteSelectedItem()
+{
+	std::vector<BrowserItem> selectedItems = GetSelectedItems();
+	if (selectedItems.empty())
+		return false;
+	RequestDeleteItem(selectedItems.front());
+	if (selectedItems.size() > 1)
+		SetStatus("Delete shortcut targets the primary selected item. Use context menu for careful batch cleanup.");
+	return true;
+}
+
+bool ContentBrowserPanel::DuplicateSelectedItem()
+{
+	std::vector<BrowserItem> selectedItems = GetSelectedItems();
+	if (selectedItems.empty())
+		return false;
+	bool duplicated = false;
+	for (const BrowserItem& item : selectedItems)
+		duplicated = DuplicateItem(item) || duplicated;
+	return duplicated;
+}
+
+bool ContentBrowserPanel::ToggleSelectedTextureSprites()
+{
+	std::vector<BrowserItem> selectedItems = GetSelectedItems();
+	if (selectedItems.empty())
+		return false;
+
+	const BrowserItem* target = &selectedItems.front();
+	if (target->m_SubAsset && target->m_Handle != 0)
+	{
+		const auto parentIt = std::ranges::find_if(m_CachedItems, [target](const BrowserItem& item)
+		{
+			return !item.m_SubAsset && item.m_Handle == target->m_Handle;
+		});
+		if (parentIt != m_CachedItems.end())
+			target = &*parentIt;
+	}
+
+	if (target->m_Type != AssetType::Texture2D || target->m_Handle == 0 || target->m_SubAssetCount == 0)
+		return false;
+
+	ToggleTextureSprites(*target);
+	return true;
+}
+
+bool ContentBrowserPanel::ClearSearch()
+{
+	if (m_SearchQuery.empty())
+		return false;
+	m_SearchQuery.clear();
+	InvalidateItems();
+	return true;
+}
+
+bool ContentBrowserPanel::SelectAllVisible()
+{
+	if (m_ItemsDirty)
+		RebuildCachedItems();
+	m_SelectedItemIds.clear();
+	for (const BrowserItem& item : m_CachedItems)
+		m_SelectedItemIds.insert(item.m_DrawId);
+	return !m_SelectedItemIds.empty();
 }
 
 bool ContentBrowserPanel::IsInsideBaseDirectory(const std::filesystem::path& path) const

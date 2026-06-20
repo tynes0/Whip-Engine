@@ -19,6 +19,7 @@ public:
 	void OpenAsset(AssetHandle handle);
 	void CloseAll();
 	void OnImGuiRender() override;
+	void RegisterShortcuts(EditorShortcutManager& shortcuts) override;
 	void SetOpen(bool open) override;
 	bool IsOpen() const override;
 	bool CanOpenFromMenu() const override;
@@ -102,6 +103,20 @@ private:
 
 	void HandleWorkspaceTabShortcut();
 	void FocusNextEditor();
+	bool IsShortcutContextActive() const;
+	bool CloseActiveEditor();
+	bool MinimizeWorkspace();
+	bool ToggleFullscreenWorkspace();
+	bool SetActiveTextureTool(TextureEditorTool tool);
+	bool SaveActiveTexture();
+	bool ApplyActiveTexturePreview();
+	bool ReloadActiveTexture();
+	bool UndoActiveTextureEdit();
+	bool RedoActiveTextureEdit();
+	bool ResetActiveTextureView();
+	bool ZoomActiveTexture(float multiplier);
+	AssetEditorDocument* GetActiveDocument();
+	const AssetEditorDocument* GetActiveDocument() const;
 	void DrawMinimizedStrip();
 	void DrawWorkspaceHeader();
 	void DrawWorkspaceTabs();
@@ -140,6 +155,7 @@ private:
 	bool m_Fullscreen = false;
 	bool m_FullscreenRequested = false;
 	bool m_FocusRequested = false;
+	bool m_ShortcutContextActive = false;
 	bool m_HasRestoreRect = false;
 	glm::vec2 m_RestorePosition{ 120.0f, 90.0f };
 	glm::vec2 m_RestoreSize{ 1040.0f, 640.0f };

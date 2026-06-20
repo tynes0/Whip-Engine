@@ -109,47 +109,18 @@ namespace
 		return value;
 	}
 
-	constexpr UI::EditorShortcutAction CommandPaletteActions[] =
-	{
-		UI::EditorShortcutAction::OpenProject,
-		UI::EditorShortcutAction::NewScene,
-		UI::EditorShortcutAction::SaveScene,
-		UI::EditorShortcutAction::SaveSceneAs,
-		UI::EditorShortcutAction::SaveProject,
-		UI::EditorShortcutAction::CloseScene,
-		UI::EditorShortcutAction::Undo,
-		UI::EditorShortcutAction::Redo,
-		UI::EditorShortcutAction::SelectAll,
-		UI::EditorShortcutAction::Copy,
-		UI::EditorShortcutAction::Paste,
-		UI::EditorShortcutAction::Cut,
-		UI::EditorShortcutAction::DuplicateEntity,
-		UI::EditorShortcutAction::DeleteEntity,
-		UI::EditorShortcutAction::Play,
-		UI::EditorShortcutAction::Simulate,
-		UI::EditorShortcutAction::Stop,
-		UI::EditorShortcutAction::Pause,
-		UI::EditorShortcutAction::GizmoNone,
-		UI::EditorShortcutAction::GizmoTranslate,
-		UI::EditorShortcutAction::GizmoRotate,
-		UI::EditorShortcutAction::GizmoScale,
-		UI::EditorShortcutAction::ReloadScripts,
-		UI::EditorShortcutAction::OpenSettings,
-		UI::EditorShortcutAction::OpenCommandPalette
-	};
-
 	std::string EditorActionShortcutId(UI::EditorShortcutAction action)
 	{
 		return std::string("global.") + UI::UISettings::GetActionStorageKey(action);
 	}
 
-	bool CommandMatchesFilter(UI::EditorShortcutAction action, const char* filter)
+	bool ShortcutMatchesCommandFilter(const EditorShortcut& shortcut, const char* filter)
 	{
 		if (!filter || filter[0] == '\0')
 			return true;
 
 		std::string needle = LowerCopy(filter);
-		std::string haystack = LowerCopy(std::string(UI::UISettings::GetActionDisplayName(action)) + " " + UI::UISettings::GetActionCategory(action));
+		std::string haystack = LowerCopy(shortcut.m_DisplayName + " " + shortcut.m_Category + " " + shortcut.m_Id + " " + EditorShortcutManager::GetScopeName(shortcut.m_Scope));
 		return haystack.find(needle) != std::string::npos;
 	}
 
@@ -776,7 +747,7 @@ void EditorLayer::DrawCommandPalette()
 		ImGui::Spacing();
 		ImGui::Separator();
 
-		UI::EditorShortcutAction firstAvailableAction = UI::EditorShortcutAction::Count;
+		std::string firstAvailableShortcutId;
 		bool hasVisibleCommand = false;
 
 		if (ImGui::BeginChild("##CommandPaletteResults", ImVec2(0.0f, 0.0f), false))
@@ -784,37 +755,36 @@ void EditorLayer::DrawCommandPalette()
 			if (ImGui::BeginTable("##CommandPaletteTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
 			{
 				ImGui::TableSetupColumn("Command", ImGuiTableColumnFlags_WidthStretch);
-				ImGui::TableSetupColumn("Group", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+				ImGui::TableSetupColumn("Scope", ImGuiTableColumnFlags_WidthFixed, 160.0f);
 				ImGui::TableSetupColumn("Shortcut", ImGuiTableColumnFlags_WidthFixed, 150.0f);
 
-				for (UI::EditorShortcutAction action : CommandPaletteActions)
+				for (const EditorShortcut& shortcut : m_ShortcutManager.GetShortcuts())
 				{
-					if (!CommandMatchesFilter(action, m_CommandPaletteFilter))
+					if (shortcut.m_Options.m_HiddenFromCommandPalette || !ShortcutMatchesCommandFilter(shortcut, m_CommandPaletteFilter))
 						continue;
 
 					hasVisibleCommand = true;
-					const bool available = IsEditorActionAvailable(action);
-					if (available && firstAvailableAction == UI::EditorShortcutAction::Count)
-						firstAvailableAction = action;
+					const bool available = m_ShortcutManager.IsShortcutAvailable(shortcut.m_Id, false);
+					if (available && firstAvailableShortcutId.empty())
+						firstAvailableShortcutId = shortcut.m_Id;
 
-					ImGui::PushID(static_cast<int>(action));
+					ImGui::PushID(shortcut.m_Id.c_str());
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
 					ImGui::BeginDisabled(!available);
-					if (ImGui::Selectable(UI::UISettings::GetActionDisplayName(action), false, ImGuiSelectableFlags_SpanAllColumns, ImVec2(0.0f, 30.0f)))
+					if (ImGui::Selectable(shortcut.m_DisplayName.c_str(), false, ImGuiSelectableFlags_SpanAllColumns, ImVec2(0.0f, 30.0f)))
 					{
-						if (ExecuteEditorAction(action) && action != UI::EditorShortcutAction::OpenCommandPalette)
+						if (m_ShortcutManager.ExecuteShortcut(shortcut.m_Id, false, true, true) && shortcut.m_Id != "global.open_command_palette")
 							m_CommandPaletteOpen = false;
 					}
 					ImGui::TableNextColumn();
-					ImGui::TextDisabled("%s", UI::UISettings::GetActionCategory(action));
+					ImGui::TextDisabled("%s / %s", EditorShortcutManager::GetScopeName(shortcut.m_Scope), shortcut.m_Category.c_str());
 					ImGui::TableNextColumn();
-					const std::string shortcutId = EditorActionShortcutId(action);
-					const std::string shortcut = m_ShortcutManager.GetShortcutLabel(shortcutId);
-					if (m_ShortcutManager.HasConflict(shortcutId))
+					const std::string shortcutLabel = EditorShortcutManager::ShortcutLabel(shortcut.m_Binding);
+					if (m_ShortcutManager.HasConflict(shortcut.m_Id))
 						ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Conflict");
 					else
-						ImGui::TextDisabled("%s", shortcut.c_str());
+						ImGui::TextDisabled("%s", shortcutLabel.c_str());
 					ImGui::EndDisabled();
 					ImGui::PopID();
 				}
@@ -829,9 +799,9 @@ void EditorLayer::DrawCommandPalette()
 
 		if (ImGui::IsKeyPressed(ImGuiKey_Escape))
 			m_CommandPaletteOpen = false;
-		if (firstAvailableAction != UI::EditorShortcutAction::Count && ImGui::IsKeyPressed(ImGuiKey_Enter))
+		if (!firstAvailableShortcutId.empty() && ImGui::IsKeyPressed(ImGuiKey_Enter))
 		{
-			if (ExecuteEditorAction(firstAvailableAction) && firstAvailableAction != UI::EditorShortcutAction::OpenCommandPalette)
+			if (m_ShortcutManager.ExecuteShortcut(firstAvailableShortcutId, false, true, true) && firstAvailableShortcutId != "global.open_command_palette")
 				m_CommandPaletteOpen = false;
 		}
 	}
@@ -1015,6 +985,26 @@ void EditorLayer::RegisterEditorShortcuts()
 	m_SceneHierarchyPanel.RegisterShortcuts(m_ShortcutManager);
 	m_AnimationEditorPanel.RegisterShortcuts(m_ShortcutManager);
 	m_AssetEditorPanel.RegisterShortcuts(m_ShortcutManager);
+	auto addConsoleShortcut = [this](const char* id, const char* displayName, const UI::ShortcutBinding& binding, std::function<bool()> callback)
+	{
+		m_ShortcutManager.Add(
+			EditorShortcutScope::Console,
+			std::string("console.") + id,
+			displayName,
+			"Console",
+			binding,
+			std::move(callback),
+			[]() { return ConsolePanel::IsOpen(); },
+			[]() { return ConsolePanel::IsShortcutContextActive(); });
+	};
+	addConsoleShortcut("clear", "Clear Console", { Key::L, true, false, false }, []() { ConsolePanel::Clear(); return true; });
+	addConsoleShortcut("copy_visible", "Copy Visible Console Logs", { Key::C, true, true, false }, []() { ConsolePanel::CopyVisible(); return true; });
+	addConsoleShortcut("focus_search", "Focus Console Search", { Key::F, true, false, false }, []() { ConsolePanel::FocusSearch(); return true; });
+	addConsoleShortcut("clear_filters", "Clear Console Filters", { Key::Backspace, true, false, false }, []() { ConsolePanel::ClearFilters(); return true; });
+	addConsoleShortcut("toggle_autoscroll", "Toggle Console Auto-scroll", { Key::A, true, true, false }, []() { ConsolePanel::ToggleAutoScroll(); return true; });
+	addConsoleShortcut("show_all", "Console Show All Levels", { Key::D1, true, false, false }, []() { ConsolePanel::ShowAllLevels(); return true; });
+	addConsoleShortcut("show_warn_errors", "Console Show Warnings And Errors", { Key::D2, true, false, false }, []() { ConsolePanel::ShowWarningsAndErrors(); return true; });
+	addConsoleShortcut("show_errors", "Console Show Errors Only", { Key::D3, true, false, false }, []() { ConsolePanel::ShowErrorsOnly(); return true; });
 	if (m_ContentBrowserPanel)
 		m_ContentBrowserPanel->RegisterShortcuts(m_ShortcutManager);
 }

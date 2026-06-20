@@ -1,5 +1,6 @@
 #include <Whip-Editor/Panels/AssetEditorPanel.h>
 
+#include <Whip-Editor/Managers/EditorShortcutManager.h>
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/TextureSlicer.h>
 #include <Whip/Audio/AudioEngine.h>
@@ -615,6 +616,40 @@ void AssetEditorPanel::CloseAll()
 	m_OpenDirty = true;
 }
 
+void AssetEditorPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
+{
+	auto add = [this, &shortcuts](const char* id, const char* displayName, const char* category, const UI::ShortcutBinding& binding, std::function<bool()> callback, std::function<bool()> isAvailable = {})
+	{
+		shortcuts.Add(
+			EditorShortcutScope::AssetEditor,
+			std::string("asset_editor.") + id,
+			displayName,
+			category,
+			binding,
+			std::move(callback),
+			std::move(isAvailable),
+			[this]() { return IsShortcutContextActive(); });
+	};
+
+	add("next_tab", "Next Asset Editor Tab", "Workspace", { Key::Tab, true, false, false }, [this]() { FocusNextEditor(); return true; }, [this]() { return m_Documents.size() > 1; });
+	add("close_tab", "Close Active Asset Editor Tab", "Workspace", { Key::W, true, false, false }, [this]() { return CloseActiveEditor(); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("minimize", "Minimize Asset Workspace", "Workspace", { Key::M, true, true, false }, [this]() { return MinimizeWorkspace(); });
+	add("fullscreen", "Toggle Asset Workspace Fullscreen", "Workspace", { Key::F11, false, false, false }, [this]() { return ToggleFullscreenWorkspace(); });
+	add("texture_brush", "Texture Brush Tool", "Texture Tools", { Key::B, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Brush); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_eraser", "Texture Eraser Tool", "Texture Tools", { Key::E, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Eraser); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_picker", "Texture Picker Tool", "Texture Tools", { Key::P, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Picker); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_fill", "Texture Fill Tool", "Texture Tools", { Key::F, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Fill); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_slice", "Texture Slice Tool", "Texture Tools", { Key::S, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Slice); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_undo", "Undo Texture Edit", "Texture Edit", { Key::Z, true, false, false }, [this]() { return UndoActiveTextureEdit(); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_redo", "Redo Texture Edit", "Texture Edit", { Key::Y, true, false, false }, [this]() { return RedoActiveTextureEdit(); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_save", "Save Active Texture PNG", "Texture File", { Key::S, true, false, false }, [this]() { return SaveActiveTexture(); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_apply", "Apply Texture Preview", "Texture File", { Key::Enter, true, false, false }, [this]() { return ApplyActiveTexturePreview(); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_reload", "Reload Active Texture", "Texture File", { Key::R, true, false, false }, [this]() { return ReloadActiveTexture(); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_reset_view", "Reset Texture View", "Texture View", { Key::D0, true, false, false }, [this]() { return ResetActiveTextureView(); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_zoom_in", "Texture Zoom In", "Texture View", { Key::Equal, true, false, false }, [this]() { return ZoomActiveTexture(1.2f); }, [this]() { return GetActiveDocument() != nullptr; });
+	add("texture_zoom_out", "Texture Zoom Out", "Texture View", { Key::Minus, true, false, false }, [this]() { return ZoomActiveTexture(1.0f / 1.2f); }, [this]() { return GetActiveDocument() != nullptr; });
+}
+
 void AssetEditorPanel::SetOpen(bool open)
 {
 	if (open)
@@ -683,11 +718,15 @@ void AssetEditorPanel::OnImGuiRender()
 	if (m_Documents.empty())
 	{
 		m_Open = false;
+		m_ShortcutContextActive = false;
 		return;
 	}
 
 	if (!m_Open)
+	{
+		m_ShortcutContextActive = false;
 		return;
+	}
 
 	HandleWorkspaceTabShortcut();
 
@@ -726,11 +765,13 @@ void AssetEditorPanel::OnImGuiRender()
 	if (!ImGui::Begin("Asset Workspace###AssetWorkspace", &open, WorkspaceFlags))
 	{
 		m_Open = open;
+		m_ShortcutContextActive = false;
 		ImGui::End();
 		return;
 	}
 
-	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy))
+	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	if (m_ShortcutContextActive)
 		m_FocusRequested = false;
 
 	if (m_Fullscreen && TitlebarDragStarted())
@@ -780,6 +821,210 @@ void AssetEditorPanel::FocusNextEditor()
 	m_Documents[index].m_FocusRequested = true;
 	m_Minimized = false;
 	m_FocusRequested = true;
+}
+
+bool AssetEditorPanel::IsShortcutContextActive() const
+{
+	return m_Open && !m_Minimized && m_ShortcutContextActive;
+}
+
+AssetEditorPanel::AssetEditorDocument* AssetEditorPanel::GetActiveDocument()
+{
+	auto it = std::ranges::find_if(m_Documents, [this](const AssetEditorDocument& document)
+	{
+		return document.m_Open && document.m_Handle == m_ActiveDocument;
+	});
+	if (it != m_Documents.end())
+		return &*it;
+
+	return m_Documents.empty() ? nullptr : &m_Documents.front();
+}
+
+const AssetEditorPanel::AssetEditorDocument* AssetEditorPanel::GetActiveDocument() const
+{
+	auto it = std::ranges::find_if(m_Documents, [this](const AssetEditorDocument& document)
+	{
+		return document.m_Open && document.m_Handle == m_ActiveDocument;
+	});
+	if (it != m_Documents.end())
+		return &*it;
+
+	return m_Documents.empty() ? nullptr : &m_Documents.front();
+}
+
+bool AssetEditorPanel::CloseActiveEditor()
+{
+	AssetEditorDocument* activeDocument = GetActiveDocument();
+	if (!activeDocument)
+		return false;
+
+	const AssetHandle activeHandle = activeDocument->m_Handle;
+	std::erase_if(m_Documents, [activeHandle](const AssetEditorDocument& document)
+	{
+		return document.m_Handle == activeHandle;
+	});
+
+	if (m_Documents.empty())
+	{
+		CloseAll();
+		return true;
+	}
+
+	m_ActiveDocument = m_Documents.front().m_Handle;
+	m_Documents.front().m_FocusRequested = true;
+	m_FocusRequested = true;
+	m_OpenDirty = true;
+	return true;
+}
+
+bool AssetEditorPanel::MinimizeWorkspace()
+{
+	if (!m_Open)
+		return false;
+	m_Minimized = true;
+	m_Fullscreen = false;
+	m_OpenDirty = true;
+	return true;
+}
+
+bool AssetEditorPanel::ToggleFullscreenWorkspace()
+{
+	if (!m_Open)
+		return false;
+	if (m_Fullscreen)
+		RestoreWorkspaceRect();
+	else
+		RequestFullscreen();
+	return true;
+}
+
+bool AssetEditorPanel::SetActiveTextureTool(TextureEditorTool tool)
+{
+	AssetEditorDocument* document = GetActiveDocument();
+	if (!document || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager())
+		return false;
+
+	const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document->m_Handle);
+	if (!metadata || metadata.m_Type != AssetType::Texture2D)
+		return false;
+
+	document->m_TextureState.m_Tool = tool;
+	return true;
+}
+
+bool AssetEditorPanel::SaveActiveTexture()
+{
+	AssetEditorDocument* document = GetActiveDocument();
+	if (!document || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager())
+		return false;
+
+	const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document->m_Handle);
+	if (!metadata || metadata.m_Type != AssetType::Texture2D)
+		return false;
+
+	Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(document->m_Handle);
+	if (!texture || !texture->IsLoaded() || !EnsureTextureEditorState(document->m_TextureState, document->m_Handle, texture))
+		return false;
+
+	ApplyTextureEditorState(document->m_TextureState, texture);
+	return SaveTextureEditorState(document->m_TextureState, metadata);
+}
+
+bool AssetEditorPanel::ApplyActiveTexturePreview()
+{
+	AssetEditorDocument* document = GetActiveDocument();
+	if (!document || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager())
+		return false;
+
+	const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document->m_Handle);
+	if (!metadata || metadata.m_Type != AssetType::Texture2D)
+		return false;
+
+	Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(document->m_Handle);
+	if (!texture || !texture->IsLoaded() || !EnsureTextureEditorState(document->m_TextureState, document->m_Handle, texture))
+		return false;
+
+	ApplyTextureEditorState(document->m_TextureState, texture);
+	document->m_TextureState.m_Status = "Preview applied.";
+	return true;
+}
+
+bool AssetEditorPanel::ReloadActiveTexture()
+{
+	AssetEditorDocument* document = GetActiveDocument();
+	if (!document || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager())
+		return false;
+
+	const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document->m_Handle);
+	if (!metadata || metadata.m_Type != AssetType::Texture2D)
+		return false;
+
+	Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(document->m_Handle);
+	if (!texture || !texture->IsLoaded())
+		return false;
+
+	ReloadTextureEditorState(document->m_TextureState, document->m_Handle, texture);
+	return true;
+}
+
+bool AssetEditorPanel::UndoActiveTextureEdit()
+{
+	AssetEditorDocument* document = GetActiveDocument();
+	if (!document || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager())
+		return false;
+
+	const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document->m_Handle);
+	if (!metadata || metadata.m_Type != AssetType::Texture2D)
+		return false;
+
+	Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(document->m_Handle);
+	return texture && texture->IsLoaded() && UndoTextureEdit(document->m_TextureState, texture);
+}
+
+bool AssetEditorPanel::RedoActiveTextureEdit()
+{
+	AssetEditorDocument* document = GetActiveDocument();
+	if (!document || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager())
+		return false;
+
+	const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document->m_Handle);
+	if (!metadata || metadata.m_Type != AssetType::Texture2D)
+		return false;
+
+	Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(document->m_Handle);
+	return texture && texture->IsLoaded() && RedoTextureEdit(document->m_TextureState, texture);
+}
+
+bool AssetEditorPanel::ResetActiveTextureView()
+{
+	AssetEditorDocument* document = GetActiveDocument();
+	if (!document || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager())
+		return false;
+
+	const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document->m_Handle);
+	if (!metadata || metadata.m_Type != AssetType::Texture2D)
+		return false;
+
+	TextureEditorState& state = document->m_TextureState;
+	const float longEdge = static_cast<float>(std::max(state.m_Width, state.m_Height));
+	state.m_Zoom = std::clamp(512.0f / std::max(1.0f, longEdge), 1.0f, 24.0f);
+	state.m_Pan = { 16.0f, 16.0f };
+	return true;
+}
+
+bool AssetEditorPanel::ZoomActiveTexture(float multiplier)
+{
+	AssetEditorDocument* document = GetActiveDocument();
+	if (!document || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager())
+		return false;
+
+	const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(document->m_Handle);
+	if (!metadata || metadata.m_Type != AssetType::Texture2D)
+		return false;
+
+	TextureEditorState& state = document->m_TextureState;
+	state.m_Zoom = std::clamp(state.m_Zoom * multiplier, 1.0f, 96.0f);
+	return true;
 }
 
 void AssetEditorPanel::DrawMinimizedStrip()
@@ -1367,7 +1612,6 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "%s", state.m_Status.c_str());
 		return;
 	}
-	HandleTextureEditorShortcuts(state, texture);
 
 	AssetMetadata editedMetadata = metadata;
 	TextureImportSettings& importSettings = editedMetadata.m_TextureSettings;

@@ -38,6 +38,8 @@ struct ConsoleData
 	bool m_AutoScroll = true;
 	bool m_Open = true;
 	bool m_OpenDirty = false;
+	bool m_Focused = false;
+	bool m_RequestSearchFocus = false;
 
 	static constexpr size_t MaxConsoleLines = 500;
 	static constexpr size_t EraseCount = 100;
@@ -219,6 +221,15 @@ namespace
 	std::string FormatEntryForClipboard(const ConsoleEntry& entry)
 	{
 		return "[" + entry.m_Timestamp + "] " + LevelName(entry.m_Level) + " " + entry.m_Category + ": " + entry.m_Message + "\n";
+	}
+
+	void CopyVisibleToClipboardUnlocked()
+	{
+		std::string clipboard;
+		for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
+			if (EntryVisible(entry))
+				clipboard += FormatEntryForClipboard(entry);
+		ImGui::SetClipboardText(clipboard.c_str());
 	}
 
 	std::uintmax_t LogFileSize()
@@ -406,6 +417,7 @@ void ConsolePanel::OnImGuiRender()
 
 	bool open = ConsoleState.m_Open;
 	ImGui::Begin("Console", &open);
+	ConsoleState.m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
 	if (open != ConsoleState.m_Open)
 	{
 		ConsoleState.m_Open = open;
@@ -414,15 +426,6 @@ void ConsolePanel::OnImGuiRender()
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(7.0f, 5.0f));
-
-	auto copyVisibleToClipboard = []
-		{
-			std::string clipboard;
-			for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
-				if (EntryVisible(entry))
-					clipboard += FormatEntryForClipboard(entry);
-			ImGui::SetClipboardText(clipboard.c_str());
-		};
 
 	if (ImGui::Button("Clear", ImVec2(74.0f, 0.0f)))
 	{
@@ -477,13 +480,18 @@ void ConsolePanel::OnImGuiRender()
 
 	SameLineIfFits(EstimatedButtonWidth("Copy visible"));
 	if (ImGui::SmallButton("Copy visible"))
-		copyVisibleToClipboard();
+		CopyVisibleToClipboardUnlocked();
 
 	const size_t visibleCount = std::ranges::count_if(ConsoleState.m_Buffer, [](const ConsoleEntry& entry) { return EntryVisible(entry); });
 	SameLineIfFits(ImGui::CalcTextSize("000 visible").x);
 	ImGui::TextDisabled("%zu visible", visibleCount);
 
 	ImGui::SetNextItemWidth(std::max(1.0f, ImGui::GetContentRegionAvail().x));
+	if (ConsoleState.m_RequestSearchFocus)
+	{
+		ImGui::SetKeyboardFocusHere();
+		ConsoleState.m_RequestSearchFocus = false;
+	}
 	ImGui::InputTextWithHint("##ConsoleTextFilter", "Search message, level, time", &ConsoleState.m_TextFilter);
 
 	ImGui::Separator();
@@ -523,6 +531,60 @@ void ConsolePanel::OnImGuiRender()
 	ImGui::EndChild();
 	ImGui::PopStyleVar(2);
 	ImGui::End();
+}
+
+bool ConsolePanel::IsShortcutContextActive()
+{
+	return ConsoleState.m_Open && ConsoleState.m_Focused;
+}
+
+void ConsolePanel::Clear()
+{
+	std::lock_guard lock(ConsoleState.m_Mutex);
+	ConsoleState.m_Buffer.clear();
+	SkipToEnd();
+}
+
+void ConsolePanel::CopyVisible()
+{
+	std::lock_guard lock(ConsoleState.m_Mutex);
+	CopyVisibleToClipboardUnlocked();
+}
+
+void ConsolePanel::FocusSearch()
+{
+	ConsoleState.m_RequestSearchFocus = true;
+}
+
+void ConsolePanel::ClearFilters()
+{
+	std::lock_guard lock(ConsoleState.m_Mutex);
+	ConsoleState.m_TextFilter.clear();
+	ConsoleState.m_CategoryFilter.clear();
+	SetAllLevelFilters(true);
+}
+
+void ConsolePanel::ShowAllLevels()
+{
+	std::lock_guard lock(ConsoleState.m_Mutex);
+	SetAllLevelFilters(true);
+}
+
+void ConsolePanel::ShowWarningsAndErrors()
+{
+	std::lock_guard lock(ConsoleState.m_Mutex);
+	SetWarningsAndErrorsFilter();
+}
+
+void ConsolePanel::ShowErrorsOnly()
+{
+	std::lock_guard lock(ConsoleState.m_Mutex);
+	SetErrorsFilter();
+}
+
+void ConsolePanel::ToggleAutoScroll()
+{
+	ConsoleState.m_AutoScroll = !ConsoleState.m_AutoScroll;
 }
 
 void ConsolePanel::SetOpen(bool open)
