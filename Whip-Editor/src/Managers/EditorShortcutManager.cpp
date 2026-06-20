@@ -13,17 +13,6 @@ _WHIP_START
 
 namespace
 {
-	constexpr KeyCode EditableKeys[] =
-	{
-		Key::Q, Key::W, Key::E, Key::R, Key::T, Key::Y, Key::U, Key::I, Key::A, Key::S, Key::D, Key::F, Key::G, Key::H, Key::J, Key::K, Key::L,
-		Key::Z, Key::X, Key::C, Key::V, Key::B, Key::N, Key::M, Key::O, Key::P,
-		Key::D0, Key::D1, Key::D2, Key::D3, Key::D4, Key::D5, Key::D6, Key::D7, Key::D8, Key::D9,
-		Key::F1, Key::F2, Key::F3, Key::F4, Key::F5, Key::F6, Key::F7, Key::F8, Key::F9, Key::F10, Key::F11, Key::F12,
-		Key::Escape, Key::Delete, Key::Backspace, Key::Insert, Key::Space, Key::Enter, Key::Tab,
-		Key::Left, Key::Right, Key::Up, Key::Down, Key::Home, Key::End, Key::PageUp, Key::PageDown,
-		Key::Comma, Key::Period, Key::Minus, Key::Equal, Key::LeftBracket, Key::RightBracket, Key::GraveAccent
-	};
-
 	bool SameBinding(const UI::ShortcutBinding& left, const UI::ShortcutBinding& right)
 	{
 		return left.m_Key != 0 &&
@@ -31,6 +20,13 @@ namespace
 			left.m_Ctrl == right.m_Ctrl &&
 			left.m_Shift == right.m_Shift &&
 			left.m_Alt == right.m_Alt;
+	}
+
+	bool IsModifierKey(KeyCode key)
+	{
+		return key == Key::LeftControl || key == Key::RightControl ||
+			key == Key::LeftShift || key == Key::RightShift ||
+			key == Key::LeftAlt || key == Key::RightAlt;
 	}
 
 	std::string LowerCopy(std::string value)
@@ -126,12 +122,26 @@ void EditorShortcutManager::Add(
 bool EditorShortcutManager::HandleKeyPressed(KeyPressedEvent& event, bool hasActiveWidget)
 {
 	if (event.GetRepeatCount() > 0)
-		return false;
+		return IsCapturingBinding();
 
 	const bool control = Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl);
 	const bool shift = Input::IsKeyDown(Key::LeftShift) || Input::IsKeyDown(Key::RightShift);
 	const bool alt = Input::IsKeyDown(Key::LeftAlt) || Input::IsKeyDown(Key::RightAlt);
 	const KeyCode key = event.GetKeyCode();
+
+	if (IsCapturingBinding())
+	{
+		if (!IsModifierKey(key))
+		{
+			if (EditorShortcut* shortcut = FindShortcut(m_CapturingShortcutId))
+			{
+				shortcut->m_Binding = { key, control, shift, alt };
+				MarkDirty();
+			}
+			m_CapturingShortcutId.clear();
+		}
+		return true;
+	}
 
 	for (const EditorShortcut& shortcut : m_Shortcuts)
 	{
@@ -226,15 +236,13 @@ void EditorShortcutManager::DrawSettings()
 			continue;
 
 		const std::string tableId = std::string("##ShortcutTable") + GetScopeName(scope);
-		if (ImGui::BeginTable(tableId.c_str(), 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp))
+		if (ImGui::BeginTable(tableId.c_str(), 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp))
 		{
 			ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 180.0f);
 			ImGui::TableSetupColumn("Category", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-			ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthStretch);
-			ImGui::TableSetupColumn("Ctrl", ImGuiTableColumnFlags_WidthFixed, 54.0f);
-			ImGui::TableSetupColumn("Shift", ImGuiTableColumnFlags_WidthFixed, 54.0f);
-			ImGui::TableSetupColumn("Alt", ImGuiTableColumnFlags_WidthFixed, 54.0f);
-			ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+			ImGui::TableSetupColumn("Binding", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 116.0f);
+			ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 180.0f);
 			ImGui::TableHeadersRow();
 
 			for (EditorShortcut& shortcut : m_Shortcuts)
@@ -250,39 +258,42 @@ void EditorShortcutManager::DrawSettings()
 				ImGui::TableNextColumn();
 				ImGui::TextDisabled("%s", shortcut.m_Category.c_str());
 				ImGui::TableNextColumn();
-				ImGui::SetNextItemWidth(-1.0f);
-				if (ImGui::BeginCombo("##Key", Key::ToString(shortcut.m_Binding.m_Key)))
+				const bool capturing = m_CapturingShortcutId == shortcut.m_Id;
+				std::string bindingLabel = capturing ? "Press shortcut..." : ShortcutLabel(shortcut.m_Binding);
+				if (capturing)
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.28f, 0.43f, 0.55f, 1.0f));
+				if (ImGui::Button(bindingLabel.c_str(), ImVec2(-1.0f, 0.0f)))
 				{
-					if (ImGui::Selectable("None", shortcut.m_Binding.m_Key == 0))
-					{
-						shortcut.m_Binding.m_Key = 0;
-						MarkDirty();
-					}
-					for (KeyCode candidate : EditableKeys)
-					{
-						const bool selected = shortcut.m_Binding.m_Key == candidate;
-						if (ImGui::Selectable(Key::ToString(candidate), selected))
-						{
-							shortcut.m_Binding.m_Key = candidate;
-							MarkDirty();
-						}
-						if (selected)
-							ImGui::SetItemDefaultFocus();
-					}
-					ImGui::EndCombo();
+					m_CapturingShortcutId = shortcut.m_Id;
+				}
+				DrawShortcutTooltip(shortcut.m_Id, capturing ? "Press the desired key combination. Modifier-only presses are ignored." : "Click to record a new shortcut.");
+				if (capturing)
+					ImGui::PopStyleColor();
+				if (capturing)
+				{
+					ImGui::SameLine();
+					if (ImGui::SmallButton("Cancel"))
+						CancelBindingCapture();
 				}
 				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("##Ctrl", &shortcut.m_Binding.m_Ctrl))
+				if (ImGui::SmallButton("Reset"))
+				{
+					shortcut.m_Binding = shortcut.m_DefaultBinding;
+					if (capturing)
+						CancelBindingCapture();
 					MarkDirty();
-				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("##Shift", &shortcut.m_Binding.m_Shift))
+				}
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Clear"))
+				{
+					shortcut.m_Binding = {};
+					if (capturing)
+						CancelBindingCapture();
 					MarkDirty();
-				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("##Alt", &shortcut.m_Binding.m_Alt))
-					MarkDirty();
+				}
 				ImGui::TableNextColumn();
 				if (conflict)
-					ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Scope conflict");
+					ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "%s", GetConflictDescription(shortcut).c_str());
 				else
 					ImGui::TextDisabled("%s", ShortcutLabel(shortcut.m_Binding).c_str());
 				ImGui::PopID();
@@ -406,6 +417,42 @@ bool EditorShortcutManager::HasConflict(std::string_view id) const
 	return shortcut && HasConflict(*shortcut);
 }
 
+std::string EditorShortcutManager::GetConflictDescription(std::string_view id) const
+{
+	const EditorShortcut* shortcut = FindShortcut(id);
+	return shortcut ? GetConflictDescription(*shortcut) : std::string{};
+}
+
+void EditorShortcutManager::CancelBindingCapture()
+{
+	m_CapturingShortcutId.clear();
+}
+
+void EditorShortcutManager::DrawShortcutTooltip(std::string_view id, const char* description) const
+{
+	if (!ImGui::IsItemHovered())
+		return;
+
+	const EditorShortcut* shortcut = FindShortcut(id);
+	if (!shortcut)
+		return;
+
+	ImGui::BeginTooltip();
+	if (description && description[0] != '\0')
+	{
+		ImGui::TextUnformatted(description);
+		ImGui::Separator();
+	}
+	ImGui::TextDisabled("%s / %s", GetScopeName(shortcut->m_Scope), shortcut->m_Category.c_str());
+	ImGui::TextUnformatted(shortcut->m_DisplayName.c_str());
+	const std::string label = ShortcutLabel(shortcut->m_Binding);
+	if (HasConflict(*shortcut))
+		ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "%s", GetConflictDescription(*shortcut).c_str());
+	else
+		ImGui::TextDisabled("Shortcut: %s", label.c_str());
+	ImGui::EndTooltip();
+}
+
 const char* EditorShortcutManager::GetScopeName(EditorShortcutScope scope)
 {
 	switch (scope)
@@ -500,6 +547,18 @@ bool EditorShortcutManager::HasConflict(const EditorShortcut& shortcut) const
 			return true;
 	}
 	return false;
+}
+
+std::string EditorShortcutManager::GetConflictDescription(const EditorShortcut& shortcut) const
+{
+	for (const EditorShortcut& other : m_Shortcuts)
+	{
+		if (&other == &shortcut || other.m_Scope != shortcut.m_Scope)
+			continue;
+		if (SameBinding(shortcut.m_Binding, other.m_Binding))
+			return std::string("Conflicts with ") + other.m_DisplayName;
+	}
+	return {};
 }
 
 void EditorShortcutManager::MarkDirty()

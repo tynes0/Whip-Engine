@@ -29,6 +29,18 @@ namespace
 		out << YAML::Flow << YAML::BeginSeq << value.x << value.y << value.z << YAML::EndSeq;
 	}
 
+	void WriteVec2(YAML::Emitter& out, const glm::vec2& value)
+	{
+		out << YAML::Flow << YAML::BeginSeq << value.x << value.y << YAML::EndSeq;
+	}
+
+	glm::vec2 ReadVec2(const YAML::Node& node, const glm::vec2& fallback)
+	{
+		if (!node || !node.IsSequence() || node.size() != 2)
+			return fallback;
+		return { node[0].as<float>(fallback.x), node[1].as<float>(fallback.y) };
+	}
+
 	glm::vec3 ReadVec3(const YAML::Node& node, const glm::vec3& fallback)
 	{
 		if (!node || !node.IsSequence() || node.size() != 3)
@@ -435,6 +447,30 @@ void EditorProjectManager::LoadEditorPreferences()
 		layer.m_SceneHierarchyPanel.SetOpen(panels["scene_hierarchy"].as<bool>(layer.m_SceneHierarchyPanel.IsOpen()));
 		layer.m_UIStatistics.SetOpen(panels["statistics"].as<bool>(layer.m_UIStatistics.IsOpen()));
 		ConsolePanel::SetOpen(panels["console"].as<bool>(ConsolePanel::IsOpen()));
+
+		if (YAML::Node animationWorkspace = panels["animation_workspace"])
+		{
+			AnimationEditorPanel::WorkspacePreferences preferences = layer.m_AnimationEditorPanel.GetWorkspacePreferences();
+			preferences.m_Open = animationWorkspace["open"].as<bool>(preferences.m_Open);
+			preferences.m_Minimized = animationWorkspace["minimized"].as<bool>(preferences.m_Minimized);
+			preferences.m_Fullscreen = animationWorkspace["fullscreen"].as<bool>(preferences.m_Fullscreen);
+			preferences.m_HasRestoreRect = animationWorkspace["has_restore_rect"].as<bool>(preferences.m_HasRestoreRect);
+			preferences.m_RestorePosition = ReadVec2(animationWorkspace["restore_position"], preferences.m_RestorePosition);
+			preferences.m_RestoreSize = ReadVec2(animationWorkspace["restore_size"], preferences.m_RestoreSize);
+			layer.m_AnimationEditorPanel.ApplyWorkspacePreferences(preferences);
+		}
+
+		if (YAML::Node assetWorkspace = panels["asset_workspace"])
+		{
+			AssetEditorPanel::WorkspacePreferences preferences = layer.m_AssetEditorPanel.GetWorkspacePreferences();
+			preferences.m_Open = assetWorkspace["open"].as<bool>(preferences.m_Open);
+			preferences.m_Minimized = assetWorkspace["minimized"].as<bool>(preferences.m_Minimized);
+			preferences.m_Fullscreen = assetWorkspace["fullscreen"].as<bool>(preferences.m_Fullscreen);
+			preferences.m_HasRestoreRect = assetWorkspace["has_restore_rect"].as<bool>(preferences.m_HasRestoreRect);
+			preferences.m_RestorePosition = ReadVec2(assetWorkspace["restore_position"], preferences.m_RestorePosition);
+			preferences.m_RestoreSize = ReadVec2(assetWorkspace["restore_size"], preferences.m_RestoreSize);
+			layer.m_AssetEditorPanel.ApplyWorkspacePreferences(preferences);
+		}
 	}
 
 	if (YAML::Node browser = data["content_browser"])
@@ -453,6 +489,8 @@ void EditorProjectManager::LoadEditorPreferences()
 	layer.m_ShortcutManager.ConsumeDirty();
 	layer.m_SceneHierarchyPanel.ConsumeOpenDirty();
 	layer.m_AnimationEditorPanel.ConsumeOpenDirty();
+	layer.m_AnimationEditorPanel.ConsumeLayoutDirty();
+	layer.m_AssetEditorPanel.ConsumeLayoutDirty();
 	layer.m_UIStatistics.ConsumeOpenDirty();
 	ConsolePanel::ConsumeOpenDirty();
 	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
@@ -502,6 +540,28 @@ void EditorProjectManager::SaveEditorPreferences() const
 	out << YAML::Key << "scene_hierarchy" << YAML::Value << layer.m_SceneHierarchyPanel.IsOpen();
 	out << YAML::Key << "statistics" << YAML::Value << layer.m_UIStatistics.IsOpen();
 	out << YAML::Key << "console" << YAML::Value << ConsolePanel::IsOpen();
+	{
+		const AnimationEditorPanel::WorkspacePreferences preferences = layer.m_AnimationEditorPanel.GetWorkspacePreferences();
+		out << YAML::Key << "animation_workspace" << YAML::Value << YAML::BeginMap;
+		out << YAML::Key << "open" << YAML::Value << preferences.m_Open;
+		out << YAML::Key << "minimized" << YAML::Value << preferences.m_Minimized;
+		out << YAML::Key << "fullscreen" << YAML::Value << preferences.m_Fullscreen;
+		out << YAML::Key << "has_restore_rect" << YAML::Value << preferences.m_HasRestoreRect;
+		out << YAML::Key << "restore_position" << YAML::Value; WriteVec2(out, preferences.m_RestorePosition);
+		out << YAML::Key << "restore_size" << YAML::Value; WriteVec2(out, preferences.m_RestoreSize);
+		out << YAML::EndMap;
+	}
+	{
+		const AssetEditorPanel::WorkspacePreferences preferences = layer.m_AssetEditorPanel.GetWorkspacePreferences();
+		out << YAML::Key << "asset_workspace" << YAML::Value << YAML::BeginMap;
+		out << YAML::Key << "open" << YAML::Value << preferences.m_Open;
+		out << YAML::Key << "minimized" << YAML::Value << preferences.m_Minimized;
+		out << YAML::Key << "fullscreen" << YAML::Value << preferences.m_Fullscreen;
+		out << YAML::Key << "has_restore_rect" << YAML::Value << preferences.m_HasRestoreRect;
+		out << YAML::Key << "restore_position" << YAML::Value; WriteVec2(out, preferences.m_RestorePosition);
+		out << YAML::Key << "restore_size" << YAML::Value; WriteVec2(out, preferences.m_RestoreSize);
+		out << YAML::EndMap;
+	}
 	out << YAML::EndMap;
 
 	ContentBrowserPanel::Preferences browserPreferences = layer.m_ContentBrowserPanel ? layer.m_ContentBrowserPanel->GetPreferences() : m_ContentBrowserPreferences;

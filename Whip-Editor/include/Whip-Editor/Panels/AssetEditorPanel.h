@@ -25,6 +25,20 @@ public:
 	bool CanOpenFromMenu() const override;
 	bool HasOpenEditors() const;
 	bool ConsumeOpenDirty() override;
+	bool ConsumeLayoutDirty();
+
+	struct WorkspacePreferences
+	{
+		bool m_Open = false;
+		bool m_Minimized = false;
+		bool m_Fullscreen = false;
+		bool m_HasRestoreRect = false;
+		glm::vec2 m_RestorePosition{ 120.0f, 90.0f };
+		glm::vec2 m_RestoreSize{ 1040.0f, 640.0f };
+	};
+
+	WorkspacePreferences GetWorkspacePreferences() const;
+	void ApplyWorkspacePreferences(const WorkspacePreferences& preferences);
 
 	void SetOpenSceneCallback(std::function<void(AssetHandle)> callback);
 	void SetSetStartSceneCallback(std::function<void(AssetHandle)> callback);
@@ -125,6 +139,7 @@ private:
 	void CaptureWorkspaceRect();
 	void RequestFullscreen();
 	void RestoreWorkspaceRect(bool anchorToMouse = false);
+	void MarkLayoutDirty();
 	void DrawMetadata(AssetHandle handle, const AssetMetadata& metadata) const;
 	void DrawTextureInspector(AssetEditorDocument& document, const AssetMetadata& metadata, bool compact);
 	void DrawAudioInspector(AssetHandle handle, bool compact) const;
@@ -156,6 +171,7 @@ private:
 	bool m_FullscreenRequested = false;
 	bool m_FocusRequested = false;
 	bool m_ShortcutContextActive = false;
+	bool m_LayoutDirty = false;
 	bool m_HasRestoreRect = false;
 	glm::vec2 m_RestorePosition{ 120.0f, 90.0f };
 	glm::vec2 m_RestoreSize{ 1040.0f, 640.0f };

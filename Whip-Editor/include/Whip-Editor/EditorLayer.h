@@ -97,6 +97,8 @@ private:
 	UI::PopupHandler m_PopupHandler;
 	bool m_CommandPaletteOpen = false;
 	bool m_CommandPaletteFocusSearch = false;
+	bool m_CommandPaletteAvailableOnly = false;
+	int m_CommandPaletteScopeFilter = -1;
 	char m_CommandPaletteFilter[128]{ 0 };
 
 	// framebuffer

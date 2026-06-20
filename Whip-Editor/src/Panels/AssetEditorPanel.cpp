@@ -583,6 +583,8 @@ void AssetEditorPanel::OpenAsset(AssetHandle handle)
 			document.m_Open = true;
 			document.m_FocusRequested = true;
 			m_Open = true;
+			if (m_Minimized)
+				MarkLayoutDirty();
 			m_Minimized = false;
 			m_ActiveDocument = handle;
 			m_FocusRequested = true;
@@ -595,6 +597,8 @@ void AssetEditorPanel::OpenAsset(AssetHandle handle)
 	document.m_Handle = handle;
 	m_Documents.push_back(document);
 	m_Open = true;
+	if (m_Minimized)
+		MarkLayoutDirty();
 	m_Minimized = false;
 	m_ActiveDocument = handle;
 	m_FocusRequested = true;
@@ -614,6 +618,7 @@ void AssetEditorPanel::CloseAll()
 	m_ActiveDocument = 0;
 	m_EmbeddedAnimationHandle = 0;
 	m_OpenDirty = true;
+	MarkLayoutDirty();
 }
 
 void AssetEditorPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
@@ -658,6 +663,8 @@ void AssetEditorPanel::SetOpen(bool open)
 			return;
 
 		EditorPanel::SetOpen(true);
+		if (m_Minimized)
+			MarkLayoutDirty();
 		m_Minimized = false;
 		m_FocusRequested = true;
 		return;
@@ -711,6 +718,41 @@ bool AssetEditorPanel::ConsumeOpenDirty()
 	const bool dirty = m_OpenDirty;
 	m_OpenDirty = false;
 	return dirty;
+}
+
+bool AssetEditorPanel::ConsumeLayoutDirty()
+{
+	const bool dirty = m_LayoutDirty;
+	m_LayoutDirty = false;
+	return dirty;
+}
+
+AssetEditorPanel::WorkspacePreferences AssetEditorPanel::GetWorkspacePreferences() const
+{
+	WorkspacePreferences preferences;
+	preferences.m_Open = m_Open;
+	preferences.m_Minimized = m_Minimized;
+	preferences.m_Fullscreen = m_Fullscreen;
+	preferences.m_HasRestoreRect = m_HasRestoreRect;
+	preferences.m_RestorePosition = m_RestorePosition;
+	preferences.m_RestoreSize = m_RestoreSize;
+	return preferences;
+}
+
+void AssetEditorPanel::ApplyWorkspacePreferences(const WorkspacePreferences& preferences)
+{
+	m_Minimized = preferences.m_Minimized;
+	m_Fullscreen = preferences.m_Fullscreen;
+	m_FullscreenRequested = preferences.m_Fullscreen;
+	m_HasRestoreRect = preferences.m_HasRestoreRect;
+	m_RestorePosition = preferences.m_RestorePosition;
+	m_RestoreSize = preferences.m_RestoreSize;
+	if (preferences.m_Open && !m_Documents.empty())
+	{
+		m_Open = true;
+		m_FocusRequested = true;
+	}
+	m_LayoutDirty = false;
 }
 
 void AssetEditorPanel::OnImGuiRender()
@@ -884,6 +926,7 @@ bool AssetEditorPanel::MinimizeWorkspace()
 	m_Minimized = true;
 	m_Fullscreen = false;
 	m_OpenDirty = true;
+	MarkLayoutDirty();
 	return true;
 }
 
@@ -1057,6 +1100,7 @@ void AssetEditorPanel::DrawMinimizedStrip()
 		m_Minimized = false;
 		m_FocusRequested = true;
 		m_OpenDirty = true;
+		MarkLayoutDirty();
 	}
 
 	ImGui::End();
@@ -1079,6 +1123,7 @@ void AssetEditorPanel::DrawWorkspaceHeader()
 		m_Minimized = true;
 		m_Fullscreen = false;
 		m_OpenDirty = true;
+		MarkLayoutDirty();
 	}
 	ImGui::SameLine();
 	if (DrawWindowControl("##AssetWorkspaceMaximize", m_Fullscreen ? WindowControlType::Restore : WindowControlType::Maximize))
@@ -1233,9 +1278,19 @@ void AssetEditorPanel::CaptureWorkspaceRect()
 	if (size.x >= viewport->WorkSize.x - 24.0f && size.y >= viewport->WorkSize.y - 24.0f)
 		return;
 
-	m_RestorePosition = { pos.x, pos.y };
-	m_RestoreSize = { size.x, size.y };
-	m_HasRestoreRect = true;
+	const glm::vec2 newPosition{ pos.x, pos.y };
+	const glm::vec2 newSize{ size.x, size.y };
+	if (!m_HasRestoreRect ||
+		std::abs(m_RestorePosition.x - newPosition.x) > 0.5f ||
+		std::abs(m_RestorePosition.y - newPosition.y) > 0.5f ||
+		std::abs(m_RestoreSize.x - newSize.x) > 0.5f ||
+		std::abs(m_RestoreSize.y - newSize.y) > 0.5f)
+	{
+		m_RestorePosition = newPosition;
+		m_RestoreSize = newSize;
+		m_HasRestoreRect = true;
+		MarkLayoutDirty();
+	}
 }
 
 void AssetEditorPanel::RequestFullscreen()
@@ -1245,6 +1300,7 @@ void AssetEditorPanel::RequestFullscreen()
 	m_Fullscreen = true;
 	m_FullscreenRequested = true;
 	m_FocusRequested = true;
+	MarkLayoutDirty();
 }
 
 void AssetEditorPanel::RestoreWorkspaceRect(bool anchorToMouse)
@@ -1272,6 +1328,12 @@ void AssetEditorPanel::RestoreWorkspaceRect(bool anchorToMouse)
 	}
 	ImGui::SetWindowPos(pos, ImGuiCond_Always);
 	ImGui::SetWindowSize(size, ImGuiCond_Always);
+	MarkLayoutDirty();
+}
+
+void AssetEditorPanel::MarkLayoutDirty()
+{
+	m_LayoutDirty = true;
 }
 
 void AssetEditorPanel::DrawMetadata(AssetHandle handle, const AssetMetadata& metadata) const

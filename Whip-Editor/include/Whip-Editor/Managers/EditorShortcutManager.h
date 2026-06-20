@@ -85,6 +85,10 @@ public:
 	UI::ShortcutBinding GetBinding(std::string_view id, const UI::ShortcutBinding& fallback = {}) const;
 	std::string GetShortcutLabel(std::string_view id) const;
 	bool HasConflict(std::string_view id) const;
+	std::string GetConflictDescription(std::string_view id) const;
+	bool IsCapturingBinding() const { return !m_CapturingShortcutId.empty(); }
+	void CancelBindingCapture();
+	void DrawShortcutTooltip(std::string_view id, const char* description = nullptr) const;
 
 	static const char* GetScopeName(EditorShortcutScope scope);
 	static std::string ShortcutLabel(const UI::ShortcutBinding& binding);
@@ -96,10 +100,12 @@ private:
 	bool Matches(const EditorShortcut& shortcut, KeyCode key, bool ctrl, bool shift, bool alt) const;
 	bool Execute(const EditorShortcut& shortcut, bool hasActiveWidget, bool ignoreTextInput = false, bool ignoreContext = false) const;
 	bool HasConflict(const EditorShortcut& shortcut) const;
+	std::string GetConflictDescription(const EditorShortcut& shortcut) const;
 	void MarkDirty();
 
 	std::vector<EditorShortcut> m_Shortcuts;
 	std::unordered_map<std::string, UI::ShortcutBinding> m_PendingBindings;
+	std::string m_CapturingShortcutId;
 	char m_SearchBuffer[128]{ 0 };
 	int m_SettingsScopeFilter = -1;
 	bool m_Dirty = false;

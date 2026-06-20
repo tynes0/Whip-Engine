@@ -597,6 +597,7 @@ void AnimationEditorPanel::SetOpen(bool open)
 		return;
 	m_Open = open;
 	m_OpenDirty = true;
+	MarkLayoutDirty();
 }
 
 bool AnimationEditorPanel::OpenAsset(AssetHandle handle, bool openWindow)
@@ -653,6 +654,37 @@ bool AnimationEditorPanel::ConsumeOpenDirty()
 	return dirty;
 }
 
+bool AnimationEditorPanel::ConsumeLayoutDirty()
+{
+	const bool dirty = m_LayoutDirty;
+	m_LayoutDirty = false;
+	return dirty;
+}
+
+AnimationEditorPanel::WorkspacePreferences AnimationEditorPanel::GetWorkspacePreferences() const
+{
+	WorkspacePreferences preferences;
+	preferences.m_Open = m_Open;
+	preferences.m_Minimized = m_Minimized;
+	preferences.m_Fullscreen = m_Fullscreen;
+	preferences.m_HasRestoreRect = m_HasRestoreRect;
+	preferences.m_RestorePosition = m_RestorePosition;
+	preferences.m_RestoreSize = m_RestoreSize;
+	return preferences;
+}
+
+void AnimationEditorPanel::ApplyWorkspacePreferences(const WorkspacePreferences& preferences)
+{
+	m_Open = preferences.m_Open;
+	m_Minimized = preferences.m_Minimized;
+	m_Fullscreen = preferences.m_Fullscreen;
+	m_FullscreenRequested = preferences.m_Fullscreen;
+	m_HasRestoreRect = preferences.m_HasRestoreRect;
+	m_RestorePosition = preferences.m_RestorePosition;
+	m_RestoreSize = preferences.m_RestoreSize;
+	m_LayoutDirty = false;
+}
+
 void AnimationEditorPanel::DrawWindowControls()
 {
 	const float controlsWidth = 28.0f * 2.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f;
@@ -666,6 +698,7 @@ void AnimationEditorPanel::DrawWindowControls()
 		m_Minimized = true;
 		m_Fullscreen = false;
 		m_OpenDirty = true;
+		MarkLayoutDirty();
 	}
 	ImGui::SameLine();
 	if (DrawWindowControl("##AnimationEditorMaximize", m_Fullscreen ? WindowControlType::Restore : WindowControlType::Maximize))
@@ -698,6 +731,7 @@ void AnimationEditorPanel::DrawMinimizedStrip()
 	{
 		m_Minimized = false;
 		m_FocusRequested = true;
+		MarkLayoutDirty();
 	}
 
 	ImGui::End();
@@ -710,9 +744,19 @@ void AnimationEditorPanel::CaptureWindowRect()
 	if (size.x <= 0.0f || size.y <= 0.0f)
 		return;
 
-	m_RestorePosition = { pos.x, pos.y };
-	m_RestoreSize = { size.x, size.y };
-	m_HasRestoreRect = true;
+	const glm::vec2 newPosition{ pos.x, pos.y };
+	const glm::vec2 newSize{ size.x, size.y };
+	if (!m_HasRestoreRect ||
+		std::abs(m_RestorePosition.x - newPosition.x) > 0.5f ||
+		std::abs(m_RestorePosition.y - newPosition.y) > 0.5f ||
+		std::abs(m_RestoreSize.x - newSize.x) > 0.5f ||
+		std::abs(m_RestoreSize.y - newSize.y) > 0.5f)
+	{
+		m_RestorePosition = newPosition;
+		m_RestoreSize = newSize;
+		m_HasRestoreRect = true;
+		MarkLayoutDirty();
+	}
 }
 
 void AnimationEditorPanel::RequestFullscreen()
@@ -722,11 +766,13 @@ void AnimationEditorPanel::RequestFullscreen()
 	m_Fullscreen = true;
 	m_FullscreenRequested = true;
 	m_FocusRequested = true;
+	MarkLayoutDirty();
 }
 
 void AnimationEditorPanel::RestoreWindowRect()
 {
 	m_Fullscreen = false;
+	m_FullscreenRequested = false;
 	const ImVec2 size(
 		m_HasRestoreRect ? m_RestoreSize.x : 1120.0f,
 		m_HasRestoreRect ? m_RestoreSize.y : 680.0f);
@@ -735,6 +781,12 @@ void AnimationEditorPanel::RestoreWindowRect()
 		m_HasRestoreRect ? m_RestorePosition.y : ImGui::GetMainViewport()->WorkPos.y + 80.0f);
 	ImGui::SetWindowPos(pos, ImGuiCond_Always);
 	ImGui::SetWindowSize(size, ImGuiCond_Always);
+	MarkLayoutDirty();
+}
+
+void AnimationEditorPanel::MarkLayoutDirty()
+{
+	m_LayoutDirty = true;
 }
 
 void AnimationEditorPanel::DrawAnimationDragDropArea(float width, float height)

@@ -26,6 +26,20 @@ public:
 	void SetOpen(bool open) override;
 	bool IsOpen() const override { return m_Open; }
 	bool ConsumeOpenDirty() override;
+	bool ConsumeLayoutDirty();
+
+	struct WorkspacePreferences
+	{
+		bool m_Open = false;
+		bool m_Minimized = false;
+		bool m_Fullscreen = false;
+		bool m_HasRestoreRect = false;
+		glm::vec2 m_RestorePosition{ 120.0f, 90.0f };
+		glm::vec2 m_RestoreSize{ 1120.0f, 680.0f };
+	};
+
+	WorkspacePreferences GetWorkspacePreferences() const;
+	void ApplyWorkspacePreferences(const WorkspacePreferences& preferences);
 
 	void OnImGuiRender() override;
 	void OnImGuiRenderEmbedded();
@@ -139,6 +153,7 @@ private:
 	void CaptureWindowRect();
 	void RequestFullscreen();
 	void RestoreWindowRect();
+	void MarkLayoutDirty();
 	AnimationControllerTransition* GetSelectedControllerTransition();
 	void ClearSelectedControllerTransition();
 	void RemoveSelectedControllerTransition();
@@ -203,6 +218,7 @@ private:
 	bool m_Fullscreen = false;
 	bool m_FullscreenRequested = false;
 	bool m_FocusRequested = false;
+	bool m_LayoutDirty = false;
 	bool m_HasRestoreRect = false;
 	glm::vec2 m_RestorePosition{ 120.0f, 90.0f };
 	glm::vec2 m_RestoreSize{ 1120.0f, 680.0f };

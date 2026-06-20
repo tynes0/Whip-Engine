@@ -548,6 +548,8 @@ void EditorLayer::OnImGuiRender()
 	if (m_UISettings.ConsumeDirty()
 		|| m_ShortcutManager.ConsumeDirty()
 		|| m_PanelManager.ConsumeOpenDirty()
+		|| m_AnimationEditorPanel.ConsumeLayoutDirty()
+		|| m_AssetEditorPanel.ConsumeLayoutDirty()
 		|| (m_ContentBrowserPanel && m_ContentBrowserPanel->ConsumePreferencesDirty()))
 		m_ProjectManager.SaveEditorPreferences();
 	m_PopupHandler.OnImGuiRender();
@@ -634,11 +636,13 @@ void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
 	{
 		auto drawMenuAction = [this](UI::EditorShortcutAction action, const char* label = nullptr)
 			{
-				std::string shortcut = m_ShortcutManager.GetShortcutLabel(EditorActionShortcutId(action));
+				const std::string shortcutId = EditorActionShortcutId(action);
+				std::string shortcut = m_ShortcutManager.GetShortcutLabel(shortcutId);
 				const bool available = IsEditorActionAvailable(action);
 				ImGui::BeginDisabled(!available);
 				bool clicked = ImGui::MenuItem(label ? label : UI::UISettings::GetActionDisplayName(action), shortcut.c_str());
 				ImGui::EndDisabled();
+				m_ShortcutManager.DrawShortcutTooltip(shortcutId, available ? "Run command" : "Command is unavailable in the current editor state.");
 				if (clicked)
 					ExecuteEditorAction(action);
 			};
@@ -744,6 +748,32 @@ void EditorLayer::DrawCommandPalette()
 
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputTextWithHint("##CommandPaletteSearch", "Search commands...", m_CommandPaletteFilter, sizeof(m_CommandPaletteFilter));
+		ImGui::SetNextItemWidth(180.0f);
+		if (ImGui::BeginCombo("##CommandPaletteScope", m_CommandPaletteScopeFilter < 0 ? "All Scopes" : EditorShortcutManager::GetScopeName(static_cast<EditorShortcutScope>(m_CommandPaletteScopeFilter))))
+		{
+			if (ImGui::Selectable("All Scopes", m_CommandPaletteScopeFilter < 0))
+				m_CommandPaletteScopeFilter = -1;
+			for (EditorShortcutScope scope : {
+				EditorShortcutScope::Global,
+				EditorShortcutScope::Viewport,
+				EditorShortcutScope::SceneHierarchy,
+				EditorShortcutScope::ContentBrowser,
+				EditorShortcutScope::AssetEditor,
+				EditorShortcutScope::AnimationEditor,
+				EditorShortcutScope::Console,
+				EditorShortcutScope::Statistics,
+				EditorShortcutScope::ProjectHub })
+			{
+				const int scopeIndex = static_cast<int>(scope);
+				if (ImGui::Selectable(EditorShortcutManager::GetScopeName(scope), m_CommandPaletteScopeFilter == scopeIndex))
+					m_CommandPaletteScopeFilter = scopeIndex;
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::SameLine();
+		ImGui::Checkbox("Runnable only", &m_CommandPaletteAvailableOnly);
+		ImGui::SameLine();
+		ImGui::TextDisabled("Enter runs first result");
 		ImGui::Spacing();
 		ImGui::Separator();
 
@@ -752,19 +782,25 @@ void EditorLayer::DrawCommandPalette()
 
 		if (ImGui::BeginChild("##CommandPaletteResults", ImVec2(0.0f, 0.0f), false))
 		{
-			if (ImGui::BeginTable("##CommandPaletteTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+			if (ImGui::BeginTable("##CommandPaletteTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Resizable))
 			{
 				ImGui::TableSetupColumn("Command", ImGuiTableColumnFlags_WidthStretch);
-				ImGui::TableSetupColumn("Scope", ImGuiTableColumnFlags_WidthFixed, 160.0f);
+				ImGui::TableSetupColumn("Category", ImGuiTableColumnFlags_WidthFixed, 130.0f);
+				ImGui::TableSetupColumn("Scope", ImGuiTableColumnFlags_WidthFixed, 150.0f);
 				ImGui::TableSetupColumn("Shortcut", ImGuiTableColumnFlags_WidthFixed, 150.0f);
 
 				for (const EditorShortcut& shortcut : m_ShortcutManager.GetShortcuts())
 				{
 					if (shortcut.m_Options.m_HiddenFromCommandPalette || !ShortcutMatchesCommandFilter(shortcut, m_CommandPaletteFilter))
 						continue;
+					if (m_CommandPaletteScopeFilter >= 0 && static_cast<int>(shortcut.m_Scope) != m_CommandPaletteScopeFilter)
+						continue;
+
+					const bool available = m_ShortcutManager.IsShortcutAvailable(shortcut.m_Id, false);
+					if (m_CommandPaletteAvailableOnly && !available)
+						continue;
 
 					hasVisibleCommand = true;
-					const bool available = m_ShortcutManager.IsShortcutAvailable(shortcut.m_Id, false);
 					if (available && firstAvailableShortcutId.empty())
 						firstAvailableShortcutId = shortcut.m_Id;
 
@@ -777,12 +813,17 @@ void EditorLayer::DrawCommandPalette()
 						if (m_ShortcutManager.ExecuteShortcut(shortcut.m_Id, false, true, true) && shortcut.m_Id != "global.open_command_palette")
 							m_CommandPaletteOpen = false;
 					}
+					m_ShortcutManager.DrawShortcutTooltip(shortcut.m_Id, available ? "Run command" : "This command is not currently runnable.");
 					ImGui::TableNextColumn();
-					ImGui::TextDisabled("%s / %s", EditorShortcutManager::GetScopeName(shortcut.m_Scope), shortcut.m_Category.c_str());
+					ImGui::TextDisabled("%s", shortcut.m_Category.c_str());
+					ImGui::TableNextColumn();
+					ImGui::TextDisabled("%s", EditorShortcutManager::GetScopeName(shortcut.m_Scope));
 					ImGui::TableNextColumn();
 					const std::string shortcutLabel = EditorShortcutManager::ShortcutLabel(shortcut.m_Binding);
 					if (m_ShortcutManager.HasConflict(shortcut.m_Id))
-						ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Conflict");
+						ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "%s", m_ShortcutManager.GetConflictDescription(shortcut.m_Id).c_str());
+					else if (!available)
+						ImGui::TextDisabled("Unavailable");
 					else
 						ImGui::TextDisabled("%s", shortcutLabel.c_str());
 					ImGui::EndDisabled();
@@ -1230,7 +1271,7 @@ void EditorLayer::UIToolbar()
 	ImGui::SetCursorScreenPos(ImVec2(panelPos.x + padding, panelPos.y + padding));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, 0.0f));
 
-	auto drawIconButton = [&](const char* id, Icon iconType, ImU32 accent, const char* tooltip) -> bool
+	auto drawIconButton = [&](const char* id, Icon iconType, ImU32 accent, const char* tooltip, UI::EditorShortcutAction action = UI::EditorShortcutAction::Count) -> bool
 		{
 			Ref<Texture2D> iconTexture = IconManager::Get().GetIcon(iconType);
 			ImGui::InvisibleButton(id, ImVec2(buttonSize, buttonSize));
@@ -1250,14 +1291,19 @@ void EditorLayer::UIToolbar()
 			ImU32 tint = toolbarEnabled ? IM_COL32(240, 232, 216, 255) : IM_COL32(148, 140, 128, 190);
 			drawList->AddImage(UI::ToImGuiTextureId(iconTexture->GetRendererId()), iconMin, iconMax, ImVec2(0, 1), ImVec2(1, 0), tint);
 			if (hovered && tooltip)
-				ImGui::SetTooltip("%s", tooltip);
+			{
+				if (action != UI::EditorShortcutAction::Count)
+					m_ShortcutManager.DrawShortcutTooltip(EditorActionShortcutId(action), tooltip);
+				else
+					ImGui::SetTooltip("%s", tooltip);
+			}
 			return clicked;
 		};
 
 	if(hasPlayButton)
 	{
 		Icon playIcon = sceneState == SceneState::Play ? Icon::Stop : Icon::Play;
-		if (drawIconButton("##ViewportToolbarPlay", playIcon, ColorU32(0.58f, 0.70f, 0.42f, tintColor.w), sceneState == SceneState::Play ? "Stop" : "Play"))
+		if (drawIconButton("##ViewportToolbarPlay", playIcon, ColorU32(0.58f, 0.70f, 0.42f, tintColor.w), sceneState == SceneState::Play ? "Stop" : "Play", sceneState == SceneState::Play ? UI::EditorShortcutAction::Stop : UI::EditorShortcutAction::Play))
 		{
 			if (sceneState == SceneState::Edit || sceneState == SceneState::Simulate)
 				m_SceneManager.OnScenePlay();
@@ -1270,7 +1316,7 @@ void EditorLayer::UIToolbar()
 		if(hasPlayButton)
 			ImGui::SameLine();
 		Icon simulateIcon = sceneState == SceneState::Simulate ? Icon::Stop : Icon::Simulate;
-		if (drawIconButton("##ViewportToolbarSimulate", simulateIcon, ColorU32(0.66f, 0.55f, 0.42f, tintColor.w), sceneState == SceneState::Simulate ? "Stop simulation" : "Simulate"))
+		if (drawIconButton("##ViewportToolbarSimulate", simulateIcon, ColorU32(0.66f, 0.55f, 0.42f, tintColor.w), sceneState == SceneState::Simulate ? "Stop simulation" : "Simulate", sceneState == SceneState::Simulate ? UI::EditorShortcutAction::Stop : UI::EditorShortcutAction::Simulate))
 		{
 			if (sceneState == SceneState::Edit || sceneState == SceneState::Play)
 				m_SceneManager.OnSceneSimulate();
@@ -1281,7 +1327,7 @@ void EditorLayer::UIToolbar()
 	if (hasPauseButton)
 	{
 		ImGui::SameLine();
-		if (drawIconButton("##ViewportToolbarPause", Icon::Pause, ColorU32(0.86f, 0.64f, 0.32f, tintColor.w), isPaused ? "Resume" : "Pause"))
+		if (drawIconButton("##ViewportToolbarPause", Icon::Pause, ColorU32(0.86f, 0.64f, 0.32f, tintColor.w), isPaused ? "Resume" : "Pause", UI::EditorShortcutAction::Pause))
 			m_SceneManager.ActiveScene()->SetPaused(!isPaused);
 
 		if (isPaused)
