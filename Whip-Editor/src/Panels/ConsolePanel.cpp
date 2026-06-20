@@ -40,6 +40,9 @@ struct ConsoleData
 	bool m_OpenDirty = false;
 	bool m_Focused = false;
 	bool m_RequestSearchFocus = false;
+	bool m_RequestScrollToBottom = true;
+	size_t m_LastRenderedBufferSize = 0;
+	size_t m_LastRenderedVisibleCount = 0;
 
 	static constexpr size_t MaxConsoleLines = 500;
 	static constexpr size_t EraseCount = 100;
@@ -323,6 +326,7 @@ namespace
 
 			std::string messageContent = buffer.substr(currentPos, nextTokenPos - currentPos);
 			ConsoleState.m_Buffer.emplace_back(ParseEntry(level, messageContent));
+			ConsoleState.m_RequestScrollToBottom = true;
 			currentPos = nextTokenPos;
 		}
 	}
@@ -430,6 +434,7 @@ void ConsolePanel::OnImGuiRender()
 	if (ImGui::Button("Clear", ImVec2(74.0f, 0.0f)))
 	{
 		ConsoleState.m_Buffer.clear();
+		ConsoleState.m_RequestScrollToBottom = true;
 		SkipToEnd();
 	}
 	SameLineIfFits(EstimatedCheckboxWidth("Auto-scroll"));
@@ -483,6 +488,8 @@ void ConsolePanel::OnImGuiRender()
 		CopyVisibleToClipboardUnlocked();
 
 	const size_t visibleCount = std::ranges::count_if(ConsoleState.m_Buffer, [](const ConsoleEntry& entry) { return EntryVisible(entry); });
+	const bool consoleContentChanged = ConsoleState.m_Buffer.size() != ConsoleState.m_LastRenderedBufferSize || visibleCount != ConsoleState.m_LastRenderedVisibleCount;
+	const bool shouldScrollToBottom = ConsoleState.m_AutoScroll && (ConsoleState.m_RequestScrollToBottom || consoleContentChanged);
 	SameLineIfFits(ImGui::CalcTextSize("000 visible").x);
 	ImGui::TextDisabled("%zu visible", visibleCount);
 
@@ -525,8 +532,12 @@ void ConsolePanel::OnImGuiRender()
 		ImGui::EndTable();
 	}
 
-	if (ConsoleState.m_AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f)
-		ImGui::SetScrollHereY(1.0f);
+	if (shouldScrollToBottom)
+		ImGui::SetScrollY(ImGui::GetScrollMaxY());
+
+	ConsoleState.m_RequestScrollToBottom = false;
+	ConsoleState.m_LastRenderedBufferSize = ConsoleState.m_Buffer.size();
+	ConsoleState.m_LastRenderedVisibleCount = visibleCount;
 
 	ImGui::EndChild();
 	ImGui::PopStyleVar(2);
@@ -542,6 +553,7 @@ void ConsolePanel::Clear()
 {
 	std::lock_guard lock(ConsoleState.m_Mutex);
 	ConsoleState.m_Buffer.clear();
+	ConsoleState.m_RequestScrollToBottom = true;
 	SkipToEnd();
 }
 
@@ -585,6 +597,8 @@ void ConsolePanel::ShowErrorsOnly()
 void ConsolePanel::ToggleAutoScroll()
 {
 	ConsoleState.m_AutoScroll = !ConsoleState.m_AutoScroll;
+	if (ConsoleState.m_AutoScroll)
+		ConsoleState.m_RequestScrollToBottom = true;
 }
 
 void ConsolePanel::SetOpen(bool open)
