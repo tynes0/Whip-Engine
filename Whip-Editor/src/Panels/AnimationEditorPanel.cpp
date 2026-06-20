@@ -1474,6 +1474,15 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			return -1;
 		};
 
+	auto transitionSourceLabel = [&](int sourceStateIndex) -> std::string
+		{
+			if (sourceStateIndex == AnyStateTransitionSource)
+				return "Any State";
+			if (sourceStateIndex >= 0 && std::cmp_less(sourceStateIndex, states.size()))
+				return states[sourceStateIndex].m_Name;
+			return {};
+		};
+
 	auto selectTransition = [&](int sourceStateIndex, int transitionIndex)
 		{
 			m_SelectedTransitionSourceStateIndex = sourceStateIndex;
@@ -1579,17 +1588,37 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			if (!transitionTargetPin(transition, targetPin))
 				return;
 
+			const int targetStateIndex = findStateIndex(transition.m_TargetState);
+			float pairOffset = 0.0f;
+			if (sourceStateIndex >= 0 && targetStateIndex >= 0 && std::cmp_less(sourceStateIndex, states.size()))
+			{
+				const std::string& sourceName = states[sourceStateIndex].m_Name;
+				const bool hasReverse = std::ranges::any_of(states[targetStateIndex].m_Transitions, [&sourceName](const AnimationControllerTransition& reverseTransition)
+				{
+					return reverseTransition.m_TargetState == sourceName;
+				});
+				if (hasReverse)
+					pairOffset = (sourceStateIndex < targetStateIndex ? -22.0f : 22.0f) * zoom;
+			}
+
 			const bool selected = m_SelectedTransitionSourceStateIndex == sourceStateIndex && m_SelectedTransitionIndex == transitionIndex;
-			const bool hovered = canvasHovered && DistanceToSegment(mousePos, sourcePin, targetPin) <= 9.0f;
+			const ImVec2 direction = Normalize(Subtract(targetPin, sourcePin));
+			const ImVec2 normal = Perpendicular(direction);
+			const ImVec2 curveOffset = Scale(normal, pairOffset);
+			const bool hovered = canvasHovered && DistanceToSegment(mousePos, Add(sourcePin, Scale(curveOffset, 0.65f)), Add(targetPin, Scale(curveOffset, 0.65f))) <= 11.0f;
 			edgeHovered |= hovered;
 			const ImU32 color = selected ? IM_COL32(122, 196, 255, 255) : hovered ? IM_COL32(188, 210, 232, 255) : IM_COL32(92, 126, 160, 220);
 			const float tangent = std::max(58.0f * zoom, std::abs(targetPin.x - sourcePin.x) * 0.42f);
-			drawList->AddBezierCubic(sourcePin, ImVec2(sourcePin.x + tangent, sourcePin.y), ImVec2(targetPin.x - tangent, targetPin.y), targetPin, color, selected ? 3.2f : 2.0f);
+			drawList->AddBezierCubic(
+				sourcePin,
+				Add(ImVec2(sourcePin.x + tangent, sourcePin.y), curveOffset),
+				Add(ImVec2(targetPin.x - tangent, targetPin.y), curveOffset),
+				targetPin,
+				color,
+				selected ? 3.2f : 2.0f);
 			drawList->AddCircleFilled(targetPin, selected ? pinRadius + 1.0f : pinRadius, color);
 
-			const ImVec2 midpoint = Scale(Add(sourcePin, targetPin), 0.5f);
-			const ImVec2 direction = Normalize(Subtract(targetPin, sourcePin));
-			const ImVec2 normal = Perpendicular(direction);
+			const ImVec2 midpoint = Add(Scale(Add(sourcePin, targetPin), 0.5f), curveOffset);
 			const float arrowSize = 7.0f * zoom;
 			drawList->AddTriangleFilled(
 				Add(midpoint, Scale(direction, arrowSize)),
@@ -1597,7 +1626,9 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 				Add(Add(midpoint, Scale(direction, -arrowSize)), Scale(normal, -arrowSize * 0.58f)),
 				color);
 
-			std::string badge;
+			std::string badge = transitionSourceLabel(sourceStateIndex);
+			if (!badge.empty())
+				badge += " -> " + transition.m_TargetState;
 			if (!transition.m_BlueprintNodes.empty())
 			{
 				const size_t logicNodeCount = std::ranges::count_if(transition.m_BlueprintNodes, [](const AnimationControllerBlueprintNode& node)
@@ -1605,10 +1636,10 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 					return node.m_Type != AnimationBlueprintNodeType::Parameter && node.m_Type != AnimationBlueprintNodeType::Reroute && node.m_Type != AnimationBlueprintNodeType::Result;
 				});
 				if (logicNodeCount > 0)
-					badge += std::to_string(logicNodeCount) + " logic";
+					badge += (badge.empty() ? "" : " | ") + std::to_string(logicNodeCount) + " logic";
 			}
 			else if (!transition.m_Conditions.empty())
-				badge += std::to_string(transition.m_Conditions.size()) + " cond";
+				badge += (badge.empty() ? "" : " | ") + std::to_string(transition.m_Conditions.size()) + " cond";
 			if (transition.m_HasExitTime)
 				badge += (badge.empty() ? "" : " | ") + std::string("exit ") + FormatCompactFloat(transition.m_ExitTime);
 			if (transition.m_Duration > 0.0f)
@@ -1903,6 +1934,138 @@ AnimationControllerTransition* AnimationEditorPanel::GetSelectedControllerTransi
 	return &transitions[m_SelectedTransitionIndex];
 }
 
+std::string AnimationEditorPanel::GetSelectedTransitionSourceName() const
+{
+	if (!m_CurrentController)
+		return {};
+
+	if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
+		return "Any State";
+
+	const auto& states = m_CurrentController->GetStates();
+	if (m_SelectedTransitionSourceStateIndex < 0 || std::cmp_greater_equal(m_SelectedTransitionSourceStateIndex, states.size()))
+		return {};
+
+	return states[m_SelectedTransitionSourceStateIndex].m_Name;
+}
+
+bool AnimationEditorPanel::BuildReverseTransitionCondition(const AnimationControllerTransition& transition, AnimationControllerCondition& outCondition) const
+{
+	if (!m_CurrentController)
+		return false;
+
+	auto findParameter = [this](std::string_view name) -> const AnimationControllerParameter*
+		{
+			const auto& parameters = m_CurrentController->GetParameters();
+			const auto it = std::ranges::find_if(parameters, [name](const AnimationControllerParameter& parameter)
+			{
+				return parameter.m_Name == name;
+			});
+			return it == parameters.end() ? nullptr : &*it;
+		};
+
+	auto setBoolCondition = [&](std::string_view parameterName, bool desiredValue) -> bool
+		{
+			const AnimationControllerParameter* parameter = findParameter(parameterName);
+			if (!parameter || (parameter->m_Type != AnimationParameterType::Bool && parameter->m_Type != AnimationParameterType::Trigger))
+				return false;
+
+			outCondition = {};
+			outCondition.m_Parameter = parameter->m_Name;
+			outCondition.m_Mode = desiredValue ? AnimationConditionMode::If : AnimationConditionMode::IfNot;
+			outCondition.m_BoolValue = desiredValue;
+			return true;
+		};
+
+	if (transition.m_Conditions.size() == 1)
+	{
+		const AnimationControllerCondition& condition = transition.m_Conditions.front();
+		const AnimationControllerParameter* parameter = findParameter(condition.m_Parameter);
+		if (parameter && (parameter->m_Type == AnimationParameterType::Bool || parameter->m_Type == AnimationParameterType::Trigger))
+		{
+			switch (condition.m_Mode)
+			{
+			case AnimationConditionMode::If:
+				return setBoolCondition(condition.m_Parameter, false);
+			case AnimationConditionMode::IfNot:
+				return setBoolCondition(condition.m_Parameter, true);
+			case AnimationConditionMode::Equals:
+				return setBoolCondition(condition.m_Parameter, !condition.m_BoolValue);
+			case AnimationConditionMode::NotEquals:
+				return setBoolCondition(condition.m_Parameter, condition.m_BoolValue);
+			case AnimationConditionMode::Greater:
+			case AnimationConditionMode::Less:
+				break;
+			}
+		}
+	}
+
+	std::unordered_set<std::string> boolParameters;
+	bool containsNegativeLogic = false;
+	for (const AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
+	{
+		const AnimationControllerParameter* parameter = findParameter(node.m_Parameter);
+		if (parameter && (parameter->m_Type == AnimationParameterType::Bool || parameter->m_Type == AnimationParameterType::Trigger))
+			boolParameters.insert(parameter->m_Name);
+
+		if (node.m_Type == AnimationBlueprintNodeType::IfNot || node.m_Type == AnimationBlueprintNodeType::Not)
+			containsNegativeLogic = true;
+	}
+
+	if (boolParameters.size() == 1)
+		return setBoolCondition(*boolParameters.begin(), containsNegativeLogic);
+
+	return false;
+}
+
+bool AnimationEditorPanel::TryCreateReverseTransition(const AnimationControllerTransition& transition)
+{
+	if (!m_CurrentController || m_SelectedTransitionSourceStateIndex < 0)
+		return false;
+	if (transition.m_TargetState.empty() || transition.m_TargetState == AnimationController::ExitStateName)
+		return false;
+
+	auto& states = m_CurrentController->GetStates();
+	if (std::cmp_greater_equal(m_SelectedTransitionSourceStateIndex, states.size()))
+		return false;
+
+	const std::string sourceName = states[m_SelectedTransitionSourceStateIndex].m_Name;
+	const auto targetIt = std::ranges::find_if(states, [&transition](const AnimationControllerState& state)
+	{
+		return state.m_Name == transition.m_TargetState;
+	});
+	if (targetIt == states.end() || targetIt->m_Name == sourceName)
+		return false;
+
+	const bool alreadyExists = std::ranges::any_of(targetIt->m_Transitions, [&sourceName](const AnimationControllerTransition& existingTransition)
+	{
+		return existingTransition.m_TargetState == sourceName;
+	});
+	if (alreadyExists)
+		return false;
+
+	AnimationControllerCondition reverseCondition;
+	if (!BuildReverseTransitionCondition(transition, reverseCondition))
+		return false;
+
+	PushHistory();
+	AnimationControllerTransition reverseTransition;
+	reverseTransition.m_TargetState = sourceName;
+	reverseTransition.m_Duration = transition.m_Duration;
+	reverseTransition.m_ExitTime = transition.m_ExitTime;
+	reverseTransition.m_HasExitTime = false;
+	reverseTransition.m_Conditions.push_back(reverseCondition);
+
+	targetIt->m_Transitions.push_back(reverseTransition);
+	m_SelectedTransitionSourceStateIndex = static_cast<int>(std::distance(states.begin(), targetIt));
+	m_SelectedTransitionIndex = static_cast<int>(targetIt->m_Transitions.size()) - 1;
+	m_SelectedControllerStateIndex = m_SelectedTransitionSourceStateIndex;
+	m_SelectedBlueprintNodeId = 0;
+	m_ControllerWorkspaceTab = AnimationControllerWorkspaceTab::StateMachine;
+	m_ControllerWorkspaceTabSelectionRequested = true;
+	return true;
+}
+
 void AnimationEditorPanel::ClearSelectedControllerTransition()
 {
 	m_SelectedTransitionSourceStateIndex = NoTransitionSource;
@@ -2009,6 +2172,9 @@ void AnimationEditorPanel::DrawCompactSummary()
 void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationControllerTransition& transition, bool allowExitTarget)
 {
 	auto& states = m_CurrentController->GetStates();
+	const std::string sourceName = GetSelectedTransitionSourceName();
+	if (!sourceName.empty())
+		ImGui::Text("From: %s", sourceName.c_str());
 
 	if (ImGui::BeginCombo("Target", transition.m_TargetState.empty() ? "None" : transition.m_TargetState.c_str()))
 	{
@@ -2029,6 +2195,37 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 				ImGui::SetItemDefaultFocus();
 		}
 		ImGui::EndCombo();
+	}
+
+	AnimationControllerCondition reverseCondition;
+	const bool canCreateReverse = BuildReverseTransitionCondition(transition, reverseCondition);
+	const bool hasStateSource = m_SelectedTransitionSourceStateIndex >= 0 && std::cmp_less(m_SelectedTransitionSourceStateIndex, states.size());
+	const bool hasStateTarget = !transition.m_TargetState.empty() && transition.m_TargetState != AnimationController::ExitStateName && m_CurrentController->FindState(transition.m_TargetState);
+	bool reverseAlreadyExists = false;
+	if (hasStateSource && hasStateTarget)
+	{
+		const std::string& reverseTarget = states[m_SelectedTransitionSourceStateIndex].m_Name;
+		if (const AnimationControllerState* targetState = m_CurrentController->FindState(transition.m_TargetState))
+		{
+			reverseAlreadyExists = std::ranges::any_of(targetState->m_Transitions, [&reverseTarget](const AnimationControllerTransition& existingTransition)
+			{
+				return existingTransition.m_TargetState == reverseTarget;
+			});
+		}
+	}
+
+	ImGui::BeginDisabled(!hasStateSource || !hasStateTarget || reverseAlreadyExists || !canCreateReverse);
+	if (ImGui::Button("Create Reverse", ImVec2(-1.0f, 0.0f)))
+		TryCreateReverseTransition(transition);
+	ImGui::EndDisabled();
+	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+	{
+		if (reverseAlreadyExists)
+			ImGui::SetTooltip("Reverse transition already exists.");
+		else if (!canCreateReverse)
+			ImGui::SetTooltip("Works with a single bool/trigger condition or a simple bool transition blueprint.");
+		else
+			ImGui::SetTooltip("Creates the opposite transition with the inverse bool condition.");
 	}
 
 	ImGui::Checkbox("Has Exit Time", &transition.m_HasExitTime);

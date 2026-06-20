@@ -31,6 +31,10 @@ public:
 	void SetFloat(std::string_view name, float value);
 	void SetTrigger(std::string_view name);
 	void ResetTrigger(std::string_view name);
+	bool GetBool(std::string_view name) const;
+	int32_t GetInt(std::string_view name) const;
+	float GetFloat(std::string_view name) const;
+	bool IsTriggerSet(std::string_view name) const;
 
 	bool IsPlaying() const;
 	AssetHandle GetControllerHandle() const;

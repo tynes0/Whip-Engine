@@ -32,14 +32,29 @@ namespace Whip
 			InternalCalls.AnimatorComponent_SetBool(entity.ID, name, value);
 		}
 
+		public bool GetBool(string name)
+		{
+			return InternalCalls.AnimatorComponent_GetBool(entity.ID, name);
+		}
+
 		public void SetInt(string name, int value)
 		{
 			InternalCalls.AnimatorComponent_SetInt(entity.ID, name, value);
 		}
 
+		public int GetInt(string name)
+		{
+			return InternalCalls.AnimatorComponent_GetInt(entity.ID, name);
+		}
+
 		public void SetFloat(string name, float value)
 		{
 			InternalCalls.AnimatorComponent_SetFloat(entity.ID, name, value);
+		}
+
+		public float GetFloat(string name)
+		{
+			return InternalCalls.AnimatorComponent_GetFloat(entity.ID, name);
 		}
 
 		public void SetTrigger(string name)
@@ -50,6 +65,11 @@ namespace Whip
 		public void ResetTrigger(string name)
 		{
 			InternalCalls.AnimatorComponent_ResetTrigger(entity.ID, name);
+		}
+
+		public bool IsTriggerSet(string name)
+		{
+			return InternalCalls.AnimatorComponent_IsTriggerSet(entity.ID, name);
 		}
 	}
 }

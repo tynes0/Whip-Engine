@@ -220,6 +220,14 @@ namespace Whip
 		internal extern static void AnimatorComponent_SetTrigger(ulong entityID, string name);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void AnimatorComponent_ResetTrigger(ulong entityID, string name);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool AnimatorComponent_GetBool(ulong entityID, string name);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static int AnimatorComponent_GetInt(ulong entityID, string name);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float AnimatorComponent_GetFloat(ulong entityID, string name);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool AnimatorComponent_IsTriggerSet(ulong entityID, string name);
 
 		#endregion
 

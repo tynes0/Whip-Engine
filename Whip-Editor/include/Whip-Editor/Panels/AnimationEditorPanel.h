@@ -155,6 +155,9 @@ private:
 	void RestoreWindowRect();
 	void MarkLayoutDirty();
 	AnimationControllerTransition* GetSelectedControllerTransition();
+	std::string GetSelectedTransitionSourceName() const;
+	bool BuildReverseTransitionCondition(const AnimationControllerTransition& transition, AnimationControllerCondition& outCondition) const;
+	bool TryCreateReverseTransition(const AnimationControllerTransition& transition);
 	void ClearSelectedControllerTransition();
 	void RemoveSelectedControllerTransition();
 	void AutoLayoutControllerGraph();

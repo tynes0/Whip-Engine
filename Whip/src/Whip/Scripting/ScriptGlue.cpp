@@ -863,6 +863,34 @@ namespace
 			runtime->ResetTrigger(detail::MonoStringToString(name));
 	}
 
+	static bool AnimatorComponentGetBool(UUID entityId, MonoString* name)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId))
+			return runtime->GetBool(detail::MonoStringToString(name));
+		return false;
+	}
+
+	static int32_t AnimatorComponentGetInt(UUID entityId, MonoString* name)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId))
+			return runtime->GetInt(detail::MonoStringToString(name));
+		return 0;
+	}
+
+	static float AnimatorComponentGetFloat(UUID entityId, MonoString* name)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId))
+			return runtime->GetFloat(detail::MonoStringToString(name));
+		return 0.0f;
+	}
+
+	static bool AnimatorComponentIsTriggerSet(UUID entityId, MonoString* name)
+	{
+		if (AnimatorRuntime* runtime = AnimatorComponentGetRuntime(entityId))
+			return runtime->IsTriggerSet(detail::MonoStringToString(name));
+		return false;
+	}
+
 	static void CameraComponentSetPrimary(UUID entityId, bool primary)
 	{
 		Entity ent = detail::GetEntity(entityId);
@@ -1689,6 +1717,10 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(AnimatorComponent_SetFloat, AnimatorComponentSetFloat);
 	ADD_INTERNAL_CALL(AnimatorComponent_SetTrigger, AnimatorComponentSetTrigger);
 	ADD_INTERNAL_CALL(AnimatorComponent_ResetTrigger, AnimatorComponentResetTrigger);
+	ADD_INTERNAL_CALL(AnimatorComponent_GetBool, AnimatorComponentGetBool);
+	ADD_INTERNAL_CALL(AnimatorComponent_GetInt, AnimatorComponentGetInt);
+	ADD_INTERNAL_CALL(AnimatorComponent_GetFloat, AnimatorComponentGetFloat);
+	ADD_INTERNAL_CALL(AnimatorComponent_IsTriggerSet, AnimatorComponentIsTriggerSet);
 
 	// Camera component
 	ADD_INTERNAL_CALL(CameraComponent_IsPrimary, CameraComponentIsPrimary);

@@ -324,6 +324,125 @@ void AnimatorRuntime::ResetTrigger(std::string_view name)
 	m_TriggerParameters.erase(std::string(name));
 }
 
+bool AnimatorRuntime::GetBool(std::string_view name) const
+{
+	const AnimationControllerParameter* parameter = FindParameter(name);
+	if (parameter)
+	{
+		switch (parameter->m_Type)
+		{
+		case AnimationParameterType::Bool:
+		{
+			const auto it = m_BoolParameters.find(parameter->m_Name);
+			return it != m_BoolParameters.end() ? it->second : parameter->m_DefaultBool;
+		}
+		case AnimationParameterType::Int:
+		{
+			const auto it = m_IntParameters.find(parameter->m_Name);
+			return (it != m_IntParameters.end() ? it->second : parameter->m_DefaultInt) != 0;
+		}
+		case AnimationParameterType::Float:
+		{
+			const auto it = m_FloatParameters.find(parameter->m_Name);
+			return std::abs(it != m_FloatParameters.end() ? it->second : parameter->m_DefaultFloat) > 0.0001f;
+		}
+		case AnimationParameterType::Trigger:
+			return m_TriggerParameters.contains(parameter->m_Name);
+		}
+	}
+
+	const std::string key(name);
+	if (const auto it = m_BoolParameters.find(key); it != m_BoolParameters.end())
+		return it->second;
+	if (const auto it = m_IntParameters.find(key); it != m_IntParameters.end())
+		return it->second != 0;
+	if (const auto it = m_FloatParameters.find(key); it != m_FloatParameters.end())
+		return std::abs(it->second) > 0.0001f;
+	return m_TriggerParameters.contains(key);
+}
+
+int32_t AnimatorRuntime::GetInt(std::string_view name) const
+{
+	const AnimationControllerParameter* parameter = FindParameter(name);
+	if (parameter)
+	{
+		switch (parameter->m_Type)
+		{
+		case AnimationParameterType::Bool:
+		{
+			const auto it = m_BoolParameters.find(parameter->m_Name);
+			return (it != m_BoolParameters.end() ? it->second : parameter->m_DefaultBool) ? 1 : 0;
+		}
+		case AnimationParameterType::Int:
+		{
+			const auto it = m_IntParameters.find(parameter->m_Name);
+			return it != m_IntParameters.end() ? it->second : parameter->m_DefaultInt;
+		}
+		case AnimationParameterType::Float:
+		{
+			const auto it = m_FloatParameters.find(parameter->m_Name);
+			return static_cast<int32_t>(it != m_FloatParameters.end() ? it->second : parameter->m_DefaultFloat);
+		}
+		case AnimationParameterType::Trigger:
+			return m_TriggerParameters.contains(parameter->m_Name) ? 1 : 0;
+		}
+	}
+
+	const std::string key(name);
+	if (const auto it = m_IntParameters.find(key); it != m_IntParameters.end())
+		return it->second;
+	if (const auto it = m_BoolParameters.find(key); it != m_BoolParameters.end())
+		return it->second ? 1 : 0;
+	if (const auto it = m_FloatParameters.find(key); it != m_FloatParameters.end())
+		return static_cast<int32_t>(it->second);
+	return m_TriggerParameters.contains(key) ? 1 : 0;
+}
+
+float AnimatorRuntime::GetFloat(std::string_view name) const
+{
+	const AnimationControllerParameter* parameter = FindParameter(name);
+	if (parameter)
+	{
+		switch (parameter->m_Type)
+		{
+		case AnimationParameterType::Bool:
+		{
+			const auto it = m_BoolParameters.find(parameter->m_Name);
+			return (it != m_BoolParameters.end() ? it->second : parameter->m_DefaultBool) ? 1.0f : 0.0f;
+		}
+		case AnimationParameterType::Int:
+		{
+			const auto it = m_IntParameters.find(parameter->m_Name);
+			return static_cast<float>(it != m_IntParameters.end() ? it->second : parameter->m_DefaultInt);
+		}
+		case AnimationParameterType::Float:
+		{
+			const auto it = m_FloatParameters.find(parameter->m_Name);
+			return it != m_FloatParameters.end() ? it->second : parameter->m_DefaultFloat;
+		}
+		case AnimationParameterType::Trigger:
+			return m_TriggerParameters.contains(parameter->m_Name) ? 1.0f : 0.0f;
+		}
+	}
+
+	const std::string key(name);
+	if (const auto it = m_FloatParameters.find(key); it != m_FloatParameters.end())
+		return it->second;
+	if (const auto it = m_IntParameters.find(key); it != m_IntParameters.end())
+		return static_cast<float>(it->second);
+	if (const auto it = m_BoolParameters.find(key); it != m_BoolParameters.end())
+		return it->second ? 1.0f : 0.0f;
+	return m_TriggerParameters.contains(key) ? 1.0f : 0.0f;
+}
+
+bool AnimatorRuntime::IsTriggerSet(std::string_view name) const
+{
+	const AnimationControllerParameter* parameter = FindParameter(name);
+	if (parameter && parameter->m_Type == AnimationParameterType::Trigger)
+		return m_TriggerParameters.contains(parameter->m_Name);
+	return m_TriggerParameters.contains(std::string(name));
+}
+
 bool AnimatorRuntime::IsPlaying() const
 {
 	return m_Playing;
