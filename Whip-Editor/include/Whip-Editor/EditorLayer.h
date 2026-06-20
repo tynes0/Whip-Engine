@@ -1,27 +1,28 @@
 #pragma once
 
 #include <Whip.h>
-#include <Whip-Editor/EditorAssetInteractionManager.h>
-#include <Whip-Editor/EditorHistoryManager.h>
-#include <Whip-Editor/EditorScriptManager.h>
-#include <Whip-Editor/EditorProjectManager.h>
-#include <Whip-Editor/EditorSceneManager.h>
-#include <Whip-Editor/UI/UIProject.h>
-#include <Whip-Editor/UI/UISettings.h>
-#include <Whip-Editor/UI/UIStatistics.h>
+
 #include <Whip/Render/EditorCamera.h>
-#include <Whip/Audio/AudioEngine.h>
+
+#include <Whip-Editor/Managers/EditorAssetInteractionManager.h>
+#include <Whip-Editor/Managers/EditorHistoryManager.h>
+#include <Whip-Editor/Managers/EditorScriptManager.h>
+#include <Whip-Editor/Managers/EditorProjectManager.h>
+#include <Whip-Editor/Managers/EditorSceneManager.h>
+#include <Whip-Editor/Managers/EditorPanelManager.h>
+#include <Whip-Editor/Managers/EditorEntityTemplateManager.h>
 
 #include <Whip-Editor/Panels/SceneHierarchyPanel.h>
 #include <Whip-Editor/Panels/ContentBrowserPanel.h>
 #include <Whip-Editor/Panels/AnimationEditorPanel.h>
 #include <Whip-Editor/Panels/AssetEditorPanel.h>
-#include <Whip-Editor/Panels/ConsolePanel.h>
-#include <Whip-Editor/Panels/EditorPanelManager.h>
+
+#include <Whip-Editor/UI/UIProject.h>
+#include <Whip-Editor/UI/UISettings.h>
+#include <Whip-Editor/UI/UIStatistics.h>
 
 _WHIP_START
-
-class EditorLayer : public Layer
+	class EditorLayer : public Layer // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	EditorLayer();
@@ -36,9 +37,12 @@ private:
 	using SceneState = EditorSceneState;
 
 	friend class EditorAssetInteractionManager;
+	friend class EditorEntityTemplateManager;
 	friend class EditorHistoryManager;
+	friend class EditorPanelManager;
 	friend class EditorProjectManager;
 	friend class EditorSceneManager;
+	friend class EditorScriptManager;
 
 	bool OnKeyPressed(KeyPressedEvent& event);
 	bool OnMouseButtonPressed(MouseButtonPressedEvent& event);
@@ -48,14 +52,6 @@ private:
 	void OnOverlayRender();
 
 	bool HasProjectLoaded() const;
-
-	void SaveEntityTemplate(Entity entityIn);
-	void ApplyEntityTemplate(Entity entityIn);
-	void RevertEntityTemplate(Entity entityIn);
-	void UnpackEntityTemplate(Entity entityIn);
-	Entity FindPrefabRoot(Entity entityIn) const;
-	void RemovePrefabLinksRecursive(Entity entityIn);
-	bool InstantiateEntityTemplate(AssetHandle handle);
 
 	bool ExecuteEditorAction(UI::EditorShortcutAction action);
 	bool IsEditorActionAvailable(UI::EditorShortcutAction action) const;
@@ -81,11 +77,14 @@ private:
 	Entity m_HoveredEntity;
 	Entity m_LastSelectedEntity;
 
+	// Managers
 	EditorAssetInteractionManager m_AssetInteractionManager;
+	EditorEntityTemplateManager m_EntityTemplateManager;
 	EditorHistoryManager m_HistoryManager;
 	EditorProjectManager m_ProjectManager;
 	EditorScriptManager m_ScriptManager;
 	EditorSceneManager m_SceneManager;
+	EditorPanelManager m_PanelManager;
 
 	// UI's
 	UI::UIProject m_UIProject;
@@ -105,15 +104,12 @@ private:
 	bool m_GizmoUsing = false;
 
 	// panels
-	EditorPanelManager m_PanelManager;
 	Scope<CallbackEditorPanel> m_StatisticsPanelAdapter;
 	Scope<CallbackEditorPanel> m_ConsolePanelAdapter;
 	SceneHierarchyPanel m_SceneHierarchyPanel;
 	AnimationEditorPanel m_AnimationEditorPanel;
 	AssetEditorPanel m_AssetEditorPanel;
 	Scope<ContentBrowserPanel> m_ContentBrowserPanel;
-
-	Ref<AudioSource> m_AudioSource;
 };
 
 _WHIP_END

@@ -1,7 +1,6 @@
 #include <Whip-Editor/Panels/ConsolePanel.h>
 
 #include <array>
-#include <cctype>
 #include <string>
 #include <vector>
 
@@ -9,7 +8,6 @@
 #include <misc/cpp/imgui_stdlib.h>
 #include <FileWatch.h>
 
-#include <Whip/Core/Memory.h>
 #include <Whip-Editor/UI/UIScopedStyle.h>
 
 #include <algorithm>
@@ -45,7 +43,7 @@ struct ConsoleData
 	static constexpr size_t EraseCount = 100;
 };
 
-ConsoleData ConsoleState;
+namespace { ConsoleData ConsoleState; }
 
 namespace
 {
@@ -60,7 +58,7 @@ namespace
 
 	std::string ToLower(std::string value)
 	{
-		std::transform(value.begin(), value.end(), value.begin(), [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+		std::ranges::transform(value, value.begin(), [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
 		return value;
 	}
 
@@ -84,7 +82,7 @@ namespace
 
 	const char* LevelName(Log::Level level)
 	{
-		switch (level)
+		switch (level) // NOLINT(clang-diagnostic-switch-enum)
 		{
 		case Log::Level::Trace:    return "Trace";
 		case Log::Level::Debug:    return "Debug";
@@ -98,7 +96,7 @@ namespace
 
 	size_t LevelIndex(Log::Level level)
 	{
-		switch (level)
+		switch (level) // NOLINT(clang-diagnostic-switch-enum)
 		{
 		case Log::Level::Trace:    return 0;
 		case Log::Level::Debug:    return 1;
@@ -281,12 +279,10 @@ namespace
 		if (static_cast<size_t>(bytesRead) < buffer.size())
 			buffer.resize(static_cast<size_t>(bytesRead));
 
-		static constexpr const char* token = "level::";
-		static constexpr size_t tokenLength = sizeof(token) - 1;
+		static constexpr std::string_view token = "level::";
+		static constexpr size_t tokenLength = token.size();
 
-		size_t temp = 0;
 		size_t currentPos = buffer.find(token);
-		size_t nextTokenPos = 0;
 
 		if (currentPos == std::string::npos)
 			return;
@@ -299,7 +295,7 @@ namespace
 				ConsoleState.m_Buffer.erase(ConsoleState.m_Buffer.begin(), ConsoleState.m_Buffer.begin() + ConsoleData::EraseCount);
 			currentPos += tokenLength;
 
-			temp = buffer.find(',', currentPos);
+			size_t temp = buffer.find(',', currentPos);
 
 			if (temp == std::string::npos || temp == buffer.size() - 1)
 				return;
@@ -307,7 +303,7 @@ namespace
 			Log::Level level = ParseLevelToken(buffer.substr(currentPos, temp - currentPos));
 			currentPos = temp + 1;
 
-			nextTokenPos = buffer.find(token, currentPos);
+			size_t nextTokenPos = buffer.find(token, currentPos);
 			if (nextTokenPos == std::string::npos)
 			{
 				nextTokenPos = buffer.size();
@@ -396,7 +392,7 @@ void ConsolePanel::OnImGuiRender()
 
 	static constexpr auto GetColor = [](Log::Level level) -> ImVec4
 		{
-			switch (level)
+			switch (level) // NOLINT(clang-diagnostic-switch-enum)
 			{
 			case whip::Log::Level::Trace:		return ImVec4(ImColor(TraceColor));
 			case whip::Log::Level::Debug:		return ImVec4(ImColor(DebugColor));

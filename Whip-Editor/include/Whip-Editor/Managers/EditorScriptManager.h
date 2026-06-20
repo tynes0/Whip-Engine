@@ -9,9 +9,11 @@
 #include <mutex>
 #include <string>
 
+#include "EditorManagerBase.h"
+
 _WHIP_START
 
-class EditorScriptManager
+class EditorScriptManager : public EditorManagerBase // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	struct Status
@@ -22,7 +24,8 @@ public:
 		bool m_Failure = false;
 	};
 
-	~EditorScriptManager();
+	EditorScriptManager(EditorLayer* boundedLayer = nullptr);
+	~EditorScriptManager() override;
 
 	bool BuildProjectScripts();
 	void ReloadAssembly(bool resetAppAssemblyFilepath, bool sceneEditable);
@@ -32,7 +35,7 @@ public:
 	void Reset();
 
 	void SetStatus(const std::string& message, bool warning = false, bool failure = false);
-	const Status& GetStatus() const { return m_Status; }
+	const Status& GetStatus() const;
 
 	static bool WriteProjectFiles(const std::filesystem::path& projectDirectory, const std::string& projectFolderName);
 

@@ -67,6 +67,7 @@ public:
 	operator bool() const { return m_EntityHandle != entt::null; }
 	operator uint32_t () const { return static_cast<uint32_t>(m_EntityHandle); }
 	operator entt::entity() const { return m_EntityHandle; }
+	std::string HandleAsString() const { return std::to_string(static_cast<uint32_t>(m_EntityHandle)); }
 
 	UUID GetUUID() const { return GetComponent<IDComponent>().m_ID; }
 	Scene* GetScene() const { return m_Scene; }

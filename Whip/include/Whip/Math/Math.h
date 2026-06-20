@@ -6,9 +6,11 @@
 
 _WHIP_START
 
-namespace Math 
+namespace Math
 {
 	bool DecomposeTransform(const glm::mat4& transform, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale);
+	bool EqualF(float a, float b, float epsilon = std::numeric_limits<float>::epsilon());
+	bool EqualF(double a, double b, double epsilon = std::numeric_limits<double>::epsilon());
 }
 
 _WHIP_END

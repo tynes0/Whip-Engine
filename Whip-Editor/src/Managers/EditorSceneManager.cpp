@@ -1,5 +1,7 @@
-#include <Whip-Editor/EditorSceneManager.h>
+#include <Whip-Editor/Managers/EditorSceneManager.h>
 
+#include <Whip-Editor/Managers/EditorHistoryManager.h>
+#include <Whip-Editor/Helpers/Utils.h>
 #include <Whip-Editor/EditorLayer.h>
 
 #include <Whip/Asset/AssetManager.h>
@@ -8,49 +10,16 @@
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Utils/PlatformUtils.h>
 
-#include <fstream>
 #include <utility>
 
 _WHIP_START
 
-namespace
-{
-	bool PathIsOrIsUnder(const std::filesystem::path& path, const std::filesystem::path& directory)
-	{
-		const std::filesystem::path normalizedPath = path.lexically_normal();
-		const std::filesystem::path normalizedDirectory = directory.lexically_normal();
-		if (normalizedPath == normalizedDirectory)
-			return true;
-
-		auto pathIt = normalizedPath.begin();
-		auto directoryIt = normalizedDirectory.begin();
-		for (; directoryIt != normalizedDirectory.end(); ++directoryIt, ++pathIt)
-		{
-			if (pathIt == normalizedPath.end() || *pathIt != *directoryIt)
-				return false;
-		}
-
-		return true;
-	}
-}
-
 EditorSceneManager::EditorSceneManager(EditorLayer* boundedLayer)
-	: m_BoundedLayer(boundedLayer), m_SceneDirty(false), m_State(EditorSceneState::Edit)
+	: EditorManagerBase(boundedLayer), m_SceneDirty(false), m_State(EditorSceneState::Edit)
 {
 }
 
 EditorSceneManager::~EditorSceneManager() = default;
-
-void EditorSceneManager::Bind(EditorLayer& layer)
-{
-	m_BoundedLayer = &layer;
-}
-
-EditorLayer& EditorSceneManager::GetLayer() const
-{
-	WHP_CORE_ASSERT(m_BoundedLayer, "EditorSceneManager is not bound to an EditorLayer.");
-	return *m_BoundedLayer;
-}
 
 const Ref<Scene>& EditorSceneManager::ActiveScene() const
 {
@@ -115,7 +84,7 @@ void EditorSceneManager::NewScene()
 
 	m_EditorScene = MakeRef<Scene>();
 	m_ActiveScene = m_EditorScene;
-	m_EditorScene->OnViewportResize((uint32_t)layer.m_ViewportSize.x, (uint32_t)layer.m_ViewportSize.y);
+	m_EditorScene->OnViewportResize(static_cast<uint32_t>(layer.m_ViewportSize.x), static_cast<uint32_t>(layer.m_ViewportSize.y));
 	layer.m_SceneHierarchyPanel.SetContext(m_EditorScene);
 	m_EditorScenePath = std::filesystem::path();
 	layer.m_HistoryManager.ClearSceneHistory();
@@ -167,7 +136,7 @@ void EditorSceneManager::CloseScene()
 		OnSceneStop();
 	Ref<Scene> newScene = MakeRef<Scene>();
 	m_EditorScene = newScene;
-	m_EditorScene->OnViewportResize((uint32_t)layer.m_ViewportSize.x, (uint32_t)layer.m_ViewportSize.y);
+	m_EditorScene->OnViewportResize(static_cast<uint32_t>(layer.m_ViewportSize.x), static_cast<uint32_t>(layer.m_ViewportSize.y));
 	m_ActiveScene = m_EditorScene;
 	m_EditorScenePath.clear();
 	layer.m_SceneHierarchyPanel.SetContext({});
@@ -204,15 +173,13 @@ void EditorSceneManager::SaveSceneAs()
 		return;
 
 	std::filesystem::path scenePath(filepath);
-	if (!FileExtensions::IsSceneExtension(scenePath))
-		scenePath.replace_extension(FileExtensions::Scene);
-	else if (FileExtensions::IsLegacySceneExtension(scenePath))
+	if (!FileExtensions::IsSceneExtension(scenePath) || FileExtensions::IsLegacySceneExtension(scenePath))
 		scenePath.replace_extension(FileExtensions::Scene);
 
 	SerializeScene(m_ActiveScene, scenePath);
 
 	const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
-	if (PathIsOrIsUnder(scenePath, assetDirectory))
+	if (EditorUtils::PathIsOrIsUnder(scenePath, assetDirectory))
 	{
 		error.clear();
 		const std::filesystem::path relativePath = std::filesystem::relative(scenePath, assetDirectory, error).lexically_normal();
@@ -307,7 +274,7 @@ void EditorSceneManager::ProcessRuntimeSceneTransition()
 	case RuntimeSceneTransitionType::Unload:
 		UnloadRuntimeScene();
 		break;
-	default:
+	case RuntimeSceneTransitionType::None:
 		break;
 	}
 }
@@ -383,7 +350,7 @@ void EditorSceneManager::StartActiveRuntimeSceneForTransition(AssetHandle handle
 	ScriptEngine::SetRuntimeActiveSceneHandle(handle);
 }
 
-void EditorSceneManager::SerializeScene(Ref<Scene> sceneIn, const std::filesystem::path& path)
+void EditorSceneManager::SerializeScene(const Ref<Scene>& sceneIn, const std::filesystem::path& path)
 {
 	SceneImporter::SaveScene(sceneIn, path);
 
@@ -396,7 +363,7 @@ void EditorSceneManager::SerializeScene(Ref<Scene> sceneIn, const std::filesyste
 		scenePath = assetDirectory / scenePath;
 	scenePath = scenePath.lexically_normal();
 
-	if (!PathIsOrIsUnder(scenePath, assetDirectory))
+	if (!EditorUtils::PathIsOrIsUnder(scenePath, assetDirectory))
 		return;
 
 	std::error_code error;
@@ -487,6 +454,7 @@ void EditorSceneManager::OnSceneStop()
 
 void EditorSceneManager::OnScenePause()
 {
+	WHP_UNIMPLEMENTED();
 }
 
 _WHIP_END

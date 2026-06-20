@@ -2,8 +2,6 @@
 
 #include <Whip.h>
 
-#include <atomic>
-
 _WHIP_START
 
 class ConsolePanel

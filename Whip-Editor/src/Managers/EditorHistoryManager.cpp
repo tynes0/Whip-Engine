@@ -1,5 +1,8 @@
-#include <Whip-Editor/EditorHistoryManager.h>
+#include <Whip-Editor/Managers/EditorHistoryManager.h>
 
+#include <Whip-Editor/Managers/EditorAssetInteractionManager.h>
+#include <Whip-Editor/Managers/EditorProjectManager.h>
+#include <Whip-Editor/Managers/EditorSceneManager.h>
 #include <Whip-Editor/EditorLayer.h>
 
 #include <Whip/Scene/SceneSerializer.h>
@@ -36,26 +39,40 @@ namespace
 }
 
 EditorHistoryManager::EditorHistoryManager(EditorLayer* boundedLayer)
-	: m_BoundedLayer(boundedLayer)
+	: EditorManagerBase(boundedLayer)
 {
 }
 
 EditorHistoryManager::~EditorHistoryManager() = default;
 
-void EditorHistoryManager::Bind(EditorLayer& layer)
+bool EditorHistoryManager::CanUndo() const
 {
-	m_BoundedLayer = &layer;
+	return !m_UndoStack.empty();
 }
 
-EditorLayer& EditorHistoryManager::GetLayer() const
+bool EditorHistoryManager::CanRedo() const
 {
-	WHP_CORE_ASSERT(m_BoundedLayer, "EditorHistoryManager is not bound to an EditorLayer.");
-	return *m_BoundedLayer;
+	return !m_RedoStack.empty();
+}
+
+bool EditorHistoryManager::HasClipboard() const
+{
+	return !m_EntityClipboard.empty();
+}
+
+bool EditorHistoryManager::IsGizmoHistoryActive() const
+{
+	return m_GizmoHistoryActive;
+}
+
+void EditorHistoryManager::SetGizmoHistoryActive(bool active)
+{
+	m_GizmoHistoryActive = active;
 }
 
 EditorHistoryManager::ProjectHistoryEntry EditorHistoryManager::CaptureProjectHistory() const
 {
-	ProjectHistoryEntry entry;
+	ProjectHistoryEntry entry{};
 	Ref<Project> activeProject = Project::GetActive();
 	if (!activeProject || !activeProject->GetEditorAssetManager())
 		return entry;
@@ -164,7 +181,7 @@ void EditorHistoryManager::RestoreSceneHistory(const SceneHistoryEntry& entry)
 	RestoreProjectHistory(entry.m_ProjectSnapshot);
 	layer.m_SceneManager.SetEditorScene(Scene::Copy(entry.m_SceneSnapshot));
 	layer.m_SceneManager.SetEditorScenePath(entry.m_EditorScenePath);
-	layer.m_SceneManager.EditorScene()->OnViewportResize((uint32_t)layer.m_ViewportSize.x, (uint32_t)layer.m_ViewportSize.y);
+	layer.m_SceneManager.EditorScene()->OnViewportResize(static_cast<uint32_t>(layer.m_ViewportSize.x), static_cast<uint32_t>(layer.m_ViewportSize.y));
 	layer.m_SceneManager.SetActiveScene(layer.m_SceneManager.EditorScene());
 	layer.m_SceneHierarchyPanel.SetContext(layer.m_SceneManager.EditorScene());
 	layer.m_SceneHierarchyPanel.SetSelectedEntityIds(entry.m_SelectedEntities);
@@ -260,7 +277,7 @@ void EditorHistoryManager::DeleteSelection()
 				UUID parentId = selectedEntity.GetComponent<HierarchyComponent>().m_Parent;
 				if (parentId == 0)
 					return false;
-				if (std::find(selectedIds.begin(), selectedIds.end(), parentId) != selectedIds.end())
+				if (std::ranges::find(selectedIds, parentId) != selectedIds.end())
 					return true;
 				selectedEntity = layer.m_SceneManager.ActiveScene()->FindEntityByUUID(parentId);
 			}
@@ -294,8 +311,7 @@ void EditorHistoryManager::PasteSelection()
 	std::vector<Entity> sourceEntities;
 	for (UUID id : m_EntityClipboard)
 	{
-		Entity source = layer.m_SceneManager.EditorScene()->FindEntityByUUID(id);
-		if (source)
+		if (Entity source = layer.m_SceneManager.EditorScene()->FindEntityByUUID(id); source)
 			sourceEntities.push_back(source);
 	}
 

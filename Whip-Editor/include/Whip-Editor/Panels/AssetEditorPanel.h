@@ -9,8 +9,6 @@
 #include <string>
 #include <vector>
 
-#include <glm/vec2.hpp>
-
 _WHIP_START
 
 class AssetEditorPanel : public EditorPanel
@@ -22,18 +20,18 @@ public:
 	void CloseAll();
 	void OnImGuiRender() override;
 	void SetOpen(bool open) override;
-	bool IsOpen() const override { return m_Open; }
-	bool CanOpenFromMenu() const override { return HasOpenEditors(); }
+	bool IsOpen() const override;
+	bool CanOpenFromMenu() const override;
 	bool HasOpenEditors() const;
 	bool ConsumeOpenDirty() override;
 
-	void SetOpenSceneCallback(std::function<void(AssetHandle)> callback) { m_OpenSceneCallback = std::move(callback); }
-	void SetSetStartSceneCallback(std::function<void(AssetHandle)> callback) { m_SetStartSceneCallback = std::move(callback); }
-	void SetOpenAnimationCallback(std::function<bool(AssetHandle)> callback) { m_OpenAnimationCallback = std::move(callback); }
-	void SetDrawAnimationEditorCallback(std::function<void()> callback) { m_DrawAnimationEditorCallback = std::move(callback); }
-	void SetRefreshAssetTreeCallback(std::function<void()> callback) { m_RefreshAssetTreeCallback = std::move(callback); }
+	void SetOpenSceneCallback(std::function<void(AssetHandle)> callback);
+	void SetSetStartSceneCallback(std::function<void(AssetHandle)> callback);
+	void SetOpenAnimationCallback(std::function<bool(AssetHandle)> callback);
+	void SetDrawAnimationEditorCallback(std::function<void()> callback);
+	void SetRefreshAssetTreeCallback(std::function<void()> callback);
 
-	enum class TextureEditorTool
+	enum class TextureEditorTool : uint8_t
 	{
 		Brush = 0,
 		Eraser,

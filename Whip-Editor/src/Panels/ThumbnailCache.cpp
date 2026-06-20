@@ -5,11 +5,10 @@
 
 #include <chrono>
 #include <algorithm>
-#include <cctype>
 
 _WHIP_START
 
-ThumbnailCache::ThumbnailCache(Ref<Project> project) : m_Project(project)
+ThumbnailCache::ThumbnailCache(Ref<Project> project) : m_Project(std::move(project))
 {
 	// todo (move to cache dir)
 	m_ThumbnailCachePath = m_Project->GetAssetDirectory() / "Thumbnail.cache";

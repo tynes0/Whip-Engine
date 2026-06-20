@@ -17,12 +17,12 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <misc/cpp/imgui_stdlib.h>
+#include <algorithm>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <filesystem>
 #include <cctype>
 #include <cstring>
-#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <type_traits>
@@ -30,6 +30,8 @@
 #include <vector>
 
 #include <Whip-Editor/Helpers/ScriptFieldHelper.h>
+
+#include "Whip/Math/Math.h"
 
 #define BEGIN_COMPONENT_TABLE_ROW(...) do { ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text(__VA_ARGS__); ImGui::TableNextColumn(); ImGui::PushItemWidth(-1); } while(false)
 #define END_COMPONENT_TABLE_ROW() do { ImGui::PopItemWidth(); } while(false)
@@ -46,21 +48,6 @@ namespace
 		ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark), "%s", title);
 		ImGui::Separator();
 		ImGui::Spacing();
-	}
-
-	bool SameVec3(const glm::vec3& left, const glm::vec3& right)
-	{
-		return left.x == right.x && left.y == right.y && left.z == right.z;
-	}
-
-	bool SameVec2(const glm::vec2& left, const glm::vec2& right)
-	{
-		return left.x == right.x && left.y == right.y;
-	}
-
-	bool SameVec4(const glm::vec4& left, const glm::vec4& right)
-	{
-		return left.x == right.x && left.y == right.y && left.z == right.z && left.w == right.w;
 	}
 
 	void DrawMixedHint(const char* label, bool mixed)
@@ -89,7 +76,7 @@ namespace
 
 		const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(handle);
 		const auto& sprites = metadata.m_TextureSettings.m_Sprites;
-		if (spriteIndex >= static_cast<int32_t>(sprites.size()))
+		if (std::cmp_greater_equal(spriteIndex, sprites.size()))
 			return label;
 
 		return label + " / " + sprites[static_cast<size_t>(spriteIndex)].m_Name;
@@ -110,7 +97,7 @@ namespace
 				continue;
 
 			std::string entryExtension = entry.path().extension().string();
-			std::transform(entryExtension.begin(), entryExtension.end(), entryExtension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			std::ranges::transform(entryExtension, entryExtension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 			if (entryExtension == extension)
 				return entry.path();
 		}
@@ -178,25 +165,25 @@ namespace
 
 	std::string Lowercase(std::string value)
 	{
-		std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		std::ranges::transform(value, value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 		return value;
 	}
 
 	bool FilenameMatches(const std::filesystem::path& path, const std::vector<std::string>& filenames)
 	{
 		const std::string filename = Lowercase(path.filename().string());
-		return std::find(filenames.begin(), filenames.end(), filename) != filenames.end();
+		return std::ranges::find(filenames, filename) != filenames.end();
 	}
 
 	std::filesystem::path EnvironmentPath(const char* name)
 	{
-		const char* value = std::getenv(name);
+		const char* value = std::getenv(name); // NOLINT(concurrency-mt-unsafe)
 		return value ? std::filesystem::path(value) : std::filesystem::path{};
 	}
 
 	std::filesystem::path FindOnPath(const std::vector<std::string>& filenames)
 	{
-		const char* pathValue = std::getenv("PATH");
+		const char* pathValue = std::getenv("PATH"); // NOLINT(concurrency-mt-unsafe)
 		if (!pathValue)
 			return {};
 
@@ -380,64 +367,56 @@ namespace
 
 		ImGui::PopID();
 	}
-}
 
-static AudioComponent::AudioData* FindAudioData(std::vector<AudioComponent::AudioData>&handleList, const std::string & tag)
-{
-	for (AudioComponent::AudioData& handle : handleList)
-		if (handle.m_Tag == tag)
-			return &handle;
-	return nullptr;
-}
-
-template<typename T, typename UIFunction>
-static void DrawComponent(const std::string& name, Entity entityIn, const std::function<void()>& beforeChange, UIFunction uiFunction)
-{
-	constexpr ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
-	if (entityIn.HasComponent<T>())
+	template<typename T, typename UIFunction>
+	void DrawComponent(const std::string& name, Entity entityIn, const std::function<void()>& beforeChange, UIFunction uiFunction)
 	{
-		auto& component = entityIn.GetComponent<T>();
-
-		const ImGuiStyle& style = ImGui::GetStyle();
-		ImGui::PushID(name.c_str());
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{ 10.0f, 7.0f });
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 8.0f, 7.0f });
-		ImGui::PushStyleColor(ImGuiCol_Header, style.Colors[ImGuiCol_Header]);
-		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, style.Colors[ImGuiCol_HeaderHovered]);
-		ImGui::PushStyleColor(ImGuiCol_HeaderActive, style.Colors[ImGuiCol_HeaderActive]);
-		bool open = ImGui::TreeNodeEx("##Component", treeNodeFlags, "%s", name.c_str());
-		ImGui::PopStyleColor(3);
-		ImGui::PopStyleVar();
-		ImGui::PopStyleVar();
-
-		bool removeComponent = false;
-		if (ImGui::BeginPopupContextItem("Component Settings"))
+		constexpr ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
+		if (entityIn.HasComponent<T>())
 		{
-			if constexpr (!std::is_same_v<T, TransformComponent>)
-				if (ImGui::MenuItem("Remove component"))
-					removeComponent = true;
+			auto& component = entityIn.GetComponent<T>();
 
-			ImGui::EndPopup();
-		}
+			const ImGuiStyle& style = ImGui::GetStyle();
+			ImGui::PushID(name.c_str());
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{ 10.0f, 7.0f });
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 8.0f, 7.0f });
+			ImGui::PushStyleColor(ImGuiCol_Header, style.Colors[ImGuiCol_Header]);
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, style.Colors[ImGuiCol_HeaderHovered]);
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, style.Colors[ImGuiCol_HeaderActive]);
+			bool open = ImGui::TreeNodeEx("##Component", treeNodeFlags, "%s", name.c_str());
+			ImGui::PopStyleColor(3);
+			ImGui::PopStyleVar();
+			ImGui::PopStyleVar();
 
-		if (open)
-		{
+			bool removeComponent = false;
+			if (ImGui::BeginPopupContextItem("Component Settings"))
+			{
+				if constexpr (!std::is_same_v<T, TransformComponent>)
+					if (ImGui::MenuItem("Remove component"))
+						removeComponent = true;
+
+				ImGui::EndPopup();
+			}
+
+			if (open)
+			{
+				ImGui::Spacing();
+				ImGui::Indent(8.0f);
+				uiFunction(component);
+				ImGui::Unindent(8.0f);
+				ImGui::TreePop();
+			}
+
+			if (removeComponent)
+			{
+				if (beforeChange)
+					beforeChange();
+				entityIn.RemoveComponent<T>();
+			}
+
 			ImGui::Spacing();
-			ImGui::Indent(8.0f);
-			uiFunction(component);
-			ImGui::Unindent(8.0f);
-			ImGui::TreePop();
+			ImGui::PopID();
 		}
-
-		if (removeComponent)
-		{
-			if (beforeChange)
-				beforeChange();
-			entityIn.RemoveComponent<T>();
-		}
-
-		ImGui::Spacing();
-		ImGui::PopID();
 	}
 }
 
@@ -446,7 +425,7 @@ SceneHierarchyPanel::SceneHierarchyPanel()
 {
 }
 
-SceneHierarchyPanel::SceneHierarchyPanel(const Ref<Scene> context)
+SceneHierarchyPanel::SceneHierarchyPanel(const Ref<Scene>& context)
 	: EditorPanel("Scene Hierarchy", true)
 {
 	SetContext(context);
@@ -456,6 +435,51 @@ void SceneHierarchyPanel::SetContext(const Ref<Scene>& context)
 {
 	m_Context = context;
 	ClearSelection();
+}
+
+Ref<Scene>& SceneHierarchyPanel::GetContext()
+{
+	return m_Context;
+}
+
+void SceneHierarchyPanel::SetSceneChangeCallback(std::function<void()> callback)
+{
+	m_SceneChangeCallback = std::move(callback);
+}
+
+void SceneHierarchyPanel::SetSaveEntityTemplateCallback(std::function<void(Entity)> callback)
+{
+	m_SaveEntityTemplateCallback = std::move(callback);
+}
+
+void SceneHierarchyPanel::SetApplyEntityTemplateCallback(std::function<void(Entity)> callback)
+{
+	m_ApplyEntityTemplateCallback = std::move(callback);
+}
+
+void SceneHierarchyPanel::SetRevertEntityTemplateCallback(std::function<void(Entity)> callback)
+{
+	m_RevertEntityTemplateCallback = std::move(callback);
+}
+
+void SceneHierarchyPanel::SetUnpackEntityTemplateCallback(std::function<void(Entity)> callback)
+{
+	m_UnpackEntityTemplateCallback = std::move(callback);
+}
+
+bool SceneHierarchyPanel::IsOpen() const
+{
+	return m_Open;
+}
+
+Entity SceneHierarchyPanel::GetSelectedEntity() const
+{
+	return m_SelectionContext;
+}
+
+std::vector<UUID> SceneHierarchyPanel::GetSelectedEntityIds() const
+{
+	return m_SelectionContexts;
 }
 
 void SceneHierarchyPanel::OnImGuiRender()
@@ -491,7 +515,7 @@ void SceneHierarchyPanel::OnImGuiRender()
 		if (ImGui::IsMouseClicked(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
 			ClearSelection();
 
-		if (ImGui::BeginPopupContextWindow(0, 1 | ImGuiPopupFlags_NoOpenOverItems))
+		if (ImGui::BeginPopupContextWindow(nullptr, 1 | ImGuiPopupFlags_NoOpenOverItems))
 		{
 			if (ImGui::MenuItem("Create Entity"))
 			{
@@ -569,8 +593,7 @@ std::vector<Entity> SceneHierarchyPanel::GetSelectedEntities() const
 	result.reserve(m_SelectionContexts.size());
 	for (UUID id : m_SelectionContexts)
 	{
-		Entity selected = m_Context->FindEntityByUUID(id);
-		if (selected)
+		if (Entity selected = m_Context->FindEntityByUUID(id); selected)
 			result.push_back(selected);
 	}
 	return result;
@@ -589,7 +612,7 @@ void SceneHierarchyPanel::SetSelectedEntity(Entity entityIn, bool append)
 		m_SelectionContexts.clear();
 
 	UUID id = entityIn.GetUUID();
-	auto it = std::find(m_SelectionContexts.begin(), m_SelectionContexts.end(), id);
+	auto it = std::ranges::find(m_SelectionContexts, id);
 	if (append && it != m_SelectionContexts.end())
 	{
 		m_SelectionContexts.erase(it);
@@ -652,8 +675,8 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 		if (hierarchy.m_Children.empty())
 			flags |= ImGuiTreeNodeFlags_Leaf;
 
-		const std::string label = hierarchy.m_IsGroup ? ("[Group] " + tag) : tag;
-		bool opened = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entityIn, flags, label.c_str());
+		std::string label = hierarchy.m_IsGroup ? ("[Group] " + tag) : tag;
+		bool opened = ImGui::TreeNodeEx(entityIn.HandleAsString().c_str(), flags, label.c_str()); // NOLINT(clang-diagnostic-format-security)
 
 		if (ImGui::IsItemClicked())
 			SetSelectedEntity(entityIn, Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl));
@@ -670,7 +693,7 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(SceneEntityPayloadType))
 			{
-				UUID childId = *(UUID*)payload->Data;
+				UUID childId = *static_cast<UUID*>(payload->Data);
 				Entity child = m_Context->FindEntityByUUID(childId);
 				if (child && CanParentEntity(child, entityIn))
 				{
@@ -733,8 +756,7 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 		{
 			for (UUID childId : hierarchy.m_Children)
 			{
-				Entity child = m_Context->FindEntityByUUID(childId);
-				if (child)
+				if (Entity child = m_Context->FindEntityByUUID(childId); child)
 					DrawEntityNode(child);
 			}
 			ImGui::TreePop();
@@ -760,9 +782,7 @@ void SceneHierarchyPanel::SetEntityParent(Entity child, Entity parent)
 		if (oldParent && oldParent.HasComponent<HierarchyComponent>())
 		{
 			auto& oldParentHierarchy = oldParent.GetComponent<HierarchyComponent>();
-			oldParentHierarchy.m_Children.erase(
-				std::remove(oldParentHierarchy.m_Children.begin(), oldParentHierarchy.m_Children.end(), child.GetUUID()),
-				oldParentHierarchy.m_Children.end());
+			std::erase(oldParentHierarchy.m_Children, child.GetUUID());
 		}
 	}
 
@@ -770,7 +790,7 @@ void SceneHierarchyPanel::SetEntityParent(Entity child, Entity parent)
 	if (parent && parent.HasComponent<HierarchyComponent>())
 	{
 		auto& parentHierarchy = parent.GetComponent<HierarchyComponent>();
-		if (std::find(parentHierarchy.m_Children.begin(), parentHierarchy.m_Children.end(), child.GetUUID()) == parentHierarchy.m_Children.end())
+		if (std::ranges::find(parentHierarchy.m_Children, child.GetUUID()) == parentHierarchy.m_Children.end())
 			parentHierarchy.m_Children.push_back(child.GetUUID());
 	}
 }
@@ -840,7 +860,7 @@ bool SceneHierarchyPanel::IsSelected(Entity entityIn) const
 		return false;
 
 	UUID id = entityIn.GetUUID();
-	return std::find(m_SelectionContexts.begin(), m_SelectionContexts.end(), id) != m_SelectionContexts.end();
+	return std::ranges::find(m_SelectionContexts, id) != m_SelectionContexts.end();
 }
 
 void SceneHierarchyPanel::NotifySceneChange()
@@ -909,16 +929,16 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 	for (Entity selected : selectedEntities)
 	{
 		const auto& transform = selected.GetComponent<TransformComponent>();
-		translationMixed |= !SameVec3(transform.m_Translation, translation);
-		rotationMixed |= !SameVec3(glm::degrees(transform.m_Rotation), rotation);
-		scaleMixed |= !SameVec3(transform.m_Scale, scale);
+		translationMixed |= (transform.m_Translation != translation);
+		rotationMixed |= glm::degrees(transform.m_Rotation) != rotation;
+		scaleMixed |= (transform.m_Scale != scale);
 	}
 
 	if (translationMixed)
 		ImGui::TextDisabled("Translation has mixed values.");
 	glm::vec3 previousTranslation = translation;
 	UI::DrawVec3Control("Translation", translation, 0, 100, ImGui::GetStyle().IndentSpacing);
-	if (!SameVec3(translation, previousTranslation))
+	if (translation != previousTranslation)
 	{
 		BeginPropertyEditHistory();
 		for (Entity selected : selectedEntities)
@@ -929,7 +949,7 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 		ImGui::TextDisabled("Rotation has mixed values.");
 	glm::vec3 previousRotation = rotation;
 	UI::DrawVec3Control("Rotation", rotation, 0, 100, ImGui::GetStyle().IndentSpacing);
-	if (!SameVec3(rotation, previousRotation))
+	if (rotation != previousRotation)
 	{
 		BeginPropertyEditHistory();
 		for (Entity selected : selectedEntities)
@@ -940,7 +960,7 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 		ImGui::TextDisabled("Scale has mixed values.");
 	glm::vec3 previousScale = scale;
 	UI::DrawVec3Control("Scale", scale, 1.0f, 100, ImGui::GetStyle().IndentSpacing);
-	if (!SameVec3(scale, previousScale))
+	if (scale != previousScale)
 	{
 		BeginPropertyEditHistory();
 		for (Entity selected : selectedEntities)
@@ -1044,18 +1064,18 @@ void SceneHierarchyPanel::DrawMultiCameraComponent(const std::vector<Entity>& se
 		}
 
 		const char* projectionTypeStrings[] = { "Perspective", "Orthographic" };
-		const char* currentProjectionTypeString = projectionMixed ? "Mixed" : projectionTypeStrings[(int)projection];
+		const char* currentProjectionTypeString = projectionMixed ? "Mixed" : projectionTypeStrings[static_cast<int>(projection)];
 		DrawMixedHint("Projection", projectionMixed);
 		if (ImGui::BeginCombo("Projection", currentProjectionTypeString))
 		{
 			for (int i = 0; i < 2; i++)
 			{
-				bool isSelected = !projectionMixed && projection == (SceneCamera::ProjectionType)i;
+				bool isSelected = !projectionMixed && projection == static_cast<SceneCamera::ProjectionType>(i);
 				if (ImGui::Selectable(projectionTypeStrings[i], isSelected))
 				{
 					BeginPropertyEditHistory();
 					for (Entity selected : selectedEntities)
-						selected.GetComponent<CameraComponent>().m_Camera.SetProjectionType((SceneCamera::ProjectionType)i);
+						selected.GetComponent<CameraComponent>().m_Camera.SetProjectionType(static_cast<SceneCamera::ProjectionType>(i));
 				}
 				if (isSelected)
 					ImGui::SetItemDefaultFocus();
@@ -1074,9 +1094,9 @@ void SceneHierarchyPanel::DrawMultiCameraComponent(const std::vector<Entity>& se
 			for (Entity selected : selectedEntities)
 			{
 				const auto& camera = selected.GetComponent<CameraComponent>().m_Camera;
-				fovMixed |= camera.GetPerspectiveVerticalFOV() != primaryComponent.m_Camera.GetPerspectiveVerticalFOV();
-				nearMixed |= camera.GetPerspectiveNearClip() != nearClip;
-				farMixed |= camera.GetPerspectiveFarClip() != farClip;
+				fovMixed |= !Math::EqualF(camera.GetPerspectiveVerticalFOV(), primaryComponent.m_Camera.GetPerspectiveVerticalFOV());
+				nearMixed |= !Math::EqualF(camera.GetPerspectiveNearClip(), nearClip);
+				farMixed |= !Math::EqualF(camera.GetPerspectiveFarClip(), farClip);
 			}
 
 			DrawMixedHint("Vertical FOV", fovMixed);
@@ -1113,9 +1133,9 @@ void SceneHierarchyPanel::DrawMultiCameraComponent(const std::vector<Entity>& se
 			for (Entity selected : selectedEntities)
 			{
 				const auto& camera = selected.GetComponent<CameraComponent>().m_Camera;
-				sizeMixed |= camera.GetOrthographicSize() != size;
-				nearMixed |= camera.GetOrthographicNearClip() != nearClip;
-				farMixed |= camera.GetOrthographicFarClip() != farClip;
+				sizeMixed |= !Math::EqualF(camera.GetOrthographicSize(), size);
+				nearMixed |= !Math::EqualF(camera.GetOrthographicNearClip(), nearClip);
+				farMixed |= !Math::EqualF(camera.GetOrthographicFarClip(), farClip);
 			}
 
 			DrawMixedHint("Size", sizeMixed);
@@ -1214,10 +1234,10 @@ void SceneHierarchyPanel::DrawMultiSpriteRendererComponent(const std::vector<Ent
 		for (Entity selected : selectedEntities)
 		{
 			const auto& component = selected.GetComponent<SpriteRendererComponent>();
-			colorMixed |= !SameVec4(component.m_Color, color);
+			colorMixed |= (component.m_Color != color);
 			textureMixed |= component.m_Texture != texture;
 			textureSpriteMixed |= component.m_TextureSpriteIndex != textureSpriteIndex;
-			tilingMixed |= component.m_TilingFactor != tilingFactor;
+			tilingMixed |= !Math::EqualF(component.m_TilingFactor, tilingFactor);
 		}
 
 		DrawMixedHint("Color", colorMixed);
@@ -1292,9 +1312,9 @@ void SceneHierarchyPanel::DrawMultiCircleRendererComponent(const std::vector<Ent
 		for (Entity selected : selectedEntities)
 		{
 			const auto& component = selected.GetComponent<CircleRendererComponent>();
-			colorMixed |= !SameVec4(component.m_Color, color);
-			thicknessMixed |= component.m_Thickness != thickness;
-			fadeMixed |= component.m_Fade != fade;
+			colorMixed |= (component.m_Color != color);
+			thicknessMixed |= !Math::EqualF(component.m_Thickness, thickness);
+			fadeMixed |= !Math::EqualF(component.m_Fade, fade);
 		}
 
 		DrawMixedHint("Color", colorMixed);
@@ -1346,9 +1366,9 @@ void SceneHierarchyPanel::DrawMultiTextComponent(const std::vector<Entity>& sele
 			const auto& component = selected.GetComponent<TextComponent>();
 			textMixed |= component.m_TextString != text;
 			fontMixed |= component.m_Font != font;
-			colorMixed |= !SameVec4(component.m_Color, color);
-			kerningMixed |= component.m_Kerning != kerning;
-			lineSpacingMixed |= component.m_LineSpacing != lineSpacing;
+			colorMixed |= (component.m_Color != color);
+			kerningMixed |= !Math::EqualF(component.m_Kerning, kerning);
+			lineSpacingMixed |= Math::EqualF(component.m_LineSpacing, lineSpacing);
 		}
 
 		DrawMixedHint("Text", textMixed);
@@ -1418,22 +1438,22 @@ void SceneHierarchyPanel::DrawMultiRigidbody2DComponent(const std::vector<Entity
 		{
 			const auto& component = selected.GetComponent<Rigidbody2DComponent>();
 			typeMixed |= component.m_Type != bodyType;
-			gravityMixed |= component.m_GravityScale != gravityScale;
+			gravityMixed |= !Math::EqualF(component.m_GravityScale, gravityScale);
 			fixedRotationMixed |= component.m_FixedRotation != fixedRotation;
 		}
 
 		const char* bodyTypeStrings[] = { "Static", "Dynamic", "Kinematic" };
 		DrawMixedHint("Body Type", typeMixed);
-		if (ImGui::BeginCombo("Body Type", typeMixed ? "Mixed" : bodyTypeStrings[(int)bodyType]))
+		if (ImGui::BeginCombo("Body Type", typeMixed ? "Mixed" : bodyTypeStrings[static_cast<int>(bodyType)]))
 		{
 			for (int i = 0; i < 3; i++)
 			{
-				bool isSelected = !typeMixed && bodyType == (Rigidbody2DComponent::BodyType)i;
+				bool isSelected = !typeMixed && bodyType == static_cast<Rigidbody2DComponent::BodyType>(i);
 				if (ImGui::Selectable(bodyTypeStrings[i], isSelected))
 				{
 					BeginPropertyEditHistory();
 					for (Entity selected : selectedEntities)
-						selected.GetComponent<Rigidbody2DComponent>().m_Type = (Rigidbody2DComponent::BodyType)i;
+						selected.GetComponent<Rigidbody2DComponent>().m_Type = static_cast<Rigidbody2DComponent::BodyType>(i);
 				}
 				if (isSelected)
 					ImGui::SetItemDefaultFocus();
@@ -1482,12 +1502,12 @@ void SceneHierarchyPanel::DrawMultiBoxCollider2DComponent(const std::vector<Enti
 			const auto& component = selected.GetComponent<BoxCollider2DComponent>();
 			tagMixed |= component.m_Tag != tag;
 			sensorMixed |= component.m_Sensor != sensor;
-			offsetMixed |= !SameVec2(component.m_Offset, offset);
-			sizeMixed |= !SameVec2(component.m_Size, size);
-			densityMixed |= component.m_Density != density;
-			frictionMixed |= component.m_Friction != friction;
-			restitutionMixed |= component.m_Restitution != restitution;
-			thresholdMixed |= component.m_RestitutionThreshold != restitutionThreshold;
+			offsetMixed |= (component.m_Offset != offset);
+			sizeMixed |= (component.m_Size != size);
+			densityMixed |= !Math::EqualF(component.m_Density, density);
+			frictionMixed |= !Math::EqualF(component.m_Friction, friction);
+			restitutionMixed |= !Math::EqualF(component.m_Restitution, restitution);
+			thresholdMixed |= !Math::EqualF(component.m_RestitutionThreshold, restitutionThreshold);
 		}
 
 		DrawMixedHint("Tag", tagMixed);
@@ -1574,12 +1594,12 @@ void SceneHierarchyPanel::DrawMultiCircleCollider2DComponent(const std::vector<E
 			const auto& component = selected.GetComponent<CircleCollider2DComponent>();
 			tagMixed |= component.m_Tag != tag;
 			sensorMixed |= component.m_Sensor != sensor;
-			offsetMixed |= !SameVec2(component.m_Offset, offset);
-			radiusMixed |= component.m_Radius != radius;
-			densityMixed |= component.m_Density != density;
-			frictionMixed |= component.m_Friction != friction;
-			restitutionMixed |= component.m_Restitution != restitution;
-			thresholdMixed |= component.m_RestitutionThreshold != restitutionThreshold;
+			offsetMixed |= (component.m_Offset != offset);
+			radiusMixed |= !Math::EqualF(component.m_Radius, radius);
+			densityMixed |= !Math::EqualF(component.m_Density, density);
+			frictionMixed |= !Math::EqualF(component.m_Friction, friction);
+			restitutionMixed |= !Math::EqualF(component.m_Restitution, restitution);
+			thresholdMixed |= !Math::EqualF(component.m_RestitutionThreshold, restitutionThreshold);
 		}
 
 		DrawMixedHint("Tag", tagMixed);
@@ -1660,8 +1680,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted("Name");
 			ImGui::TableNextColumn();
-			char buffer[256];
-			memset(buffer, 0, sizeof(buffer));
+			char buffer[256] = {};
 			strncpy_s(buffer, sizeof(buffer), tag.c_str(), sizeof(buffer));
 			ImGui::SetNextItemWidth(-1.0f);
 			if (ImGui::InputText("##Tag", buffer, sizeof(buffer)))
@@ -1674,7 +1693,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted("UUID");
 			ImGui::TableNextColumn();
-			ImGui::TextDisabled("%llu", (unsigned long long)entityIn.GetUUID());
+			ImGui::TextDisabled("%llu", static_cast<unsigned long long>(entityIn.GetUUID()));
 
 			if (entityIn.HasComponent<HierarchyComponent>())
 			{
@@ -1732,7 +1751,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted("Entity");
 				ImGui::TableNextColumn();
-				ImGui::TextDisabled("%llu", (unsigned long long)component.m_SourceEntity);
+				ImGui::TextDisabled("%llu", static_cast<unsigned long long>(component.m_SourceEntity));
 
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
@@ -1773,7 +1792,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::Checkbox("Primary", &component.m_Primary);
 
 			const char* projectionTypeStrings[] = { "Perspective", "Orthographic" };
-			const char* currentProjectionTypeString = projectionTypeStrings[(int)camera.GetProjectionType()];
+			const char* currentProjectionTypeString = projectionTypeStrings[static_cast<int>(camera.GetProjectionType())];
 			if (ImGui::BeginCombo("Projection", currentProjectionTypeString))
 			{
 				for (int i = 0; i < 2; i++)
@@ -1782,7 +1801,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 					if (ImGui::Selectable(projectionTypeStrings[i], isSelected))
 					{
 						currentProjectionTypeString = projectionTypeStrings[i];
-						camera.SetProjectionType((SceneCamera::ProjectionType)i);
+						camera.SetProjectionType(static_cast<SceneCamera::ProjectionType>(i));
 					}
 
 					if (isSelected)
@@ -1862,11 +1881,10 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 					END_COMPONENT_TABLE_ROW();
 				}
 				ImGui::Separator();
-				bool sceneRunning = sceneIn->IsRunning();
-				if (sceneRunning)
+
+				if (bool sceneRunning = sceneIn->IsRunning(); sceneRunning)
 				{
-					Ref<ScriptInstance> scriptInstance = ScriptEngine::GetEntityScriptInstance(entityIn.GetUUID());
-					if (scriptInstance)
+					if (Ref<ScriptInstance> scriptInstance = ScriptEngine::GetEntityScriptInstance(entityIn.GetUUID()); scriptInstance)
 					{
 						const auto& fields = scriptInstance->GetScriptClass()->GetFields();
 						for (const auto& [name, field] : fields)
@@ -2093,7 +2111,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 					{
 						if (ImGui::Selectable("Full Texture", component.m_TextureSpriteIndex < 0))
 							component.m_TextureSpriteIndex = -1;
-						for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+						for (int32_t spriteIndex = 0; std::cmp_less(spriteIndex, sprites.size()); ++spriteIndex)
 						{
 							const bool selected = component.m_TextureSpriteIndex == spriteIndex;
 							if (ImGui::Selectable(sprites[static_cast<size_t>(spriteIndex)].m_Name.c_str(), selected))
@@ -2168,7 +2186,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 	DrawComponent<Rigidbody2DComponent>("Rigidbody 2D", entityIn, m_SceneChangeCallback, [](auto& component)
 		{
 			const char* bodyTypeStrings[] = { "Static", "Dynamic", "Kinematic" };
-			const char* currentBodyTypeString = bodyTypeStrings[(int)component.m_Type];
+			const char* currentBodyTypeString = bodyTypeStrings[static_cast<int>(component.m_Type)];
 			if (ImGui::BeginCombo("Body Type", currentBodyTypeString))
 			{
 				for (int i = 0; i < 3; i++)
@@ -2177,7 +2195,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 					if (ImGui::Selectable(bodyTypeStrings[i], isSelected))
 					{
 						currentBodyTypeString = bodyTypeStrings[i];
-						component.m_Type = (Rigidbody2DComponent::BodyType)i;
+						component.m_Type = static_cast<Rigidbody2DComponent::BodyType>(i);
 					}
 
 					if (isSelected)
@@ -2193,8 +2211,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 	ImGui::Spacing();
 	DrawComponent<BoxCollider2DComponent>("Box Collider 2D", entityIn, m_SceneChangeCallback, [](auto& component)
 		{
-			char buffer[256];
-			memset(buffer, 0, sizeof(buffer));
+			char buffer[256] = {};
 			strncpy_s(buffer, sizeof(buffer), component.m_Tag.c_str(), sizeof(buffer));
 			if (ImGui::InputText("Tag", buffer, sizeof(buffer)))
 				component.m_Tag = buffer;
@@ -2209,8 +2226,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 	ImGui::Spacing();
 	DrawComponent<CircleCollider2DComponent>("Circle Collider 2D", entityIn, m_SceneChangeCallback, [](auto& component)
 		{
-			char buffer[256];
-			memset(buffer, 0, sizeof(buffer));
+			char buffer[256] = {};
 			strncpy_s(buffer, sizeof(buffer), component.m_Tag.c_str(), sizeof(buffer));
 			if (ImGui::InputText("Tag", buffer, sizeof(buffer)))
 				component.m_Tag = buffer;
@@ -2288,13 +2304,12 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 					ImGui::Separator();
 					{
 						BEGIN_COMPONENT_TABLE_ROW("ID");
-						ImGui::Text("%u", component.m_AudioDatas[component.m_SelectedAudioIndex].m_ID);
+						ImGui::Text("%u", static_cast<uint32_t>(component.m_AudioDatas[component.m_SelectedAudioIndex].m_ID));
 						END_COMPONENT_TABLE_ROW();
 					}
 					{
 						BEGIN_COMPONENT_TABLE_ROW("Tag");
-						char buffer[256];
-						memset(buffer, 0, sizeof(buffer));
+						char buffer[256] = {};
 						strncpy_s(buffer, sizeof(buffer), component.m_AudioDatas[component.m_SelectedAudioIndex].m_Tag.c_str(), sizeof(buffer));
 						if (ImGui::InputText("##Tag", buffer, sizeof(buffer)))
 						{
@@ -2397,7 +2412,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 }
 
 template<class T>
-inline void SceneHierarchyPanel::DisplayAddComponentEntry(const std::string& entryName)
+void SceneHierarchyPanel::DisplayAddComponentEntry(const std::string& entryName)
 {
 	const size_t selectedCount = m_SelectionContexts.empty() ? 0 : m_SelectionContexts.size();
 	const size_t componentCount = CountSelectedWithComponent<T>();
@@ -2413,7 +2428,7 @@ inline void SceneHierarchyPanel::DisplayAddComponentEntry(const std::string& ent
 }
 
 template<class T>
-inline size_t SceneHierarchyPanel::CountSelectedWithComponent() const
+size_t SceneHierarchyPanel::CountSelectedWithComponent() const
 {
 	size_t count = 0;
 	for (Entity selected : GetSelectedEntities())
@@ -2423,7 +2438,7 @@ inline size_t SceneHierarchyPanel::CountSelectedWithComponent() const
 }
 
 template<class T>
-inline void SceneHierarchyPanel::AddComponentToSelection()
+void SceneHierarchyPanel::AddComponentToSelection()
 {
 	for (Entity selected : GetSelectedEntities())
 		if (selected && !selected.HasComponent<T>())
@@ -2431,7 +2446,7 @@ inline void SceneHierarchyPanel::AddComponentToSelection()
 }
 
 template<class T>
-inline void SceneHierarchyPanel::RemoveComponentFromSelection()
+void SceneHierarchyPanel::RemoveComponentFromSelection()
 {
 	for (Entity selected : GetSelectedEntities())
 		if (selected && selected.HasComponent<T>())
@@ -2439,7 +2454,7 @@ inline void SceneHierarchyPanel::RemoveComponentFromSelection()
 }
 
 template<class T>
-inline void SceneHierarchyPanel::DrawMultiComponentSummary(const char* name, size_t selectedCount)
+void SceneHierarchyPanel::DrawMultiComponentSummary(const char* name, size_t selectedCount)
 {
 	const size_t componentCount = CountSelectedWithComponent<T>();
 	if (componentCount == 0)

@@ -17,24 +17,24 @@ class SceneHierarchyPanel : public EditorPanel
 {
 public:
 	SceneHierarchyPanel();
-	SceneHierarchyPanel(const Ref<Scene> context);
+	SceneHierarchyPanel(const Ref<Scene>& context);
 
 	void SetContext(const Ref<Scene>& context);
-	Ref<Scene>& GetContext() { return m_Context; }
+	Ref<Scene>& GetContext();
 
 	void OnImGuiRender() override;
-	void SetSceneChangeCallback(std::function<void()> callback) { m_SceneChangeCallback = std::move(callback); }
-	void SetSaveEntityTemplateCallback(std::function<void(Entity)> callback) { m_SaveEntityTemplateCallback = std::move(callback); }
-	void SetApplyEntityTemplateCallback(std::function<void(Entity)> callback) { m_ApplyEntityTemplateCallback = std::move(callback); }
-	void SetRevertEntityTemplateCallback(std::function<void(Entity)> callback) { m_RevertEntityTemplateCallback = std::move(callback); }
-	void SetUnpackEntityTemplateCallback(std::function<void(Entity)> callback) { m_UnpackEntityTemplateCallback = std::move(callback); }
+	void SetSceneChangeCallback(std::function<void()> callback);
+	void SetSaveEntityTemplateCallback(std::function<void(Entity)> callback);
+	void SetApplyEntityTemplateCallback(std::function<void(Entity)> callback);
+	void SetRevertEntityTemplateCallback(std::function<void(Entity)> callback);
+	void SetUnpackEntityTemplateCallback(std::function<void(Entity)> callback);
 	void SetOpen(bool open) override;
-	bool IsOpen() const override { return m_Open; }
+	bool IsOpen() const override;
 	bool ConsumeOpenDirty() override;
 
-	Entity GetSelectedEntity() const { return m_SelectionContext; }
+	Entity GetSelectedEntity() const;
 	std::vector<Entity> GetSelectedEntities() const;
-	std::vector<UUID> GetSelectedEntityIds() const { return m_SelectionContexts; }
+	std::vector<UUID> GetSelectedEntityIds() const;
 	void SetSelectedEntity(Entity entityIn, bool append = false);
 	void SetSelectedEntityIds(const std::vector<UUID>& ids);
 	void SelectAll();

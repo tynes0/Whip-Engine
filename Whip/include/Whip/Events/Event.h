@@ -6,7 +6,7 @@
 
 _WHIP_START
 
-// WindowLostFocus - WindowMoved - AppTick - AppUpdate - AppRender <<-- not implamented yet
+// WindowLostFocus - WindowMoved - AppTick - AppUpdate - AppRender <<-- not implemented yet
 
 enum class EventType
 {

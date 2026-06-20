@@ -1,8 +1,12 @@
-#include <Whip-Editor/EditorProjectManager.h>
+#include <Whip-Editor/Managers/EditorProjectManager.h>
 
-#include <Whip-Editor/EditorLayer.h>
-#include <Whip-Editor/EditorScriptManager.h>
+#include <Whip-Editor/Managers/EditorScriptManager.h>
+#include <Whip-Editor/Managers/EditorAssetInteractionManager.h>
+#include <Whip-Editor/Managers/EditorSceneManager.h>
+#include <Whip-Editor/Managers/EditorHistoryManager.h>
+#include <Whip-Editor/Helpers/Utils.h>
 #include <Whip-Editor/Panels/ConsolePanel.h>
+#include <Whip-Editor/EditorLayer.h>
 
 #include <Whip/Asset/AssetMetadata.h>
 #include <Whip/Asset/SceneImporter.h>
@@ -10,11 +14,11 @@
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Utils/PlatformUtils.h>
 
+#include <yaml-cpp/yaml.h>
+
 #include <algorithm>
-#include <cctype>
 #include <fstream>
 #include <string_view>
-#include <yaml-cpp/yaml.h>
 
 _WHIP_START
 
@@ -94,24 +98,6 @@ namespace
 		return !normalizedLeft.empty() && normalizedLeft == normalizedRight;
 	}
 
-	bool PathIsOrIsUnder(const std::filesystem::path& path, const std::filesystem::path& directory)
-	{
-		const std::filesystem::path normalizedPath = path.lexically_normal();
-		const std::filesystem::path normalizedDirectory = directory.lexically_normal();
-		if (normalizedPath == normalizedDirectory)
-			return true;
-
-		auto pathIt = normalizedPath.begin();
-		auto directoryIt = normalizedDirectory.begin();
-		for (; directoryIt != normalizedDirectory.end(); ++directoryIt, ++pathIt)
-		{
-			if (pathIt == normalizedPath.end() || *pathIt != *directoryIt)
-				return false;
-		}
-
-		return true;
-	}
-
 	bool CreateDirectoryChecked(const std::filesystem::path& path, std::string_view label)
 	{
 		std::error_code error;
@@ -125,21 +111,25 @@ namespace
 }
 
 EditorProjectManager::EditorProjectManager(EditorLayer* boundedLayer)
-	: m_BoundedLayer(boundedLayer)
+	: EditorManagerBase(boundedLayer)
 {
 }
 
 EditorProjectManager::~EditorProjectManager() = default;
 
-void EditorProjectManager::Bind(EditorLayer& layer)
+UI::UIProjectLoader& EditorProjectManager::GetLoader()
 {
-	m_BoundedLayer = &layer;
+	return m_ProjectLoader;
 }
 
-EditorLayer& EditorProjectManager::GetLayer() const
+const UI::UIProjectLoader& EditorProjectManager::GetLoader() const
 {
-	WHP_CORE_ASSERT(m_BoundedLayer, "EditorProjectManager is not bound to an EditorLayer.");
-	return *m_BoundedLayer;
+	return m_ProjectLoader;
+}
+
+const std::vector<std::filesystem::path>& EditorProjectManager::GetRecentProjects() const
+{
+	return m_RecentProjects;
 }
 
 void EditorProjectManager::SetupProjectLoader()
@@ -204,7 +194,7 @@ void EditorProjectManager::LoadRecentProjects()
 			continue;
 		}
 
-		if (std::find(m_RecentProjects.begin(), m_RecentProjects.end(), path) == m_RecentProjects.end())
+		if (std::ranges::find(m_RecentProjects, path) == m_RecentProjects.end())
 			m_RecentProjects.push_back(path);
 		else
 			shouldRewrite = true;
@@ -249,9 +239,7 @@ void EditorProjectManager::AddRecentProject(const std::filesystem::path& path)
 	if (!ShouldIncludeRecentProject(normalizedPath))
 		return;
 
-	m_RecentProjects.erase(
-		std::remove(m_RecentProjects.begin(), m_RecentProjects.end(), normalizedPath),
-		m_RecentProjects.end());
+	std::erase(m_RecentProjects, normalizedPath);
 
 	m_RecentProjects.insert(m_RecentProjects.begin(), normalizedPath);
 	if (m_RecentProjects.size() > 10)
@@ -269,13 +257,10 @@ bool EditorProjectManager::ForgetRecentProject(const std::filesystem::path& path
 		return false;
 
 	const size_t previousSize = m_RecentProjects.size();
-	m_RecentProjects.erase(
-		std::remove_if(m_RecentProjects.begin(), m_RecentProjects.end(),
-			[&path](const std::filesystem::path& recentPath)
-			{
-				return PathsMatchForRecentProject(recentPath, path);
-			}),
-		m_RecentProjects.end());
+	std::erase_if(m_RecentProjects, [&path](const std::filesystem::path& recentPath)
+	{
+		return PathsMatchForRecentProject(recentPath, path);
+	});
 
 	if (m_RecentProjects.size() == previousSize)
 		return false;
@@ -317,7 +302,7 @@ bool EditorProjectManager::DeleteRecentProject(const std::filesystem::path& path
 
 	error.clear();
 	const std::filesystem::path workingDirectory = NormalizeProjectListPath(std::filesystem::current_path());
-	if (!workingDirectory.empty() && PathIsOrIsUnder(workingDirectory, projectDirectory))
+	if (!workingDirectory.empty() && EditorUtils::PathIsOrIsUnder(workingDirectory, projectDirectory))
 	{
 		WHP_EDITOR_WARN(std::string("[Whip Hub] Refusing to delete a Project folder that contains the editor working directory: ") + projectDirectory.string());
 		return false;
@@ -340,7 +325,7 @@ bool EditorProjectManager::DeleteRecentProject(const std::filesystem::path& path
 	return ForgetRecentProject(projectPath);
 }
 
-bool EditorProjectManager::ShouldIncludeRecentProject(const std::filesystem::path& path) const
+bool EditorProjectManager::ShouldIncludeRecentProject(const std::filesystem::path& path)
 {
 	std::error_code error;
 	std::filesystem::path normalizedPath = std::filesystem::weakly_canonical(path, error);
@@ -364,12 +349,12 @@ bool EditorProjectManager::ShouldIncludeRecentProject(const std::filesystem::pat
 	return true;
 }
 
-std::filesystem::path EditorProjectManager::GetRecentProjectsPath() const
+std::filesystem::path EditorProjectManager::GetRecentProjectsPath()
 {
 	return std::filesystem::current_path() / "WhipHubRecentProjects.txt";
 }
 
-std::filesystem::path EditorProjectManager::GetPreferencesPath() const
+std::filesystem::path EditorProjectManager::GetPreferencesPath()
 {
 	return std::filesystem::current_path() / "WhipEditorPreferences.yaml";
 }

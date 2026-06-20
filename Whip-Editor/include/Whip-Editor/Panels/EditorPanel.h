@@ -8,7 +8,7 @@
 
 _WHIP_START
 
-class EditorPanel
+class EditorPanel // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	EditorPanel(std::string name, bool open = true, bool requiresProject = true)

@@ -15,7 +15,7 @@ namespace UI
 	};
 
 	template <ScriptFieldType Sft, ScriptFieldDraw Sfdt>
-	void DrawField(const ScriptField& field, Entity entity, const std::string& className, bool inTable = false);
+	void DrawField(const ScriptField& field, Entity entity, const std::string& className, bool inTable = false) = delete;
 
 	void DrawFieldByType(ScriptFieldDraw drawMode, const ScriptField& field, Entity entity, const std::string& className, bool inTable = false);
 }

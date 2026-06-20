@@ -1,15 +1,14 @@
 #include <Whip-Editor/EditorLayer.h>
 
 #include <Whip/Core/EntryPoint.h>
-#include <Whip/Utils/FileExtensions.h>
 #include <Whip/Scene/SceneSerializer.h>
-#include <Whip/Utils/PlatformUtils.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip-Editor/UI/UIProjectLoader.h>
 #include <Whip/Math/Math.h>
 #include <Whip/Asset/AssetUtils.h>
 
 #include <Whip-Editor/Helpers/IconManager.h>
+#include <Whip-Editor/Panels/ConsolePanel.h>
 
 #include <algorithm>
 #include <cmath>
@@ -26,6 +25,129 @@ _WHIP_START
 
 namespace
 {
+	enum class ShellWindowControl
+	{
+		Minimize,
+		Maximize,
+		Restore,
+		Close
+	};
+
+	bool DrawShellWindowControlButton(const char* id, ShellWindowControl control, ImVec2 size)
+	{
+		ImGui::InvisibleButton(id, size);
+		const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+		const bool hovered = ImGui::IsItemHovered();
+		const bool active = ImGui::IsItemActive();
+
+		const ImVec2 min = ImGui::GetItemRectMin();
+		const ImVec2 max = ImGui::GetItemRectMax();
+		const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+		ImU32 background = IM_COL32(255, 255, 255, hovered ? 28 : 0);
+		if (control == ShellWindowControl::Close && hovered)
+			background = IM_COL32(196, 58, 46, active ? 230 : 205);
+		else if (active)
+			background = IM_COL32(255, 255, 255, 42);
+
+		drawList->AddRectFilled(min, max, background, 0.0f);
+		const ImU32 iconColor = control == ShellWindowControl::Close && hovered ? IM_COL32(255, 244, 234, 255) : IM_COL32(226, 218, 202, 235);
+
+		switch (control)
+		{
+		case ShellWindowControl::Minimize:
+			drawList->AddLine(ImVec2(center.x - 5.0f, center.y + 5.0f), ImVec2(center.x + 5.0f, center.y + 5.0f), iconColor, 1.35f);
+			break;
+		case ShellWindowControl::Maximize:
+			drawList->AddRect(ImVec2(center.x - 5.0f, center.y - 5.0f), ImVec2(center.x + 5.0f, center.y + 5.0f), iconColor, 0.0f, 0, 1.25f);
+			break;
+		case ShellWindowControl::Restore:
+			drawList->AddRect(ImVec2(center.x - 3.0f, center.y - 6.0f), ImVec2(center.x + 6.0f, center.y + 3.0f), iconColor, 0.0f, 0, 1.1f);
+			drawList->AddRect(ImVec2(center.x - 7.0f, center.y - 2.0f), ImVec2(center.x + 2.0f, center.y + 7.0f), iconColor, 0.0f, 0, 1.1f);
+			break;
+		case ShellWindowControl::Close:
+			drawList->AddLine(ImVec2(center.x - 5.0f, center.y - 5.0f), ImVec2(center.x + 5.0f, center.y + 5.0f), iconColor, 1.35f);
+			drawList->AddLine(ImVec2(center.x + 5.0f, center.y - 5.0f), ImVec2(center.x - 5.0f, center.y + 5.0f), iconColor, 1.35f);
+			break;
+		}
+
+		return clicked;
+	}
+
+	Ref<Texture2D> GetWhipBrandTexture()
+	{
+		static Ref<Texture2D> texture = TextureImporter::LoadTexture2D("resources/icons/whip_editor_logo.png");
+		return texture;
+	}
+
+	void DrawWhipBrandMark(ImDrawList* drawList, const ImVec2& min)
+	{
+		const ImVec2 max(min.x + 20.0f, min.y + 20.0f);
+		if (Ref<Texture2D> texture = GetWhipBrandTexture(); texture && texture->IsLoaded())
+		{
+			drawList->AddImage(UI::ToImGuiTextureId(texture->GetRendererId()), min, max, ImVec2(0, 1), ImVec2(1, 0));
+			return;
+		}
+
+		const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+		const ImVec2 mark[] =
+		{
+			ImVec2(center.x, min.y + 2.0f),
+			ImVec2(max.x - 3.0f, center.y),
+			ImVec2(center.x, max.y - 2.0f),
+			ImVec2(min.x + 3.0f, center.y)
+		};
+		drawList->AddConvexPolyFilled(mark, 4, IM_COL32(245, 248, 252, 245));
+		drawList->AddPolyline(mark, 4, IM_COL32(110, 128, 146, 190), ImDrawFlags_Closed, 1.2f);
+	}
+
+	std::string LowerCopy(std::string value)
+	{
+		std::ranges::transform(value, value.begin(),
+		                       [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+		return value;
+	}
+
+	constexpr UI::EditorShortcutAction CommandPaletteActions[] =
+	{
+		UI::EditorShortcutAction::OpenProject,
+		UI::EditorShortcutAction::NewScene,
+		UI::EditorShortcutAction::SaveScene,
+		UI::EditorShortcutAction::SaveSceneAs,
+		UI::EditorShortcutAction::SaveProject,
+		UI::EditorShortcutAction::CloseScene,
+		UI::EditorShortcutAction::Undo,
+		UI::EditorShortcutAction::Redo,
+		UI::EditorShortcutAction::SelectAll,
+		UI::EditorShortcutAction::Copy,
+		UI::EditorShortcutAction::Paste,
+		UI::EditorShortcutAction::Cut,
+		UI::EditorShortcutAction::DuplicateEntity,
+		UI::EditorShortcutAction::DeleteEntity,
+		UI::EditorShortcutAction::Play,
+		UI::EditorShortcutAction::Simulate,
+		UI::EditorShortcutAction::Stop,
+		UI::EditorShortcutAction::Pause,
+		UI::EditorShortcutAction::GizmoNone,
+		UI::EditorShortcutAction::GizmoTranslate,
+		UI::EditorShortcutAction::GizmoRotate,
+		UI::EditorShortcutAction::GizmoScale,
+		UI::EditorShortcutAction::ReloadScripts,
+		UI::EditorShortcutAction::OpenSettings,
+		UI::EditorShortcutAction::OpenCommandPalette
+	};
+
+	bool CommandMatchesFilter(UI::EditorShortcutAction action, const char* filter)
+	{
+		if (!filter || filter[0] == '\0')
+			return true;
+
+		std::string needle = LowerCopy(filter);
+		std::string haystack = LowerCopy(std::string(UI::UISettings::GetActionDisplayName(action)) + " " + UI::UISettings::GetActionCategory(action));
+		return haystack.find(needle) != std::string::npos;
+	}
+
 	bool IsControlDown()
 	{
 		return Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl);
@@ -47,32 +169,19 @@ namespace
 		return ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b, a));
 	}
 
-	bool PathIsOrIsUnder(const std::filesystem::path& path, const std::filesystem::path& directory)
-	{
-		const std::filesystem::path normalizedPath = path.lexically_normal();
-		const std::filesystem::path normalizedDirectory = directory.lexically_normal();
-		if (normalizedPath == normalizedDirectory)
-			return true;
 
-		auto pathIt = normalizedPath.begin();
-		auto directoryIt = normalizedDirectory.begin();
-		for (; directoryIt != normalizedDirectory.end(); ++directoryIt, ++pathIt)
-		{
-			if (pathIt == normalizedPath.end() || *pathIt != *directoryIt)
-				return false;
-		}
-
-		return true;
-	}
 }
 
 EditorLayer::EditorLayer()
 	: Layer("Fbox2D"),
 	m_EditorCamera(),
 	m_AssetInteractionManager(this),
+	m_EntityTemplateManager(this),
 	m_HistoryManager(this),
 	m_ProjectManager(this),
+	m_ScriptManager(this),
 	m_SceneManager(this),
+	m_PanelManager(this),
 	m_GizmoType(ImGuizmo::OPERATION::TRANSLATE)
 {
 }
@@ -89,10 +198,10 @@ void EditorLayer::OnAttach()
 	m_AssetEditorPanel.SetDrawAnimationEditorCallback([this]() { m_AnimationEditorPanel.OnImGuiRenderEmbedded(); });
 	m_AssetEditorPanel.SetRefreshAssetTreeCallback([this]() { if (m_ContentBrowserPanel) { m_ContentBrowserPanel->RefreshAssetTree(); } });
 	m_SceneHierarchyPanel.SetSceneChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(); });
-	m_SceneHierarchyPanel.SetSaveEntityTemplateCallback([this](Entity entityIn) { SaveEntityTemplate(entityIn); });
-	m_SceneHierarchyPanel.SetApplyEntityTemplateCallback([this](Entity entityIn) { ApplyEntityTemplate(entityIn); });
-	m_SceneHierarchyPanel.SetRevertEntityTemplateCallback([this](Entity entityIn) { RevertEntityTemplate(entityIn); });
-	m_SceneHierarchyPanel.SetUnpackEntityTemplateCallback([this](Entity entityIn) { UnpackEntityTemplate(entityIn); });
+	m_SceneHierarchyPanel.SetSaveEntityTemplateCallback([this](Entity entityIn) { m_EntityTemplateManager.SaveEntityTemplate(entityIn); });
+	m_SceneHierarchyPanel.SetApplyEntityTemplateCallback([this](Entity entityIn) { m_EntityTemplateManager.ApplyEntityTemplate(entityIn); });
+	m_SceneHierarchyPanel.SetRevertEntityTemplateCallback([this](Entity entityIn) { m_EntityTemplateManager.RevertEntityTemplate(entityIn); });
+	m_SceneHierarchyPanel.SetUnpackEntityTemplateCallback([this](Entity entityIn) { m_EntityTemplateManager.UnpackEntityTemplate(entityIn); });
 	m_UIProject.SetSceneCallbacks(
 		[this](AssetHandle handle) { m_SceneManager.OpenScene(handle); },
 		[this]() { m_SceneManager.CloseScene(); },
@@ -512,6 +621,246 @@ bool EditorLayer::OnKeyPressed(KeyPressedEvent& event)
     return false;
 }
 
+void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
+{
+	constexpr float TitlebarHeight = 30.0f;
+	constexpr float ControlWidth = 46.0f;
+
+	ImGui::BeginChild("##EditorShellTitlebar", ImVec2(0.0f, TitlebarHeight), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	const ImVec2 min = ImGui::GetWindowPos();
+	const ImVec2 size = ImGui::GetWindowSize();
+	const ImVec2 max(min.x + size.x, min.y + size.y);
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+	const ImU32 titleTop = IM_COL32(21, 29, 37, 255);
+	const ImU32 titleBottom = IM_COL32(8, 12, 16, 255);
+	drawList->AddRectFilledMultiColor(min, max, titleTop, titleTop, titleBottom, titleBottom);
+	drawList->AddLine(ImVec2(min.x, max.y - 1.0f), ImVec2(max.x, max.y - 1.0f), IM_COL32(46, 58, 70, 210), 1.0f);
+	drawList->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, min.y + 2.0f), IM_COL32(180, 196, 214, 210), 0.0f);
+
+	const float controlStartX = max.x - ControlWidth * 3.0f;
+
+	const ImVec2 logoMin(min.x + 12.0f, min.y + 6.0f);
+	DrawWhipBrandMark(drawList, logoMin);
+
+	std::string title = "Whip Editor";
+	if (projectLoaded && Project::GetActive())
+		title += "  /  " + Project::GetActive()->GetConfig().m_Name;
+	else
+		title += "  /  Hub";
+
+	const float titleX = logoMin.x + 40.0f;
+	drawList->AddText(ImVec2(titleX, min.y + 5.0f), IM_COL32(240, 244, 248, 245), title.c_str());
+	drawList->AddText(ImVec2(titleX + ImGui::CalcTextSize(title.c_str()).x + 10.0f, min.y + 5.0f), IM_COL32(132, 150, 166, 210), projectLoaded ? "Editor" : "Project Launcher");
+
+	Window& window = Application::Get().GetWindow();
+	ImGui::SetCursorScreenPos(ImVec2(controlStartX, min.y));
+	if (DrawShellWindowControlButton("##ShellMinimize", ShellWindowControl::Minimize, ImVec2(ControlWidth, TitlebarHeight)))
+		window.Minimize();
+	ImGui::SameLine(0.0f, 0.0f);
+	if (DrawShellWindowControlButton("##ShellMaximize", window.IsMaximized() ? ShellWindowControl::Restore : ShellWindowControl::Maximize, ImVec2(ControlWidth, TitlebarHeight)))
+	{
+		if (window.IsMaximized())
+			window.Restore();
+		else
+			window.Maximize();
+	}
+	ImGui::SameLine(0.0f, 0.0f);
+	if (DrawShellWindowControlButton("##ShellClose", ShellWindowControl::Close, ImVec2(ControlWidth, TitlebarHeight)))
+		Application::Get().Close();
+
+	ImGui::EndChild();
+}
+
+void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
+{
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.040f, 0.055f, 0.070f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4(0.040f, 0.055f, 0.070f, 1.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::BeginChild("##EditorShellMenuBar", ImVec2(0.0f, 28.0f), false, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	ImGui::PopStyleVar();
+
+	if (ImGui::BeginMenuBar())
+	{
+		auto drawMenuAction = [this](UI::EditorShortcutAction action, const char* label = nullptr)
+			{
+				std::string shortcut = m_UISettings.GetShortcutLabel(action);
+				const bool available = IsEditorActionAvailable(action);
+				ImGui::BeginDisabled(!available);
+				bool clicked = ImGui::MenuItem(label ? label : UI::UISettings::GetActionDisplayName(action), shortcut.c_str());
+				ImGui::EndDisabled();
+				if (clicked)
+					ExecuteEditorAction(action);
+			};
+
+		if (ImGui::BeginMenu("File"))
+		{
+			drawMenuAction(UI::EditorShortcutAction::OpenProject);
+			drawMenuAction(UI::EditorShortcutAction::SaveProject);
+			ImGui::Separator();
+			drawMenuAction(UI::EditorShortcutAction::NewScene);
+			drawMenuAction(UI::EditorShortcutAction::SaveScene);
+			drawMenuAction(UI::EditorShortcutAction::SaveSceneAs, "Save Scene As...");
+			drawMenuAction(UI::EditorShortcutAction::CloseScene);
+			ImGui::Separator();
+			if (ImGui::MenuItem("Restart"))
+				Application::Get().SubmitToNextTick([]() { Application::Get().Restart(); });
+			if (ImGui::MenuItem("Exit"))
+				Application::Get().Close();
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Edit"))
+		{
+			drawMenuAction(UI::EditorShortcutAction::OpenCommandPalette);
+			drawMenuAction(UI::EditorShortcutAction::OpenSettings, "Settings");
+			ImGui::Separator();
+			drawMenuAction(UI::EditorShortcutAction::Undo);
+			drawMenuAction(UI::EditorShortcutAction::Redo);
+			ImGui::Separator();
+			drawMenuAction(UI::EditorShortcutAction::SelectAll);
+			drawMenuAction(UI::EditorShortcutAction::Copy);
+			drawMenuAction(UI::EditorShortcutAction::Paste);
+			drawMenuAction(UI::EditorShortcutAction::Cut);
+			drawMenuAction(UI::EditorShortcutAction::DuplicateEntity);
+			drawMenuAction(UI::EditorShortcutAction::DeleteEntity);
+			ImGui::Separator();
+			ImGui::BeginDisabled(!projectLoaded);
+			if (ImGui::MenuItem("Show Animation Editor"))
+				m_AnimationEditorPanel.Open();
+			ImGui::EndDisabled();
+			if (ImGui::MenuItem("Show Test Popup"))
+				m_PopupHandler.SetShowState(true);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Script"))
+		{
+			drawMenuAction(UI::EditorShortcutAction::ReloadScripts, "Reload Assembly");
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Project"))
+		{
+			drawMenuAction(UI::EditorShortcutAction::OpenSettings, "Settings");
+			ImGui::Separator();
+			drawMenuAction(UI::EditorShortcutAction::OpenProject);
+			drawMenuAction(UI::EditorShortcutAction::SaveProject);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Window"))
+		{
+			RebuildEditorPanelRegistry();
+			m_PanelManager.DrawAddPanelMenu(projectLoaded);
+			ImGui::Separator();
+			ImGui::BeginDisabled(!projectLoaded);
+			ImGui::BeginDisabled(!m_AssetEditorPanel.HasOpenEditors());
+			if (ImGui::MenuItem("Close Asset Editors"))
+				m_AssetEditorPanel.CloseAll();
+			ImGui::EndDisabled();
+			ImGui::EndDisabled();
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMenuBar();
+	}
+
+	ImGui::EndChild();
+	ImGui::PopStyleColor(2);
+}
+
+void EditorLayer::OpenCommandPalette()
+{
+	m_CommandPaletteOpen = true;
+	m_CommandPaletteFocusSearch = true;
+	m_CommandPaletteFilter[0] = '\0';
+}
+
+void EditorLayer::DrawCommandPalette()
+{
+	if (!m_CommandPaletteOpen)
+		return;
+
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f, viewport->WorkPos.y + viewport->WorkSize.y * 0.22f), ImGuiCond_Appearing, ImVec2(0.5f, 0.0f));
+	ImGui::SetNextWindowSize(ImVec2(680.0f, 460.0f), ImGuiCond_Appearing);
+
+	bool open = true;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings;
+	if (ImGui::Begin("Command Palette", &open, flags))
+	{
+		if (m_CommandPaletteFocusSearch)
+		{
+			ImGui::SetKeyboardFocusHere();
+			m_CommandPaletteFocusSearch = false;
+		}
+
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputTextWithHint("##CommandPaletteSearch", "Search commands...", m_CommandPaletteFilter, sizeof(m_CommandPaletteFilter));
+		ImGui::Spacing();
+		ImGui::Separator();
+
+		UI::EditorShortcutAction firstAvailableAction = UI::EditorShortcutAction::Count;
+		bool hasVisibleCommand = false;
+
+		if (ImGui::BeginChild("##CommandPaletteResults", ImVec2(0.0f, 0.0f), false))
+		{
+			if (ImGui::BeginTable("##CommandPaletteTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+			{
+				ImGui::TableSetupColumn("Command", ImGuiTableColumnFlags_WidthStretch);
+				ImGui::TableSetupColumn("Group", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+				ImGui::TableSetupColumn("Shortcut", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+
+				for (UI::EditorShortcutAction action : CommandPaletteActions)
+				{
+					if (!CommandMatchesFilter(action, m_CommandPaletteFilter))
+						continue;
+
+					hasVisibleCommand = true;
+					const bool available = IsEditorActionAvailable(action);
+					if (available && firstAvailableAction == UI::EditorShortcutAction::Count)
+						firstAvailableAction = action;
+
+					ImGui::PushID(static_cast<int>(action));
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::BeginDisabled(!available);
+					if (ImGui::Selectable(UI::UISettings::GetActionDisplayName(action), false, ImGuiSelectableFlags_SpanAllColumns, ImVec2(0.0f, 30.0f)))
+					{
+						if (ExecuteEditorAction(action) && action != UI::EditorShortcutAction::OpenCommandPalette)
+							m_CommandPaletteOpen = false;
+					}
+					ImGui::TableNextColumn();
+					ImGui::TextDisabled("%s", UI::UISettings::GetActionCategory(action));
+					ImGui::TableNextColumn();
+					const std::string shortcut = m_UISettings.GetShortcutLabel(action);
+					if (m_UISettings.HasShortcutConflict(action))
+						ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Conflict");
+					else
+						ImGui::TextDisabled("%s", shortcut.c_str());
+					ImGui::EndDisabled();
+					ImGui::PopID();
+				}
+
+				ImGui::EndTable();
+			}
+
+			if (!hasVisibleCommand)
+				ImGui::TextDisabled("No commands found.");
+		}
+		ImGui::EndChild();
+
+		if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+			m_CommandPaletteOpen = false;
+		if (firstAvailableAction != UI::EditorShortcutAction::Count && ImGui::IsKeyPressed(ImGuiKey_Enter))
+		{
+			if (ExecuteEditorAction(firstAvailableAction) && firstAvailableAction != UI::EditorShortcutAction::OpenCommandPalette)
+				m_CommandPaletteOpen = false;
+		}
+	}
+	ImGui::End();
+
+	if (!open)
+		m_CommandPaletteOpen = false;
+}
+
 bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
 {
 	if (!IsEditorActionAvailable(action))
@@ -838,284 +1187,6 @@ void EditorLayer::OnOverlayRender()
 bool EditorLayer::HasProjectLoaded() const
 {
 	return Project::GetActive() != nullptr;
-}
-
-void EditorLayer::SaveEntityTemplate(Entity entityIn)
-{
-	if (!HasProjectLoaded() || !entityIn)
-		return;
-
-	const std::filesystem::path templatesDirectory = Project::GetActiveAssetDirectory() / "EntityTemplates";
-	std::error_code error;
-	std::filesystem::create_directories(templatesDirectory, error);
-
-	std::string filepath = FileDialogs::SaveFile("Whip Entity Template (*.went)\0*.went\0", templatesDirectory.string().c_str());
-	if (filepath.empty())
-		return;
-
-	std::filesystem::path templatePath(filepath);
-	if (!FileExtensions::IsEntityTemplateExtension(templatePath))
-		templatePath.replace_extension(FileExtensions::EntityTemplate);
-
-	SceneSerializer serializer(m_SceneManager.EditorScene());
-	if (!serializer.SerializeEntityTemplate(entityIn, templatePath))
-	{
-		WHP_EDITOR_ERROR(std::string("[Entity Template] Could not save template: ") + templatePath.string());
-		return;
-	}
-
-	const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
-	if (PathIsOrIsUnder(templatePath, assetDirectory))
-	{
-		error.clear();
-		const std::filesystem::path RelativePath = std::filesystem::relative(templatePath, assetDirectory, error).lexically_normal();
-		if (!error)
-			Project::GetActive()->GetEditorAssetManager()->ImportAsset(RelativePath);
-	}
-
-	if (m_ContentBrowserPanel)
-		m_ContentBrowserPanel->RefreshAssetTree();
-
-	WHP_EDITOR_INFO(std::string("[Entity Template] Saved ") + templatePath.string());
-}
-
-bool EditorLayer::InstantiateEntityTemplate(AssetHandle handle)
-{
-	if (!HasProjectLoaded() || !m_SceneManager.EditorScene())
-		return false;
-
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle) ||
-		activeProject->GetEditorAssetManager()->GetAssetType(handle) != AssetType::Entity)
-	{
-		return false;
-	}
-
-	if (m_SceneManager.State() != SceneState::Edit)
-	{
-		WHP_EDITOR_WARN("[Entity Template] Templates can only be instantiated while editing.");
-		return false;
-	}
-
-	const std::filesystem::path templatePath = Project::GetActiveAssetDirectory() / activeProject->GetEditorAssetManager()->GetFilepath(handle);
-	m_HistoryManager.CaptureSceneHistory();
-	SceneSerializer serializer(m_SceneManager.EditorScene());
-	Entity instance = serializer.DeserializeEntityTemplate(templatePath, handle);
-	if (!instance)
-	{
-		WHP_EDITOR_ERROR(std::string("[Entity Template] Could not instantiate template: ") + templatePath.string());
-		return false;
-	}
-
-	m_SceneHierarchyPanel.SetSelectedEntity(instance);
-	WHP_EDITOR_INFO(std::string("[Entity Template] Instantiated ") + templatePath.string());
-	return true;
-}
-
-Entity EditorLayer::FindPrefabRoot(Entity entityIn) const
-{
-	if (!entityIn || !entityIn.HasComponent<PrefabComponent>())
-		return {};
-
-	const AssetHandle source = entityIn.GetComponent<PrefabComponent>().m_Source;
-	Entity current = entityIn;
-	while (current && current.HasComponent<HierarchyComponent>())
-	{
-		if (current.HasComponent<PrefabComponent>())
-		{
-			const auto& prefab = current.GetComponent<PrefabComponent>();
-			if (prefab.m_Source == source && prefab.m_Root)
-				return current;
-		}
-
-		const auto& hierarchy = current.GetComponent<HierarchyComponent>();
-		if (hierarchy.m_Parent == 0)
-			break;
-
-		current = m_SceneManager.EditorScene() ? m_SceneManager.EditorScene()->FindEntityByUUID(hierarchy.m_Parent) : Entity{};
-	}
-
-	return entityIn.GetComponent<PrefabComponent>().m_Root ? entityIn : Entity{};
-}
-
-void EditorLayer::RemovePrefabLinksRecursive(Entity entityIn)
-{
-	if (!entityIn)
-		return;
-
-	std::vector<UUID> children;
-	if (entityIn.HasComponent<HierarchyComponent>())
-		children = entityIn.GetComponent<HierarchyComponent>().m_Children;
-
-	if (entityIn.HasComponent<PrefabComponent>())
-		entityIn.RemoveComponent<PrefabComponent>();
-
-	for (UUID childId : children)
-	{
-		Entity child = m_SceneManager.EditorScene() ? m_SceneManager.EditorScene()->FindEntityByUUID(childId) : Entity{};
-		if (child)
-			RemovePrefabLinksRecursive(child);
-	}
-}
-
-void EditorLayer::ApplyEntityTemplate(Entity entityIn)
-{
-	if (!HasProjectLoaded() || !m_SceneManager.EditorScene())
-		return;
-
-	Entity root = FindPrefabRoot(entityIn);
-	if (!root || !root.HasComponent<PrefabComponent>())
-	{
-		WHP_EDITOR_WARN("[Entity Template] Apply failed. Select a template instance root or child.");
-		return;
-	}
-
-	Ref<Project> activeProject = Project::GetActive();
-	AssetHandle handle = root.GetComponent<PrefabComponent>().m_Source;
-	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle) ||
-		activeProject->GetEditorAssetManager()->GetAssetType(handle) != AssetType::Entity)
-	{
-		WHP_EDITOR_WARN("[Entity Template] Apply failed. The source template Asset is missing.");
-		return;
-	}
-
-	const std::filesystem::path templatePath = Project::GetActiveAssetDirectory() / activeProject->GetEditorAssetManager()->GetFilepath(handle);
-	std::error_code error;
-	if (!std::filesystem::exists(templatePath, error))
-	{
-		WHP_EDITOR_WARN(std::string("[Entity Template] Apply failed. File is missing: ") + templatePath.string());
-		return;
-	}
-
-	SceneSerializer serializer(m_SceneManager.EditorScene());
-	if (!serializer.SerializeEntityTemplate(root, templatePath))
-	{
-		WHP_EDITOR_ERROR(std::string("[Entity Template] Could not apply instance to template: ") + templatePath.string());
-		return;
-	}
-
-	activeProject->GetEditorAssetManager()->UnloadAsset(handle);
-	if (m_ContentBrowserPanel)
-		m_ContentBrowserPanel->RefreshAssetTree();
-
-	WHP_EDITOR_INFO(std::string("[Entity Template] Applied instance to ") + templatePath.string());
-}
-
-void EditorLayer::RevertEntityTemplate(Entity entityIn)
-{
-	if (!HasProjectLoaded() || !m_SceneManager.EditorScene())
-		return;
-
-	Entity root = FindPrefabRoot(entityIn);
-	if (!root || !root.HasComponent<PrefabComponent>())
-	{
-		WHP_EDITOR_WARN("[Entity Template] Revert failed. Select a template instance root or child.");
-		return;
-	}
-
-	Ref<Project> activeProject = Project::GetActive();
-	AssetHandle handle = root.GetComponent<PrefabComponent>().m_Source;
-	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle) ||
-		activeProject->GetEditorAssetManager()->GetAssetType(handle) != AssetType::Entity)
-	{
-		WHP_EDITOR_WARN("[Entity Template] Revert failed. The source template Asset is missing.");
-		return;
-	}
-
-	const std::filesystem::path templatePath = Project::GetActiveAssetDirectory() / activeProject->GetEditorAssetManager()->GetFilepath(handle);
-	std::error_code error;
-	if (!std::filesystem::exists(templatePath, error))
-	{
-		WHP_EDITOR_WARN(std::string("[Entity Template] Revert failed. File is missing: ") + templatePath.string());
-		return;
-	}
-
-	{
-		Ref<Scene> validationScene = MakeRef<Scene>();
-		SceneSerializer validator(validationScene);
-		if (!validator.DeserializeEntityTemplate(templatePath, handle))
-		{
-			WHP_EDITOR_ERROR(std::string("[Entity Template] Revert failed. Could not read template: ") + templatePath.string());
-			return;
-		}
-	}
-
-	UUID parentId = 0;
-	size_t childIndex = 0;
-	bool hadChildIndex = false;
-	if (root.HasComponent<HierarchyComponent>())
-	{
-		const auto& hierarchy = root.GetComponent<HierarchyComponent>();
-		parentId = hierarchy.m_Parent;
-		if (parentId != 0)
-		{
-			Entity parent = m_SceneManager.EditorScene()->FindEntityByUUID(parentId);
-			if (parent && parent.HasComponent<HierarchyComponent>())
-			{
-				const auto& siblings = parent.GetComponent<HierarchyComponent>().m_Children;
-				auto siblingIt = std::find(siblings.begin(), siblings.end(), root.GetUUID());
-				if (siblingIt != siblings.end())
-				{
-					childIndex = static_cast<size_t>(std::distance(siblings.begin(), siblingIt));
-					hadChildIndex = true;
-				}
-			}
-		}
-	}
-
-	TransformComponent preservedTransform{};
-	if (root.HasComponent<TransformComponent>())
-		preservedTransform = root.GetComponent<TransformComponent>();
-
-	m_HistoryManager.CaptureSceneHistory();
-	m_SceneManager.EditorScene()->DestroyEntity(root);
-
-	SceneSerializer serializer(m_SceneManager.EditorScene());
-	Entity reverted = serializer.DeserializeEntityTemplate(templatePath, handle);
-	if (!reverted)
-	{
-		WHP_EDITOR_ERROR(std::string("[Entity Template] Revert failed after validation: ") + templatePath.string());
-		return;
-	}
-
-	if (reverted.HasComponent<TransformComponent>())
-		reverted.GetComponent<TransformComponent>() = preservedTransform;
-
-	if (parentId != 0 && reverted.HasComponent<HierarchyComponent>())
-	{
-		Entity parent = m_SceneManager.EditorScene()->FindEntityByUUID(parentId);
-		if (parent && parent.HasComponent<HierarchyComponent>())
-		{
-			auto& hierarchy = reverted.GetComponent<HierarchyComponent>();
-			hierarchy.m_Parent = parentId;
-
-			auto& siblings = parent.GetComponent<HierarchyComponent>().m_Children;
-			siblings.erase(std::remove(siblings.begin(), siblings.end(), reverted.GetUUID()), siblings.end());
-			size_t insertIndex = hadChildIndex ? std::min(childIndex, siblings.size()) : siblings.size();
-			siblings.insert(siblings.begin() + static_cast<std::vector<UUID>::difference_type>(insertIndex), reverted.GetUUID());
-		}
-	}
-
-	m_SceneHierarchyPanel.SetSelectedEntity(reverted);
-	WHP_EDITOR_INFO(std::string("[Entity Template] Reverted instance from ") + templatePath.string());
-}
-
-void EditorLayer::UnpackEntityTemplate(Entity entityIn)
-{
-	if (!HasProjectLoaded() || !m_SceneManager.EditorScene())
-		return;
-
-	Entity root = FindPrefabRoot(entityIn);
-	if (!root)
-	{
-		WHP_EDITOR_WARN("[Entity Template] Unpack failed. Select a template instance root or child.");
-		return;
-	}
-
-	m_HistoryManager.CaptureSceneHistory();
-	RemovePrefabLinksRecursive(root);
-	m_SceneHierarchyPanel.SetSelectedEntity(root);
-	WHP_EDITOR_INFO(std::string("[Entity Template] Unpacked instance ") + root.GetName());
 }
 
 void EditorLayer::UIToolbar()

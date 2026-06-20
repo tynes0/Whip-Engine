@@ -19,12 +19,12 @@ class IconManager
 public:
 	IconManager(bool loadDefault);
 	Ref<Texture2D> Load(Icon iconType, const std::filesystem::path& filepath, FlipDirection direction = FlipDirectionNone);
-	Ref<Texture2D> Load(Icon iconType, Ref<Texture2D> texture);
+	Ref<Texture2D> Load(Icon iconType, const Ref<Texture2D>& texture);
 	Ref<Texture2D> GetIcon(Icon iconType);
 
 	static IconManager& Get();
 private:
-	bool ValidIcon(Icon iconType);
+	static bool ValidIcon(Icon iconType);
 
 	StackBuffer<frenum::size<Icon>() * sizeof(Ref<Texture2D>), 16> m_IconDatas;
 };

@@ -23,10 +23,10 @@
 #include <set>
 #include <sstream>
 #include <system_error>
+#include <utility>
 
 _WHIP_START
-
-namespace
+	namespace
 {
 	constexpr AssetType AssetTypeFilters[] =
 	{
@@ -42,7 +42,7 @@ namespace
 
 	std::string ToLower(std::string text)
 	{
-		std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		std::ranges::transform(text, text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 		return text;
 	}
 
@@ -186,13 +186,13 @@ ContentBrowserPanel::ContentBrowserPanel()
 {
 }
 
-ContentBrowserPanel::ContentBrowserPanel(Ref<Project> proj)
+ContentBrowserPanel::ContentBrowserPanel(const Ref<Project>& proj)
 	: EditorPanel("Content Browser", true)
 {
-	Init(std::move(proj));
+	Init(proj);
 }
 
-void ContentBrowserPanel::Init(Ref<Project> proj)
+void ContentBrowserPanel::Init(const Ref<Project>& proj)
 {
 	m_Project = proj;
 	m_ThumbnailCache = MakeRef<ThumbnailCache>(proj);
@@ -511,8 +511,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 	const ImGuiIO& io = ImGui::GetIO();
 	const bool selected = IsItemSelected(item);
 	const ImVec2 itemStart = ImGui::GetCursorScreenPos();
-	const bool groupedTextureItem = item.m_SubAsset || item.m_SubAssetCount > 0;
-	if (groupedTextureItem)
+	if (const bool groupedTextureItem = item.m_SubAsset || item.m_SubAssetCount > 0; groupedTextureItem)
 	{
 		const float cellWidth = m_ThumbnailSize + m_Padding;
 		const float backgroundHeight = m_ThumbnailSize + ImGui::GetTextLineHeightWithSpacing() * 2.35f + 12.0f;
@@ -534,7 +533,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 		Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(item.m_Handle);
 		const AssetMetadata& metadata = AssetManager::GetAssetMetadata(item.m_Handle);
 		const auto& sprites = metadata.m_TextureSettings.m_Sprites;
-		if (texture && item.m_TextureSpriteIndex >= 0 && item.m_TextureSpriteIndex < static_cast<int32_t>(sprites.size()))
+		if (texture && item.m_TextureSpriteIndex >= 0 && std::cmp_less(item.m_TextureSpriteIndex, sprites.size()))
 		{
 			const TextureSpriteRect& sprite = sprites[static_cast<size_t>(item.m_TextureSpriteIndex)];
 			const float textureWidth = static_cast<float>(texture->GetWidth());
@@ -582,7 +581,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 		drawList->AddRectFilled(foldoutMin, foldoutMax, foldoutHovered ? IM_COL32(92, 113, 126, 238) : IM_COL32(20, 27, 32, 224), foldoutSize * 0.5f);
 		drawList->AddRect(foldoutMin, foldoutMax, IM_COL32(180, 194, 204, 150), foldoutSize * 0.5f, 0, 1.0f);
 		const ImVec2 center((foldoutMin.x + foldoutMax.x) * 0.5f, (foldoutMin.y + foldoutMax.y) * 0.5f);
-		const ImU32 arrowColor = IM_COL32(232, 238, 242, 245);
+		constexpr ImU32 arrowColor = IM_COL32(232, 238, 242, 245);
 		if (collapsed)
 		{
 			drawList->AddTriangleFilled(
@@ -856,7 +855,7 @@ void ContentBrowserPanel::DrawFileOperationModals()
 	if (ImGui::Button(confirmLabel, ImVec2(108.0f, 0.0f)))
 	{
 		bool success = false;
-		switch (m_PendingOperation)
+		switch (m_PendingOperation) // NOLINT(clang-diagnostic-switch-enum)
 		{
 		case FileOperation::Rename: success = RenamePendingItem(); break;
 		case FileOperation::Move: success = MovePendingItem(); break;
@@ -944,30 +943,30 @@ void ContentBrowserPanel::DrawAutoSliceModal()
 std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectItems() const
 {
 	std::vector<BrowserItem> items = m_Mode == Mode::Filesystem ? CollectFilesystemItems() : CollectAssetItems();
-	items.erase(std::remove_if(items.begin(), items.end(), [this](const BrowserItem& item)
-		{
-			if (!MatchesSearch(item) || !PassesTypeFilter(item))
-				return true;
+	std::erase_if(items, [this](const BrowserItem& item)
+	{
+		if (!MatchesSearch(item) || !PassesTypeFilter(item))
+			return true;
 
-			if (!m_ShowUnsupported && !item.m_Directory && !item.m_Supported)
-				return true;
+		if (!m_ShowUnsupported && !item.m_Directory && !item.m_Supported)
+			return true;
 
-			return false;
-		}), items.end());
+		return false;
+	});
 
-	std::sort(items.begin(), items.end(), [](const BrowserItem& left, const BrowserItem& right)
-		{
-			if (left.m_Directory != right.m_Directory)
-				return left.m_Directory > right.m_Directory;
+	std::ranges::sort(items, [](const BrowserItem& left, const BrowserItem& right)
+	{
+		if (left.m_Directory != right.m_Directory)
+			return left.m_Directory > right.m_Directory;
 
-			if (left.m_Handle != 0 && left.m_Handle == right.m_Handle && left.m_SubAsset != right.m_SubAsset)
-				return !left.m_SubAsset;
+		if (left.m_Handle != 0 && left.m_Handle == right.m_Handle && left.m_SubAsset != right.m_SubAsset)
+			return !left.m_SubAsset;
 
-			if (left.m_Handle != 0 && left.m_Handle == right.m_Handle && left.m_SubAsset && right.m_SubAsset)
-				return left.m_TextureSpriteIndex < right.m_TextureSpriteIndex;
+		if (left.m_Handle != 0 && left.m_Handle == right.m_Handle && left.m_SubAsset && right.m_SubAsset)
+			return left.m_TextureSpriteIndex < right.m_TextureSpriteIndex;
 
-			return left.m_SortName < right.m_SortName;
-		});
+		return left.m_SortName < right.m_SortName;
+	});
 
 	return items;
 }
@@ -991,7 +990,7 @@ void ContentBrowserPanel::RebuildCachedItems()
 		visibleIds.insert(item.m_DrawId);
 	for (auto it = m_SelectedItemIds.begin(); it != m_SelectedItemIds.end();)
 	{
-		if (visibleIds.find(*it) == visibleIds.end())
+		if (!visibleIds.contains(*it))
 			it = m_SelectedItemIds.erase(it);
 		else
 			++it;
@@ -1039,10 +1038,10 @@ ContentBrowserPanel::DirectoryNode ContentBrowserPanel::BuildDirectoryNode(const
 			node.m_Children.push_back(BuildDirectoryNode(entry.path()));
 	}
 
-	std::sort(node.m_Children.begin(), node.m_Children.end(), [](const DirectoryNode& left, const DirectoryNode& right)
-		{
-			return left.m_SortName < right.m_SortName;
-		});
+	std::ranges::sort(node.m_Children, [](const DirectoryNode& left, const DirectoryNode& right)
+	{
+		return left.m_SortName < right.m_SortName;
+	});
 	return node;
 }
 
@@ -1070,7 +1069,7 @@ void ContentBrowserPanel::AppendTextureSpriteItems(std::vector<BrowserItem>& ite
 	if (!showSprites)
 		return;
 
-	for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+	for (int32_t spriteIndex = 0; std::cmp_less(spriteIndex, sprites.size()); ++spriteIndex)
 	{
 		const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
 		BrowserItem spriteItem = parentItem;
@@ -1086,7 +1085,7 @@ void ContentBrowserPanel::AppendTextureSpriteItems(std::vector<BrowserItem>& ite
 
 bool ContentBrowserPanel::AreTextureSpritesCollapsed(const BrowserItem& item) const
 {
-	return item.m_SubAssetCount > 0 && m_CollapsedTextureSpriteParents.find(item.m_DrawId) != m_CollapsedTextureSpriteParents.end();
+	return item.m_SubAssetCount > 0 && m_CollapsedTextureSpriteParents.contains(item.m_DrawId);
 }
 
 void ContentBrowserPanel::ToggleTextureSprites(const BrowserItem& item)
@@ -1111,10 +1110,10 @@ uint64_t ContentBrowserPanel::ComputeDirectoryFingerprint(const std::filesystem:
 	std::vector<std::filesystem::directory_entry> entries;
 	for (const auto& entry : std::filesystem::directory_iterator(directory, error))
 		entries.push_back(entry);
-	std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right)
-		{
-			return left.path().generic_string() < right.path().generic_string();
-		});
+	std::ranges::sort(entries, [](const auto& left, const auto& right)
+	{
+		return left.path().generic_string() < right.path().generic_string();
+	});
 
 	uint64_t hash = 1469598103934665603ull;
 	auto mix = [&hash](uint64_t value)
@@ -1610,7 +1609,7 @@ bool ContentBrowserPanel::RemoveSpriteSlice(const BrowserItem& item)
 
 	AssetMetadata metadata = m_Project->GetEditorAssetManager()->GetMetadata(item.m_Handle);
 	auto& sprites = metadata.m_TextureSettings.m_Sprites;
-	if (item.m_TextureSpriteIndex >= static_cast<int32_t>(sprites.size()))
+	if (std::cmp_greater_equal(item.m_TextureSpriteIndex, sprites.size()))
 		return false;
 
 	sprites.erase(sprites.begin() + item.m_TextureSpriteIndex);
@@ -1665,10 +1664,10 @@ bool ContentBrowserPanel::CreateAnimationFromSelection()
 		return false;
 	}
 
-	std::sort(selectedItems.begin(), selectedItems.end(), [](const BrowserItem& left, const BrowserItem& right)
-		{
-			return left.m_SortName < right.m_SortName;
-		});
+	std::ranges::sort(selectedItems, [](const BrowserItem& left, const BrowserItem& right)
+	{
+		return left.m_SortName < right.m_SortName;
+	});
 
 	Ref<Animation2D> animation = MakeRef<Animation2D>();
 	animation->SetName("New Animation");
@@ -2099,7 +2098,7 @@ bool ContentBrowserPanel::PassesTypeFilter(const BrowserItem& item) const
 
 bool ContentBrowserPanel::IsItemSelected(const BrowserItem& item) const
 {
-	return m_SelectedItemIds.find(item.m_DrawId) != m_SelectedItemIds.end();
+	return m_SelectedItemIds.contains(item.m_DrawId);
 }
 
 void ContentBrowserPanel::SelectItem(const BrowserItem& item, bool additive)
@@ -2181,7 +2180,7 @@ std::filesystem::path ContentBrowserPanel::MakeUniqueCopyPath(const std::filesys
 	std::filesystem::path candidate = parent / (stem + " Copy" + extension);
 	int suffix = 2;
 	while (std::filesystem::exists(candidate))
-		candidate = parent / (stem + " Copy " + std::to_string(suffix++) + extension);
+		candidate = parent / (stem + " Copy " + std::to_string(suffix++) += extension);
 	return candidate;
 }
 
@@ -2244,17 +2243,26 @@ void ContentBrowserPanel::OnSettingsPopup()
 {
 	if (m_ShowSettingsPopup)
 	{
-		ImVec2 windowSize{ (float)Application::Get().GetWindow().GetWidth(), (float)Application::Get().GetWindow().GetHeight() };
-		ImVec2 windowPos{ (float)Application::Get().GetWindow().GetPosition().first, (float)Application::Get().GetWindow().GetPosition().second };
+		ImVec2 windowSize{
+			static_cast<float>(Application::Get().GetWindow().GetWidth()),
+			static_cast<float>(Application::Get().GetWindow().GetHeight())
+		};
+		ImVec2 windowPos{
+			static_cast<float>(Application::Get().GetWindow().GetPosition().first),
+			static_cast<float>(Application::Get().GetWindow().GetPosition().second)
+		};
 		ImVec2 popupSize(352, 200);
-		ImVec2 popupPos = ImVec2{ ((windowSize.x - popupSize.x) * 0.5f) + windowPos.x, ((windowSize.y - popupSize.y) * 0.5f) + windowPos.y };
+		ImVec2 popupPos = ImVec2{
+			((windowSize.x - popupSize.x) * 0.5f) + windowPos.x,
+			((windowSize.y - popupSize.y) * 0.5f) + windowPos.y
+		};
 
 		ImGui::SetNextWindowSize(popupSize);
 		ImGui::SetNextWindowPos(popupPos);
 
 		ImGui::OpenPopup("Content Browser Settings");
 
-		if (ImGui::BeginPopupModal("Content Browser Settings", NULL, ImGuiWindowFlags_NoResize))
+		if (ImGui::BeginPopupModal("Content Browser Settings", nullptr, ImGuiWindowFlags_NoResize))
 		{
 			ImGui::Text("Thumbnail Size");
 			ImGui::SetNextItemWidth(-1.0f);

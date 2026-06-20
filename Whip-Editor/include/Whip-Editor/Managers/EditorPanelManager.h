@@ -4,11 +4,16 @@
 
 #include <vector>
 
+#include "EditorManagerBase.h"
+
 _WHIP_START
 
-class EditorPanelManager
+class EditorPanelManager : public EditorManagerBase // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
+	EditorPanelManager(EditorLayer* boundedLayer = nullptr);
+	~EditorPanelManager() override;
+
 	void Clear();
 	void AddPanel(EditorPanel& panel);
 	void OnImGuiRender();

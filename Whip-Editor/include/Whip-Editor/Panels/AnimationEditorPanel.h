@@ -8,14 +8,10 @@
 #include <Whip/Animation/Animation2D.h>
 #include <Whip/Animation/AnimationController.h>
 #include <Whip/Asset/AssetManager.h>
-#include <Whip/Render/Texture.h>
 #include <Whip-Editor/UI/UISettings.h>
 
 #include <vector>
 #include <functional>
-#include <array>
-
-#include <glm/vec2.hpp>
 
 _WHIP_START
 
@@ -23,7 +19,7 @@ class AnimationEditorPanel : public EditorPanel
 {
 public:
 	AnimationEditorPanel();
-	~AnimationEditorPanel();
+	~AnimationEditorPanel() override;
 
 	void Open() { SetOpen(true); }
 	void Close() { SetOpen(false); }

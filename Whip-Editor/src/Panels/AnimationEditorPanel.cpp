@@ -1,38 +1,38 @@
 #include <Whip-Editor/Panels/AnimationEditorPanel.h>
+
+#include <Whip-Editor/UI/UIHelpers.h>
+#include <Whip-Editor/Helpers/IconManager.h>
+
 #include <Whip/Core/Application.h>
 #include <Whip/Utils/FileExtensions.h>
-#include <Whip/Utils/Utility.h>
-#include <Whip/Project/Project.h>
+#include <Whip/Utils/PlatformUtils.h>
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/AssetUtils.h>
 #include <Whip/Asset/AnimationImporter.h>
-#include <Whip-Editor/UI/UIHelpers.h>
-#include <Whip/Animation/AnimationManager.h>
+#include <Whip/Project/Project.h>
 #include <Whip/Animation/AnimationController.h>
-#include <Whip/Utils/PlatformUtils.h>
-#include <Whip-Editor/Helpers/IconManager.h>
+
+#include <algorithm>
+#include <cfloat>
+#include <cmath>
+#include <limits>
+#include <unordered_set>
+#include <utility>
 
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <misc/cpp/imgui_stdlib.h>
 
-#include <algorithm>
-#include <cfloat>
-#include <cctype>
-#include <cmath>
-#include <cstdio>
-#include <limits>
-#include <unordered_set>
+#include "Whip/Math/Math.h"
 
 _WHIP_START
-
-namespace
+	namespace
 {
 	constexpr int NoTransitionSource = -1;
 	constexpr int EntryTransitionSource = -2;
 	constexpr int AnyStateTransitionSource = -3;
 
-	enum class WindowControlType
+	enum class WindowControlType : uint8_t
 	{
 		Minimize,
 		Maximize,
@@ -96,7 +96,9 @@ namespace
 	std::string FormatCompactFloat(float value)
 	{
 		char buffer[32]{};
-		std::snprintf(buffer, sizeof(buffer), "%.2f", value);
+		int result = std::snprintf(buffer, sizeof(buffer), "%.2f", value);
+		if (result < 0 || std::cmp_greater_equal(result, sizeof(buffer)))
+			WHP_EDITOR_WARN("[Animation Editor] Float formatting failed!");
 		return buffer;
 	}
 
@@ -112,7 +114,7 @@ namespace
 
 		const AssetMetadata& metadata = AssetManager::GetAssetMetadata(frame.m_Texture);
 		const auto& sprites = metadata.m_TextureSettings.m_Sprites;
-		if (frame.m_TextureSpriteIndex >= static_cast<int32_t>(sprites.size()))
+		if (std::cmp_greater_equal(frame.m_TextureSpriteIndex, sprites.size()))
 			return nullptr;
 		return &sprites[static_cast<size_t>(frame.m_TextureSpriteIndex)];
 	}
@@ -242,7 +244,7 @@ namespace
 
 	bool DrawWindowControl(const char* id, WindowControlType type)
 	{
-		const ImVec2 size(28.0f, 22.0f);
+		constexpr ImVec2 size(28.0f, 22.0f);
 		ImGui::InvisibleButton(id, size);
 		const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 		const bool hovered = ImGui::IsItemHovered();
@@ -250,7 +252,7 @@ namespace
 		const ImVec2 max = ImGui::GetItemRectMax();
 		ImDrawList* drawList = ImGui::GetWindowDrawList();
 		drawList->AddRectFilled(min, max, IM_COL32(255, 255, 255, hovered ? 24 : 0), 3.0f);
-		const ImU32 color = IM_COL32(226, 226, 226, 230);
+		constexpr ImU32 color = IM_COL32(226, 226, 226, 230);
 		const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
 
 		if (type == WindowControlType::Minimize)
@@ -287,7 +289,7 @@ AnimationEditorPanel::AnimationEditorPanel()
 {
 }
 
-AnimationEditorPanel::~AnimationEditorPanel() {}
+AnimationEditorPanel::~AnimationEditorPanel() = default;
 
 void AnimationEditorPanel::OnImGuiRender()
 {
@@ -429,8 +431,7 @@ void AnimationEditorPanel::DrawEditorContent(bool showWindowControls)
 		ImGui::BeginDisabled(!m_CurrentAnimation);
 		if (ImGui::Button("Save Clip", ImVec2(86.0f, 30.0f)))
 		{
-			const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentAnimation->m_Handle);
-			if (metadata)
+			if (const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentAnimation->m_Handle); metadata)
 				m_CurrentAnimation->Serialize(Project::GetActiveAssetDirectory() / metadata.m_Filepath);
 		}
 		ImGui::SameLine();
@@ -444,8 +445,7 @@ void AnimationEditorPanel::DrawEditorContent(bool showWindowControls)
 		if (m_CurrentAnimation)
 		{
 			ImGui::SameLine(0.0f, 12.0f);
-			char buffer[256];
-			memset(buffer, 0, sizeof(buffer));
+			char buffer[256]{};
 			strncpy_s(buffer, sizeof(buffer), m_CurrentAnimation->GetName().c_str(), sizeof(buffer));
 			ImGui::SetNextItemWidth(std::min(190.0f, std::max(96.0f, ImGui::GetContentRegionAvail().x * 0.34f)));
 			if (ImGui::InputText("##AnimationName", buffer, sizeof(buffer)))
@@ -787,7 +787,7 @@ void AnimationEditorPanel::DrawPlaybackControls(float width, float height)
 			if (frenum::contains(iconType))
 			{
 				Ref<Texture2D> texture = IconManager::Get().GetIcon(iconType);
-				const float iconSize = 17.0f;
+				constexpr float iconSize = 17.0f;
 				ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
 				drawList->AddImage(
 					UI::ToImGuiTextureId(texture->GetRendererId()),
@@ -814,7 +814,7 @@ void AnimationEditorPanel::DrawPlaybackControls(float width, float height)
 	{
 		if (hasFrames)
 		{
-			if (m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+			if (m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex, m_CurrentAnimation->GetFrames().size()))
 				m_SelectedFrameIndex = 0;
 			m_PreviewPlaying = true;
 			m_PreviewPaused = false;
@@ -889,8 +889,7 @@ void AnimationEditorPanel::DrawSaveButton(float width, float leftPadding)
 	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (leftPadding + width));
 	if (ImGui::Button("Save", ImVec2(width, 0.0f)))
 	{
-		const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentAnimation->m_Handle);
-		if (metadata)
+		if (const auto& metadata = AssetManager::GetAssetMetadata(m_CurrentAnimation->m_Handle); metadata)
 			m_CurrentAnimation->Serialize(Project::GetActiveAssetDirectory() / metadata.m_Filepath);
 		else
 		{
@@ -903,8 +902,7 @@ void AnimationEditorPanel::DrawNameInput(float width, float leftPadding)
 	if (!m_CurrentAnimation)
 		return;
 	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (leftPadding + width));
-	char buffer[256];
-	memset(buffer, 0, sizeof(buffer));
+	char buffer[256]{};
 	strncpy_s(buffer, sizeof(buffer), m_CurrentAnimation->GetName().c_str(), sizeof(buffer));
 	ImGui::SetNextItemWidth(width);
 	if (ImGui::InputText("##Tag", buffer, sizeof(buffer)))
@@ -980,7 +978,7 @@ void AnimationEditorPanel::DrawControllerEditor(float height)
 		m_CurrentController->SetDefaultState("Entry");
 	}
 
-	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)m_CurrentController->GetStates().size() - 1);
+	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, static_cast<int>(m_CurrentController->GetStates().size()) - 1);
 
 	const float availableWidth = ImGui::GetContentRegionAvail().x;
 	const float parameterWidth = std::min(270.0f, availableWidth * 0.28f);
@@ -1031,7 +1029,7 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 	auto addParameter = [this](AnimationParameterType type)
 		{
 			AnimationControllerParameter& parameter = m_CurrentController->AddParameter(frenum::to_string(type).data(), type);
-			m_SelectedControllerParameterIndex = (int)m_CurrentController->GetParameters().size() - 1;
+			m_SelectedControllerParameterIndex = static_cast<int>(m_CurrentController->GetParameters().size()) - 1;
 			if (type == AnimationParameterType::Bool || type == AnimationParameterType::Trigger)
 				parameter.m_DefaultBool = false;
 		};
@@ -1051,13 +1049,13 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 	auto& parameters = m_CurrentController->GetParameters();
 	for (size_t i = 0; i < parameters.size(); ++i)
 	{
-		ImGui::PushID((int)i);
-		const bool selected = m_SelectedControllerParameterIndex == (int)i;
+		ImGui::PushID(static_cast<int>(i));
+		const bool selected = std::cmp_equal(m_SelectedControllerParameterIndex, i);
 		if (ImGui::Selectable(parameters[i].m_Name.c_str(), selected))
-			m_SelectedControllerParameterIndex = (int)i;
+			m_SelectedControllerParameterIndex = static_cast<int>(i);
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
 		{
-			const int parameterIndex = (int)i;
+			const int parameterIndex = static_cast<int>(i);
 			ImGui::SetDragDropPayload("ANIMATION_PARAMETER", &parameterIndex, sizeof(parameterIndex));
 			ImGui::Text("%s", parameters[i].m_Name.c_str());
 			ImGui::TextDisabled("%s", frenum::to_string(parameters[i].m_Type).data());
@@ -1066,7 +1064,7 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 		ImGui::PopID();
 	}
 
-	if (m_SelectedControllerParameterIndex >= 0 && m_SelectedControllerParameterIndex < (int)parameters.size())
+	if (m_SelectedControllerParameterIndex >= 0 && std::cmp_less(m_SelectedControllerParameterIndex, parameters.size()))
 	{
 		ImGui::Separator();
 		AnimationControllerParameter& parameter = parameters[m_SelectedControllerParameterIndex];
@@ -1109,13 +1107,14 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 			}
 		}
 
-		const std::array<AnimationParameterType, 4> parameterTypes =
+		constexpr std::array<AnimationParameterType, 4> parameterTypes =
 		{
 			AnimationParameterType::Bool,
 			AnimationParameterType::Int,
 			AnimationParameterType::Float,
 			AnimationParameterType::Trigger
 		};
+
 		std::string typePreview = frenum::to_string(parameter.m_Type).data();
 		if (ImGui::BeginCombo("Type", typePreview.c_str()))
 		{
@@ -1191,15 +1190,15 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	if (states.empty())
 		m_SelectedControllerStateIndex = -1;
 	else
-		m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)states.size() - 1);
-	const bool hasSelectedState = m_SelectedControllerStateIndex >= 0 && m_SelectedControllerStateIndex < (int)states.size();
+		m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)static_cast<int>(states.size()) - 1);
+	const bool hasSelectedState = m_SelectedControllerStateIndex >= 0 && std::cmp_less(m_SelectedControllerStateIndex, states.size());
 
 	ImGui::TextDisabled("Controller Graph");
 	ImGui::SameLine();
 	if (ImGui::Button("+ State"))
 	{
 		AnimationControllerState& state = m_CurrentController->AddState("State");
-		m_SelectedControllerStateIndex = (int)states.size() - 1;
+		m_SelectedControllerStateIndex = static_cast<int>(states.size()) - 1;
 		if (m_CurrentController->GetDefaultState().empty())
 			m_CurrentController->SetDefaultState(state.m_Name);
 		ClearSelectedControllerTransition();
@@ -1210,7 +1209,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	{
 		const std::string removedName = states[m_SelectedControllerStateIndex].m_Name;
 		m_CurrentController->RemoveState(removedName);
-		m_SelectedControllerStateIndex = m_CurrentController->GetStates().empty() ? -1 : std::clamp(m_SelectedControllerStateIndex, 0, (int)m_CurrentController->GetStates().size() - 1);
+		m_SelectedControllerStateIndex = m_CurrentController->GetStates().empty() ? -1 : std::clamp(m_SelectedControllerStateIndex, 0, static_cast<int>(m_CurrentController->GetStates().size()) - 1);
 		ClearSelectedControllerTransition();
 	}
 	ImGui::EndDisabled();
@@ -1225,7 +1224,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		duplicate.m_Name = uniqueName;
 		duplicate.m_GraphPosition += glm::vec2{ 44.0f, 44.0f };
 		duplicate.m_Transitions.clear();
-		m_SelectedControllerStateIndex = (int)m_CurrentController->GetStates().size() - 1;
+		m_SelectedControllerStateIndex = static_cast<int>(m_CurrentController->GetStates().size()) - 1;
 		ClearSelectedControllerTransition();
 	}
 	ImGui::EndDisabled();
@@ -1280,7 +1279,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	{
 		const float oldZoom = m_ControllerGraphZoom;
 		const float newZoom = std::clamp(oldZoom + ImGui::GetIO().MouseWheel * 0.08f, 0.45f, 2.0f);
-		if (newZoom != oldZoom)
+		if (!Math::EqualF(newZoom, oldZoom))
 		{
 			const glm::vec2 focusWorld
 			{
@@ -1296,10 +1295,10 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		}
 	}
 
-	const float nodeWidth = 174.0f;
-	const float nodeHeight = 82.0f;
-	const float specialWidth = 136.0f;
-	const float specialHeight = 58.0f;
+	constexpr float nodeWidth = 174.0f;
+	constexpr float nodeHeight = 82.0f;
+	constexpr float specialWidth = 136.0f;
+	constexpr float specialHeight = 58.0f;
 	float zoom = m_ControllerGraphZoom;
 	auto snapPosition = [&](glm::vec2& position)
 		{
@@ -1310,13 +1309,13 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			position.y = std::round(position.y / grid) * grid;
 		};
 
-	const int columns = std::max(1, (int)((canvasSize.x / std::max(zoom, 0.1f) - 280.0f) / 230.0f));
+	const int columns = std::max(1, static_cast<int>((canvasSize.x / std::max(zoom, 0.1f) - 280.0f) / 230.0f));
 	for (size_t i = 0; i < states.size(); ++i)
 	{
-		const int row = (int)i / columns;
-		const int column = (int)i % columns;
+		const int row = static_cast<int>(i) / columns;
+		const int column = static_cast<int>(i) % columns;
 		if (states[i].m_GraphPosition.x == 0.0f && states[i].m_GraphPosition.y == 0.0f)
-			states[i].m_GraphPosition = { 240.0f + column * 230.0f, 42.0f + row * 126.0f };
+			states[i].m_GraphPosition = { 240.0f + static_cast<float>(column) * 230.0f, 42.0f + static_cast<float>(row) * 126.0f };
 	}
 
 	float exitColumn = 540.0f;
@@ -1378,12 +1377,21 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		};
 
 	const float gridStep = 32.0f * zoom;
-	const ImU32 gridColor = IM_COL32(46, 57, 68, 82);
-	for (float x = std::fmod(m_ControllerGraphPan.x, gridStep); x < canvasSize.x; x += gridStep)
-		drawList->AddLine(ImVec2(canvasMin.x + x, canvasMin.y), ImVec2(canvasMin.x + x, canvasMax.y), gridColor);
-	for (float y = std::fmod(m_ControllerGraphPan.y, gridStep); y < canvasSize.y; y += gridStep)
-		drawList->AddLine(ImVec2(canvasMin.x, canvasMin.y + y), ImVec2(canvasMax.x, canvasMin.y + y), gridColor);
+	constexpr ImU32 gridColor = IM_COL32(46, 57, 68, 82);
 
+	const float startX = std::fmod(m_ControllerGraphPan.x, gridStep);
+	for (int i = 0; startX + (static_cast<float>(i) * gridStep) < canvasSize.x; ++i)
+	{
+		float x = startX + (static_cast<float>(i) * gridStep);
+		drawList->AddLine(ImVec2(canvasMin.x + x, canvasMin.y), ImVec2(canvasMin.x + x, canvasMax.y), gridColor);
+	}
+
+	const float startY = std::fmod(m_ControllerGraphPan.y, gridStep);
+	for (int i = 0; startY + (static_cast<float>(i) * gridStep) < canvasSize.y; ++i)
+	{
+		float y = startY + (static_cast<float>(i) * gridStep);
+		drawList->AddLine(ImVec2(canvasMin.x, canvasMin.y + y), ImVec2(canvasMax.x, canvasMin.y + y), gridColor);
+	}
 	auto stateInputPin = [&](size_t index) -> ImVec2
 		{
 			const glm::vec2& position = states[index].m_GraphPosition;
@@ -1405,7 +1413,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			for (size_t i = 0; i < states.size(); ++i)
 			{
 				if (states[i].m_Name == stateName)
-					return (int)i;
+					return static_cast<int>(i);
 			}
 			return -1;
 		};
@@ -1430,7 +1438,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		{
 			if (m_PendingTransitionSourceStateIndex == NoTransitionSource)
 				return;
-			if (!targetExit && (targetStateIndex < 0 || targetStateIndex >= (int)states.size()))
+			if (!targetExit && (targetStateIndex < 0 || std::cmp_greater_equal(targetStateIndex, states.size())))
 			{
 				clearPendingConnection();
 				return;
@@ -1455,22 +1463,22 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			{
 				transition.m_HasExitTime = false;
 				auto& transitions = m_CurrentController->GetAnyStateTransitions();
-				const bool alreadyExists = std::any_of(transitions.begin(), transitions.end(), [&target](const AnimationControllerTransition& existingTransition)
-					{
-						return existingTransition.m_TargetState == target;
-					});
+				const bool alreadyExists = std::ranges::any_of(transitions, [&target](const AnimationControllerTransition& existingTransition)
+				{
+					return existingTransition.m_TargetState == target;
+				});
 				if (alreadyExists)
 				{
 					clearPendingConnection();
 					return;
 				}
 				transitions.push_back(transition);
-				selectTransition(AnyStateTransitionSource, (int)transitions.size() - 1);
+				selectTransition(AnyStateTransitionSource, static_cast<int>(transitions.size()) - 1);
 				clearPendingConnection();
 				return;
 			}
 
-			if (m_PendingTransitionSourceStateIndex >= 0 && m_PendingTransitionSourceStateIndex < (int)states.size())
+			if (m_PendingTransitionSourceStateIndex >= 0 && std::cmp_less(m_PendingTransitionSourceStateIndex, states.size()))
 			{
 				if (!targetExit && m_PendingTransitionSourceStateIndex == targetStateIndex)
 				{
@@ -1478,17 +1486,17 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 					return;
 				}
 				auto& transitions = states[m_PendingTransitionSourceStateIndex].m_Transitions;
-				const bool alreadyExists = std::any_of(transitions.begin(), transitions.end(), [&target](const AnimationControllerTransition& existingTransition)
-					{
-						return existingTransition.m_TargetState == target;
-					});
+				const bool alreadyExists = std::ranges::any_of(transitions, [&target](const AnimationControllerTransition& existingTransition)
+				{
+					return existingTransition.m_TargetState == target;
+				});
 				if (alreadyExists)
 				{
 					clearPendingConnection();
 					return;
 				}
 				transitions.push_back(transition);
-				selectTransition(m_PendingTransitionSourceStateIndex, (int)transitions.size() - 1);
+				selectTransition(m_PendingTransitionSourceStateIndex, static_cast<int>(transitions.size()) - 1);
 			}
 			clearPendingConnection();
 		};
@@ -1504,7 +1512,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			const int targetIndex = findStateIndex(transition.m_TargetState);
 			if (targetIndex < 0)
 				return false;
-			targetPin = stateInputPin((size_t)targetIndex);
+			targetPin = stateInputPin(static_cast<size_t>(targetIndex));
 			return true;
 		};
 
@@ -1536,10 +1544,10 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			std::string badge;
 			if (!transition.m_BlueprintNodes.empty())
 			{
-				const size_t logicNodeCount = std::count_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [](const AnimationControllerBlueprintNode& node)
-					{
-						return node.m_Type != AnimationBlueprintNodeType::Parameter && node.m_Type != AnimationBlueprintNodeType::Reroute && node.m_Type != AnimationBlueprintNodeType::Result;
-					});
+				const size_t logicNodeCount = std::ranges::count_if(transition.m_BlueprintNodes, [](const AnimationControllerBlueprintNode& node)
+				{
+					return node.m_Type != AnimationBlueprintNodeType::Parameter && node.m_Type != AnimationBlueprintNodeType::Reroute && node.m_Type != AnimationBlueprintNodeType::Result;
+				});
 				if (logicNodeCount > 0)
 					badge += std::to_string(logicNodeCount) + " logic";
 			}
@@ -1573,7 +1581,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 	const int defaultStateIndex = findStateIndex(m_CurrentController->GetDefaultState());
 	if (defaultStateIndex >= 0)
 	{
-		const ImVec2 targetPin = stateInputPin((size_t)defaultStateIndex);
+		const ImVec2 targetPin = stateInputPin(static_cast<size_t>(defaultStateIndex));
 		const float tangent = std::max(54.0f * zoom, std::abs(targetPin.x - entryOutput.x) * 0.36f);
 		drawList->AddBezierCubic(entryOutput, ImVec2(entryOutput.x + tangent, entryOutput.y), ImVec2(targetPin.x - tangent, targetPin.y), targetPin, IM_COL32(92, 168, 236, 235), 2.4f);
 		drawList->AddCircleFilled(targetPin, pinRadius, IM_COL32(92, 168, 236, 235));
@@ -1581,13 +1589,13 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 
 	const auto& anyStateTransitions = m_CurrentController->GetAnyStateTransitions();
 	for (size_t transitionIndex = 0; transitionIndex < anyStateTransitions.size(); ++transitionIndex)
-		drawTransition(AnyStateTransitionSource, (int)transitionIndex, anyStateOutput, anyStateTransitions[transitionIndex]);
+		drawTransition(AnyStateTransitionSource, static_cast<int>(transitionIndex), anyStateOutput, anyStateTransitions[transitionIndex]);
 
 	for (size_t stateIndex = 0; stateIndex < states.size(); ++stateIndex)
 	{
 		const ImVec2 sourcePin = stateOutputPin(stateIndex);
 		for (size_t transitionIndex = 0; transitionIndex < states[stateIndex].m_Transitions.size(); ++transitionIndex)
-			drawTransition((int)stateIndex, (int)transitionIndex, sourcePin, states[stateIndex].m_Transitions[transitionIndex]);
+			drawTransition(static_cast<int>(stateIndex), static_cast<int>(transitionIndex), sourcePin, states[stateIndex].m_Transitions[transitionIndex]);
 	}
 
 	const float pinHitSize = std::max(26.0f, 26.0f * zoom);
@@ -1663,7 +1671,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		AnimationControllerState& state = states[i];
 		const ImVec2 nodeMin = worldToScreen(state.m_GraphPosition);
 		const ImVec2 nodeMax(nodeMin.x + nodeSize.x, nodeMin.y + nodeSize.y);
-		const bool selected = m_SelectedControllerStateIndex == (int)i && m_SelectedTransitionIndex < 0;
+		const bool selected = std::cmp_equal(m_SelectedControllerStateIndex, i) && m_SelectedTransitionIndex < 0;
 		const bool isDefault = state.m_Name == m_CurrentController->GetDefaultState();
 		const ImU32 fill = selected ? IM_COL32(38, 55, 72, 255) : isDefault ? IM_COL32(28, 42, 56, 255) : IM_COL32(24, 32, 41, 255);
 		const ImU32 border = isDefault ? IM_COL32(92, 168, 236, 245) : selected ? IM_COL32(188, 210, 232, 230) : IM_COL32(68, 84, 100, 190);
@@ -1681,11 +1689,11 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 
 		const float pinGutter = 16.0f * zoom;
 		ImGui::SetCursorScreenPos(ImVec2(nodeMin.x + pinGutter, nodeMin.y));
-		ImGui::PushID((int)i);
+		ImGui::PushID(static_cast<int>(i));
 		ImGui::InvisibleButton("##ControllerStateNode", ImVec2(std::max(24.0f, nodeSize.x - pinGutter * 2.0f), nodeSize.y));
 		if (ImGui::IsItemClicked())
 		{
-			m_SelectedControllerStateIndex = (int)i;
+			m_SelectedControllerStateIndex = static_cast<int>(i);
 			ClearSelectedControllerTransition();
 		}
 		if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
@@ -1704,10 +1712,10 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 				ClearSelectedControllerTransition();
 			}
 			if (ImGui::MenuItem("Duplicate"))
-				stateToDuplicate = (int)i;
+				stateToDuplicate = static_cast<int>(i);
 			ImGui::BeginDisabled(states.size() <= 1);
 			if (ImGui::MenuItem("Remove"))
-				stateToRemove = (int)i;
+				stateToRemove = static_cast<int>(i);
 			ImGui::EndDisabled();
 			ImGui::EndPopup();
 		}
@@ -1716,23 +1724,23 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		const ImRect inputHitRect(ImVec2(nodeMin.x - pinHitSize * 0.5f, nodeMin.y), ImVec2(nodeMin.x + std::min(54.0f * zoom, nodeSize.x), nodeMax.y));
 		const bool inputHovered = isConnectionPending() && inputHitRect.Contains(mousePos);
 		if (inputHovered)
-			hoveredConnectionTargetStateIndex = (int)i;
+			hoveredConnectionTargetStateIndex = static_cast<int>(i);
 		drawList->AddCircleFilled(inputPin, inputHovered ? pinRadius + 2.0f : pinRadius, inputHovered ? IM_COL32(122, 196, 255, 255) : IM_COL32(94, 184, 178, 255));
 		ImGui::SetCursorScreenPos(ImVec2(inputPin.x - pinHitSize * 0.5f, inputPin.y - pinHitSize * 0.5f));
 		ImGui::InvisibleButton("##StateInPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
 		if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-			createConnection((int)i, false);
+			createConnection(static_cast<int>(i), false);
 
 		const ImVec2 outputPin = stateOutputPin(i);
 		drawList->AddCircleFilled(outputPin, pinRadius, IM_COL32(150, 170, 190, 255));
 		ImGui::SetCursorScreenPos(ImVec2(outputPin.x - pinHitSize * 0.5f, outputPin.y - pinHitSize * 0.5f));
 		ImGui::InvisibleButton("##StateOutPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
 		if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
-			m_PendingTransitionSourceStateIndex = (int)i;
+			m_PendingTransitionSourceStateIndex = static_cast<int>(i);
 		ImGui::PopID();
 	}
 
-	if (stateToDuplicate >= 0 && stateToDuplicate < (int)states.size())
+	if (stateToDuplicate >= 0 && std::cmp_less(stateToDuplicate, states.size()))
 	{
 		const AnimationControllerState sourceState = states[stateToDuplicate];
 		AnimationControllerState& duplicate = m_CurrentController->AddState(sourceState.m_Name + " Copy", sourceState.m_Clip);
@@ -1741,14 +1749,14 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		duplicate.m_Name = uniqueName;
 		duplicate.m_GraphPosition += glm::vec2{ 44.0f, 44.0f };
 		duplicate.m_Transitions.clear();
-		m_SelectedControllerStateIndex = (int)m_CurrentController->GetStates().size() - 1;
+		m_SelectedControllerStateIndex = static_cast<int>(m_CurrentController->GetStates().size()) - 1;
 		ClearSelectedControllerTransition();
 	}
-	if (stateToRemove >= 0 && stateToRemove < (int)m_CurrentController->GetStates().size() && m_CurrentController->GetStates().size() > 1)
+	if (stateToRemove >= 0 && std::cmp_less(stateToRemove, m_CurrentController->GetStates().size()) && m_CurrentController->GetStates().size() > 1)
 	{
 		const std::string removedName = m_CurrentController->GetStates()[stateToRemove].m_Name;
 		m_CurrentController->RemoveState(removedName);
-		m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)m_CurrentController->GetStates().size() - 1);
+		m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, static_cast<int>(m_CurrentController->GetStates().size()) - 1);
 		ClearSelectedControllerTransition();
 	}
 
@@ -1757,8 +1765,8 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 		ImVec2 sourcePin = entryOutput;
 		if (m_PendingTransitionSourceStateIndex == AnyStateTransitionSource)
 			sourcePin = anyStateOutput;
-		else if (m_PendingTransitionSourceStateIndex >= 0 && m_PendingTransitionSourceStateIndex < (int)states.size())
-			sourcePin = stateOutputPin((size_t)m_PendingTransitionSourceStateIndex);
+		else if (m_PendingTransitionSourceStateIndex >= 0 && std::cmp_less(m_PendingTransitionSourceStateIndex, states.size()))
+			sourcePin = stateOutputPin(static_cast<size_t>(m_PendingTransitionSourceStateIndex));
 
 		const float tangent = std::max(48.0f * zoom, std::abs(mousePos.x - sourcePin.x) * 0.35f);
 		drawList->AddBezierCubic(sourcePin, ImVec2(sourcePin.x + tangent, sourcePin.y), ImVec2(mousePos.x - tangent, mousePos.y), mousePos, IM_COL32(122, 196, 255, 230), 2.4f);
@@ -1795,7 +1803,7 @@ void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 			AnimationControllerState& state = m_CurrentController->AddState("State");
 			state.m_GraphPosition = screenToWorld(mousePos);
 			snapPosition(state.m_GraphPosition);
-			m_SelectedControllerStateIndex = (int)m_CurrentController->GetStates().size() - 1;
+			m_SelectedControllerStateIndex = static_cast<int>(m_CurrentController->GetStates().size()) - 1;
 			ClearSelectedControllerTransition();
 		}
 		if (ImGui::MenuItem("Frame Graph"))
@@ -1824,17 +1832,17 @@ AnimationControllerTransition* AnimationEditorPanel::GetSelectedControllerTransi
 	if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
 	{
 		auto& transitions = m_CurrentController->GetAnyStateTransitions();
-		if (m_SelectedTransitionIndex >= (int)transitions.size())
+		if (std::cmp_greater_equal(m_SelectedTransitionIndex, transitions.size()))
 			return nullptr;
 		return &transitions[m_SelectedTransitionIndex];
 	}
 
 	auto& states = m_CurrentController->GetStates();
-	if (m_SelectedTransitionSourceStateIndex < 0 || m_SelectedTransitionSourceStateIndex >= (int)states.size())
+	if (m_SelectedTransitionSourceStateIndex < 0 || std::cmp_greater_equal(m_SelectedTransitionSourceStateIndex, states.size()))
 		return nullptr;
 
 	auto& transitions = states[m_SelectedTransitionSourceStateIndex].m_Transitions;
-	if (m_SelectedTransitionIndex >= (int)transitions.size())
+	if (std::cmp_greater_equal(m_SelectedTransitionIndex, transitions.size()))
 		return nullptr;
 	return &transitions[m_SelectedTransitionIndex];
 }
@@ -1856,21 +1864,21 @@ void AnimationEditorPanel::RemoveSelectedControllerTransition()
 	if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
 	{
 		auto& transitions = m_CurrentController->GetAnyStateTransitions();
-		if (m_SelectedTransitionIndex >= 0 && m_SelectedTransitionIndex < (int)transitions.size())
+		if (m_SelectedTransitionIndex >= 0 && std::cmp_less(m_SelectedTransitionIndex, transitions.size()))
 			transitions.erase(transitions.begin() + m_SelectedTransitionIndex);
 		ClearSelectedControllerTransition();
 		return;
 	}
 
 	auto& states = m_CurrentController->GetStates();
-	if (m_SelectedTransitionSourceStateIndex < 0 || m_SelectedTransitionSourceStateIndex >= (int)states.size())
+	if (m_SelectedTransitionSourceStateIndex < 0 || std::cmp_greater_equal(m_SelectedTransitionSourceStateIndex, states.size()))
 	{
 		ClearSelectedControllerTransition();
 		return;
 	}
 
 	auto& transitions = states[m_SelectedTransitionSourceStateIndex].m_Transitions;
-	if (m_SelectedTransitionIndex >= 0 && m_SelectedTransitionIndex < (int)transitions.size())
+	if (m_SelectedTransitionIndex >= 0 && std::cmp_less(m_SelectedTransitionIndex, transitions.size()))
 		transitions.erase(transitions.begin() + m_SelectedTransitionIndex);
 	ClearSelectedControllerTransition();
 }
@@ -1885,14 +1893,14 @@ void AnimationEditorPanel::AutoLayoutControllerGraph()
 
 	auto& states = m_CurrentController->GetStates();
 	constexpr float nodeWidth = 174.0f;
-	constexpr float columnGap = 96.0f;
-	constexpr float rowGap = 50.0f;
-	const int columns = std::max(1, (int)std::ceil(std::sqrt((float)states.size())));
+	const int columns = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<float>(states.size())))));
 	for (size_t i = 0; i < states.size(); ++i)
 	{
-		const int row = (int)i / columns;
-		const int column = (int)i % columns;
-		states[i].m_GraphPosition = { 250.0f + column * (nodeWidth + columnGap), 42.0f + row * (82.0f + rowGap) };
+		constexpr float rowGap = 50.0f;
+		constexpr float columnGap = 96.0f;
+		const int row = static_cast<int>(i) / columns;
+		const int column = static_cast<int>(i) % columns;
+		states[i].m_GraphPosition = { 250.0f + static_cast<float>(column) * (nodeWidth + columnGap), 42.0f + static_cast<float>(row) * (82.0f + rowGap) };
 	}
 
 	float exitColumn = 620.0f;
@@ -2016,7 +2024,7 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 	int conditionToMoveDown = -1;
 	for (size_t conditionIndex = 0; conditionIndex < transition.m_Conditions.size(); ++conditionIndex)
 	{
-		ImGui::PushID((int)conditionIndex);
+		ImGui::PushID(static_cast<int>(conditionIndex));
 		AnimationControllerCondition& condition = transition.m_Conditions[conditionIndex];
 		if (ImGui::BeginCombo("Parameter", condition.m_Parameter.empty() ? "None" : condition.m_Parameter.c_str()))
 		{
@@ -2031,7 +2039,7 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 			ImGui::EndCombo();
 		}
 
-		const std::array<AnimationConditionMode, 6> conditionModes =
+		constexpr std::array<AnimationConditionMode, 6> conditionModes =
 		{
 			AnimationConditionMode::If,
 			AnimationConditionMode::IfNot,
@@ -2055,10 +2063,10 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 			ImGui::EndCombo();
 		}
 
-		const auto parameterIt = std::find_if(m_CurrentController->GetParameters().begin(), m_CurrentController->GetParameters().end(), [&condition](const AnimationControllerParameter& parameter)
-			{
-				return parameter.m_Name == condition.m_Parameter;
-			});
+		const auto parameterIt = std::ranges::find_if(m_CurrentController->GetParameters(), [&condition](const AnimationControllerParameter& parameter)
+		{
+			return parameter.m_Name == condition.m_Parameter;
+		});
 		if (parameterIt != m_CurrentController->GetParameters().end())
 		{
 			if (parameterIt->m_Type == AnimationParameterType::Float)
@@ -2071,29 +2079,29 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 
 		ImGui::BeginDisabled(conditionIndex == 0);
 		if (ImGui::Button("Move Up"))
-			conditionToMoveUp = (int)conditionIndex;
+			conditionToMoveUp = static_cast<int>(conditionIndex);
 		ImGui::EndDisabled();
 		ImGui::SameLine();
 		ImGui::BeginDisabled(conditionIndex + 1 >= transition.m_Conditions.size());
 		if (ImGui::Button("Move Down"))
-			conditionToMoveDown = (int)conditionIndex;
+			conditionToMoveDown = static_cast<int>(conditionIndex);
 		ImGui::EndDisabled();
 		if (ImGui::Button("Duplicate Condition", ImVec2(-1.0f, 0.0f)))
-			conditionToDuplicate = (int)conditionIndex;
+			conditionToDuplicate = static_cast<int>(conditionIndex);
 		if (ImGui::Button("Remove Condition", ImVec2(-1.0f, 0.0f)))
 		{
-			transition.m_Conditions.erase(transition.m_Conditions.begin() + conditionIndex);
+			transition.m_Conditions.erase(transition.m_Conditions.begin() + static_cast<std::vector<AnimationControllerCondition>::difference_type>(conditionIndex));
 			ImGui::PopID();
 			break;
 		}
 		ImGui::Separator();
 		ImGui::PopID();
 	}
-	if (conditionToMoveUp > 0 && conditionToMoveUp < (int)transition.m_Conditions.size())
+	if (conditionToMoveUp > 0 && std::cmp_less(conditionToMoveUp, transition.m_Conditions.size()))
 		std::swap(transition.m_Conditions[conditionToMoveUp], transition.m_Conditions[conditionToMoveUp - 1]);
-	if (conditionToMoveDown >= 0 && conditionToMoveDown + 1 < (int)transition.m_Conditions.size())
+	if (conditionToMoveDown >= 0 && conditionToMoveDown + 1 < static_cast<int>(transition.m_Conditions.size()))
 		std::swap(transition.m_Conditions[conditionToMoveDown], transition.m_Conditions[conditionToMoveDown + 1]);
-	if (conditionToDuplicate >= 0 && conditionToDuplicate < (int)transition.m_Conditions.size())
+	if (conditionToDuplicate >= 0 && std::cmp_less(conditionToDuplicate, transition.m_Conditions.size()))
 		transition.m_Conditions.insert(transition.m_Conditions.begin() + conditionToDuplicate + 1, transition.m_Conditions[conditionToDuplicate]);
 }
 
@@ -2113,19 +2121,19 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 
 	auto findParameter = [&](std::string_view name) -> const AnimationControllerParameter*
 		{
-			const auto it = std::find_if(parameters.begin(), parameters.end(), [name](const AnimationControllerParameter& parameter)
-				{
-					return parameter.m_Name == name;
-				});
+			const auto it = std::ranges::find_if(parameters, [name](const AnimationControllerParameter& parameter)
+			{
+				return parameter.m_Name == name;
+			});
 			return it == parameters.end() ? nullptr : &*it;
 		};
 
 	auto findNode = [&](uint32_t nodeId) -> AnimationControllerBlueprintNode*
 		{
-			const auto it = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [nodeId](const AnimationControllerBlueprintNode& node)
-				{
-					return node.m_Id == nodeId;
-				});
+			const auto it = std::ranges::find_if(transition.m_BlueprintNodes, [nodeId](const AnimationControllerBlueprintNode& node)
+			{
+				return node.m_Id == nodeId;
+			});
 			return it == transition.m_BlueprintNodes.end() ? nullptr : &*it;
 		};
 
@@ -2146,8 +2154,8 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationBlueprintNodeType::Or: return "Or";
 			case AnimationBlueprintNodeType::Reroute: return "Reroute";
 			case AnimationBlueprintNodeType::Result: return "Result";
-			default: return "Node";
 			}
+			return "Node";
 		};
 
 	auto nodePalette = [&](const AnimationControllerBlueprintNode& node)
@@ -2155,39 +2163,90 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			switch (node.m_Type)
 			{
 			case AnimationBlueprintNodeType::Start:
-				return NodePalette{ IM_COL32(25, 42, 58, 255), IM_COL32(102, 160, 214, 225), IM_COL32(122, 196, 255, 245) };
+				return NodePalette{
+					.m_Fill = IM_COL32(25, 42, 58, 255),
+					.m_Border = IM_COL32(102, 160, 214, 225),
+					.m_Accent = IM_COL32(122, 196, 255, 245)
+				};
 			case AnimationBlueprintNodeType::Parameter:
 				if (const AnimationControllerParameter* parameter = findParameter(node.m_Parameter))
 				{
 					switch (parameter->m_Type)
 					{
-					case AnimationParameterType::Bool: return NodePalette{ IM_COL32(21, 48, 46, 255), IM_COL32(84, 184, 174, 225), IM_COL32(105, 214, 204, 245) };
-					case AnimationParameterType::Int: return NodePalette{ IM_COL32(40, 36, 56, 255), IM_COL32(148, 128, 214, 225), IM_COL32(178, 156, 238, 245) };
-					case AnimationParameterType::Float: return NodePalette{ IM_COL32(24, 42, 61, 255), IM_COL32(86, 158, 232, 230), IM_COL32(118, 190, 255, 245) };
-					case AnimationParameterType::Trigger: return NodePalette{ IM_COL32(32, 50, 35, 255), IM_COL32(116, 188, 126, 225), IM_COL32(145, 226, 152, 245) };
+					case AnimationParameterType::Bool: return NodePalette{
+						.m_Fill = IM_COL32(21, 48, 46, 255),
+						.m_Border = IM_COL32(84, 184, 174, 225),
+						.m_Accent = IM_COL32(105, 214, 204, 245)
+					};
+					case AnimationParameterType::Int: return NodePalette{
+						.m_Fill = IM_COL32(40, 36, 56, 255),
+						.m_Border = IM_COL32(148, 128, 214, 225),
+						.m_Accent = IM_COL32(178, 156, 238, 245)
+					};
+					case AnimationParameterType::Float: return NodePalette{
+						.m_Fill = IM_COL32(24, 42, 61, 255),
+						.m_Border = IM_COL32(86, 158, 232, 230),
+						.m_Accent = IM_COL32(118, 190, 255, 245)
+					};
+					case AnimationParameterType::Trigger: return NodePalette{
+						.m_Fill=IM_COL32(32, 50, 35, 255),
+						.m_Border=IM_COL32(116, 188, 126, 225),
+						.m_Accent=IM_COL32(145, 226, 152, 245)
+					};
 					}
 				}
-				return NodePalette{ IM_COL32(30, 38, 48, 255), IM_COL32(108, 126, 146, 220), IM_COL32(154, 170, 188, 235) };
+				return NodePalette{
+					.m_Fill = IM_COL32(30, 38, 48, 255),
+					.m_Border = IM_COL32(108, 126, 146, 220),
+					.m_Accent = IM_COL32(154, 170, 188, 235)
+				};
 			case AnimationBlueprintNodeType::If:
 			case AnimationBlueprintNodeType::IfNot:
-				return NodePalette{ IM_COL32(27, 44, 48, 255), IM_COL32(96, 188, 178, 225), IM_COL32(124, 220, 208, 245) };
+				return NodePalette{
+					.m_Fill = IM_COL32(27, 44, 48, 255),
+					.m_Border = IM_COL32(96, 188, 178, 225),
+					.m_Accent = IM_COL32(124, 220, 208, 245)
+				};
 			case AnimationBlueprintNodeType::Greater:
 			case AnimationBlueprintNodeType::Less:
 			case AnimationBlueprintNodeType::Equals:
 			case AnimationBlueprintNodeType::NotEquals:
-				return NodePalette{ IM_COL32(27, 42, 60, 255), IM_COL32(98, 166, 230, 225), IM_COL32(124, 196, 255, 245) };
+				return NodePalette{
+					.m_Fill = IM_COL32(27, 42, 60, 255),
+					.m_Border = IM_COL32(98, 166, 230, 225),
+					.m_Accent = IM_COL32(124, 196, 255, 245)
+				};
 			case AnimationBlueprintNodeType::Not:
-				return NodePalette{ IM_COL32(40, 40, 58, 255), IM_COL32(138, 148, 214, 225), IM_COL32(168, 180, 236, 245) };
+				return NodePalette{
+					.m_Fill = IM_COL32(40, 40, 58, 255),
+					.m_Border = IM_COL32(138, 148, 214, 225),
+					.m_Accent = IM_COL32(168, 180, 236, 245)
+				};
 			case AnimationBlueprintNodeType::And:
 			case AnimationBlueprintNodeType::Or:
-				return NodePalette{ IM_COL32(42, 38, 50, 255), IM_COL32(176, 130, 186, 225), IM_COL32(210, 160, 220, 245) };
+				return NodePalette{
+					.m_Fill = IM_COL32(42, 38, 50, 255),
+					.m_Border = IM_COL32(176, 130, 186, 225),
+					.m_Accent = IM_COL32(210, 160, 220, 245)
+				};
 			case AnimationBlueprintNodeType::Reroute:
-				return NodePalette{ IM_COL32(24, 34, 42, 255), IM_COL32(118, 150, 176, 220), IM_COL32(170, 198, 222, 245) };
+				return NodePalette{
+					.m_Fill = IM_COL32(24, 34, 42, 255),
+					.m_Border = IM_COL32(118, 150, 176, 220),
+					.m_Accent = IM_COL32(170, 198, 222, 245)
+				};
 			case AnimationBlueprintNodeType::Result:
-				return NodePalette{ IM_COL32(27, 48, 38, 255), IM_COL32(110, 190, 132, 225), IM_COL32(142, 226, 156, 245) };
-			default:
-				return NodePalette{ IM_COL32(30, 38, 48, 255), IM_COL32(108, 126, 146, 220), IM_COL32(154, 170, 188, 235) };
+				return NodePalette{
+					.m_Fill = IM_COL32(27, 48, 38, 255),
+					.m_Border = IM_COL32(110, 190, 132, 225),
+					.m_Accent = IM_COL32(142, 226, 156, 245)
+				};
 			}
+			return NodePalette{
+				.m_Fill = IM_COL32(30, 38, 48, 255),
+				.m_Border = IM_COL32(108, 126, 146, 220),
+				.m_Accent = IM_COL32(154, 170, 188, 235)
+			};
 		};
 
 	auto inputPinCount = [](AnimationBlueprintNodeType type) -> uint32_t
@@ -2203,9 +2262,12 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationBlueprintNodeType::And:
 			case AnimationBlueprintNodeType::Or: return 2;
 			case AnimationBlueprintNodeType::Reroute:
-			case AnimationBlueprintNodeType::Result: return 1;
-			default: return 1;
+			case AnimationBlueprintNodeType::Result:
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::IfNot:
+			case AnimationBlueprintNodeType::Not: return 1;
 			}
+			return 1;
 		};
 
 	auto outputPinCount = [](AnimationBlueprintNodeType type) -> uint32_t
@@ -2214,19 +2276,19 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			{
 			case AnimationBlueprintNodeType::Start:
 			case AnimationBlueprintNodeType::Result: return 0;
-			case AnimationBlueprintNodeType::Parameter: return 1;
+			case AnimationBlueprintNodeType::Parameter:
 			case AnimationBlueprintNodeType::If:
 			case AnimationBlueprintNodeType::IfNot:
 			case AnimationBlueprintNodeType::Greater:
 			case AnimationBlueprintNodeType::Less:
 			case AnimationBlueprintNodeType::Equals:
-			case AnimationBlueprintNodeType::NotEquals: return 1;
+			case AnimationBlueprintNodeType::NotEquals:
 			case AnimationBlueprintNodeType::Reroute:
 			case AnimationBlueprintNodeType::Not:
 			case AnimationBlueprintNodeType::And:
 			case AnimationBlueprintNodeType::Or: return 1;
-			default: return 0;
 			}
+			return 0;
 		};
 
 	auto inputPinLabel = [](AnimationBlueprintNodeType type, uint32_t pin) -> const char*
@@ -2244,8 +2306,10 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationBlueprintNodeType::Less:
 			case AnimationBlueprintNodeType::Equals:
 			case AnimationBlueprintNodeType::NotEquals: return pin == 0 ? "A" : "B";
-			default: return "";
+			case AnimationBlueprintNodeType::Start:
+			case AnimationBlueprintNodeType::Parameter: return "";
 			}
+			return "";
 		};
 
 	auto outputPinLabel = [](AnimationBlueprintNodeType type, uint32_t) -> const char*
@@ -2262,9 +2326,11 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationBlueprintNodeType::Not:
 			case AnimationBlueprintNodeType::And:
 			case AnimationBlueprintNodeType::Or: return "Out";
-			case AnimationBlueprintNodeType::Reroute: return "";
-			default: return "";
+			case AnimationBlueprintNodeType::Reroute:
+			case AnimationBlueprintNodeType::Start:
+			case AnimationBlueprintNodeType::Result: return "";
 			}
+			return "";
 		};
 
 	auto execInputPinCount = [](AnimationBlueprintNodeType type) -> uint32_t
@@ -2280,9 +2346,14 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationBlueprintNodeType::Reroute:
 			case AnimationBlueprintNodeType::Result:
 				return 1;
-			default:
+			case AnimationBlueprintNodeType::Start:
+			case AnimationBlueprintNodeType::Parameter:
+			case AnimationBlueprintNodeType::Not:
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or:
 				return 0;
 			}
+			return 0;
 		};
 
 	auto execOutputPinCount = [](AnimationBlueprintNodeType type) -> uint32_t
@@ -2299,9 +2370,14 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationBlueprintNodeType::Equals:
 			case AnimationBlueprintNodeType::NotEquals:
 				return 2;
-			default:
+			case AnimationBlueprintNodeType::Parameter:
+			case AnimationBlueprintNodeType::Not:
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or:
+			case AnimationBlueprintNodeType::Result:
 				return 0;
 			}
+			return 0;
 		};
 
 	auto execOutputPinId = [](AnimationBlueprintNodeType type, uint32_t pin) -> uint32_t
@@ -2342,8 +2418,11 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationBlueprintNodeType::Equals:
 			case AnimationBlueprintNodeType::NotEquals: return { 252.0f, 150.0f };
 			case AnimationBlueprintNodeType::Result: return { 176.0f, 92.0f };
-			default: return { 224.0f, 118.0f };
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::IfNot:
+				return { 224.0f, 118.0f };
 			}
+			return { 224.0f, 118.0f };
 		};
 
 	auto conditionModeFromNodeType = [](AnimationBlueprintNodeType type) -> AnimationConditionMode
@@ -2355,8 +2434,17 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationBlueprintNodeType::Less: return AnimationConditionMode::Less;
 			case AnimationBlueprintNodeType::Equals: return AnimationConditionMode::Equals;
 			case AnimationBlueprintNodeType::NotEquals: return AnimationConditionMode::NotEquals;
-			default: return AnimationConditionMode::If;
+			case AnimationBlueprintNodeType::Start:
+			case AnimationBlueprintNodeType::Parameter:
+			case AnimationBlueprintNodeType::If:
+			case AnimationBlueprintNodeType::Not:
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or:
+			case AnimationBlueprintNodeType::Reroute:
+			case AnimationBlueprintNodeType::Result:
+				return AnimationConditionMode::If;
 			}
+			return AnimationConditionMode::If;
 		};
 
 	auto nodeTypeFromConditionMode = [](AnimationConditionMode mode) -> AnimationBlueprintNodeType
@@ -2368,8 +2456,9 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationConditionMode::Less: return AnimationBlueprintNodeType::Less;
 			case AnimationConditionMode::Equals: return AnimationBlueprintNodeType::Equals;
 			case AnimationConditionMode::NotEquals: return AnimationBlueprintNodeType::NotEquals;
-			default: return AnimationBlueprintNodeType::If;
+			case AnimationConditionMode::If: return AnimationBlueprintNodeType::If;
 			}
+			return AnimationBlueprintNodeType::If;
 		};
 
 	auto addNode = [&](AnimationBlueprintNodeType type, glm::vec2 graphPosition, std::string parameterName = {}) -> AnimationControllerBlueprintNode&
@@ -2400,8 +2489,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			AnimationControllerBlueprintNode* output = findNode(outputNode);
 			if (!input || !output)
 				return;
-			const bool execLink = IsAnimationBlueprintExecPin(outputPin) || IsAnimationBlueprintExecPin(inputPin);
-			if (execLink)
+			if (const bool execLink = IsAnimationBlueprintExecPin(outputPin) || IsAnimationBlueprintExecPin(inputPin); execLink)
 			{
 				if (!IsAnimationBlueprintExecPin(outputPin) || inputPin != AnimationBlueprintExecInputPin || execInputPinCount(input->m_Type) == 0)
 					return;
@@ -2450,10 +2538,10 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 
 	auto resultNodeId = [&]() -> uint32_t
 		{
-			const auto resultIt = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [](const AnimationControllerBlueprintNode& node)
-				{
-					return node.m_Type == AnimationBlueprintNodeType::Result;
-				});
+			const auto resultIt = std::ranges::find_if(transition.m_BlueprintNodes, [](const AnimationControllerBlueprintNode& node)
+			{
+				return node.m_Type == AnimationBlueprintNodeType::Result;
+			});
 			if (resultIt != transition.m_BlueprintNodes.end())
 				return resultIt->m_Id;
 			AnimationControllerBlueprintNode& result = addNode(AnimationBlueprintNodeType::Result, { 620.0f, 96.0f });
@@ -2462,10 +2550,10 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 
 	auto startNodeId = [&]() -> uint32_t
 		{
-			const auto startIt = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [](const AnimationControllerBlueprintNode& node)
-				{
-					return node.m_Type == AnimationBlueprintNodeType::Start;
-				});
+			const auto startIt = std::ranges::find_if(transition.m_BlueprintNodes, [](const AnimationControllerBlueprintNode& node)
+			{
+				return node.m_Type == AnimationBlueprintNodeType::Start;
+			});
 			if (startIt != transition.m_BlueprintNodes.end())
 				return startIt->m_Id;
 			AnimationControllerBlueprintNode& start = addNode(AnimationBlueprintNodeType::Start, { 28.0f, 96.0f });
@@ -2478,9 +2566,9 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 				return {};
 			if (type == AnimationBlueprintNodeType::If || type == AnimationBlueprintNodeType::IfNot)
 			{
-				const auto boolIt = std::find_if(parameters.begin(), parameters.end(), [](const AnimationControllerParameter& parameter)
-					{
-						return parameter.m_Type == AnimationParameterType::Bool || parameter.m_Type == AnimationParameterType::Trigger;
+				const auto boolIt = std::ranges::find_if(parameters, [](const AnimationControllerParameter& parameter)
+				{
+					return parameter.m_Type == AnimationParameterType::Bool || parameter.m_Type == AnimationParameterType::Trigger;
 				});
 				if (boolIt != parameters.end())
 					return boolIt->m_Name;
@@ -2488,10 +2576,10 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			}
 			if (type == AnimationBlueprintNodeType::Greater || type == AnimationBlueprintNodeType::Less || type == AnimationBlueprintNodeType::Equals || type == AnimationBlueprintNodeType::NotEquals)
 			{
-				const auto numericIt = std::find_if(parameters.begin(), parameters.end(), [](const AnimationControllerParameter& parameter)
-					{
-						return parameter.m_Type == AnimationParameterType::Float || parameter.m_Type == AnimationParameterType::Int;
-					});
+				const auto numericIt = std::ranges::find_if(parameters, [](const AnimationControllerParameter& parameter)
+				{
+					return parameter.m_Type == AnimationParameterType::Float || parameter.m_Type == AnimationParameterType::Int;
+				});
 				if (numericIt != parameters.end())
 					return numericIt->m_Name;
 				if (type == AnimationBlueprintNodeType::Greater || type == AnimationBlueprintNodeType::Less)
@@ -2541,9 +2629,15 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			case AnimationBlueprintNodeType::Equals:
 			case AnimationBlueprintNodeType::NotEquals:
 				return true;
-			default:
+			case AnimationBlueprintNodeType::Start:
+			case AnimationBlueprintNodeType::Not:
+			case AnimationBlueprintNodeType::And:
+			case AnimationBlueprintNodeType::Or:
+			case AnimationBlueprintNodeType::Reroute:
+			case AnimationBlueprintNodeType::Result:
 				return false;
 			}
+			return false;
 		};
 
 	auto ensureCompatibleParameter = [&](AnimationControllerBlueprintNode& node)
@@ -2594,8 +2688,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 					if (!output || !input || output->m_Id == input->m_Id)
 						return true;
 
-					const bool execLink = IsAnimationBlueprintExecPin(link.m_OutputPin) || IsAnimationBlueprintExecPin(link.m_InputPin);
-					if (execLink)
+					if (const bool execLink = IsAnimationBlueprintExecPin(link.m_OutputPin) || IsAnimationBlueprintExecPin(link.m_InputPin); execLink)
 					{
 						if (!IsAnimationBlueprintExecPin(link.m_OutputPin) || link.m_InputPin != AnimationBlueprintExecInputPin || execInputPinCount(input->m_Type) == 0)
 							return true;
@@ -2631,7 +2724,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 		for (size_t index = 0; index < transition.m_Conditions.size(); ++index)
 		{
 			const AnimationControllerCondition& condition = transition.m_Conditions[index];
-			const glm::vec2 basePosition = condition.m_GraphPosition.x == 0.0f && condition.m_GraphPosition.y == 0.0f ? glm::vec2{ 32.0f, 54.0f + (float)index * 94.0f } : condition.m_GraphPosition;
+			const glm::vec2 basePosition = condition.m_GraphPosition.x == 0.0f && condition.m_GraphPosition.y == 0.0f ? glm::vec2{ 32.0f, 54.0f + static_cast<float>(index) * 94.0f } : condition.m_GraphPosition;
 			const uint32_t parameterId = addNode(AnimationBlueprintNodeType::Parameter, basePosition, condition.m_Parameter).m_Id;
 			const uint32_t logicId = addNode(nodeTypeFromConditionMode(condition.m_Mode), basePosition + glm::vec2{ 228.0f, -12.0f }, condition.m_Parameter).m_Id;
 			if (AnimationControllerBlueprintNode* logic = findNode(logicId))
@@ -2758,7 +2851,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 		m_SelectedBlueprintNodeId = 0;
 	}
 
-	const float selectedPanelHeight = 0.0f;
+	constexpr float selectedPanelHeight = 0.0f;
 	const ImVec2 canvasMin = ImGui::GetCursorScreenPos();
 	const ImVec2 available = ImGui::GetContentRegionAvail();
 	const ImVec2 canvasSize(std::max(420.0f, available.x), std::max(180.0f, available.y - selectedPanelHeight - ImGui::GetStyle().ItemSpacing.y));
@@ -2772,16 +2865,14 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 	{
 		const float oldZoom = m_BlueprintGraphZoom;
 		const float newZoom = std::clamp(oldZoom + ImGui::GetIO().MouseWheel * 0.08f, 0.55f, 2.0f);
-		if (newZoom != oldZoom)
+		if (!Math::EqualF(newZoom, oldZoom))
 		{
-			const glm::vec2 focusGraph
-			{
+			const glm::vec2 focusGraph {
 				(mousePos.x - canvasMin.x - m_BlueprintGraphPan.x) / oldZoom,
 				(mousePos.y - canvasMin.y - m_BlueprintGraphPan.y) / oldZoom
 			};
 			m_BlueprintGraphZoom = newZoom;
-			m_BlueprintGraphPan =
-			{
+			m_BlueprintGraphPan = {
 				mousePos.x - canvasMin.x - focusGraph.x * newZoom,
 				mousePos.y - canvasMin.y - focusGraph.y * newZoom
 			};
@@ -2791,13 +2882,23 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 	drawList->AddRectFilled(canvasMin, canvasMax, IM_COL32(8, 12, 16, 255), 5.0f);
 	drawList->AddRect(canvasMin, canvasMax, IM_COL32(54, 68, 82, 200), 5.0f);
 
-	const ImU32 gridColor = IM_COL32(46, 57, 68, 72);
+	constexpr ImU32 gridColor = IM_COL32(46, 57, 68, 72);
 	const float blueprintZoom = m_BlueprintGraphZoom;
 	const float gridStep = 24.0f * blueprintZoom;
-	for (float x = std::fmod(m_BlueprintGraphPan.x, gridStep); x < canvasSize.x; x += gridStep)
+
+	const float startX = std::fmod(m_BlueprintGraphPan.x, gridStep);
+	for (int i = 0; startX + (static_cast<float>(i) * gridStep) < canvasSize.x; ++i)
+	{
+		float x = startX + (static_cast<float>(i) * gridStep);
 		drawList->AddLine(ImVec2(canvasMin.x + x, canvasMin.y), ImVec2(canvasMin.x + x, canvasMax.y), gridColor);
-	for (float y = std::fmod(m_BlueprintGraphPan.y, gridStep); y < canvasSize.y; y += gridStep)
+	}
+
+	const float startY = std::fmod(m_BlueprintGraphPan.y, gridStep);
+	for (int i = 0; startY + (static_cast<float>(i) * gridStep) < canvasSize.y; ++i)
+	{
+		float y = startY + (static_cast<float>(i) * gridStep);
 		drawList->AddLine(ImVec2(canvasMin.x, canvasMin.y + y), ImVec2(canvasMax.x, canvasMin.y + y), gridColor);
+	}
 
 	auto graphToScreen = [&](const glm::vec2& graph) -> ImVec2
 		{
@@ -2851,7 +2952,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 
 	auto drawBlueprintNodeMenu = [&]()
 		{
-			enum class PaletteAction
+			enum class PaletteAction : uint8_t
 			{
 				SpawnNode,
 				SpawnCondition,
@@ -2874,7 +2975,14 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			std::vector<PaletteEntry> entries;
 			auto addEntry = [&](PaletteAction action, AnimationBlueprintNodeType type, std::string category, std::string name, std::string detail = {}, std::string parameterName = {})
 				{
-					entries.push_back({ action, type, std::move(category), std::move(name), std::move(detail), std::move(parameterName) });
+					entries.push_back({
+						.m_Action = action,
+						.m_Type = type,
+						.m_Category = std::move(category),
+						.m_Name = std::move(name),
+						.m_Detail = std::move(detail),
+						.m_Parameter = std::move(parameterName)
+					});
 				};
 
 			if (fromPin && !fromInput)
@@ -2923,10 +3031,10 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 
 			auto lower = [](std::string value)
 				{
-					std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c)
-						{
-							return (char)std::tolower(c);
-						});
+					std::ranges::transform(value, value.begin(), [](unsigned char c)
+					{
+						return static_cast<char>(std::tolower(c));
+					});
 					return value;
 				};
 			const std::string query = lower(m_BlueprintNodeSearch);
@@ -2996,8 +3104,8 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			}
 
 			std::string lastCategory;
-			const float nameColumnWidth = 168.0f;
-			const float rowHeight = 24.0f;
+			constexpr float nameColumnWidth = 168.0f;
+			constexpr float rowHeight = 24.0f;
 			for (size_t filteredIndex : filteredEntries)
 			{
 				const PaletteEntry& entry = entries[filteredIndex];
@@ -3009,7 +3117,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 					lastCategory = entry.m_Category;
 				}
 
-				ImGui::PushID((int)filteredIndex);
+				ImGui::PushID(static_cast<int>(filteredIndex));
 				if (ImGui::Selectable(entry.m_Name.c_str(), false, 0, ImVec2(nameColumnWidth, rowHeight)))
 					executeEntry(entry);
 				ImGui::SameLine();
@@ -3024,7 +3132,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ANIMATION_PARAMETER"))
 		{
 			const int parameterIndex = *static_cast<const int*>(payload->Data);
-			if (parameterIndex >= 0 && parameterIndex < (int)parameters.size())
+			if (parameterIndex >= 0 && std::cmp_less(parameterIndex, parameters.size()))
 			{
 				const AnimationControllerParameter& parameter = parameters[parameterIndex];
 				const AnimationBlueprintNodeType conditionType = (parameter.m_Type == AnimationParameterType::Float || parameter.m_Type == AnimationParameterType::Int) ? AnimationBlueprintNodeType::Greater : AnimationBlueprintNodeType::If;
@@ -3170,7 +3278,6 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 	uint32_t nodeToDuplicate = 0;
 	uint32_t nodeToRemove = 0;
 	uint32_t nodeToReset = 0;
-	const float pinHitSize = 22.0f;
 	auto removeInputLinks = [&](uint32_t nodeId, uint32_t inputPin)
 		{
 			std::erase_if(transition.m_BlueprintLinks, [nodeId, inputPin](const AnimationControllerBlueprintLink& link)
@@ -3202,7 +3309,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 	auto drawExecPin = [&](const ImVec2& pinPosition, bool hovered, bool output)
 		{
 			const ImU32 fill = hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(226, 232, 238, 255);
-			const ImU32 outline = IM_COL32(10, 16, 22, 210);
+			constexpr ImU32 outline = IM_COL32(10, 16, 22, 210);
 			const float radius = hovered ? 7.0f : 6.0f;
 			const ImVec2 tip = output ? ImVec2(pinPosition.x + radius + 1.0f, pinPosition.y) : ImVec2(pinPosition.x + radius - 1.0f, pinPosition.y);
 			const ImVec2 top = ImVec2(pinPosition.x - radius + 1.0f, pinPosition.y - radius);
@@ -3212,10 +3319,10 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 		};
 	auto hasInputLink = [&](uint32_t nodeId, uint32_t inputPin)
 		{
-			return std::any_of(transition.m_BlueprintLinks.begin(), transition.m_BlueprintLinks.end(), [nodeId, inputPin](const AnimationControllerBlueprintLink& link)
-				{
-					return link.m_InputNode == nodeId && link.m_InputPin == inputPin;
-				});
+			return std::ranges::any_of(transition.m_BlueprintLinks, [nodeId, inputPin](const AnimationControllerBlueprintLink& link)
+			{
+				return link.m_InputNode == nodeId && link.m_InputPin == inputPin;
+			});
 		};
 	auto inputValueType = [&](const AnimationControllerBlueprintNode& node) -> AnimationParameterType
 		{
@@ -3240,9 +3347,9 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 
 			const ImVec2 pinPosition = inputPinPosition(node, pin);
 			const AnimationParameterType valueType = inputValueType(node);
-			ImGui::PushID((int)node.m_Id);
-			ImGui::PushID((int)pin + 7000);
-			bool active = false;
+			ImGui::PushID(static_cast<int>(node.m_Id));
+			ImGui::PushID(static_cast<int>(pin) + 7000);
+			bool active;
 			if (valueType == AnimationParameterType::Bool || valueType == AnimationParameterType::Trigger)
 			{
 				ImGui::SetCursorScreenPos(ImVec2(pinPosition.x + 58.0f, pinPosition.y - 10.0f));
@@ -3257,7 +3364,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 				if (ImGui::DragInt("##PinDefaultInt", &node.m_InputIntValues[pin], 1.0f))
 				{
 					node.m_IntValue = node.m_InputIntValues[1];
-					node.m_InputFloatValues[pin] = (float)node.m_InputIntValues[pin];
+					node.m_InputFloatValues[pin] = static_cast<float>(node.m_InputIntValues[pin]);
 				}
 				active = ImGui::IsItemHovered() || ImGui::IsItemActive();
 			}
@@ -3275,6 +3382,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 		};
 	for (AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
 	{
+		constexpr float pinHitSize = 22.0f;
 		const ImVec2 size = nodeScreenSize(node.m_Type);
 		const ImVec2 min = nodeMin(node);
 		const ImVec2 max(min.x + size.x, min.y + size.y);
@@ -3312,7 +3420,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			if (label[0] != '\0')
 				drawList->AddText(ImVec2(pinPosition.x + 12.0f, pinPosition.y - 7.0f), IM_COL32(210, 218, 224, 240), label);
 			ImGui::SetCursorScreenPos(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f));
-			ImGui::PushID((int)node.m_Id);
+			ImGui::PushID(static_cast<int>(node.m_Id));
 			ImGui::PushID("ExecInput");
 			ImGui::InvisibleButton("##BlueprintExecInputPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
 			const bool execInputHovered = ImGui::IsItemHovered();
@@ -3354,8 +3462,8 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			}
 			drawExecPin(pinPosition, hovered, true);
 			ImGui::SetCursorScreenPos(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f));
-			ImGui::PushID((int)node.m_Id);
-			ImGui::PushID((int)pin + 2000);
+			ImGui::PushID(static_cast<int>(node.m_Id));
+			ImGui::PushID(static_cast<int>(pin) + 2000);
 			ImGui::InvisibleButton("##BlueprintExecOutputPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
 			const bool execOutputHovered = ImGui::IsItemHovered();
 			blueprintItemHovered |= execOutputHovered;
@@ -3392,8 +3500,8 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			}
 			drawList->AddCircleFilled(pinPosition, hovered ? 6.2f : 4.8f, hovered ? IM_COL32(122, 196, 255, 255) : IM_COL32(94, 184, 178, 255));
 			ImGui::SetCursorScreenPos(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f));
-			ImGui::PushID((int)node.m_Id);
-			ImGui::PushID((int)pin);
+			ImGui::PushID(static_cast<int>(node.m_Id));
+			ImGui::PushID(static_cast<int>(pin));
 			ImGui::InvisibleButton("##BlueprintInputPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
 			const bool inputPinItemHovered = ImGui::IsItemHovered();
 			blueprintItemHovered |= inputPinItemHovered;
@@ -3433,8 +3541,8 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			}
 			drawList->AddCircleFilled(pinPosition, hovered ? 6.2f : 4.8f, hovered ? IM_COL32(255, 255, 255, 255) : pin == 1 ? IM_COL32(214, 126, 140, 255) : palette.m_Accent);
 			ImGui::SetCursorScreenPos(ImVec2(pinPosition.x - pinHitSize * 0.5f, pinPosition.y - pinHitSize * 0.5f));
-			ImGui::PushID((int)node.m_Id);
-			ImGui::PushID((int)pin + 1000);
+			ImGui::PushID(static_cast<int>(node.m_Id));
+			ImGui::PushID(static_cast<int>(pin) + 1000);
 			ImGui::InvisibleButton("##BlueprintOutputPin", ImVec2(pinHitSize, pinHitSize), ImGuiButtonFlags_AllowOverlap);
 			const bool outputPinItemHovered = ImGui::IsItemHovered();
 			blueprintItemHovered |= outputPinItemHovered;
@@ -3471,7 +3579,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 				if (areaSize.x <= 1.0f || areaSize.y <= 1.0f)
 					return;
 				ImGui::SetCursorScreenPos(position);
-				ImGui::PushID((int)node.m_Id);
+				ImGui::PushID(static_cast<int>(node.m_Id));
 				ImGui::InvisibleButton(id, areaSize, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_AllowOverlap);
 				blueprintItemHovered |= ImGui::IsItemHovered();
 				if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
@@ -3526,7 +3634,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			ImGui::BeginDisabled(systemNode);
 			if (ImGui::BeginMenu("Convert To"))
 			{
-				const std::array<AnimationBlueprintNodeType, 10> editableTypes =
+				constexpr std::array<AnimationBlueprintNodeType, 10> editableTypes =
 				{
 					AnimationBlueprintNodeType::Parameter,
 					AnimationBlueprintNodeType::If,
@@ -3644,12 +3752,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 			m_PendingBlueprintLinkNodeId = 0;
 			m_PendingBlueprintLinkFromInput = false;
 		}
-		else if (ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-		{
-			m_PendingBlueprintLinkNodeId = 0;
-			m_PendingBlueprintLinkFromInput = false;
-		}
-		else if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
+		else if (ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::IsMouseClicked(ImGuiMouseButton_Right) || !ImGui::IsMouseDown(ImGuiMouseButton_Left))
 		{
 			m_PendingBlueprintLinkNodeId = 0;
 			m_PendingBlueprintLinkFromInput = false;
@@ -3708,18 +3811,18 @@ void AnimationEditorPanel::DrawControllerValidation()
 
 	auto stateExists = [&](std::string_view name)
 		{
-			return std::any_of(states.begin(), states.end(), [name](const AnimationControllerState& state)
-				{
-					return state.m_Name == name;
-				});
+			return std::ranges::any_of(states, [name](const AnimationControllerState& state)
+			{
+				return state.m_Name == name;
+			});
 		};
 
 	auto parameterExists = [&](std::string_view name)
 		{
-			return std::any_of(parameters.begin(), parameters.end(), [name](const AnimationControllerParameter& parameter)
-				{
-					return parameter.m_Name == name;
-				});
+			return std::ranges::any_of(parameters, [name](const AnimationControllerParameter& parameter)
+			{
+				return parameter.m_Name == name;
+			});
 		};
 
 	auto isAnimationClipValid = [](AssetHandle handle)
@@ -3816,7 +3919,7 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		return;
 	}
 
-	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)states.size() - 1);
+	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, static_cast<int>(states.size()) - 1);
 	DrawControllerValidation();
 
 	if (AnimationControllerTransition* selectedTransition = GetSelectedControllerTransition())
@@ -3825,7 +3928,7 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		ImGui::Separator();
 		if (m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource)
 			ImGui::TextDisabled("Source: Any State");
-		else if (m_SelectedTransitionSourceStateIndex >= 0 && m_SelectedTransitionSourceStateIndex < (int)states.size())
+		else if (m_SelectedTransitionSourceStateIndex >= 0 && std::cmp_less(m_SelectedTransitionSourceStateIndex, states.size()))
 			ImGui::TextDisabled("Source: %s", states[m_SelectedTransitionSourceStateIndex].m_Name.c_str());
 
 		if (ImGui::Button("Duplicate Transition", ImVec2(-1.0f, 0.0f)))
@@ -3835,13 +3938,14 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 			{
 				auto& transitions = m_CurrentController->GetAnyStateTransitions();
 				transitions.push_back(duplicate);
-				m_SelectedTransitionIndex = (int)transitions.size() - 1;
+				m_SelectedTransitionIndex = static_cast<int>(transitions.size()) - 1;
 			}
-			else if (m_SelectedTransitionSourceStateIndex >= 0 && m_SelectedTransitionSourceStateIndex < (int)states.size())
+			else if (m_SelectedTransitionSourceStateIndex >= 0 && std::cmp_less(m_SelectedTransitionSourceStateIndex,
+				states.size()))
 			{
 				auto& transitions = states[m_SelectedTransitionSourceStateIndex].m_Transitions;
 				transitions.push_back(duplicate);
-				m_SelectedTransitionIndex = (int)transitions.size() - 1;
+				m_SelectedTransitionIndex = static_cast<int>(transitions.size()) - 1;
 			}
 			ImGui::EndChild();
 			return;
@@ -3884,7 +3988,7 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		}
 	}
 
-	const std::array<AnimationMotionType, 2> motionTypes =
+	constexpr std::array<AnimationMotionType, 2> motionTypes =
 	{
 		AnimationMotionType::Clip,
 		AnimationMotionType::BlendTree1D
@@ -3953,15 +4057,15 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 			state.m_BlendChildren.push_back({});
 		if (ImGui::Button("Sort Blend Children", ImVec2(-1.0f, 0.0f)))
 		{
-			std::sort(state.m_BlendChildren.begin(), state.m_BlendChildren.end(), [](const AnimationBlendChild& left, const AnimationBlendChild& right)
-				{
-					return left.m_Threshold < right.m_Threshold;
-				});
+			std::ranges::sort(state.m_BlendChildren, [](const AnimationBlendChild& left, const AnimationBlendChild& right)
+			{
+				return left.m_Threshold < right.m_Threshold;
+			});
 		}
 
 		for (size_t childIndex = 0; childIndex < state.m_BlendChildren.size(); ++childIndex)
 		{
-			ImGui::PushID((int)childIndex);
+			ImGui::PushID(static_cast<int>(childIndex));
 			AnimationBlendChild& child = state.m_BlendChildren[childIndex];
 			std::string childClipLabel = "Drop Animation";
 			if (child.m_Clip != 0 && AssetManager::IsAssetHandleValid(child.m_Clip) && AssetManager::GetAssetType(child.m_Clip) == AssetType::Animation)
@@ -3976,7 +4080,7 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 			ImGui::DragFloat("Child Speed", &child.m_Speed, 0.01f, 0.0f, 20.0f, "%.2f");
 			if (ImGui::Button("Remove Child", ImVec2(-1.0f, 0.0f)))
 			{
-				state.m_BlendChildren.erase(state.m_BlendChildren.begin() + childIndex);
+				state.m_BlendChildren.erase(state.m_BlendChildren.begin() + static_cast<std::vector<AnimationBlendChild>::difference_type>(childIndex));
 				ImGui::PopID();
 				break;
 			}
@@ -4004,14 +4108,14 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 			transition.m_TargetState = std::string(AnimationController::ExitStateName);
 		state.m_Transitions.push_back(transition);
 		m_SelectedTransitionSourceStateIndex = m_SelectedControllerStateIndex;
-		m_SelectedTransitionIndex = (int)state.m_Transitions.size() - 1;
+		m_SelectedTransitionIndex = static_cast<int>(state.m_Transitions.size()) - 1;
 	}
 
 	int transitionToMoveUp = -1;
 	int transitionToMoveDown = -1;
 	for (size_t transitionIndex = 0; transitionIndex < state.m_Transitions.size(); ++transitionIndex)
 	{
-		ImGui::PushID((int)transitionIndex);
+		ImGui::PushID(static_cast<int>(transitionIndex));
 		AnimationControllerTransition& transition = state.m_Transitions[transitionIndex];
 		std::string header = "-> " + (transition.m_TargetState.empty() ? std::string("None") : transition.m_TargetState);
 		if (ImGui::TreeNodeEx(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
@@ -4019,22 +4123,22 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 			if (ImGui::Button("Select In Graph", ImVec2(-1.0f, 0.0f)))
 			{
 				m_SelectedTransitionSourceStateIndex = m_SelectedControllerStateIndex;
-				m_SelectedTransitionIndex = (int)transitionIndex;
+				m_SelectedTransitionIndex = static_cast<int>(transitionIndex);
 			}
 			ImGui::BeginDisabled(transitionIndex == 0);
 			if (ImGui::Button("Move Up"))
-				transitionToMoveUp = (int)transitionIndex;
+				transitionToMoveUp = static_cast<int>(transitionIndex);
 			ImGui::EndDisabled();
 			ImGui::SameLine();
 			ImGui::BeginDisabled(transitionIndex + 1 >= state.m_Transitions.size());
 			if (ImGui::Button("Move Down"))
-				transitionToMoveDown = (int)transitionIndex;
+				transitionToMoveDown = static_cast<int>(transitionIndex);
 			ImGui::EndDisabled();
 			DrawControllerTransitionInspector(transition, true);
 
 			if (ImGui::Button("Remove Transition", ImVec2(-1.0f, 0.0f)))
 			{
-				state.m_Transitions.erase(state.m_Transitions.begin() + transitionIndex);
+				state.m_Transitions.erase(state.m_Transitions.begin() + static_cast<std::vector<AnimationControllerTransition>::difference_type>(transitionIndex));
 				ClearSelectedControllerTransition();
 				ImGui::TreePop();
 				ImGui::PopID();
@@ -4044,13 +4148,13 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		}
 		ImGui::PopID();
 	}
-	if (transitionToMoveUp > 0 && transitionToMoveUp < (int)state.m_Transitions.size())
+	if (transitionToMoveUp > 0 && std::cmp_less(transitionToMoveUp, state.m_Transitions.size()))
 	{
 		std::swap(state.m_Transitions[transitionToMoveUp], state.m_Transitions[transitionToMoveUp - 1]);
 		m_SelectedTransitionSourceStateIndex = m_SelectedControllerStateIndex;
 		m_SelectedTransitionIndex = transitionToMoveUp - 1;
 	}
-	if (transitionToMoveDown >= 0 && transitionToMoveDown + 1 < (int)state.m_Transitions.size())
+	if (transitionToMoveDown >= 0 && transitionToMoveDown + 1 < static_cast<int>(state.m_Transitions.size()))
 	{
 		std::swap(state.m_Transitions[transitionToMoveDown], state.m_Transitions[transitionToMoveDown + 1]);
 		m_SelectedTransitionSourceStateIndex = m_SelectedControllerStateIndex;
@@ -4067,40 +4171,41 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 		auto& transitions = m_CurrentController->GetAnyStateTransitions();
 		transitions.push_back(transition);
 		m_SelectedTransitionSourceStateIndex = AnyStateTransitionSource;
-		m_SelectedTransitionIndex = (int)transitions.size() - 1;
+		m_SelectedTransitionIndex = static_cast<int>(transitions.size()) - 1;
 	}
 	auto& anyTransitions = m_CurrentController->GetAnyStateTransitions();
 	int anyTransitionToMoveUp = -1;
 	int anyTransitionToMoveDown = -1;
 	for (size_t transitionIndex = 0; transitionIndex < anyTransitions.size(); ++transitionIndex)
 	{
-		ImGui::PushID((int)transitionIndex);
+		ImGui::PushID(static_cast<int>(transitionIndex));
 		const AnimationControllerTransition& transition = anyTransitions[transitionIndex];
 		std::string label = "Any -> " + (transition.m_TargetState.empty() ? std::string("None") : transition.m_TargetState);
-		if (ImGui::Selectable(label.c_str(), m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource && m_SelectedTransitionIndex == (int)transitionIndex, 0, ImVec2(std::max(80.0f, width - 112.0f), 0.0f)))
+		if (ImGui::Selectable(label.c_str(), m_SelectedTransitionSourceStateIndex == AnyStateTransitionSource &&
+			std::cmp_equal(m_SelectedTransitionIndex, transitionIndex), 0, ImVec2(std::max(80.0f, width - 112.0f), 0.0f)))
 		{
 			m_SelectedTransitionSourceStateIndex = AnyStateTransitionSource;
-			m_SelectedTransitionIndex = (int)transitionIndex;
+			m_SelectedTransitionIndex = static_cast<int>(transitionIndex);
 		}
 		ImGui::SameLine();
 		ImGui::BeginDisabled(transitionIndex == 0);
 		if (ImGui::SmallButton("Up"))
-			anyTransitionToMoveUp = (int)transitionIndex;
+			anyTransitionToMoveUp = static_cast<int>(transitionIndex);
 		ImGui::EndDisabled();
 		ImGui::SameLine();
 		ImGui::BeginDisabled(transitionIndex + 1 >= anyTransitions.size());
 		if (ImGui::SmallButton("Down"))
-			anyTransitionToMoveDown = (int)transitionIndex;
+			anyTransitionToMoveDown = static_cast<int>(transitionIndex);
 		ImGui::EndDisabled();
 		ImGui::PopID();
 	}
-	if (anyTransitionToMoveUp > 0 && anyTransitionToMoveUp < (int)anyTransitions.size())
+	if (anyTransitionToMoveUp > 0 && std::cmp_less(anyTransitionToMoveUp, anyTransitions.size()))
 	{
 		std::swap(anyTransitions[anyTransitionToMoveUp], anyTransitions[anyTransitionToMoveUp - 1]);
 		m_SelectedTransitionSourceStateIndex = AnyStateTransitionSource;
 		m_SelectedTransitionIndex = anyTransitionToMoveUp - 1;
 	}
-	if (anyTransitionToMoveDown >= 0 && anyTransitionToMoveDown + 1 < (int)anyTransitions.size())
+	if (anyTransitionToMoveDown >= 0 && anyTransitionToMoveDown + 1 < static_cast<int>(anyTransitions.size()))
 	{
 		std::swap(anyTransitions[anyTransitionToMoveDown], anyTransitions[anyTransitionToMoveDown + 1]);
 		m_SelectedTransitionSourceStateIndex = AnyStateTransitionSource;
@@ -4115,8 +4220,7 @@ void AnimationEditorPanel::SaveCurrentController()
 	if (!m_CurrentController)
 		return;
 
-	const AssetMetadata& metadata = AssetManager::GetAssetMetadata(m_CurrentController->m_Handle);
-	if (metadata)
+	if (const AssetMetadata& metadata = AssetManager::GetAssetMetadata(m_CurrentController->m_Handle); metadata)
 		m_CurrentController->Serialize(Project::GetActiveAssetDirectory() / metadata.m_Filepath);
 }
 
@@ -4139,8 +4243,8 @@ void AnimationEditorPanel::DrawFrameList(float width)
 		for (size_t i = 0; i < frames.size(); ++i)
 		{
 			std::string label = "Frame " + std::to_string(i);
-			if (ImGui::Selectable(label.c_str(), m_SelectedFrameIndex == i, 0, ImVec2(width - ImGui::GetStyle().WindowPadding.x, 0.0f)))
-				m_SelectedFrameIndex = (int)i;
+			if (ImGui::Selectable(label.c_str(), std::cmp_equal(m_SelectedFrameIndex, i), 0, ImVec2(width - ImGui::GetStyle().WindowPadding.x, 0.0f)))
+				m_SelectedFrameIndex = static_cast<int>(i);
 		}
 		ImGui::EndCombo();
 	}
@@ -4155,7 +4259,7 @@ void AnimationEditorPanel::DrawAddFrameButton(float width)
 		AnimationFrame frame;
 		frame.m_Duration = 0.1f;
 		m_CurrentAnimation->AddFrame(frame);
-		m_SelectedFrameIndex = int(m_CurrentAnimation->GetFrames().size() - 1);
+		m_SelectedFrameIndex = static_cast<int>(m_CurrentAnimation->GetFrames().size() - 1);
 		StopPreview(false);
 	}
 }
@@ -4170,7 +4274,7 @@ void AnimationEditorPanel::DrawRemoveFrameButton(float width)
 		if (m_CurrentAnimation->GetFrames().empty())
 			m_SelectedFrameIndex = -1;
 		else
-			m_SelectedFrameIndex = std::min(m_SelectedFrameIndex, (int)m_CurrentAnimation->GetFrames().size() - 1);
+			m_SelectedFrameIndex = std::min(m_SelectedFrameIndex, static_cast<int>(m_CurrentAnimation->GetFrames().size()) - 1);
 		StopPreview(false);
 	}
 }
@@ -4193,7 +4297,8 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 	ImGui::Checkbox("Onion", &m_ShowOnionSkin);
 	ImGui::Separator();
 
-	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex,
+		m_CurrentAnimation->GetFrames().size()))
 	{
 		ImGui::TextDisabled("Select a frame.");
 		return;
@@ -4236,7 +4341,7 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 
 	auto drawFrameTexture = [&](int frameIndex, const ImVec2& offset, ImU32 tint)
 		{
-			if (frameIndex < 0 || frameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+			if (frameIndex < 0 || std::cmp_greater_equal(frameIndex, m_CurrentAnimation->GetFrames().size()))
 				return;
 
 			const AnimationFrame& previewFrame = m_CurrentAnimation->GetFrames()[frameIndex];
@@ -4279,7 +4384,7 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 
 	DrawFrameBatchTools(width);
 
-	if (m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+	if (m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex, m_CurrentAnimation->GetFrames().size()))
 	{
 		ImGui::TextDisabled("Select a frame to edit texture and duration.");
 		return;
@@ -4303,7 +4408,7 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 	}
 	ImGui::EndDisabled();
 	ImGui::SameLine();
-	ImGui::BeginDisabled(m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size() - 1);
+	ImGui::BeginDisabled(m_SelectedFrameIndex >= static_cast<int>(m_CurrentAnimation->GetFrames().size()) - 1);
 	if (ImGui::Button("Move Right"))
 	{
 		auto& frames = m_CurrentAnimation->GetFrames();
@@ -4341,7 +4446,7 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 			{
 				textureLabel = AssetManager::GetAssetMetadata(frame.m_Texture).m_Filepath.generic_string();
 				const auto& sprites = AssetManager::GetAssetMetadata(frame.m_Texture).m_TextureSettings.m_Sprites;
-				if (frame.m_TextureSpriteIndex >= 0 && frame.m_TextureSpriteIndex < static_cast<int32_t>(sprites.size()))
+				if (frame.m_TextureSpriteIndex >= 0 && std::cmp_less(frame.m_TextureSpriteIndex, sprites.size()))
 					textureLabel += " / " + sprites[static_cast<size_t>(frame.m_TextureSpriteIndex)].m_Name;
 			}
 			else
@@ -4353,19 +4458,18 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 		ImGui::TableNextColumn();
 		ImGui::TextUnformatted("Sprite");
 		ImGui::TableNextColumn();
-		bool hasSlices = false;
 		if (frame.m_Texture != 0 && AssetManager::IsAssetHandleValid(frame.m_Texture) && AssetManager::GetAssetType(frame.m_Texture) == AssetType::Texture2D)
 		{
 			const AssetMetadata& metadata = AssetManager::GetAssetMetadata(frame.m_Texture);
 			const auto& sprites = metadata.m_TextureSettings.m_Sprites;
-			hasSlices = !sprites.empty();
-			const bool validSpriteIndex = frame.m_TextureSpriteIndex >= 0 && frame.m_TextureSpriteIndex < static_cast<int32_t>(sprites.size());
+			bool hasSlices = !sprites.empty();
+			const bool validSpriteIndex = frame.m_TextureSpriteIndex >= 0 && std::cmp_less(frame.m_TextureSpriteIndex, sprites.size());
 			const char* spritePreview = validSpriteIndex ? sprites[static_cast<size_t>(frame.m_TextureSpriteIndex)].m_Name.c_str() : "Full Texture";
 			if (ImGui::BeginCombo("##FrameSprite", spritePreview))
 			{
 				if (ImGui::Selectable("Full Texture", frame.m_TextureSpriteIndex < 0))
 					frame.m_TextureSpriteIndex = -1;
-				for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+				for (int32_t spriteIndex = 0; std::cmp_less(spriteIndex, sprites.size()); ++spriteIndex)
 				{
 					const TextureSpriteRect& sprite = sprites[static_cast<size_t>(spriteIndex)];
 					const bool selected = frame.m_TextureSpriteIndex == spriteIndex;
@@ -4382,7 +4486,7 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 			{
 				auto& frames = m_CurrentAnimation->GetFrames();
 				const int firstAddedIndex = static_cast<int>(frames.size());
-				for (int32_t spriteIndex = 0; spriteIndex < static_cast<int32_t>(sprites.size()); ++spriteIndex)
+				for (int32_t spriteIndex = 0; std::cmp_less(spriteIndex, sprites.size()); ++spriteIndex)
 				{
 					AnimationFrame sliceFrame;
 					sliceFrame.m_Texture = frame.m_Texture;
@@ -4418,21 +4522,24 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 		ImGui::EndTable();
 	}
 
-	const float keyTime = m_CurrentAnimation->GetFrameStartTime((size_t)m_SelectedFrameIndex);
+	const float keyTime = m_CurrentAnimation->GetFrameStartTime(static_cast<size_t>(m_SelectedFrameIndex));
 	ImGui::Separator();
 	ImGui::TextDisabled("Events");
 	if (ImGui::Button("+ Event"))
-		m_CurrentAnimation->GetEvents().push_back({ keyTime, "Event" });
+		m_CurrentAnimation->GetEvents().push_back({
+			.m_Time = keyTime,
+			.m_Name = "Event"
+		});
 
 	auto& events = m_CurrentAnimation->GetEvents();
 	for (size_t eventIndex = 0; eventIndex < events.size(); ++eventIndex)
 	{
-		ImGui::PushID((int)eventIndex);
+		ImGui::PushID(static_cast<int>(eventIndex));
 		ImGui::DragFloat("Time", &events[eventIndex].m_Time, 0.01f, 0.0f);
 		ImGui::InputText("Name", &events[eventIndex].m_Name);
 		if (ImGui::Button("Remove Event", ImVec2(-1.0f, 0.0f)))
 		{
-			events.erase(events.begin() + eventIndex);
+			events.erase(events.begin() + static_cast<std::vector<AnimationEventKey>::difference_type>(eventIndex));
 			ImGui::PopID();
 			break;
 		}
@@ -4442,15 +4549,27 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 
 	ImGui::TextDisabled("Property Tracks");
 	if (ImGui::Button("+ Translation"))
-		m_CurrentAnimation->GetTranslationKeys().push_back({ keyTime, glm::vec3{ 0.0f } });
+		m_CurrentAnimation->GetTranslationKeys().push_back({
+			.m_Time = keyTime,
+			.m_Value = glm::vec3{ 0.0f }
+		});
 	ImGui::SameLine();
 	if (ImGui::Button("+ Rotation"))
-		m_CurrentAnimation->GetRotationKeys().push_back({ keyTime, glm::vec3{ 0.0f } });
+		m_CurrentAnimation->GetRotationKeys().push_back({
+			.m_Time = keyTime,
+			.m_Value = glm::vec3{ 0.0f }
+		});
 	if (ImGui::Button("+ Scale"))
-		m_CurrentAnimation->GetScaleKeys().push_back({ keyTime, glm::vec3{ 1.0f } });
+		m_CurrentAnimation->GetScaleKeys().push_back({
+			.m_Time = keyTime,
+			.m_Value = glm::vec3{ 1.0f }
+		});
 	ImGui::SameLine();
 	if (ImGui::Button("+ Color"))
-		m_CurrentAnimation->GetColorKeys().push_back({ keyTime, glm::vec4{ 1.0f } });
+		m_CurrentAnimation->GetColorKeys().push_back({
+			.m_Time = keyTime,
+			.m_Value = glm::vec4{ 1.0f }
+		});
 
 	if (ImGui::Button("Sort Keys By Time", ImVec2(-1.0f, 0.0f)))
 	{
@@ -4467,12 +4586,12 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 				return;
 			for (size_t keyIndex = 0; keyIndex < keys.size(); ++keyIndex)
 			{
-				ImGui::PushID((int)keyIndex);
+				ImGui::PushID(static_cast<int>(keyIndex));
 				ImGui::DragFloat("Time", &keys[keyIndex].m_Time, 0.01f, 0.0f);
 				ImGui::DragFloat3("Value", &keys[keyIndex].m_Value.x, 0.01f);
 				if (ImGui::Button("Remove Key", ImVec2(-1.0f, 0.0f)))
 				{
-					keys.erase(keys.begin() + keyIndex);
+					keys.erase(keys.begin() + static_cast<std::vector<AnimationVec3Key>::difference_type>(keyIndex));
 					ImGui::PopID();
 					break;
 				}
@@ -4488,12 +4607,12 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 				return;
 			for (size_t keyIndex = 0; keyIndex < keys.size(); ++keyIndex)
 			{
-				ImGui::PushID((int)keyIndex);
+				ImGui::PushID(static_cast<int>(keyIndex));
 				ImGui::DragFloat("Time", &keys[keyIndex].m_Time, 0.01f, 0.0f);
 				ImGui::ColorEdit4("Value", &keys[keyIndex].m_Value.x);
 				if (ImGui::Button("Remove Key", ImVec2(-1.0f, 0.0f)))
 				{
-					keys.erase(keys.begin() + keyIndex);
+					keys.erase(keys.begin() + static_cast<std::vector<AnimationVec4Key>::difference_type>(keyIndex));
 					ImGui::PopID();
 					break;
 				}
@@ -4546,16 +4665,16 @@ void AnimationEditorPanel::DrawFrameBatchTools(float width)
 	if (ImGui::Button("Reverse Frames"))
 	{
 		const int oldSelectedFrame = m_SelectedFrameIndex;
-		std::reverse(frames.begin(), frames.end());
-		if (oldSelectedFrame >= 0 && oldSelectedFrame < (int)frames.size())
-			m_SelectedFrameIndex = (int)frames.size() - 1 - oldSelectedFrame;
+		std::ranges::reverse(frames);
+		if (oldSelectedFrame >= 0 && std::cmp_less(oldSelectedFrame, frames.size()))
+			m_SelectedFrameIndex = static_cast<int>(frames.size()) - 1 - oldSelectedFrame;
 		StopPreview(false);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Remove Empty Frames"))
 	{
 		const AssetHandle selectedTexture =
-			m_SelectedFrameIndex >= 0 && m_SelectedFrameIndex < (int)frames.size() ? frames[m_SelectedFrameIndex].m_Texture : AssetHandle(0);
+			m_SelectedFrameIndex >= 0 && std::cmp_less(m_SelectedFrameIndex, frames.size()) ? frames[m_SelectedFrameIndex].m_Texture : AssetHandle(0);
 		std::erase_if(frames, [](const AnimationFrame& frame)
 			{
 				return frame.m_Texture == 0 || !AssetManager::IsAssetHandleValid(frame.m_Texture) || AssetManager::GetAssetType(frame.m_Texture) != AssetType::Texture2D;
@@ -4570,7 +4689,7 @@ void AnimationEditorPanel::DrawFrameBatchTools(float width)
 				{
 					if (frames[frameIndex].m_Texture == selectedTexture)
 					{
-						m_SelectedFrameIndex = (int)frameIndex;
+						m_SelectedFrameIndex = static_cast<int>(frameIndex);
 						break;
 					}
 				}
@@ -4638,14 +4757,14 @@ void AnimationEditorPanel::ImportTextureFolderFrames()
 			textureFiles.push_back(filepath);
 	}
 
-	std::sort(textureFiles.begin(), textureFiles.end(), [](const std::filesystem::path& left, const std::filesystem::path& right)
-		{
-			return left.filename().string() < right.filename().string();
-		});
+	std::ranges::sort(textureFiles, [](const std::filesystem::path& left, const std::filesystem::path& right)
+	{
+		return left.filename().string() < right.filename().string();
+	});
 
 	auto editorAssetManager = Project::GetActive()->GetEditorAssetManager();
 	auto& frames = m_CurrentAnimation->GetFrames();
-	const int firstImportedFrame = (int)frames.size();
+	const int firstImportedFrame = static_cast<int>(frames.size());
 	int importedFrameCount = 0;
 
 	for (const std::filesystem::path& textureFile : textureFiles)
@@ -4755,7 +4874,7 @@ void AnimationEditorPanel::RestoreSnapshot(const AnimationEditorSnapshot& snapsh
 			if (clip->GetFrames().empty())
 				m_SelectedFrameIndex = -1;
 			else
-				m_SelectedFrameIndex = std::clamp(snapshot.m_Clip.m_SelectedFrameIndex, 0, (int)clip->GetFrames().size() - 1);
+				m_SelectedFrameIndex = std::clamp(snapshot.m_Clip.m_SelectedFrameIndex, 0, static_cast<int>(clip->GetFrames().size()) - 1);
 			StopPreview(false);
 		}
 	}
@@ -4791,9 +4910,9 @@ void AnimationEditorPanel::RestoreSnapshot(const AnimationEditorSnapshot& snapsh
 			if (controller->GetStates().empty())
 				m_SelectedControllerStateIndex = -1;
 			else
-				m_SelectedControllerStateIndex = std::clamp(snapshot.m_Controller.m_SelectedStateIndex, 0, (int)controller->GetStates().size() - 1);
+				m_SelectedControllerStateIndex = std::clamp(snapshot.m_Controller.m_SelectedStateIndex, 0, static_cast<int>(controller->GetStates().size()) - 1);
 			m_SelectedControllerParameterIndex = snapshot.m_Controller.m_SelectedParameterIndex;
-			if (m_SelectedControllerParameterIndex >= (int)controller->GetParameters().size())
+			if (std::cmp_greater_equal(m_SelectedControllerParameterIndex, controller->GetParameters().size()))
 				m_SelectedControllerParameterIndex = -1;
 			m_SelectedTransitionSourceStateIndex = snapshot.m_Controller.m_SelectedTransitionSourceIndex;
 			m_SelectedTransitionIndex = snapshot.m_Controller.m_SelectedTransitionIndex;
@@ -4845,7 +4964,7 @@ bool AnimationEditorPanel::Redo()
 
 bool AnimationEditorPanel::ShouldConsumeShortcutAction(UI::EditorShortcutAction action) const
 {
-	switch (action)
+	switch (action) // NOLINT(clang-diagnostic-switch-enum)
 	{
 	case UI::EditorShortcutAction::Undo:
 	case UI::EditorShortcutAction::Redo:
@@ -4865,7 +4984,7 @@ bool AnimationEditorPanel::ExecuteShortcutAction(UI::EditorShortcutAction action
 	if (ImGui::GetIO().WantTextInput)
 		return false;
 
-	switch (action)
+	switch (action) // NOLINT(clang-diagnostic-switch-enum)
 	{
 	case UI::EditorShortcutAction::Undo:
 		return Undo();
@@ -4916,7 +5035,8 @@ bool AnimationEditorPanel::CopySelection()
 {
 	if (m_EditorMode == AnimationEditorMode::Clip)
 	{
-		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex,
+			m_CurrentAnimation->GetFrames().size()))
 			return false;
 
 		m_Clipboard = {};
@@ -4932,10 +5052,10 @@ bool AnimationEditorPanel::CopySelection()
 	{
 		if (m_SelectedBlueprintNodeId != 0)
 		{
-			const auto nodeIt = std::find_if(transition->m_BlueprintNodes.begin(), transition->m_BlueprintNodes.end(), [this](const AnimationControllerBlueprintNode& node)
-				{
-					return node.m_Id == m_SelectedBlueprintNodeId && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
-				});
+			const auto nodeIt = std::ranges::find_if(transition->m_BlueprintNodes, [this](const AnimationControllerBlueprintNode& node)
+			{
+				return node.m_Id == m_SelectedBlueprintNodeId && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
+			});
 			if (nodeIt != transition->m_BlueprintNodes.end())
 			{
 				m_Clipboard = {};
@@ -4952,7 +5072,7 @@ bool AnimationEditorPanel::CopySelection()
 	}
 
 	auto& states = m_CurrentController->GetStates();
-	if (m_SelectedControllerStateIndex < 0 || m_SelectedControllerStateIndex >= (int)states.size())
+	if (m_SelectedControllerStateIndex < 0 || std::cmp_greater_equal(m_SelectedControllerStateIndex, states.size()))
 		return false;
 
 	m_Clipboard = {};
@@ -5019,7 +5139,8 @@ bool AnimationEditorPanel::DuplicateSelection()
 {
 	if (m_EditorMode == AnimationEditorMode::Clip)
 	{
-		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex,
+			m_CurrentAnimation->GetFrames().size()))
 			return false;
 		PushHistory();
 		return DuplicateSelectedFrame();
@@ -5032,10 +5153,10 @@ bool AnimationEditorPanel::DuplicateSelection()
 	{
 		if (m_SelectedBlueprintNodeId != 0)
 		{
-			const auto nodeIt = std::find_if(selectedTransition->m_BlueprintNodes.begin(), selectedTransition->m_BlueprintNodes.end(), [this](const AnimationControllerBlueprintNode& node)
-				{
-					return node.m_Id == m_SelectedBlueprintNodeId && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
-				});
+			const auto nodeIt = std::ranges::find_if(selectedTransition->m_BlueprintNodes, [this](const AnimationControllerBlueprintNode& node)
+			{
+				return node.m_Id == m_SelectedBlueprintNodeId && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
+			});
 			if (nodeIt != selectedTransition->m_BlueprintNodes.end())
 			{
 				PushHistory();
@@ -5054,16 +5175,16 @@ bool AnimationEditorPanel::DuplicateSelection()
 		{
 			auto& transitions = m_CurrentController->GetAnyStateTransitions();
 			transitions.push_back(duplicate);
-			m_SelectedTransitionIndex = (int)transitions.size() - 1;
+			m_SelectedTransitionIndex = static_cast<int>(transitions.size()) - 1;
 			return true;
 		}
 
 		auto& states = m_CurrentController->GetStates();
-		if (m_SelectedTransitionSourceStateIndex >= 0 && m_SelectedTransitionSourceStateIndex < (int)states.size())
+		if (m_SelectedTransitionSourceStateIndex >= 0 && std::cmp_less(m_SelectedTransitionSourceStateIndex, states.size()))
 		{
 			auto& transitions = states[m_SelectedTransitionSourceStateIndex].m_Transitions;
 			transitions.push_back(duplicate);
-			m_SelectedTransitionIndex = (int)transitions.size() - 1;
+			m_SelectedTransitionIndex = static_cast<int>(transitions.size()) - 1;
 			return true;
 		}
 		return false;
@@ -5076,15 +5197,15 @@ bool AnimationEditorPanel::DuplicateSelection()
 		m_CurrentController->SetDefaultState(state.m_Name);
 		m_SelectedControllerStateIndex = 0;
 	}
-	else if (m_SelectedControllerStateIndex < 0 || m_SelectedControllerStateIndex >= (int)states.size())
+	else if (m_SelectedControllerStateIndex < 0 || std::cmp_greater_equal(m_SelectedControllerStateIndex, states.size()))
 	{
-		const auto defaultIt = std::find_if(states.begin(), states.end(), [this](const AnimationControllerState& state)
-			{
-				return state.m_Name == m_CurrentController->GetDefaultState();
-			});
-		m_SelectedControllerStateIndex = defaultIt != states.end() ? (int)std::distance(states.begin(), defaultIt) : 0;
+		const auto defaultIt = std::ranges::find_if(states, [this](const AnimationControllerState& state)
+		{
+			return state.m_Name == m_CurrentController->GetDefaultState();
+		});
+		m_SelectedControllerStateIndex = defaultIt != states.end() ? static_cast<int>(std::distance(states.begin(), defaultIt)) : 0;
 	}
-	if (m_SelectedControllerStateIndex < 0 || m_SelectedControllerStateIndex >= (int)states.size())
+	if (m_SelectedControllerStateIndex < 0 || std::cmp_greater_equal(m_SelectedControllerStateIndex, states.size()))
 		return false;
 	PushHistory();
 	return DuplicateSelectedControllerState();
@@ -5094,7 +5215,8 @@ bool AnimationEditorPanel::DeleteSelection()
 {
 	if (m_EditorMode == AnimationEditorMode::Clip)
 	{
-		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex,
+			m_CurrentAnimation->GetFrames().size()))
 			return false;
 		PushHistory();
 		return DeleteSelectedFrame();
@@ -5107,10 +5229,10 @@ bool AnimationEditorPanel::DeleteSelection()
 	{
 		if (m_SelectedBlueprintNodeId != 0)
 		{
-			const auto nodeIt = std::find_if(selectedTransition->m_BlueprintNodes.begin(), selectedTransition->m_BlueprintNodes.end(), [this](const AnimationControllerBlueprintNode& node)
-				{
-					return node.m_Id == m_SelectedBlueprintNodeId && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
-				});
+			const auto nodeIt = std::ranges::find_if(selectedTransition->m_BlueprintNodes, [this](const AnimationControllerBlueprintNode& node)
+			{
+				return node.m_Id == m_SelectedBlueprintNodeId && node.m_Type != AnimationBlueprintNodeType::Start && node.m_Type != AnimationBlueprintNodeType::Result;
+			});
 			if (nodeIt != selectedTransition->m_BlueprintNodes.end())
 			{
 				PushHistory();
@@ -5129,7 +5251,8 @@ bool AnimationEditorPanel::DeleteSelection()
 		return true;
 	}
 
-	if (m_SelectedControllerStateIndex >= 0 && m_SelectedControllerStateIndex < (int)m_CurrentController->GetStates().size() && m_CurrentController->GetStates().size() > 1)
+	if (m_SelectedControllerStateIndex >= 0 && std::cmp_less(m_SelectedControllerStateIndex, m_CurrentController->GetStates().size())
+		&& m_CurrentController->GetStates().size() > 1)
 	{
 		PushHistory();
 		return DeleteSelectedControllerState();
@@ -5140,7 +5263,8 @@ bool AnimationEditorPanel::DeleteSelection()
 
 bool AnimationEditorPanel::DuplicateSelectedFrame()
 {
-	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex,
+		m_CurrentAnimation->GetFrames().size()))
 		return false;
 
 	auto& frames = m_CurrentAnimation->GetFrames();
@@ -5152,14 +5276,15 @@ bool AnimationEditorPanel::DuplicateSelectedFrame()
 
 bool AnimationEditorPanel::DeleteSelectedFrame()
 {
-	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)m_CurrentAnimation->GetFrames().size())
+	if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex,
+		m_CurrentAnimation->GetFrames().size()))
 		return false;
 
 	m_CurrentAnimation->RemoveFrame(m_SelectedFrameIndex);
 	if (m_CurrentAnimation->GetFrames().empty())
 		m_SelectedFrameIndex = -1;
 	else
-		m_SelectedFrameIndex = std::min(m_SelectedFrameIndex, (int)m_CurrentAnimation->GetFrames().size() - 1);
+		m_SelectedFrameIndex = std::min(m_SelectedFrameIndex, static_cast<int>(m_CurrentAnimation->GetFrames().size()) - 1);
 	StopPreview(false);
 	return true;
 }
@@ -5170,7 +5295,7 @@ bool AnimationEditorPanel::DuplicateSelectedControllerState()
 		return false;
 
 	auto& states = m_CurrentController->GetStates();
-	if (m_SelectedControllerStateIndex < 0 || m_SelectedControllerStateIndex >= (int)states.size())
+	if (m_SelectedControllerStateIndex < 0 || std::cmp_greater_equal(m_SelectedControllerStateIndex, states.size()))
 		return false;
 
 	const AnimationControllerState sourceState = states[m_SelectedControllerStateIndex];
@@ -5184,12 +5309,12 @@ bool AnimationEditorPanel::DeleteSelectedControllerState()
 		return false;
 
 	auto& states = m_CurrentController->GetStates();
-	if (m_SelectedControllerStateIndex < 0 || m_SelectedControllerStateIndex >= (int)states.size())
+	if (m_SelectedControllerStateIndex < 0 || std::cmp_greater_equal(m_SelectedControllerStateIndex, states.size()))
 		return false;
 
 	const std::string removedName = states[m_SelectedControllerStateIndex].m_Name;
 	m_CurrentController->RemoveState(removedName);
-	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, (int)m_CurrentController->GetStates().size() - 1);
+	m_SelectedControllerStateIndex = std::clamp(m_SelectedControllerStateIndex, 0, static_cast<int>(m_CurrentController->GetStates().size()) - 1);
 	ClearSelectedControllerTransition();
 	return true;
 }
@@ -5197,7 +5322,7 @@ bool AnimationEditorPanel::DeleteSelectedControllerState()
 void AnimationEditorPanel::PasteFrame(const AnimationFrame& frame)
 {
 	auto& frames = m_CurrentAnimation->GetFrames();
-	const int insertIndex = m_SelectedFrameIndex >= 0 && m_SelectedFrameIndex < (int)frames.size() ? m_SelectedFrameIndex + 1 : (int)frames.size();
+	const int insertIndex = m_SelectedFrameIndex >= 0 && std::cmp_less(m_SelectedFrameIndex, frames.size()) ? m_SelectedFrameIndex + 1 : static_cast<int>(frames.size());
 	frames.insert(frames.begin() + insertIndex, frame);
 	m_SelectedFrameIndex = insertIndex;
 	StopPreview(false);
@@ -5205,14 +5330,14 @@ void AnimationEditorPanel::PasteFrame(const AnimationFrame& frame)
 
 void AnimationEditorPanel::PasteControllerState(const AnimationControllerState& state)
 {
-	const AnimationControllerState sourceState = state;
+	const AnimationControllerState& sourceState = state;
 	AnimationControllerState& duplicate = m_CurrentController->AddState(sourceState.m_Name + " Copy", sourceState.m_Clip);
 	const std::string uniqueName = duplicate.m_Name;
 	duplicate = sourceState;
 	duplicate.m_Name = uniqueName;
 	duplicate.m_GraphPosition += glm::vec2{ 44.0f, 44.0f };
 	duplicate.m_Transitions.clear();
-	m_SelectedControllerStateIndex = (int)m_CurrentController->GetStates().size() - 1;
+	m_SelectedControllerStateIndex = static_cast<int>(m_CurrentController->GetStates().size()) - 1;
 	ClearSelectedControllerTransition();
 }
 
@@ -5222,23 +5347,23 @@ bool AnimationEditorPanel::PasteControllerTransition(const AnimationControllerTr
 	{
 		auto& transitions = m_CurrentController->GetAnyStateTransitions();
 		transitions.push_back(transition);
-		m_SelectedTransitionIndex = (int)transitions.size() - 1;
+		m_SelectedTransitionIndex = static_cast<int>(transitions.size()) - 1;
 		return true;
 	}
 
 	auto& states = m_CurrentController->GetStates();
 	int targetSourceIndex = m_SelectedControllerStateIndex;
-	if (m_SelectedTransitionSourceStateIndex >= 0 && m_SelectedTransitionSourceStateIndex < (int)states.size())
+	if (m_SelectedTransitionSourceStateIndex >= 0 && std::cmp_less(m_SelectedTransitionSourceStateIndex, states.size()))
 		targetSourceIndex = m_SelectedTransitionSourceStateIndex;
 
-	if (targetSourceIndex < 0 || targetSourceIndex >= (int)states.size())
+	if (targetSourceIndex < 0 || std::cmp_greater_equal(targetSourceIndex, states.size()))
 		return false;
 
 	auto& transitions = states[targetSourceIndex].m_Transitions;
 	transitions.push_back(transition);
 	m_SelectedControllerStateIndex = targetSourceIndex;
 	m_SelectedTransitionSourceStateIndex = targetSourceIndex;
-	m_SelectedTransitionIndex = (int)transitions.size() - 1;
+	m_SelectedTransitionIndex = static_cast<int>(transitions.size()) - 1;
 	return true;
 }
 
@@ -5272,7 +5397,7 @@ void AnimationEditorPanel::UpdatePreview()
 		return;
 	}
 
-	if (m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)frames.size())
+	if (m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex, frames.size()))
 		m_SelectedFrameIndex = 0;
 
 	m_PreviewElapsed += ImGui::GetIO().DeltaTime;
@@ -5282,7 +5407,7 @@ void AnimationEditorPanel::UpdatePreview()
 
 	m_PreviewElapsed = 0.0f;
 	const int nextFrame = m_SelectedFrameIndex + 1;
-	if (nextFrame < (int)frames.size())
+	if (std::cmp_less(nextFrame, frames.size()))
 	{
 		m_SelectedFrameIndex = nextFrame;
 		return;
@@ -5303,11 +5428,11 @@ void AnimationEditorPanel::StepPreview(int direction)
 	if (frames.empty())
 		return;
 
-	if (m_SelectedFrameIndex < 0 || m_SelectedFrameIndex >= (int)frames.size())
-		m_SelectedFrameIndex = direction < 0 ? (int)frames.size() - 1 : 0;
+	if (m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex, frames.size()))
+		m_SelectedFrameIndex = direction < 0 ? static_cast<int>(frames.size()) - 1 : 0;
 	else
 	{
-		const int frameCount = (int)frames.size();
+		const int frameCount = static_cast<int>(frames.size());
 		m_SelectedFrameIndex = (m_SelectedFrameIndex + direction + frameCount) % frameCount;
 	}
 

@@ -1,5 +1,7 @@
-#include <Whip-Editor/EditorAssetInteractionManager.h>
+#include <Whip-Editor/Managers/EditorAssetInteractionManager.h>
 
+#include <Whip-Editor/Managers/EditorSceneManager.h>
+#include <Whip-Editor/Managers/EditorHistoryManager.h>
 #include <Whip-Editor/EditorLayer.h>
 
 #include <Whip/Asset/AssetManager.h>
@@ -8,28 +10,13 @@
 
 #include <imgui.h>
 
+#include <utility>
+
+#include "Whip-Editor/Helpers/Utils.h"
+
 _WHIP_START
-
-namespace
+	namespace
 {
-	bool PathIsOrIsUnder(const std::filesystem::path& path, const std::filesystem::path& directory)
-	{
-		const std::filesystem::path normalizedPath = path.lexically_normal();
-		const std::filesystem::path normalizedDirectory = directory.lexically_normal();
-		if (normalizedPath == normalizedDirectory)
-			return true;
-
-		auto pathIt = normalizedPath.begin();
-		auto directoryIt = normalizedDirectory.begin();
-		for (; directoryIt != normalizedDirectory.end(); ++directoryIt, ++pathIt)
-		{
-			if (pathIt == normalizedPath.end() || *pathIt != *directoryIt)
-				return false;
-		}
-
-		return true;
-	}
-
 	std::filesystem::path MakeUniquePath(const std::filesystem::path& targetPath)
 	{
 		std::error_code error;
@@ -58,7 +45,7 @@ namespace
 		case AssetType::Texture2D: return "textures";
 		case AssetType::Audio: return "Audios";
 		case AssetType::Font: return "fonts";
-		case AssetType::Animation: return "Animations";
+		case AssetType::Animation:
 		case AssetType::AnimationController: return "Animations";
 		case AssetType::Entity: return "EntityTemplates";
 		case AssetType::None: return {};
@@ -68,22 +55,11 @@ namespace
 }
 
 EditorAssetInteractionManager::EditorAssetInteractionManager(EditorLayer* boundedLayer)
-	: m_BoundedLayer(boundedLayer)
+	: EditorManagerBase(boundedLayer)
 {
 }
 
 EditorAssetInteractionManager::~EditorAssetInteractionManager() = default;
-
-void EditorAssetInteractionManager::Bind(EditorLayer& layer)
-{
-	m_BoundedLayer = &layer;
-}
-
-EditorLayer& EditorAssetInteractionManager::GetLayer() const
-{
-	WHP_CORE_ASSERT(m_BoundedLayer, "EditorAssetInteractionManager is not bound to an EditorLayer.");
-	return *m_BoundedLayer;
-}
 
 bool EditorAssetInteractionManager::HandleViewportAssetDrop(AssetHandle handle, int32_t textureSpriteIndex) const
 {
@@ -95,20 +71,24 @@ bool EditorAssetInteractionManager::HandleViewportAssetDrop(AssetHandle handle, 
 	if (!activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle))
 		return false;
 
-	const AssetType type = activeProject->GetEditorAssetManager()->GetAssetType(handle);
-	switch (type)
+	switch (const AssetType type = activeProject->GetEditorAssetManager()->GetAssetType(handle); type)
 	{
 	case AssetType::Scene:
 		layer.m_SceneManager.OpenScene(handle);
 		return true;
 	case AssetType::Entity:
-		return layer.InstantiateEntityTemplate(handle);
+		return layer.m_EntityTemplateManager.InstantiateEntityTemplate(handle);
 	case AssetType::Texture2D:
 		return CreateSpriteEntityFromTexture(handle, GetViewportMouseWorldPosition(), textureSpriteIndex);
-	default:
+	case AssetType::Audio:
+	case AssetType::Font:
+	case AssetType::Animation:
+	case AssetType::AnimationController:
+	case AssetType::None:
 		WHP_EDITOR_WARN("[Viewport] This Asset type cannot be dropped into the viewport yet.");
 		return false;
 	}
+	return false;
 }
 
 bool EditorAssetInteractionManager::HandleContentBrowserAssetOpen(AssetHandle handle) const
@@ -127,10 +107,16 @@ bool EditorAssetInteractionManager::HandleContentBrowserAssetOpen(AssetHandle ha
 		layer.m_SceneManager.OpenScene(handle);
 		return true;
 	case AssetType::Entity:
-		return layer.InstantiateEntityTemplate(handle);
-	default:
+		return layer.m_EntityTemplateManager.InstantiateEntityTemplate(handle);
+	case AssetType::Texture2D:
+	case AssetType::Audio:
+	case AssetType::Font:
+	case AssetType::Animation:
+	case AssetType::AnimationController:
+	case AssetType::None:
 		return false;
 	}
+	return false;
 }
 
 bool EditorAssetInteractionManager::HandleContentBrowserAssetInspect(AssetHandle handle) const
@@ -180,7 +166,7 @@ bool EditorAssetInteractionManager::CreateSpriteEntityFromTexture(AssetHandle ha
 	layer.m_HistoryManager.CaptureSceneHistory();
 	const auto& metadata = activeProject->GetEditorAssetManager()->GetMetadata(handle);
 	const auto& sprites = metadata.m_TextureSettings.m_Sprites;
-	const bool validSpriteIndex = textureSpriteIndex >= 0 && textureSpriteIndex < static_cast<int32_t>(sprites.size());
+	const bool validSpriteIndex = textureSpriteIndex >= 0 && std::cmp_less(textureSpriteIndex, sprites.size());
 	const TextureSpriteRect* spriteRect = validSpriteIndex ? &sprites[static_cast<size_t>(textureSpriteIndex)] : nullptr;
 	const std::string name = spriteRect ? spriteRect->m_Name : (metadata.m_Filepath.stem().empty() ? "Sprite" : metadata.m_Filepath.stem().string());
 	Entity sprite = layer.m_SceneManager.EditorScene()->CreateEntity(name);
@@ -228,7 +214,7 @@ AssetHandle EditorAssetInteractionManager::ImportExternalAssetFile(const std::fi
 
 	const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
 	std::filesystem::path assetPath = sourcePath;
-	if (!PathIsOrIsUnder(sourcePath, assetDirectory))
+	if (!EditorUtils::PathIsOrIsUnder(sourcePath, assetDirectory))
 	{
 		const std::filesystem::path importDirectory = assetDirectory / DefaultImportDirectoryForType(type);
 		std::filesystem::create_directories(importDirectory, error);

@@ -2,7 +2,8 @@
 
 _WHIP_START
 
-IconManager::IconManager(bool loadDefault) : m_IconDatas{}
+IconManager::IconManager(bool loadDefault)
+	: m_IconDatas{}
 {
 	if (!loadDefault)
 		return;
@@ -13,7 +14,7 @@ IconManager::IconManager(bool loadDefault) : m_IconDatas{}
 	buffer[frenum::index(Icon::Simulate).value()]		= TextureImporter::LoadTexture2D("resources/icons/simulate_icon.png");
 	buffer[frenum::index(Icon::Stop).value()]			= TextureImporter::LoadTexture2D("resources/icons/stop_icon.png");
 	buffer[frenum::index(Icon::Pause).value()]			= TextureImporter::LoadTexture2D("resources/icons/pause_icon.png");
-	buffer[frenum::index(Icon::StepForward).value()]	= TextureImporter::LoadTexture2D("resources/icons/step_icon.png");
+	buffer[frenum::index(Icon::StepForward).value()]		= TextureImporter::LoadTexture2D("resources/icons/step_icon.png");
 	buffer[frenum::index(Icon::StepBack).value()]		= TextureImporter::LoadTexture2D("resources/icons/step_icon.png", FlipDirectionHorizontal);
 	buffer[frenum::index(Icon::Directory).value()]		= TextureImporter::LoadTexture2D("resources/icons/content_browser/directory_icon.png");
 	buffer[frenum::index(Icon::File).value()]			= TextureImporter::LoadTexture2D("resources/icons/content_browser/file_icon.png");
@@ -27,7 +28,7 @@ Ref<Texture2D> IconManager::Load(Icon iconType, const std::filesystem::path& fil
 	return buffer[frenum::index(iconType).value()] = TextureImporter::LoadTexture2D(filepath, direction);
 }
 
-Ref<Texture2D> IconManager::Load(Icon iconType, Ref<Texture2D> texture)
+Ref<Texture2D> IconManager::Load(Icon iconType, const Ref<Texture2D>& texture)
 {
 	auto* buffer = m_IconDatas.As<Ref<Texture2D>>();
 

@@ -16,19 +16,18 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
-#include <cctype>
 #include <cmath>
-#include <cstdio>
 #include <deque>
 #include <fstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 _WHIP_START
 
 namespace
 {
-	enum class WindowControlType
+	enum class WindowControlType : uint8_t
 	{
 		Minimize,
 		Maximize,
@@ -46,8 +45,9 @@ namespace
 		case AssetType::Animation: return "Animation";
 		case AssetType::AnimationController: return "Animation Controller";
 		case AssetType::Entity: return "Entity Template";
-		default: return "Asset";
+		case AssetType::None: return "Asset";
 		}
+		return "Asset";
 	}
 
 	std::string FormatFileSize(const std::filesystem::path& path)
@@ -62,11 +62,14 @@ namespace
 
 		if (size < 1024)
 			return std::to_string(size) + " B";
-		if (size < 1024 * 1024)
+		if (size < static_cast<uintmax_t>(1024) * 1024)
 			return std::to_string(size / 1024) + " KB";
 
 		char buffer[32]{};
-		std::snprintf(buffer, sizeof(buffer), "%.2f MB", static_cast<double>(size) / (1024.0 * 1024.0));
+		int result = std::snprintf(buffer, sizeof(buffer), "%.2f MB", static_cast<double>(size) / (1024.0 * 1024.0));
+
+		if (result < 0 || std::cmp_greater_equal(result, sizeof(buffer)))
+			WHP_EDITOR_WARN("[Asset Editor] Buffer writing failed!");
 		return buffer;
 	}
 
@@ -76,7 +79,9 @@ namespace
 		const int minutes = totalSeconds / 60;
 		const int remainingSeconds = totalSeconds % 60;
 		char buffer[32]{};
-		std::snprintf(buffer, sizeof(buffer), "%02d:%02d", minutes, remainingSeconds);
+		int result = std::snprintf(buffer, sizeof(buffer), "%02d:%02d", minutes, remainingSeconds);
+		if (result < 0 || std::cmp_equal(result, sizeof(buffer)))
+			WHP_EDITOR_WARN("[Asset Editor] Buffer writing failed!");
 		return buffer;
 	}
 
@@ -110,7 +115,7 @@ namespace
 
 	bool DrawWindowControl(const char* id, WindowControlType type)
 	{
-		const ImVec2 size(28.0f, 22.0f);
+		constexpr ImVec2 size(28.0f, 22.0f);
 		ImGui::InvisibleButton(id, size);
 		const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 		const bool hovered = ImGui::IsItemHovered();
@@ -119,7 +124,7 @@ namespace
 		ImDrawList* drawList = ImGui::GetWindowDrawList();
 		const ImU32 hoverColor = IM_COL32(255, 255, 255, hovered ? 24 : 0);
 		drawList->AddRectFilled(min, max, hoverColor, 3.0f);
-		const ImU32 color = IM_COL32(226, 226, 226, 230);
+		constexpr ImU32 color = IM_COL32(226, 226, 226, 230);
 		const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
 
 		if (type == WindowControlType::Minimize)
@@ -152,7 +157,7 @@ namespace
 
 	uint32_t BytesPerPixel(ImageFormat format)
 	{
-		switch (format)
+		switch (format) // NOLINT(clang-diagnostic-switch-enum)
 		{
 		case ImageFormat::Rgb8: return 3;
 		case ImageFormat::Rgba8: return 4;
@@ -162,7 +167,7 @@ namespace
 
 	const char* ImageFormatName(ImageFormat format)
 	{
-		switch (format)
+		switch (format) // NOLINT(clang-diagnostic-switch-enum)
 		{
 		case ImageFormat::R8: return "R8";
 		case ImageFormat::Rgb8: return "RGB8";
@@ -178,28 +183,29 @@ namespace
 		{
 		case TextureFilterMode::Nearest: return "Nearest";
 		case TextureFilterMode::Linear: return "Linear";
-		default: return "Linear";
 		}
+		return "Linear";
 	}
 
 	const char* TextureWrapModeName(TextureWrapMode mode)
 	{
 		switch (mode)
 		{
-		case TextureWrapMode::Repeat: return "Repeat";
 		case TextureWrapMode::ClampToEdge: return "Clamp To Edge";
-		default: return "Repeat";
+		case TextureWrapMode::Repeat: return "Repeat";
 		}
+		return "Repeat";
 	}
 
 	const char* TextureSpriteModeName(TextureSpriteMode mode)
 	{
 		switch (mode)
 		{
-		case TextureSpriteMode::Single: return "Single";
 		case TextureSpriteMode::Multiple: return "Multiple";
-		default: return "Single";
+		case TextureSpriteMode::Single: return "Single";
 		}
+
+		return "Single";
 	}
 
 	const char* TextureEditorToolName(AssetEditorPanel::TextureEditorTool tool)
@@ -211,8 +217,8 @@ namespace
 		case AssetEditorPanel::TextureEditorTool::Picker: return "Picker";
 		case AssetEditorPanel::TextureEditorTool::Fill: return "Fill";
 		case AssetEditorPanel::TextureEditorTool::Slice: return "Slice";
-		default: return "Tool";
 		}
+		return "Tool";
 	}
 
 	const char* TextureEditorToolHint(AssetEditorPanel::TextureEditorTool tool)
@@ -224,8 +230,8 @@ namespace
 		case AssetEditorPanel::TextureEditorTool::Picker: return "pick color";
 		case AssetEditorPanel::TextureEditorTool::Fill: return "fill region";
 		case AssetEditorPanel::TextureEditorTool::Slice: return "draw sprite rect";
-		default: return "";
 		}
+		return "";
 	}
 
 	ImU32 TextureEditorToolColor(AssetEditorPanel::TextureEditorTool tool)
@@ -237,8 +243,8 @@ namespace
 		case AssetEditorPanel::TextureEditorTool::Picker: return IM_COL32(108, 206, 181, 235);
 		case AssetEditorPanel::TextureEditorTool::Fill: return IM_COL32(242, 190, 96, 235);
 		case AssetEditorPanel::TextureEditorTool::Slice: return IM_COL32(184, 145, 238, 235);
-		default: return IM_COL32(180, 190, 200, 235);
 		}
+		return IM_COL32(180, 190, 200, 235);
 	}
 
 	float TextureInspectorItemWidth()
@@ -261,7 +267,7 @@ namespace
 		const auto& fontGeometry = font->GetMsdfData()->m_FontGeometry;
 		const auto& metrics = fontGeometry.getMetrics();
 		Ref<Texture2D> atlas = font->GetAtlasTexture();
-		if (metrics.ascenderY == metrics.descenderY || atlas->GetWidth() == 0 || atlas->GetHeight() == 0)
+		if (Math::EqualF(metrics.ascenderY, metrics.descenderY) || atlas->GetWidth() == 0 || atlas->GetHeight() == 0)
 			return nullptr;
 
 		RawBuffer atlasData = atlas->GetData();
@@ -351,7 +357,7 @@ namespace
 
 						const uint32_t textureY = height - 1 - static_cast<uint32_t>(py);
 						uint8_t* destination = pixels.data() + (static_cast<uint64_t>(textureY) * width + static_cast<uint32_t>(px)) * 4;
-						const uint8_t alpha = static_cast<uint8_t>(opacity * 255.0f + 0.5f);
+						const uint8_t alpha = static_cast<uint8_t>(std::lround(opacity * 255.0f + 0.5f));
 						destination[0] = 235;
 						destination[1] = 242;
 						destination[2] = 248;
@@ -378,10 +384,9 @@ namespace
 		return Texture2D::Create(specification, RawBuffer(pixels.data(), static_cast<uint64_t>(pixels.size())));
 	}
 
-
 	uint8_t ColorFloatToByte(float value)
 	{
-		return static_cast<uint8_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+		return static_cast<uint8_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);  // NOLINT(bugprone-incorrect-roundings)
 	}
 
 	std::array<uint8_t, 4> BrushColorBytes(const std::array<float, 4>& color)
@@ -394,7 +399,7 @@ namespace
 		};
 	}
 
-	std::string LowercaseExtension(std::filesystem::path path)
+	std::string LowercaseExtension(const std::filesystem::path& path)
 	{
 		std::string extension = path.extension().string();
 		std::ranges::transform(extension, extension.begin(), [](unsigned char character)
@@ -436,11 +441,11 @@ namespace
 
 	uint32_t Adler32(const std::vector<uint8_t>& data)
 	{
-		constexpr uint32_t Mod = 65521;
 		uint32_t a = 1;
 		uint32_t b = 0;
 		for (uint8_t byte : data)
 		{
+			constexpr uint32_t Mod = 65521;
 			a = (a + byte) % Mod;
 			b = (b + a) % Mod;
 		}
@@ -626,6 +631,41 @@ void AssetEditorPanel::SetOpen(bool open)
 	CloseAll();
 }
 
+bool AssetEditorPanel::IsOpen() const
+{
+	return m_Open;
+}
+
+bool AssetEditorPanel::CanOpenFromMenu() const
+{
+	return HasOpenEditors();
+}
+
+void AssetEditorPanel::SetOpenSceneCallback(std::function<void(AssetHandle)> callback)
+{
+	m_OpenSceneCallback = std::move(callback);
+}
+
+void AssetEditorPanel::SetSetStartSceneCallback(std::function<void(AssetHandle)> callback)
+{
+	m_SetStartSceneCallback = std::move(callback);
+}
+
+void AssetEditorPanel::SetOpenAnimationCallback(std::function<bool(AssetHandle)> callback)
+{
+	m_OpenAnimationCallback = std::move(callback);
+}
+
+void AssetEditorPanel::SetDrawAnimationEditorCallback(std::function<void()> callback)
+{
+	m_DrawAnimationEditorCallback = std::move(callback);
+}
+
+void AssetEditorPanel::SetRefreshAssetTreeCallback(std::function<void()> callback)
+{
+	m_RefreshAssetTreeCallback = std::move(callback);
+}
+
 bool AssetEditorPanel::HasOpenEditors() const
 {
 	return !m_Documents.empty();
@@ -762,8 +802,7 @@ void AssetEditorPanel::DrawMinimizedStrip()
 	std::string label = "Asset Workspace";
 	if (m_ActiveDocument != 0 && Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(m_ActiveDocument))
 	{
-		const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(m_ActiveDocument);
-		if (metadata)
+		if (const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(m_ActiveDocument); metadata)
 			label += std::string("  ") + metadata.m_Filepath.filename().string();
 	}
 	label += "###RestoreAssetWorkspace";
@@ -890,7 +929,7 @@ void AssetEditorPanel::DrawDocumentContent(AssetEditorDocument& document)
 	DrawDocumentToolbar(document.m_Handle, metadata);
 	ImGui::Separator();
 
-	switch (metadata.m_Type)
+	switch (metadata.m_Type) // NOLINT(clang-diagnostic-switch-enum)
 	{
 	case AssetType::Texture2D:
 		DrawTextureInspector(document, metadata, false);
@@ -1206,7 +1245,7 @@ bool AssetEditorPanel::RedoTextureEdit(TextureEditorState& state, const Ref<Text
 
 std::array<uint8_t, 4> AssetEditorPanel::ReadTexturePixel(const TextureEditorState& state, int x, int y) const
 {
-	if (x < 0 || y < 0 || x >= static_cast<int>(state.m_Width) || y >= static_cast<int>(state.m_Height) || state.m_Pixels.empty())
+	if (x < 0 || y < 0 || std::cmp_greater_equal(x, state.m_Width) || std::cmp_greater_equal(y, state.m_Height) || state.m_Pixels.empty())
 		return { 0, 0, 0, 0 };
 
 	const uint32_t storageY = state.m_Height - 1 - static_cast<uint32_t>(y);
@@ -1221,7 +1260,7 @@ std::array<uint8_t, 4> AssetEditorPanel::ReadTexturePixel(const TextureEditorSta
 
 bool AssetEditorPanel::WriteTexturePixel(TextureEditorState& state, int x, int y, const std::array<uint8_t, 4>& color)
 {
-	if (x < 0 || y < 0 || x >= static_cast<int>(state.m_Width) || y >= static_cast<int>(state.m_Height) || state.m_Pixels.empty())
+	if (x < 0 || y < 0 || std::cmp_greater_equal(x, state.m_Width) || std::cmp_greater_equal(y, state.m_Height) || state.m_Pixels.empty())
 		return false;
 
 	const uint32_t storageY = state.m_Height - 1 - static_cast<uint32_t>(y);
@@ -1281,7 +1320,7 @@ bool AssetEditorPanel::FillTextureRegion(TextureEditorState& state, int x, int y
 	{
 		const auto [cx, cy] = queue.front();
 		queue.pop_front();
-		if (cx < 0 || cy < 0 || cx >= static_cast<int>(state.m_Width) || cy >= static_cast<int>(state.m_Height))
+		if (cx < 0 || cy < 0 || std::cmp_greater_equal(cx, state.m_Width) || std::cmp_greater_equal(cy, state.m_Height))
 			continue;
 
 		const size_t visitIndex = static_cast<size_t>(cy) * state.m_Width + static_cast<uint32_t>(cx);
@@ -1332,7 +1371,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 
 	AssetMetadata editedMetadata = metadata;
 	TextureImportSettings& importSettings = editedMetadata.m_TextureSettings;
-	if (state.m_SelectedSpriteIndex >= static_cast<int>(importSettings.m_Sprites.size()))
+	if (std::cmp_greater_equal(state.m_SelectedSpriteIndex, importSettings.m_Sprites.size()))
 		state.m_SelectedSpriteIndex = importSettings.m_Sprites.empty() ? -1 : static_cast<int>(importSettings.m_Sprites.size()) - 1;
 	const float toolsWidth = std::min(360.0f, std::max(280.0f, ImGui::GetContentRegionAvail().x * 0.28f));
 	ImGui::BeginChild("##TextureEditorTools", ImVec2(toolsWidth, 0.0f), true);
@@ -1475,7 +1514,11 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 				{
 					TextureSpriteRect sprite;
 					char nameBuffer[96]{};
-					std::snprintf(nameBuffer, sizeof(nameBuffer), "%s_%03d", metadata.m_Filepath.stem().string().c_str(), index);
+					int result = std::snprintf(nameBuffer, sizeof(nameBuffer), "%s_%03d", metadata.m_Filepath.stem().string().c_str(), index);
+
+					if (result < 0 || std::cmp_greater_equal(result, sizeof(nameBuffer)))
+						WHP_EDITOR_WARN("[Asset Editor] Buffer writing failed!");
+
 					sprite.m_Name = nameBuffer;
 					sprite.m_X = static_cast<uint32_t>(x);
 					sprite.m_Y = static_cast<uint32_t>(y);
@@ -1596,7 +1639,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 		ImGui::EndDisabled();
 		ImGui::TextDisabled("%zu sprite(s)", importSettings.m_Sprites.size());
 		ImGui::BeginChild("##TextureSpriteList", ImVec2(0.0f, 118.0f), true);
-		for (int i = 0; i < static_cast<int>(importSettings.m_Sprites.size()); ++i)
+		for (int i = 0; std::cmp_less(i, importSettings.m_Sprites.size()); ++i)
 		{
 			ImGui::PushID(i);
 			const bool selected = state.m_SelectedSpriteIndex == i;
@@ -1606,7 +1649,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 		}
 		ImGui::EndChild();
 
-		if (state.m_SelectedSpriteIndex >= 0 && state.m_SelectedSpriteIndex < static_cast<int>(importSettings.m_Sprites.size()))
+		if (state.m_SelectedSpriteIndex >= 0 && std::cmp_less(state.m_SelectedSpriteIndex, importSettings.m_Sprites.size()))
 		{
 			TextureSpriteRect& sprite = importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex)];
 			bool spriteChanged = false;
@@ -1728,8 +1771,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 	drawList->AddRectFilled(imageMin, imageMax, IM_COL32(28, 34, 38, 255));
 	drawList->AddImage(UI::ToImGuiTextureId(texture->GetRendererId()), imageMin, imageMax, ImVec2(0, 1), ImVec2(1, 0));
 
-	const bool drawGrid = state.m_ShowGrid && state.m_Zoom >= 6.0f && state.m_Width <= 1024 && state.m_Height <= 1024;
-	if (drawGrid)
+	if (const bool drawGrid = state.m_ShowGrid && state.m_Zoom >= 6.0f && state.m_Width <= 1024 && state.m_Height <= 1024; drawGrid)
 	{
 		const ImU32 gridColor = IM_COL32(255, 255, 255, state.m_Zoom >= 12.0f ? 42 : 24);
 		for (uint32_t x = 0; x <= state.m_Width; ++x)
@@ -1745,7 +1787,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 	}
 	if (importSettings.m_SpriteMode == TextureSpriteMode::Multiple)
 	{
-		for (int i = 0; i < static_cast<int>(importSettings.m_Sprites.size()); ++i)
+		for (int i = 0; std::cmp_less(i, importSettings.m_Sprites.size()); ++i)
 		{
 			const TextureSpriteRect& sprite = importSettings.m_Sprites[static_cast<size_t>(i)];
 			if (sprite.m_Width == 0 || sprite.m_Height == 0)
@@ -1764,7 +1806,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 
 	const int pixelX = static_cast<int>((io.MousePos.x - imageMin.x) / std::max(0.001f, state.m_Zoom));
 	const int pixelY = static_cast<int>((io.MousePos.y - imageMin.y) / std::max(0.001f, state.m_Zoom));
-	const bool overPixel = canvasHovered && pixelX >= 0 && pixelY >= 0 && pixelX < static_cast<int>(state.m_Width) && pixelY < static_cast<int>(state.m_Height);
+	const bool overPixel = canvasHovered && pixelX >= 0 && pixelY >= 0 && std::cmp_less(pixelX, state.m_Width) && std::cmp_less(pixelY, state.m_Height);
 	bool changed = false;
 
 	if (overPixel)
@@ -1789,7 +1831,10 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 				{
 					TextureSpriteRect sprite;
 					char nameBuffer[96]{};
-					std::snprintf(nameBuffer, sizeof(nameBuffer), "%s_%03zu", metadata.m_Filepath.stem().string().c_str(), importSettings.m_Sprites.size());
+					int result = std::snprintf(nameBuffer, sizeof(nameBuffer), "%s_%03zu", metadata.m_Filepath.stem().string().c_str(), importSettings.m_Sprites.size());
+
+					if (result < 0 || std::cmp_greater_equal(result, sizeof(nameBuffer)))
+						WHP_EDITOR_WARN("[Asset Editor] Buffer writing failed!");
 					sprite.m_Name = nameBuffer;
 					sprite.m_X = static_cast<uint32_t>(minX);
 					sprite.m_Y = static_cast<uint32_t>(minY);
@@ -1833,7 +1878,12 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 				case TextureEditorTool::Picker:
 				{
 					const std::array<uint8_t, 4> color = ReadTexturePixel(state, pixelX, pixelY);
-					state.m_BrushColor = { color[0] / 255.0f, color[1] / 255.0f, color[2] / 255.0f, color[3] / 255.0f };
+					state.m_BrushColor = {
+						static_cast<float>(color[0]) / 255.0f,
+						static_cast<float>(color[1]) / 255.0f,
+						static_cast<float>(color[2]) / 255.0f,
+						static_cast<float>(color[3]) / 255.0f
+					};
 					state.m_Status = "Picked color.";
 					break;
 				}
@@ -1969,7 +2019,7 @@ void AssetEditorPanel::DrawAudioInspector(AssetHandle handle, bool compact) cons
 	ImGui::BeginChild("##AudioEditorReadout", ImVec2(0.0f, 0.0f), true);
 	const AudioEngine::AudioState state = AudioEngine::GetState(audio);
 	const char* stateText = "None";
-	switch (state)
+	switch (state) // NOLINT(clang-diagnostic-switch-enum)
 	{
 	case AudioEngine::AudioState::Stopped: stateText = "Stopped"; break;
 	case AudioEngine::AudioState::Playing: stateText = "Playing"; break;
@@ -1988,7 +2038,7 @@ void AssetEditorPanel::DrawAudioInspector(AssetHandle handle, bool compact) cons
 	ImGui::InvisibleButton("##AudioWaveformPlaceholder", size);
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 	drawList->AddRectFilled(min, ImVec2(min.x + size.x, min.y + size.y), IM_COL32(10, 16, 20, 255), 4.0f);
-	const ImU32 lineColor = IM_COL32(88, 145, 178, 180);
+	constexpr ImU32 lineColor = IM_COL32(88, 145, 178, 180);
 	const float centerY = min.y + size.y * 0.5f;
 	for (int i = 0; i < 96; ++i)
 	{
@@ -2038,7 +2088,7 @@ void AssetEditorPanel::DrawFontInspector(AssetEditorDocument& document, const As
 	const uint32_t previewWidth = static_cast<uint32_t>(std::max(64.0f, max.x - min.x));
 	const uint32_t previewHeightPx = static_cast<uint32_t>(std::max(64.0f, max.y - min.y));
 	if (!state.m_PreviewTexture || state.m_PreviewTextureFont != handle || state.m_PreviewTextureText != state.m_PreviewText ||
-		state.m_PreviewTextureScale != state.m_PreviewScale || state.m_PreviewTextureWidth != previewWidth || state.m_PreviewTextureHeight != previewHeightPx)
+		!Math::EqualF(state.m_PreviewScale, state.m_PreviewTextureScale) || state.m_PreviewTextureWidth != previewWidth || state.m_PreviewTextureHeight != previewHeightPx)
 	{
 		state.m_PreviewTexture = BuildFontPreviewTexture(font, state.m_PreviewText, state.m_PreviewScale, previewWidth, previewHeightPx);
 		state.m_PreviewTextureFont = handle;
@@ -2060,7 +2110,7 @@ void AssetEditorPanel::DrawFontInspector(AssetEditorDocument& document, const As
 	{
 		ImDrawList* atlasDrawList = ImGui::GetWindowDrawList();
 		const ImVec2 imageMax(imageMin.x + previewSize.x, imageMin.y + previewSize.y);
-		const ImU32 gridColor = IM_COL32(255, 255, 255, 28);
+		constexpr ImU32 gridColor = IM_COL32(255, 255, 255, 28);
 		for (int i = 1; i < 8; ++i)
 		{
 			const float x = imageMin.x + previewSize.x * static_cast<float>(i) / 8.0f;

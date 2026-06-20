@@ -10,7 +10,6 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>
-#include <cctype>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -24,7 +23,7 @@ namespace
 {
 	constexpr const char* SceneEntityPayloadType = "WHIP_SCENE_ENTITY";
 
-	class TableRowScope
+	class TableRowScope // NOLINT(cppcoreguidelines-special-member-functions)
 	{
 	public:
 		TableRowScope(bool active, const char* label)
@@ -202,7 +201,8 @@ namespace
 				if (label == "Unknown")
 					continue;
 
-				if (ImGui::Selectable(label.data(), isSelected))
+				const char* labelText = label.data();
+				if (ImGui::Selectable(labelText, isSelected))
 				{
 					value = candidate;
 					changed = true;
@@ -312,10 +312,10 @@ namespace
 				items.push_back(std::move(item));
 			});
 
-		std::sort(items.begin(), items.end(), [](const ScenePickerItem& lhs, const ScenePickerItem& rhs)
-			{
-				return lhs.m_Path.generic_string() < rhs.m_Path.generic_string();
-			});
+		std::ranges::sort(items, [](const ScenePickerItem& lhs, const ScenePickerItem& rhs)
+		{
+			return lhs.m_Path.generic_string() < rhs.m_Path.generic_string();
+		});
 
 		return items;
 	}
@@ -340,7 +340,7 @@ namespace
 
 	std::string ToLower(std::string text)
 	{
-		std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		std::ranges::transform(text, text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 		return text;
 	}
 
@@ -425,7 +425,7 @@ namespace
 					continue;
 
 				++visibleCount;
-				ImGui::PushID(static_cast<int>((uint64_t)scene.m_Handle & 0xffffffffu));
+				ImGui::PushID(static_cast<int>(static_cast<uint64_t>(scene.m_Handle) & 0xffffffffu));
 				const bool selected = scene.m_Handle == currentHandle;
 				if (ImGui::Selectable(scene.m_Label.c_str(), selected))
 				{
@@ -721,7 +721,7 @@ namespace
 
 		ImGui::EndTable();
 
-		if (removeIndex != static_cast<size_t>(-1))
+		if (removeIndex != (std::numeric_limits<size_t>::max)())
 		{
 			onRemove(removeIndex);
 			return true;
@@ -960,35 +960,37 @@ namespace UI
 		DrawSceneField<ScriptFieldDraw::WithBaseValue>(field, entity, className, inTable);
 	}
 
-	template <ScriptFieldDraw DrawMode>
-	void DrawFieldByType(const ScriptField& field, Entity entity, const std::string& className, bool inTable)
+	namespace
 	{
-		switch (field.m_Type)
+		template <ScriptFieldDraw DrawMode>
+		void DrawFieldByType(const ScriptField& field, Entity entity, const std::string& className, bool inTable)
 		{
-		case ScriptFieldType::Float: DrawField<ScriptFieldType::Float, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Int: DrawField<ScriptFieldType::Int, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Bool: DrawField<ScriptFieldType::Bool, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Long: DrawField<ScriptFieldType::Long, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Vector3: DrawField<ScriptFieldType::Vector3, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Vector2: DrawField<ScriptFieldType::Vector2, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Vector4: DrawField<ScriptFieldType::Vector4, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::UInt: DrawField<ScriptFieldType::UInt, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::ULong: DrawField<ScriptFieldType::ULong, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Double: DrawField<ScriptFieldType::Double, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Byte: DrawField<ScriptFieldType::Byte, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::SByte: DrawField<ScriptFieldType::SByte, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Char: DrawField<ScriptFieldType::Char, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Short: DrawField<ScriptFieldType::Short, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::UShort: DrawField<ScriptFieldType::UShort, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::KeyCode: DrawField<ScriptFieldType::KeyCode, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::MouseCode: DrawField<ScriptFieldType::MouseCode, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::String: DrawField<ScriptFieldType::String, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Entity: DrawField<ScriptFieldType::Entity, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::Scene: DrawField<ScriptFieldType::Scene, DrawMode>(field, entity, className, inTable); break;
-		case ScriptFieldType::None:
-		case ScriptFieldType::Logger:
-		default:
-			break;
+			switch (field.m_Type)
+			{
+			case ScriptFieldType::Float: DrawField<ScriptFieldType::Float, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Int: DrawField<ScriptFieldType::Int, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Bool: DrawField<ScriptFieldType::Bool, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Long: DrawField<ScriptFieldType::Long, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Vector3: DrawField<ScriptFieldType::Vector3, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Vector2: DrawField<ScriptFieldType::Vector2, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Vector4: DrawField<ScriptFieldType::Vector4, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::UInt: DrawField<ScriptFieldType::UInt, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::ULong: DrawField<ScriptFieldType::ULong, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Double: DrawField<ScriptFieldType::Double, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Byte: DrawField<ScriptFieldType::Byte, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::SByte: DrawField<ScriptFieldType::SByte, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Char: DrawField<ScriptFieldType::Char, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Short: DrawField<ScriptFieldType::Short, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::UShort: DrawField<ScriptFieldType::UShort, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::KeyCode: DrawField<ScriptFieldType::KeyCode, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::MouseCode: DrawField<ScriptFieldType::MouseCode, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::String: DrawField<ScriptFieldType::String, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Entity: DrawField<ScriptFieldType::Entity, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::Scene: DrawField<ScriptFieldType::Scene, DrawMode>(field, entity, className, inTable); break;
+			case ScriptFieldType::None:
+			case ScriptFieldType::Logger:
+				break;
+			}
 		}
 	}
 

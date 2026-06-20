@@ -5,7 +5,6 @@
 
 #include <Whip/Core/Core.h>
 #include <Whip/Asset/Asset.h>
-#include <Whip/Render/Texture.h>
 
 #include <filesystem>
 #include <functional>
@@ -21,7 +20,7 @@ class ContentBrowserPanel : public EditorPanel
 {
 public:
 	ContentBrowserPanel();
-	ContentBrowserPanel(Ref<Project> proj);
+	ContentBrowserPanel(const Ref<Project>& proj);
 
 	struct Preferences
 	{
@@ -42,8 +41,8 @@ public:
 		size_t m_Failed = 0;
 		size_t m_Missing = 0;
 	};
-	
-	void Init(Ref<Project> proj);
+
+	void Init(const Ref<Project>& proj);
 
 	void OnImGuiRender() override;
 	void OnSettingsPopup();

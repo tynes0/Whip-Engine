@@ -7,22 +7,20 @@
 #include <filesystem>
 #include <vector>
 
+#include "EditorManagerBase.h"
+
 _WHIP_START
 
-class EditorLayer;
-
-class EditorProjectManager
+class EditorProjectManager : public EditorManagerBase // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	explicit EditorProjectManager(EditorLayer* boundedLayer = nullptr);
-	~EditorProjectManager();
+	~EditorProjectManager() override;
 
-	UI::UIProjectLoader& GetLoader() { return m_ProjectLoader; }
-	const UI::UIProjectLoader& GetLoader() const { return m_ProjectLoader; }
+	UI::UIProjectLoader& GetLoader();
+	const UI::UIProjectLoader& GetLoader() const;
 
-	const std::vector<std::filesystem::path>& GetRecentProjects() const { return m_RecentProjects; }
-
-	void Bind(EditorLayer& layer);
+	const std::vector<std::filesystem::path>& GetRecentProjects() const;
 
 	void SetupProjectLoader();
 	void LoadRecentProjects();
@@ -30,10 +28,11 @@ public:
 	void AddRecentProject(const std::filesystem::path& path);
 	bool ForgetRecentProject(const std::filesystem::path& path);
 	bool DeleteRecentProject(const std::filesystem::path& path);
-	bool ShouldIncludeRecentProject(const std::filesystem::path& path) const;
 
-	std::filesystem::path GetRecentProjectsPath() const;
-	std::filesystem::path GetPreferencesPath() const;
+	static bool ShouldIncludeRecentProject(const std::filesystem::path& path);
+	static std::filesystem::path GetRecentProjectsPath();
+	static std::filesystem::path GetPreferencesPath();
+
 	void LoadEditorPreferences();
 	void SaveEditorPreferences() const;
 	void ApplyPreferencesToContentBrowser();
@@ -47,9 +46,6 @@ public:
 	void ResetEditorProjectState();
 
 private:
-	EditorLayer& GetLayer() const;
-
-	EditorLayer* m_BoundedLayer = nullptr;
 	UI::UIProjectLoader m_ProjectLoader;
 	std::vector<std::filesystem::path> m_RecentProjects;
 	std::filesystem::path m_LastProjectPath;

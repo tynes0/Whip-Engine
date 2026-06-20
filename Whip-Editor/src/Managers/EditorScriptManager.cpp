@@ -1,13 +1,10 @@
-#include <Whip-Editor/EditorScriptManager.h>
+#include <Whip-Editor/Managers/EditorScriptManager.h>
 
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Scripting/ScriptProjectGenerator.h>
 
 #include <algorithm>
 #include <array>
-#include <cctype>
-#include <cstdio>
-#include <cstdlib>
 #include <format>
 #include <fstream>
 #include <iterator>
@@ -60,7 +57,7 @@ namespace
 
 	std::string GetScriptWorkspaceName(const ProjectConfig& config)
 	{
-		const std::string fallback = SanitizePathToken(config.m_Name, "Untitled");
+		std::string fallback = SanitizePathToken(config.m_Name, "Untitled");
 		if (!config.m_ScriptModulePath.empty())
 		{
 			const std::string moduleName = config.m_ScriptModulePath.stem().string();
@@ -646,6 +643,11 @@ namespace
 	}
 }
 
+EditorScriptManager::EditorScriptManager(EditorLayer* boundedLayer)
+	: EditorManagerBase(boundedLayer)
+{
+}
+
 EditorScriptManager::~EditorScriptManager()
 {
 	StopSourceWatcher();
@@ -695,17 +697,16 @@ bool EditorScriptManager::BuildProjectScripts()
 	if (!needsWorkspaceRefresh && preferredProjectExists)
 	{
 		const std::string projectFileContents = ReadTextFile(preferredProjectFile);
-		const bool generatedSdkProject = projectFileContents.find("<Project Sdk=\"Microsoft.NET.Sdk\">") != std::string::npos;
-		if (generatedSdkProject)
+		if (const bool generatedSdkProject = projectFileContents.find("<Project Sdk=\"Microsoft.NET.Sdk\">") != std::string::npos; generatedSdkProject)
 		{
 			const std::string solutionFileContents = ReadTextFile(preferredSolutionFile);
 			const std::string buildPropsContents = buildPropsExists ? ReadTextFile(buildPropsFile) : "";
 			needsWorkspaceRefresh =
 				!buildPropsExists ||
-				projectFileContents.find("<ProjectReference Include=\"Whip-ScriptCore\\Whip-ScriptCore.csproj\">") == std::string::npos ||
-				projectFileContents.find("<Compile Remove=\"Whip-ScriptCore\\**\\*.cs\" />") == std::string::npos ||
-				projectFileContents.find("<Compile Remove=\"Intermediates\\**\\*.cs\" />") == std::string::npos ||
-				projectFileContents.find("<Compile Remove=\"obj\\**\\*.cs\" />") == std::string::npos ||
+				projectFileContents.find(R"(<ProjectReference Include="Whip-ScriptCore\Whip-ScriptCore.csproj">)") == std::string::npos ||
+				projectFileContents.find(R"(<Compile Remove="Whip-ScriptCore\**\*.cs" />)") == std::string::npos ||
+				projectFileContents.find(R"(<Compile Remove="Intermediates\**\*.cs" />)") == std::string::npos ||
+				projectFileContents.find(R"(<Compile Remove="obj\**\*.cs" />)") == std::string::npos ||
 				projectFileContents.find("<BaseIntermediateOutputPath>") != std::string::npos ||
 				buildPropsContents.find("ScriptIntermediates") == std::string::npos ||
 				solutionFileContents.find("Whip-ScriptCore\\Whip-ScriptCore.csproj") == std::string::npos;
@@ -868,8 +869,7 @@ void EditorScriptManager::ProcessSourceChanges(bool sceneEditable)
 	WHP_EDITOR_INFO(std::string("[Script Watcher] Source ") + eventName + ": " + changedPath.generic_string() + ". Building scripts.");
 	SetStatus("Script changes detected");
 	StopSourceWatcher();
-	const bool buildSucceeded = BuildProjectScripts();
-	if (buildSucceeded)
+	if (const bool buildSucceeded = BuildProjectScripts(); buildSucceeded)
 	{
 		AssemblyManager::ReloadAssembly(true);
 		WHP_EDITOR_INFO("[Script Watcher] Scripts rebuilt and reloaded.");
@@ -900,6 +900,11 @@ void EditorScriptManager::SetStatus(const std::string& message, bool warning, bo
 	m_Status.m_Time = std::chrono::steady_clock::now();
 	m_Status.m_Warning = warning;
 	m_Status.m_Failure = failure;
+}
+
+const EditorScriptManager::Status& EditorScriptManager::GetStatus() const
+{
+	return m_Status;
 }
 
 _WHIP_END

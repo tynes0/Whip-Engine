@@ -24,7 +24,7 @@
 #define _WHP_HAS_CPP_VERSION(x) WHP_CONCATENATE(_HAS_CXX, x)
 
 #define _WHP_TEST_CPP_FT(x) WHP_CONCATENATE(__cpp_, x)
-	
+
 #if defined(_MSC_VER)
 	#if defined(__CUDACC__) || defined(__INTEL_COMPILER)
 		#define _WHP_PRAGMA(PRAGMA) __pragma(PRAGMA)
@@ -57,11 +57,11 @@
 	#define WHP_NODISCARD20 [[nodiscard]]
 	#define WHP_NODISCARD_MSG(msg) [[nodiscard(msg)]]
 #else // _WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
-	#define WHP_NODISCARD20 
+	#define WHP_NODISCARD20
 	#if _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
-		#define WHP_NODISCARD_MSG(msg) [[nodiscard]]				
+		#define WHP_NODISCARD_MSG(msg) [[nodiscard]]
 	#else // _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
-		#define WHP_NODISCARD_MSG(msg) 
+		#define WHP_NODISCARD_MSG(msg)
 	#endif // _WHP_HAS_CPP_ATTRIBUTE(nodiscard)
 #endif //_WHP_HAS_CPP_ATTRIBUTE(nodiscard) >= 201907L
 
@@ -156,7 +156,7 @@
 		#error "MacOs is not supported!"
 	#else
 		#error "Unknown Apple platform!"
-	#endif 
+	#endif
 #elif defined(__ANDROID__)
 	#define WHP_PLATFORM_ANDROID 1
 	#error "Android is not supported!"
@@ -195,5 +195,23 @@
 #endif
 
 #ifndef WHP_DIST
-	#define WHP_ENABLE_VERIFY 
+	#define WHP_ENABLE_VERIFY
 #endif // WHP_DIST
+
+#if defined(__GNUC__) || (defined(__MWERKS__) && (__MWERKS__ >= 0x3000)) || (defined(__ICC) && (__ICC >= 600)) || defined(__ghs__)
+	#define WHP_FUNC_SIG __PRETTY_FUNCTION__
+#elif defined(__DMC__) && (__DMC__ >= 0x810)
+	#define WHP_FUNC_SIG __PRETTY_FUNCTION__
+#elif defined(__FUNCSIG__)
+	#define WHP_FUNC_SIG __FUNCSIG__
+#elif (defined(__INTEL_COMPILER) && (__INTEL_COMPILER >= 600)) || (defined(__IBMCPP__) && (__IBMCPP__ >= 500))
+	#define WHP_FUNC_SIG __FUNCTION__
+#elif defined(__BORLANDC__) && (__BORLANDC__ >= 0x550)
+	#define WHP_FUNC_SIG __FUNC__
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901)
+	#define WHP_FUNC_SIG __func__
+#elif defined(__cplusplus) && (__cplusplus >= 201103)
+	#define WHP_FUNC_SIG __func__
+#else
+	#define WHP_FUNC_SIG "WHP_FUNC_SIG unknown!"
+#endif

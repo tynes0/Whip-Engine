@@ -5,22 +5,22 @@
 #include <chrono>
 #include <filesystem>
 
+#include "EditorManagerBase.h"
+
 _WHIP_START
 
-class EditorLayer;
-
-enum class EditorSceneState
+enum class EditorSceneState : uint8_t
 {
 	Edit = 0,
 	Play = 1,
 	Simulate = 2
 };
 
-class EditorSceneManager
+class EditorSceneManager : public EditorManagerBase // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	explicit EditorSceneManager(EditorLayer* boundedLayer = nullptr);
-	~EditorSceneManager();
+	~EditorSceneManager() override;
 
 	const Ref<Scene>& ActiveScene() const;
 
@@ -34,7 +34,6 @@ public:
 
 	const std::chrono::steady_clock::time_point& LastRecoverySnapshot() const;
 
-	void Bind(EditorLayer& layer);
 	void SetActiveScene(Ref<Scene> scene);
 	void SetEditorScene(Ref<Scene> scene);
 	void SetEditorScenePath(std::filesystem::path path);
@@ -57,7 +56,7 @@ public:
 	void StopActiveRuntimeSceneForTransition();
 	void StartActiveRuntimeSceneForTransition(AssetHandle handle);
 
-	void SerializeScene(Ref<Scene> sceneIn, const std::filesystem::path& path);
+	void SerializeScene(const Ref<Scene>& sceneIn, const std::filesystem::path& path);
 
 	void OnScenePlay();
 	void OnSceneSimulate();
@@ -65,10 +64,6 @@ public:
 	void OnScenePause();
 
 private:
-	EditorLayer& GetLayer() const;
-
-	EditorLayer* m_BoundedLayer;
-
 	Ref<Scene> m_ActiveScene;
 	Ref<Scene> m_EditorScene;
 	std::filesystem::path m_EditorScenePath;

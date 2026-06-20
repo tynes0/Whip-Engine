@@ -1,12 +1,19 @@
 #include <WhipPch.h>
 
-#include <Whip-Editor/Panels/EditorPanelManager.h>
+#include <Whip-Editor/Managers/EditorPanelManager.h>
 
 #include <algorithm>
 
 #include <imgui.h>
 
 _WHIP_START
+
+EditorPanelManager::EditorPanelManager(EditorLayer* boundedLayer)
+	: EditorManagerBase(boundedLayer)
+{
+}
+
+EditorPanelManager::~EditorPanelManager() = default;
 
 void EditorPanelManager::Clear()
 {

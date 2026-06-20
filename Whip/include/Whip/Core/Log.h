@@ -46,9 +46,9 @@ public:
 
 	WHP_NODISCARD_MSG("Client Logger returned as unnecessary") inline static const Logger& GetClientLogger() { return s_ClientLogger; }
 	WHP_NODISCARD_MSG("Core Logger returned as unnecessary") inline static const Logger& GetCoreLogger() { return s_CoreLogger; }
-	
+
 	static void ResetLogger(Logger& loggerIn, const std::string& newName, OutputTarget target = OutputTarget::Console);
-	
+
 	WHP_NODISCARD static spdlog::level::level_enum WhipLogLevelToSpdlogLevel(Level logLevel);
 private:
 
@@ -138,7 +138,6 @@ MakeFrenumWithNamespace(whip::Log, Level, Trace, Debug, Info, Warning, Error, Cr
 #define WHP_EDITOR_ERROR(message,...)			whip::EditorLog::Write(whip::Log::Level::Error ,message,__VA_ARGS__)
 #define WHP_EDITOR_CRITICAL(message,...)		whip::EditorLog::Write(whip::Log::Level::Critical ,message,__VA_ARGS__)
 
-
 #ifdef WHP_ENABLE_ASSERTS
 #define _WHP_INTERNAL_ASSERT_IMPL(type, check, msg, ...) do { if(!(check)) {WHP##type##CRITICAL(msg, __VA_ARGS__); WHP_DEBUGBREAK(); } } while(false)
 #define _WHP_INTERNAL_ASSERT_WITH_MSG(type, check, ...)	_WHP_INTERNAL_ASSERT_IMPL(type, check, "Whip Assertion failed! File: {0}, Line: {1}, Message: {2}", std::filesystem::path(__FILE__).filename().string(), __LINE__ , __VA_ARGS__)
@@ -168,3 +167,6 @@ MakeFrenumWithNamespace(whip::Log, Level, Trace, Debug, Info, Warning, Error, Cr
 #define WHP_VERIFY(x, ...)				// Whip verify not enabled
 #define WHP_CORE_VERIFY(x, ...)			// Whip core verify not enabled
 #endif //WHP_ENABLE_VERIFY
+
+#define WHP_UNIMPLEMENTED() WHP_CORE_WARN("Unimplemented function '{0}' called!", WHP_FUNC_SIG)
+#define WHP_UNIMPLEMENTED_ASSERTED() WHP_CORE_ASSERT(false, "Unimplemented function '{0}' called!", WHP_FUNC_SIG)

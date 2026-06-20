@@ -7,15 +7,15 @@
 #include <unordered_map>
 #include <vector>
 
+#include "EditorManagerBase.h"
+
 _WHIP_START
 
-class EditorLayer;
-
-class EditorHistoryManager
+class EditorHistoryManager : public EditorManagerBase // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
 	explicit EditorHistoryManager(EditorLayer* boundedLayer = nullptr);
-	~EditorHistoryManager();
+	~EditorHistoryManager() override;
 
 	struct ProjectHistoryEntry
 	{
@@ -36,14 +36,12 @@ public:
 		ProjectHistoryEntry m_ProjectSnapshot;
 	};
 
-	bool CanUndo() const { return !m_UndoStack.empty(); }
-	bool CanRedo() const { return !m_RedoStack.empty(); }
-	bool HasClipboard() const { return !m_EntityClipboard.empty(); }
+	bool CanUndo() const;
+	bool CanRedo() const;
+	bool HasClipboard() const;
 
-	bool IsGizmoHistoryActive() const { return m_GizmoHistoryActive; }
-	void SetGizmoHistoryActive(bool active) { m_GizmoHistoryActive = active; }
-
-	void Bind(EditorLayer& layer);
+	bool IsGizmoHistoryActive() const;
+	void SetGizmoHistoryActive(bool active);
 
 	ProjectHistoryEntry CaptureProjectHistory() const;
 	void RestoreProjectHistory(const ProjectHistoryEntry& entry);
@@ -62,9 +60,6 @@ public:
 	void CutSelection();
 
 private:
-	EditorLayer& GetLayer() const;
-
-	EditorLayer* m_BoundedLayer = nullptr;
 	std::vector<SceneHistoryEntry> m_UndoStack;
 	std::vector<SceneHistoryEntry> m_RedoStack;
 	std::vector<UUID> m_EntityClipboard;

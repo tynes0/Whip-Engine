@@ -55,5 +55,15 @@ namespace Math
 
 		return true;
 	}
+
+	bool EqualF(float a, float b, float epsilon)
+	{
+		return std::abs(a - b) <= epsilon;
+	}
+
+	bool EqualF(double a, double b, double epsilon)
+	{
+		return std::abs(a - b) <= epsilon;
+	}
 }
 _WHIP_END
