@@ -2,6 +2,7 @@
 #include <Whip-Editor/UI/UISettings.h>
 
 #include <imgui.h>
+#include <Whip-Editor/Managers/EditorShortcutManager.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 
 _WHIP_START
@@ -608,6 +609,12 @@ namespace UI
 	void UISettings::DrawShortcutSettings()
 	{
 		DrawSettingsHeading("Shortcut Map");
+		if (m_ShortcutManager)
+		{
+			m_ShortcutManager->DrawSettings();
+			return;
+		}
+
 		if (ImGui::Button("Reset Defaults", ImVec2(128.0f, 0.0f)))
 			ResetShortcutsToDefault();
 

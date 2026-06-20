@@ -1,5 +1,6 @@
 #include <Whip-Editor/Panels/AnimationEditorPanel.h>
 
+#include <Whip-Editor/Managers/EditorShortcutManager.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip-Editor/Helpers/IconManager.h>
 
@@ -4960,6 +4961,34 @@ bool AnimationEditorPanel::Redo()
 	m_RedoStack.pop_back();
 	RestoreSnapshot(snapshot);
 	return true;
+}
+
+void AnimationEditorPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
+{
+	auto addShortcut = [this, &shortcuts](const char* id, const char* displayName, UI::EditorShortcutAction action, const UI::ShortcutBinding& binding)
+	{
+		shortcuts.Add(
+			EditorShortcutScope::AnimationEditor,
+			std::string("animation.") + id,
+			displayName,
+			"Edit",
+			binding,
+			[this, action]()
+			{
+				ExecuteShortcutAction(action);
+				return true;
+			},
+			[]() { return true; },
+			[this]() { return WantsShortcutCapture(); });
+	};
+
+	addShortcut("undo", "Undo Animation Edit", UI::EditorShortcutAction::Undo, { Key::Z, true, false, false });
+	addShortcut("redo", "Redo Animation Edit", UI::EditorShortcutAction::Redo, { Key::Y, true, false, false });
+	addShortcut("copy", "Copy Animation Selection", UI::EditorShortcutAction::Copy, { Key::C, true, false, false });
+	addShortcut("cut", "Cut Animation Selection", UI::EditorShortcutAction::Cut, { Key::X, true, false, false });
+	addShortcut("paste", "Paste Animation Selection", UI::EditorShortcutAction::Paste, { Key::V, true, false, false });
+	addShortcut("duplicate", "Duplicate Animation Selection", UI::EditorShortcutAction::DuplicateEntity, { Key::D, true, false, false });
+	addShortcut("delete", "Delete Animation Selection", UI::EditorShortcutAction::DeleteEntity, { Key::Delete, false, false, false });
 }
 
 bool AnimationEditorPanel::ShouldConsumeShortcutAction(UI::EditorShortcutAction action) const

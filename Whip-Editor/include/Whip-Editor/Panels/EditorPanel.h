@@ -8,6 +8,8 @@
 
 _WHIP_START
 
+class EditorShortcutManager;
+
 class EditorPanel // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
@@ -21,6 +23,7 @@ public:
 	const std::string& GetName() const { return m_Name; }
 
 	virtual void OnImGuiRender() = 0;
+	virtual void RegisterShortcuts(EditorShortcutManager&) {}
 	virtual void SetOpen(bool open)
 	{
 		if (m_Open == open)

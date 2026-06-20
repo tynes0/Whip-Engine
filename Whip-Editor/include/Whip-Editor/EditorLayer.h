@@ -11,6 +11,7 @@
 #include <Whip-Editor/Managers/EditorSceneManager.h>
 #include <Whip-Editor/Managers/EditorPanelManager.h>
 #include <Whip-Editor/Managers/EditorEntityTemplateManager.h>
+#include <Whip-Editor/Managers/EditorShortcutManager.h>
 
 #include <Whip-Editor/Panels/SceneHierarchyPanel.h>
 #include <Whip-Editor/Panels/ContentBrowserPanel.h>
@@ -43,6 +44,7 @@ private:
 	friend class EditorProjectManager;
 	friend class EditorSceneManager;
 	friend class EditorScriptManager;
+	friend class EditorShortcutManager;
 
 	bool OnKeyPressed(KeyPressedEvent& event);
 	bool OnMouseButtonPressed(MouseButtonPressedEvent& event);
@@ -55,6 +57,7 @@ private:
 
 	bool ExecuteEditorAction(UI::EditorShortcutAction action);
 	bool IsEditorActionAvailable(UI::EditorShortcutAction action) const;
+	void RegisterEditorShortcuts();
 	void RebuildEditorPanelRegistry();
 	void DrawEditorShellTitlebar(bool projectLoaded);
 	void DrawEditorMenuBar(bool projectLoaded);
@@ -85,6 +88,7 @@ private:
 	EditorScriptManager m_ScriptManager;
 	EditorSceneManager m_SceneManager;
 	EditorPanelManager m_PanelManager;
+	EditorShortcutManager m_ShortcutManager;
 
 	// UI's
 	UI::UIProject m_UIProject;

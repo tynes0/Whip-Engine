@@ -422,7 +422,11 @@ void EditorProjectManager::LoadEditorPreferences()
 				binding.m_Alt = shortcut["alt"].as<bool>(false);
 				layer.m_UISettings.SetShortcutBinding(action, binding);
 			}
+			layer.m_ShortcutManager.SyncLegacyGlobalBindings(layer.m_UISettings);
 		}
+
+		if (YAML::Node shortcutManager = editor["shortcut_manager"])
+			layer.m_ShortcutManager.LoadBindings(shortcutManager);
 	}
 
 	if (YAML::Node panels = data["panels"])
@@ -446,6 +450,7 @@ void EditorProjectManager::LoadEditorPreferences()
 	}
 
 	layer.m_UISettings.ConsumeDirty();
+	layer.m_ShortcutManager.ConsumeDirty();
 	layer.m_SceneHierarchyPanel.ConsumeOpenDirty();
 	layer.m_AnimationEditorPanel.ConsumeOpenDirty();
 	layer.m_UIStatistics.ConsumeOpenDirty();
@@ -478,7 +483,8 @@ void EditorProjectManager::SaveEditorPreferences() const
 	for (size_t i = 0; i < UI::UISettings::ActionCount; ++i)
 	{
 		UI::EditorShortcutAction action = static_cast<UI::EditorShortcutAction>(i);
-		UI::ShortcutBinding binding = layer.m_UISettings.GetShortcutBinding(action);
+		const std::string shortcutId = std::string("global.") + UI::UISettings::GetActionStorageKey(action);
+		UI::ShortcutBinding binding = layer.m_ShortcutManager.GetBinding(shortcutId, layer.m_UISettings.GetShortcutBinding(action));
 		out << YAML::Key << UI::UISettings::GetActionStorageKey(action) << YAML::Value << YAML::BeginMap;
 		out << YAML::Key << "key" << YAML::Value << binding.m_Key;
 		out << YAML::Key << "ctrl" << YAML::Value << binding.m_Ctrl;
@@ -487,6 +493,8 @@ void EditorProjectManager::SaveEditorPreferences() const
 		out << YAML::EndMap;
 	}
 	out << YAML::EndMap;
+	out << YAML::Key << "shortcut_manager" << YAML::Value;
+	layer.m_ShortcutManager.SaveBindings(out);
 	out << YAML::EndMap;
 
 	out << YAML::Key << "panels" << YAML::Value << YAML::BeginMap;

@@ -138,6 +138,11 @@ namespace
 		UI::EditorShortcutAction::OpenCommandPalette
 	};
 
+	std::string EditorActionShortcutId(UI::EditorShortcutAction action)
+	{
+		return std::string("global.") + UI::UISettings::GetActionStorageKey(action);
+	}
+
 	bool CommandMatchesFilter(UI::EditorShortcutAction action, const char* filter)
 	{
 		if (!filter || filter[0] == '\0')
@@ -182,6 +187,7 @@ EditorLayer::EditorLayer()
 	m_ScriptManager(this),
 	m_SceneManager(this),
 	m_PanelManager(this),
+	m_ShortcutManager(this),
 	m_GizmoType(ImGuizmo::OPERATION::TRANSLATE)
 {
 }
@@ -208,6 +214,8 @@ void EditorLayer::OnAttach()
 		[this]() { return m_SceneManager.EditorScenePath(); });
 	m_UIProject.SetBeforeChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(true); });
 	m_UIProject.SetEditorSettingsDrawer([this]() { m_UISettings.DrawContent(); });
+	m_UISettings.SetShortcutManager(&m_ShortcutManager);
+	RegisterEditorShortcuts();
 	m_ProjectManager.SetupProjectLoader();
 	m_ProjectManager.LoadEditorPreferences();
 	m_ProjectManager.GetLoader().SetRecentProjects(m_ProjectManager.GetRecentProjects());
@@ -565,9 +573,9 @@ void EditorLayer::OnImGuiRender()
 	// other renders
 	RebuildEditorPanelRegistry();
 	m_PanelManager.OnImGuiRender();
-	m_AnimationEditorPanel.HandleShortcutInput(m_UISettings);
 	DrawCommandPalette();
 	if (m_UISettings.ConsumeDirty()
+		|| m_ShortcutManager.ConsumeDirty()
 		|| m_PanelManager.ConsumeOpenDirty()
 		|| (m_ContentBrowserPanel && m_ContentBrowserPanel->ConsumePreferencesDirty()))
 		m_ProjectManager.SaveEditorPreferences();
@@ -588,37 +596,8 @@ void EditorLayer::OnEvent(Event& event)
 
 bool EditorLayer::OnKeyPressed(KeyPressedEvent& event)
 {
-    // Shortcuts
-    if (event.GetRepeatCount() > 0)
-        return false;
-
-    bool control = Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl);
-    bool shift = Input::IsKeyDown(Key::LeftShift) || Input::IsKeyDown(Key::RightShift);
-    bool alt = Input::IsKeyDown(Key::LeftAlt) || Input::IsKeyDown(Key::RightAlt);
 	const bool hasActiveWidget = Application::Get().GetImGuiLayer()->GetActiveWidgetID() != 0;
-
-	for (size_t i = 0; i < UI::UISettings::ActionCount; ++i)
-	{
-		UI::EditorShortcutAction action = static_cast<UI::EditorShortcutAction>(i);
-		if (m_UISettings.ShortcutMatches(action, event.GetKeyCode(), control, shift, alt))
-		{
-			if (hasActiveWidget &&
-				action != UI::EditorShortcutAction::OpenCommandPalette &&
-				action != UI::EditorShortcutAction::Play &&
-				action != UI::EditorShortcutAction::Simulate &&
-				action != UI::EditorShortcutAction::Stop &&
-				action != UI::EditorShortcutAction::Pause)
-			{
-				return false;
-			}
-
-			if (m_AnimationEditorPanel.WantsShortcutCapture() && m_AnimationEditorPanel.ShouldConsumeShortcutAction(action))
-				return true;
-			return ExecuteEditorAction(action);
-		}
-	}
-
-    return false;
+	return m_ShortcutManager.HandleKeyPressed(event, hasActiveWidget);
 }
 
 void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
@@ -684,7 +663,7 @@ void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
 	{
 		auto drawMenuAction = [this](UI::EditorShortcutAction action, const char* label = nullptr)
 			{
-				std::string shortcut = m_UISettings.GetShortcutLabel(action);
+				std::string shortcut = m_ShortcutManager.GetShortcutLabel(EditorActionShortcutId(action));
 				const bool available = IsEditorActionAvailable(action);
 				ImGui::BeginDisabled(!available);
 				bool clicked = ImGui::MenuItem(label ? label : UI::UISettings::GetActionDisplayName(action), shortcut.c_str());
@@ -830,8 +809,9 @@ void EditorLayer::DrawCommandPalette()
 					ImGui::TableNextColumn();
 					ImGui::TextDisabled("%s", UI::UISettings::GetActionCategory(action));
 					ImGui::TableNextColumn();
-					const std::string shortcut = m_UISettings.GetShortcutLabel(action);
-					if (m_UISettings.HasShortcutConflict(action))
+					const std::string shortcutId = EditorActionShortcutId(action);
+					const std::string shortcut = m_ShortcutManager.GetShortcutLabel(shortcutId);
+					if (m_ShortcutManager.HasConflict(shortcutId))
 						ImGui::TextColored(ImVec4(0.95f, 0.50f, 0.34f, 1.0f), "Conflict");
 					else
 						ImGui::TextDisabled("%s", shortcut.c_str());
@@ -1002,6 +982,41 @@ bool EditorLayer::IsEditorActionAvailable(UI::EditorShortcutAction action) const
 	default:
 		return false;
 	}
+}
+
+void EditorLayer::RegisterEditorShortcuts()
+{
+	m_ShortcutManager.Clear();
+
+	for (size_t i = 0; i < UI::UISettings::ActionCount; ++i)
+	{
+		const UI::EditorShortcutAction action = static_cast<UI::EditorShortcutAction>(i);
+		EditorShortcutOptions options;
+		options.m_AllowWhenActiveWidget =
+			action == UI::EditorShortcutAction::OpenCommandPalette ||
+			action == UI::EditorShortcutAction::Play ||
+			action == UI::EditorShortcutAction::Simulate ||
+			action == UI::EditorShortcutAction::Stop ||
+			action == UI::EditorShortcutAction::Pause;
+		options.m_AllowWhenTextInput = action == UI::EditorShortcutAction::OpenCommandPalette;
+
+		m_ShortcutManager.Add(
+			EditorShortcutScope::Global,
+			EditorActionShortcutId(action),
+			UI::UISettings::GetActionDisplayName(action),
+			UI::UISettings::GetActionCategory(action),
+			m_UISettings.GetShortcutBinding(action),
+			[this, action]() { return ExecuteEditorAction(action); },
+			[this, action]() { return IsEditorActionAvailable(action); },
+			{},
+			options);
+	}
+
+	m_SceneHierarchyPanel.RegisterShortcuts(m_ShortcutManager);
+	m_AnimationEditorPanel.RegisterShortcuts(m_ShortcutManager);
+	m_AssetEditorPanel.RegisterShortcuts(m_ShortcutManager);
+	if (m_ContentBrowserPanel)
+		m_ContentBrowserPanel->RegisterShortcuts(m_ShortcutManager);
 }
 
 void EditorLayer::RebuildEditorPanelRegistry()

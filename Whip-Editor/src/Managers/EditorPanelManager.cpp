@@ -2,6 +2,8 @@
 
 #include <Whip-Editor/Managers/EditorPanelManager.h>
 
+#include <Whip-Editor/EditorLayer.h>
+
 #include <algorithm>
 
 #include <imgui.h>
@@ -23,7 +25,10 @@ void EditorPanelManager::Clear()
 void EditorPanelManager::AddPanel(EditorPanel& panel)
 {
 	if (std::ranges::find(m_Panels, &panel) == m_Panels.end())
+	{
 		m_Panels.push_back(&panel);
+		panel.RegisterShortcuts(GetLayer().m_ShortcutManager);
+	}
 }
 
 void EditorPanelManager::OnImGuiRender()

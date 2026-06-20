@@ -11,6 +11,8 @@
 
 _WHIP_START
 
+class EditorShortcutManager;
+
 namespace UI
 {
 	enum class EditorShortcutAction : uint8_t
@@ -89,6 +91,7 @@ namespace UI
 		static const char* GetThemeName(EditorTheme theme);
 		static const char* GetThemeDescription(EditorTheme theme);
 
+		void SetShortcutManager(EditorShortcutManager* shortcutManager) { m_ShortcutManager = shortcutManager; }
 		void OpenWindow() { m_Open = true; }
 
 		void DrawContent();
@@ -109,6 +112,7 @@ namespace UI
 		std::array<ShortcutBinding, ActionCount> m_Shortcuts = {};
 		bool m_ShortcutsInitialized = false;
 		bool m_Dirty = false;
+		EditorShortcutManager* m_ShortcutManager = nullptr;
 
 		bool m_Open = false;
 	};

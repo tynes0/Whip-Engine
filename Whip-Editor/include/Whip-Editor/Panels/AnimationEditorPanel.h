@@ -30,6 +30,7 @@ public:
 	void OnImGuiRender() override;
 	void OnImGuiRenderEmbedded();
 	bool OpenAsset(AssetHandle handle, bool openWindow = true);
+	void RegisterShortcuts(EditorShortcutManager& shortcuts) override;
 	bool WantsShortcutCapture() const { return m_ShortcutContextActive; }
 	bool ShouldConsumeShortcutAction(UI::EditorShortcutAction action) const;
 	bool ExecuteShortcutAction(UI::EditorShortcutAction action);
