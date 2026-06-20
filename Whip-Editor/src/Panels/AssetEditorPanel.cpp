@@ -623,7 +623,7 @@ void AssetEditorPanel::CloseAll()
 
 void AssetEditorPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
 {
-	auto add = [this, &shortcuts](const char* id, const char* displayName, const char* category, const UI::ShortcutBinding& binding, std::function<bool()> callback, std::function<bool()> isAvailable = {})
+	auto add = [this, &shortcuts](const char* id, const char* displayName, const char* category, const UI::ShortcutBinding& binding, std::function<bool()> callback, std::function<bool()> isAvailable = {}, EditorShortcutOptions options = {})
 	{
 		shortcuts.Add(
 			EditorShortcutScope::AssetEditor,
@@ -633,26 +633,30 @@ void AssetEditorPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
 			binding,
 			std::move(callback),
 			std::move(isAvailable),
-			[this]() { return IsShortcutContextActive(); });
+			[this]() { return IsShortcutContextActive(); },
+			options);
 	};
 
-	add("next_tab", "Next Asset Editor Tab", "Workspace", { Key::Tab, true, false, false }, [this]() { FocusNextEditor(); return true; }, [this]() { return m_Documents.size() > 1; });
-	add("close_tab", "Close Active Asset Editor Tab", "Workspace", { Key::W, true, false, false }, [this]() { return CloseActiveEditor(); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("minimize", "Minimize Asset Workspace", "Workspace", { Key::M, true, true, false }, [this]() { return MinimizeWorkspace(); });
-	add("fullscreen", "Toggle Asset Workspace Fullscreen", "Workspace", { Key::F11, false, false, false }, [this]() { return ToggleFullscreenWorkspace(); });
-	add("texture_brush", "Texture Brush Tool", "Texture Tools", { Key::B, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Brush); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_eraser", "Texture Eraser Tool", "Texture Tools", { Key::E, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Eraser); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_picker", "Texture Picker Tool", "Texture Tools", { Key::P, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Picker); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_fill", "Texture Fill Tool", "Texture Tools", { Key::F, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Fill); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_slice", "Texture Slice Tool", "Texture Tools", { Key::S, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Slice); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_undo", "Undo Texture Edit", "Texture Edit", { Key::Z, true, false, false }, [this]() { return UndoActiveTextureEdit(); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_redo", "Redo Texture Edit", "Texture Edit", { Key::Y, true, false, false }, [this]() { return RedoActiveTextureEdit(); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_save", "Save Active Texture PNG", "Texture File", { Key::S, true, false, false }, [this]() { return SaveActiveTexture(); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_apply", "Apply Texture Preview", "Texture File", { Key::Enter, true, false, false }, [this]() { return ApplyActiveTexturePreview(); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_reload", "Reload Active Texture", "Texture File", { Key::R, true, false, false }, [this]() { return ReloadActiveTexture(); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_reset_view", "Reset Texture View", "Texture View", { Key::D0, true, false, false }, [this]() { return ResetActiveTextureView(); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_zoom_in", "Texture Zoom In", "Texture View", { Key::Equal, true, false, false }, [this]() { return ZoomActiveTexture(1.2f); }, [this]() { return GetActiveDocument() != nullptr; });
-	add("texture_zoom_out", "Texture Zoom Out", "Texture View", { Key::Minus, true, false, false }, [this]() { return ZoomActiveTexture(1.0f / 1.2f); }, [this]() { return GetActiveDocument() != nullptr; });
+	EditorShortcutOptions panelOptions;
+	panelOptions.m_AllowWhenActiveWidget = true;
+
+	add("next_tab", "Next Asset Editor Tab", "Workspace", { Key::Tab, true, false, false }, [this]() { FocusNextEditor(); return true; }, [this]() { return m_Documents.size() > 1; }, panelOptions);
+	add("close_tab", "Close Active Asset Editor Tab", "Workspace", { Key::W, true, false, false }, [this]() { return CloseActiveEditor(); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("minimize", "Minimize Asset Workspace", "Workspace", { Key::M, true, true, false }, [this]() { return MinimizeWorkspace(); }, {}, panelOptions);
+	add("fullscreen", "Toggle Asset Workspace Fullscreen", "Workspace", { Key::F11, false, false, false }, [this]() { return ToggleFullscreenWorkspace(); }, {}, panelOptions);
+	add("texture_brush", "Texture Brush Tool", "Texture Tools", { Key::B, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Brush); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_eraser", "Texture Eraser Tool", "Texture Tools", { Key::E, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Eraser); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_picker", "Texture Picker Tool", "Texture Tools", { Key::P, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Picker); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_fill", "Texture Fill Tool", "Texture Tools", { Key::F, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Fill); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_slice", "Texture Slice Tool", "Texture Tools", { Key::S, false, false, false }, [this]() { return SetActiveTextureTool(TextureEditorTool::Slice); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_undo", "Undo Texture Edit", "Texture Edit", { Key::Z, true, false, false }, [this]() { return UndoActiveTextureEdit(); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_redo", "Redo Texture Edit", "Texture Edit", { Key::Y, true, false, false }, [this]() { return RedoActiveTextureEdit(); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_save", "Save Active Texture PNG", "Texture File", { Key::S, true, false, false }, [this]() { return SaveActiveTexture(); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_apply", "Apply Texture Preview", "Texture File", { Key::Enter, true, false, false }, [this]() { return ApplyActiveTexturePreview(); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_reload", "Reload Active Texture", "Texture File", { Key::R, true, false, false }, [this]() { return ReloadActiveTexture(); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_reset_view", "Reset Texture View", "Texture View", { Key::D0, true, false, false }, [this]() { return ResetActiveTextureView(); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_zoom_in", "Texture Zoom In", "Texture View", { Key::Equal, true, false, false }, [this]() { return ZoomActiveTexture(1.2f); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
+	add("texture_zoom_out", "Texture Zoom Out", "Texture View", { Key::Minus, true, false, false }, [this]() { return ZoomActiveTexture(1.0f / 1.2f); }, [this]() { return GetActiveDocument() != nullptr; }, panelOptions);
 }
 
 void AssetEditorPanel::SetOpen(bool open)

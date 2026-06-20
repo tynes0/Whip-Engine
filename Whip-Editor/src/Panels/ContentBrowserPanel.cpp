@@ -2111,7 +2111,7 @@ bool ContentBrowserPanel::ImportExternalPath(const std::filesystem::path& source
 
 bool ContentBrowserPanel::IsShortcutContextActive() const
 {
-	return m_Open && (m_Focused || m_Hovered);
+	return m_Open && m_Focused;
 }
 
 bool ContentBrowserPanel::FocusSearch()

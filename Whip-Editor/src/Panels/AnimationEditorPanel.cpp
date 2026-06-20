@@ -5019,6 +5019,8 @@ void AnimationEditorPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
 {
 	auto addShortcut = [this, &shortcuts](const char* id, const char* displayName, UI::EditorShortcutAction action, const UI::ShortcutBinding& binding)
 	{
+		EditorShortcutOptions options;
+		options.m_AllowWhenActiveWidget = true;
 		shortcuts.Add(
 			EditorShortcutScope::AnimationEditor,
 			std::string("animation.") + id,
@@ -5031,7 +5033,8 @@ void AnimationEditorPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
 				return true;
 			},
 			[]() { return true; },
-			[this]() { return WantsShortcutCapture(); });
+			[this]() { return WantsShortcutCapture(); },
+			options);
 	};
 
 	addShortcut("undo", "Undo Animation Edit", UI::EditorShortcutAction::Undo, { Key::Z, true, false, false });
