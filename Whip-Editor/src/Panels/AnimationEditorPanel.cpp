@@ -480,6 +480,8 @@ void AnimationEditorPanel::DrawEditorContent(bool showWindowControls)
 			m_EditorMode = AnimationEditorMode::Controller;
 			StopPreview(false);
 			Ref<AnimationController> controller = MakeRef<AnimationController>();
+			if (m_CurrentAnimation && m_CurrentAnimation->m_Handle != 0 && !controller->GetStates().empty())
+				controller->GetStates().front().m_Clip = m_CurrentAnimation->m_Handle;
 			std::filesystem::path startDirectory = Project::GetActiveAssetDirectory() / "Animations";
 			std::string filepath = FileDialogs::SaveFile("Whip Animation Controller (*.wac)\0*.wac\0", startDirectory.string().c_str());
 			if (!filepath.empty())

@@ -131,6 +131,7 @@ void AnimatorRuntime::Bind(Scene* scene, UUID entityId, const Ref<AnimationContr
 	m_IntParameters.clear();
 	m_FloatParameters.clear();
 	m_TriggerParameters.clear();
+	m_MissingClipWarnings.clear();
 
 	if (!m_Controller)
 		return;
@@ -998,7 +999,10 @@ void AnimatorRuntime::ApplyStateFrame(const AnimationControllerState& state, flo
 {
 	Ref<Animation2D> clip = GetStateClip(state);
 	if (!clip)
+	{
+		WarnMissingStateClip(state);
 		return;
+	}
 
 	Entity entity = m_Scene->FindEntityByUUID(m_EntityId);
 	if (!entity)
@@ -1027,6 +1031,10 @@ void AnimatorRuntime::ApplyBlendedFrame(const AnimationControllerState& sourceSt
 
 	Ref<Animation2D> sourceClip = GetStateClip(sourceState);
 	Ref<Animation2D> targetClip = GetStateClip(targetState);
+	if (!sourceClip)
+		WarnMissingStateClip(sourceState);
+	if (!targetClip)
+		WarnMissingStateClip(targetState);
 	if (!sourceClip && !targetClip)
 		return;
 
@@ -1162,6 +1170,39 @@ void AnimatorRuntime::ApplyPropertyTracks(const Animation2D& clip, float sampleT
 		if (SampleTrack(clip.GetColorKeys(), sampleTime, color))
 			entity.GetComponent<SpriteRendererComponent>().m_Color = color;
 	}
+}
+
+void AnimatorRuntime::WarnMissingStateClip(const AnimationControllerState& state)
+{
+	if (!m_MissingClipWarnings.insert(state.m_Name).second)
+		return;
+
+	const uint64_t entityId = static_cast<uint64_t>(m_EntityId);
+	if (state.m_MotionType == AnimationMotionType::BlendTree1D)
+	{
+		WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' has no valid blend child animation clip.", entityId, state.m_Name);
+		return;
+	}
+
+	if (state.m_Clip == 0)
+	{
+		WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' has no animation clip assigned.", entityId, state.m_Name);
+		return;
+	}
+
+	if (!AssetManager::IsAssetHandleValid(state.m_Clip))
+	{
+		WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' references missing animation clip handle {2}.", entityId, state.m_Name, static_cast<uint64_t>(state.m_Clip));
+		return;
+	}
+
+	if (AssetManager::GetAssetType(state.m_Clip) != AssetType::Animation)
+	{
+		WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' clip handle {2} is not an Animation asset.", entityId, state.m_Name, static_cast<uint64_t>(state.m_Clip));
+		return;
+	}
+
+	WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' animation clip {2} could not be loaded.", entityId, state.m_Name, static_cast<uint64_t>(state.m_Clip));
 }
 
 _WHIP_END

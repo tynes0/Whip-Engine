@@ -84,6 +84,7 @@ private:
 	void ApplyBlendedFrame(const AnimationControllerState& sourceState, float sourceTime, const AnimationControllerState& targetState, float targetTime, float factor);
 	void QueueEvents(const AnimationControllerState& state, float startTime, float endTime);
 	void ApplyPropertyTracks(const Animation2D& clip, float sampleTime);
+	void WarnMissingStateClip(const AnimationControllerState& state);
 
 	Scene* m_Scene = nullptr;
 	UUID m_EntityId = 0;
@@ -106,6 +107,7 @@ private:
 	std::unordered_map<std::string, int32_t> m_IntParameters;
 	std::unordered_map<std::string, float> m_FloatParameters;
 	std::unordered_set<std::string> m_TriggerParameters;
+	std::unordered_set<std::string> m_MissingClipWarnings;
 };
 
 _WHIP_END
