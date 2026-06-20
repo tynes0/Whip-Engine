@@ -19,6 +19,7 @@
 #include <nps_formatter.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <unordered_set>
 #include <vector>
@@ -38,6 +39,8 @@ static constexpr size_t InitialBufferSize = 1024; // 1kb
 
 namespace
 {
+	std::atomic<uint64_t> s_RuntimeShadowCopyGeneration = 0;
+
 	MonoAssembly* LoadMonoAssembly(const std::filesystem::path& assemblyPath, bool loadPdb = false)
 	{
 		ScopedBuffer fileData = FileSystem::ReadFileBinary(assemblyPath);
@@ -95,17 +98,15 @@ namespace
 		if (error)
 			return assemblyPath;
 
-		const std::string runtimeName = nps::formatter::format("{}_{}_{}", assemblyPath.stem().string(), size, writeTime.time_since_epoch().count());
+		const uint64_t generation = ++s_RuntimeShadowCopyGeneration;
+		const std::string runtimeName = nps::formatter::format("{}_{}_{}_{}", assemblyPath.stem().string(), size, writeTime.time_since_epoch().count(), generation);
 		std::filesystem::path runtimeAssembly = runtimeDirectory / (runtimeName + ".dll");
-		if (!std::filesystem::exists(runtimeAssembly, error))
+		error.clear();
+		std::filesystem::copy_file(assemblyPath, runtimeAssembly, std::filesystem::copy_options::overwrite_existing, error);
+		if (error)
 		{
-			error.clear();
-			std::filesystem::copy_file(assemblyPath, runtimeAssembly, std::filesystem::copy_options::overwrite_existing, error);
-			if (error)
-			{
-				WHP_CORE_WARN("[Script Engine] Could not create runtime shadow copy for app assembly: {0}", error.message());
-				return assemblyPath;
-			}
+			WHP_CORE_WARN("[Script Engine] Could not create runtime shadow copy for app assembly: {0}", error.message());
+			return assemblyPath;
 		}
 
 		std::filesystem::path pdbPath = assemblyPath;

@@ -769,13 +769,22 @@ void EditorScriptManager::ReloadAssembly(bool resetAppAssemblyFilepath, bool sce
 			StartSourceWatcher();
 			return;
 		}
-		AssemblyManager::ReloadAssembly(resetAppAssemblyFilepath);
+		const bool reloaded = AssemblyManager::ReloadAssembly(resetAppAssemblyFilepath);
+		SetStatus(reloaded ? "Scripts reloaded" : "Script reload failed", !reloaded, !reloaded);
 		StartSourceWatcher();
 	}
 	else
 	{
-		SetStatus("Stop scene before reload", true);
-		WHP_CORE_WARN("[Script Engine] Failed to reload assembly. Scene is running or simulating!");
+		{
+			std::scoped_lock lock(m_SourceMutex);
+			m_SourceDirty = true;
+			m_SourceQueuedWhileRunning = true;
+			m_LastSourceChangeTime = std::chrono::steady_clock::now() - std::chrono::seconds(1);
+			m_LastSourceChangePath = Project::GetActive()->GetConfig().m_ScriptModulePath;
+			m_LastSourceChangeEvent = "reload requested";
+		}
+		SetStatus("Script reload queued", true);
+		WHP_CORE_WARN("[Script Engine] Scene is running or simulating. Script reload queued until Stop.");
 	}
 }
 
@@ -871,8 +880,17 @@ void EditorScriptManager::ProcessSourceChanges(bool sceneEditable)
 	StopSourceWatcher();
 	if (const bool buildSucceeded = BuildProjectScripts(); buildSucceeded)
 	{
-		AssemblyManager::ReloadAssembly(true);
-		WHP_EDITOR_INFO("[Script Watcher] Scripts rebuilt and reloaded.");
+		const bool reloaded = AssemblyManager::ReloadAssembly(true);
+		if (reloaded)
+		{
+			WHP_EDITOR_INFO("[Script Watcher] Scripts rebuilt and reloaded.");
+			SetStatus("Scripts reloaded");
+		}
+		else
+		{
+			WHP_EDITOR_WARN("[Script Watcher] Scripts rebuilt, but reload failed.");
+			SetStatus("Script reload failed", true, true);
+		}
 	}
 	else
 	{
