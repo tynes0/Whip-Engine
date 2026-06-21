@@ -23,6 +23,16 @@ struct ProjectConfig
 	std::filesystem::path m_CacheDirectory;
 	std::filesystem::path m_AssetRegistryPath = FileExtensions::AssetRegistryFilename;
 	std::filesystem::path m_ScriptModulePath;
+
+#if defined(WHP_DEBUG)
+	bool m_EnableScriptDebugging = true;
+#else
+	bool m_EnableScriptDebugging = false;
+#endif
+	std::string m_ScriptDebuggerHost = "127.0.0.1";
+	int m_ScriptDebuggerPort = 2550;
+	bool m_ScriptDebuggerSuspendOnStart = false;
+	std::string m_ScriptDebuggerLogFile = "MonoDebugger.log";
 };
 
 class Project

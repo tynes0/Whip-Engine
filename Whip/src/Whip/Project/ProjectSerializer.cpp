@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <string>
+#include <algorithm>
 #ifndef YAML_CPP_STATIC_DEFINE
 #define YAML_CPP_STATIC_DEFINE
 #endif // !YAML_CPP_STATIC_DEFINE
@@ -59,6 +60,18 @@ namespace
 		return HasNode(value) ? value.as<std::string>(defaultValue) : defaultValue;
 	}
 
+	bool ReadProjectBool(const YAML::Node& projectNode, const char* legacyKey, const char* pascalKey, bool defaultValue)
+	{
+		YAML::Node value = ReadProjectValue(projectNode, legacyKey, pascalKey);
+		return HasNode(value) ? value.as<bool>(defaultValue) : defaultValue;
+	}
+
+	int ReadProjectInt(const YAML::Node& projectNode, const char* legacyKey, const char* pascalKey, int defaultValue)
+	{
+		YAML::Node value = ReadProjectValue(projectNode, legacyKey, pascalKey);
+		return HasNode(value) ? value.as<int>(defaultValue) : defaultValue;
+	}
+
 	AssetHandle ReadProjectStartScene(const YAML::Node& projectNode, const std::filesystem::path& filepath)
 	{
 		YAML::Node startScene = ReadProjectValue(projectNode, "start_scene", "StartScene");
@@ -109,6 +122,16 @@ bool ProjectSerializer::Serialize(const std::filesystem::path& filepath)
 			out << YAML::Key << "asset_directory" << YAML::Value << config.m_AssetDirectory.string();
 			out << YAML::Key << "asset_registry_path" << YAML::Value << config.m_AssetRegistryPath.string();
 			out << YAML::Key << "script_module_path" << YAML::Value << config.m_ScriptModulePath.string();
+			out << YAML::Key << "script_debugger" << YAML::Value;
+			{
+				out << YAML::BeginMap;
+				out << YAML::Key << "enabled" << YAML::Value << config.m_EnableScriptDebugging;
+				out << YAML::Key << "host" << YAML::Value << config.m_ScriptDebuggerHost;
+				out << YAML::Key << "port" << YAML::Value << config.m_ScriptDebuggerPort;
+				out << YAML::Key << "suspend_on_start" << YAML::Value << config.m_ScriptDebuggerSuspendOnStart;
+				out << YAML::Key << "log_file" << YAML::Value << config.m_ScriptDebuggerLogFile;
+				out << YAML::EndMap;
+			}
 			out << YAML::EndMap;
 		}
 		out << YAML::EndMap; // Root
@@ -156,6 +179,20 @@ bool ProjectSerializer::Deserialize(const std::filesystem::path& filepath)
 		if (config.m_AssetRegistryPath.empty())
 			config.m_AssetRegistryPath = FileExtensions::AssetRegistryFilename;
 		config.m_ScriptModulePath = ReadProjectString(projectNode, "script_module_path", "ScriptModulePath");
+
+		YAML::Node debuggerNode = ReadProjectValue(projectNode, "script_debugger", "ScriptDebugger");
+		if (HasNode(debuggerNode))
+		{
+			config.m_EnableScriptDebugging = ReadProjectBool(debuggerNode, "enabled", "Enabled", config.m_EnableScriptDebugging);
+			config.m_ScriptDebuggerHost = ReadProjectString(debuggerNode, "host", "Host", config.m_ScriptDebuggerHost);
+			config.m_ScriptDebuggerPort = std::clamp(ReadProjectInt(debuggerNode, "port", "Port", config.m_ScriptDebuggerPort), 1, 65535);
+			config.m_ScriptDebuggerSuspendOnStart = ReadProjectBool(debuggerNode, "suspend_on_start", "SuspendOnStart", config.m_ScriptDebuggerSuspendOnStart);
+			config.m_ScriptDebuggerLogFile = ReadProjectString(debuggerNode, "log_file", "LogFile", config.m_ScriptDebuggerLogFile);
+		}
+		if (config.m_ScriptDebuggerHost.empty())
+			config.m_ScriptDebuggerHost = "127.0.0.1";
+		if (config.m_ScriptDebuggerLogFile.empty())
+			config.m_ScriptDebuggerLogFile = "MonoDebugger.log";
 	}
 	catch (const YAML::Exception& e)
 	{

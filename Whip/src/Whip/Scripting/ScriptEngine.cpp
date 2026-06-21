@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <cstdlib>
 #include <unordered_set>
 #include <vector>
 
@@ -284,11 +285,11 @@ struct ScriptEngineData
 	bool m_ShouldReloadAssembly = false;
 	bool m_IsShuttingDown = false;
 
-#if defined(WHP_DEBUG) && 0
-	bool m_EnableDebugging = true;
-#else
 	bool m_EnableDebugging = false;
-#endif // WHP_DEBUG
+	std::string m_DebuggerHost = "127.0.0.1";
+	int m_DebuggerPort = 2550;
+	bool m_DebuggerSuspendOnStart = false;
+	std::string m_DebuggerLogFile = "MonoDebugger.log";
 
 	// Runtime
 	Scene* m_SceneContext = nullptr;
@@ -300,6 +301,65 @@ struct ScriptEngineData
 namespace
 {
 	ScriptEngineData* s_ScriptEngineData = nullptr;
+
+	bool ParseBooleanOverride(std::string_view value, bool fallback)
+	{
+		std::string normalized(value);
+		std::ranges::transform(normalized, normalized.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+		if (normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on")
+			return true;
+		if (normalized == "0" || normalized == "false" || normalized == "no" || normalized == "off")
+			return false;
+		return fallback;
+	}
+
+	bool ReadEnvironmentBoolean(const char* name, bool fallback)
+	{
+		const char* value = std::getenv(name); // NOLINT(concurrency-mt-unsafe)
+		return value ? ParseBooleanOverride(value, fallback) : fallback;
+	}
+
+	int ReadEnvironmentInt(const char* name, int fallback)
+	{
+		const char* value = std::getenv(name); // NOLINT(concurrency-mt-unsafe)
+		if (!value)
+			return fallback;
+
+		try
+		{
+			return std::stoi(value);
+		}
+		catch (const std::exception&)
+		{
+			return fallback;
+		}
+	}
+
+	std::string ReadEnvironmentString(const char* name, const std::string& fallback)
+	{
+		const char* value = std::getenv(name); // NOLINT(concurrency-mt-unsafe)
+		return value && value[0] ? std::string(value) : fallback;
+	}
+
+	void ConfigureScriptDebugger(ScriptEngineData& data)
+	{
+		if (Ref<Project> activeProject = Project::GetActive())
+		{
+			const ProjectConfig& config = activeProject->GetConfig();
+			data.m_EnableDebugging = config.m_EnableScriptDebugging;
+			data.m_DebuggerHost = config.m_ScriptDebuggerHost.empty() ? "127.0.0.1" : config.m_ScriptDebuggerHost;
+			data.m_DebuggerPort = std::clamp(config.m_ScriptDebuggerPort, 1, 65535);
+			data.m_DebuggerSuspendOnStart = config.m_ScriptDebuggerSuspendOnStart;
+			data.m_DebuggerLogFile = config.m_ScriptDebuggerLogFile.empty() ? "MonoDebugger.log" : config.m_ScriptDebuggerLogFile;
+		}
+
+		data.m_EnableDebugging = ReadEnvironmentBoolean("WHP_SCRIPT_DEBUGGER", data.m_EnableDebugging);
+		data.m_DebuggerHost = ReadEnvironmentString("WHP_SCRIPT_DEBUGGER_HOST", data.m_DebuggerHost);
+		data.m_DebuggerPort = std::clamp(ReadEnvironmentInt("WHP_SCRIPT_DEBUGGER_PORT", data.m_DebuggerPort), 1, 65535);
+		data.m_DebuggerSuspendOnStart = ReadEnvironmentBoolean("WHP_SCRIPT_DEBUGGER_SUSPEND", data.m_DebuggerSuspendOnStart);
+		data.m_DebuggerLogFile = ReadEnvironmentString("WHP_SCRIPT_DEBUGGER_LOG", data.m_DebuggerLogFile);
+	}
 
 	std::string MonoStringToString(MonoString* monoString)
 	{
@@ -1050,6 +1110,7 @@ void ScriptEngine::Init()
 	}
 
 	s_ScriptEngineData = new ScriptEngineData();
+	ConfigureScriptDebugger(*s_ScriptEngineData);
 
 	ScriptInstance::s_FieldValueBuffer.Allocate(InitialBufferSize);
 
@@ -1406,6 +1467,21 @@ void ScriptEngine::CopyScriptFieldMap(Entity sourceEntity, Entity destinationEnt
 	}
 }
 
+bool ScriptEngine::IsDebuggerEnabled()
+{
+	return s_ScriptEngineData && s_ScriptEngineData->m_EnableDebugging;
+}
+
+std::string ScriptEngine::GetDebuggerHost()
+{
+	return s_ScriptEngineData ? s_ScriptEngineData->m_DebuggerHost : std::string{};
+}
+
+int ScriptEngine::GetDebuggerPort()
+{
+	return s_ScriptEngineData ? s_ScriptEngineData->m_DebuggerPort : 0;
+}
+
 MonoObject* ScriptEngine::GetManagedInstance(UUID uuid)
 {
 	WHP_CORE_ASSERT(s_ScriptEngineData->m_EntityInstances.contains(uuid), "[Script Engine] Entity Instance not found!");
@@ -1418,13 +1494,24 @@ void ScriptEngine::InitMono()
 
 	if (s_ScriptEngineData->m_EnableDebugging)
 	{
+		std::string debuggerAgent = nps::formatter::format(
+			"--debugger-agent=transport=dt_socket,address={}:{},server=y,suspend={},loglevel=3,logfile={}",
+			s_ScriptEngineData->m_DebuggerHost,
+			s_ScriptEngineData->m_DebuggerPort,
+			s_ScriptEngineData->m_DebuggerSuspendOnStart ? "y" : "n",
+			s_ScriptEngineData->m_DebuggerLogFile);
 		const char* argv[2] = {
-			"--debugger-agent=transport=dt_socket,address=127.0.0.1:2550,server=y,suspend=n,loglevel=3,logfile=MonoDebugger.log",
+			debuggerAgent.c_str(),
 			"--soft-breakpoints"
 		};
 
 		mono_jit_parse_options(2, const_cast<char**>(argv));
 		mono_debug_init(MONO_DEBUG_FORMAT_MONO);
+		WHP_CORE_INFO(
+			"[Script Engine] Mono debugger enabled at {0}:{1} (suspend on start: {2}).",
+			s_ScriptEngineData->m_DebuggerHost,
+			s_ScriptEngineData->m_DebuggerPort,
+			s_ScriptEngineData->m_DebuggerSuspendOnStart ? "true" : "false");
 	}
 
 	MonoDomain* rootDomain = mono_jit_init("WhipJITRuntime");

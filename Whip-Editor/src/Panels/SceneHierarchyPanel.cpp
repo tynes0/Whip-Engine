@@ -296,6 +296,32 @@ namespace
 		return executable.empty() ? std::filesystem::path("rider64.exe") : executable;
 	}
 
+	std::filesystem::path VSCodeExecutable()
+	{
+		static const std::filesystem::path executable = []()
+			{
+				const std::filesystem::path programFiles = EnvironmentPath("ProgramFiles");
+				const std::filesystem::path programFilesX86 = EnvironmentPath("ProgramFiles(x86)");
+				const std::filesystem::path localAppData = EnvironmentPath("LOCALAPPDATA");
+				const std::vector<std::string> codeFiles = { "code.cmd", "code.exe", "Code.exe", "code-insiders.cmd", "Code - Insiders.exe" };
+
+				std::filesystem::path candidate = FindOnPath(codeFiles);
+				if (!candidate.empty())
+					return candidate;
+
+				candidate = FirstExistingPath({
+					localAppData / "Programs" / "Microsoft VS Code" / "Code.exe",
+					localAppData / "Programs" / "Microsoft VS Code Insiders" / "Code - Insiders.exe",
+					programFiles / "Microsoft VS Code" / "Code.exe",
+					programFiles / "Microsoft VS Code Insiders" / "Code - Insiders.exe",
+					programFilesX86 / "Microsoft VS Code" / "Code.exe"
+					});
+				return candidate;
+			}();
+
+		return executable.empty() ? std::filesystem::path("code.cmd") : executable;
+	}
+
 	bool OpenWorkspaceWithDefaultApp(const std::filesystem::path& workspaceFile)
 	{
 		if (Utils::OpenExternalPath(workspaceFile))
@@ -351,6 +377,11 @@ namespace
 			OpenWorkspaceWithApp("Rider", RiderExecutable(), workspaceFile);
 		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
 			ImGui::SetTooltip("Open in JetBrains Rider");
+		SameLineIfFits(EstimatedSmallButtonWidth("Code"));
+		if (ImGui::SmallButton("Code"))
+			OpenWorkspaceWithApp("Visual Studio Code", VSCodeExecutable(), workspaceFile);
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+			ImGui::SetTooltip("Open in Visual Studio Code");
 		ImGui::EndDisabled();
 
 		ImGui::Spacing();
@@ -365,6 +396,11 @@ namespace
 			ImGui::TextDisabled("%s", workspaceFile.filename().string().c_str());
 		else
 			ImGui::TextDisabled("No C# solution found in Assets/Scripts.");
+
+		if (ScriptEngine::IsDebuggerEnabled())
+			ImGui::TextDisabled("Debugger: %s:%d", ScriptEngine::GetDebuggerHost().c_str(), ScriptEngine::GetDebuggerPort());
+		else
+			ImGui::TextDisabled("Debugger disabled");
 
 		ImGui::PopID();
 	}

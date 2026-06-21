@@ -226,6 +226,11 @@ namespace UI
 		CopyToBuffer(m_AssetDirBuffer, MaxBufferSize, config.m_AssetDirectory.string());
 		CopyToBuffer(m_StartSceneBuffer, MaxBufferSize, std::to_string((uint64_t)config.m_StartScene));
 		CopyToBuffer(m_ScriptModulePathBuffer, MaxBufferSize, config.m_ScriptModulePath.string());
+		CopyToBuffer(m_ScriptDebuggerHostBuffer, MaxBufferSize, config.m_ScriptDebuggerHost);
+		CopyToBuffer(m_ScriptDebuggerLogFileBuffer, MaxBufferSize, config.m_ScriptDebuggerLogFile);
+		m_EnableScriptDebugging = config.m_EnableScriptDebugging;
+		m_ScriptDebuggerSuspendOnStart = config.m_ScriptDebuggerSuspendOnStart;
+		m_ScriptDebuggerPort = config.m_ScriptDebuggerPort;
 		m_LastActive = activeProject;
 	}
 
@@ -278,6 +283,49 @@ namespace UI
 
 			ImGui::EndTable();
 		}
+
+		DrawSectionHeader("Script Debugger");
+		if (ImGui::BeginTable("##ProjectScriptDebuggerSettingsTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
+		{
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+			ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted("Enable");
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("##EnableScriptDebugger", &m_EnableScriptDebugging);
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted("Host");
+			ImGui::TableNextColumn();
+			ImGui::SetNextItemWidth(-1.0f);
+			ImGui::InputText("##ScriptDebuggerHost", m_ScriptDebuggerHostBuffer, MaxBufferSize);
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted("Port");
+			ImGui::TableNextColumn();
+			ImGui::SetNextItemWidth(-1.0f);
+			ImGui::InputInt("##ScriptDebuggerPort", &m_ScriptDebuggerPort);
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted("Suspend On Start");
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("##ScriptDebuggerSuspend", &m_ScriptDebuggerSuspendOnStart);
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted("Log File");
+			ImGui::TableNextColumn();
+			ImGui::SetNextItemWidth(-1.0f);
+			ImGui::InputText("##ScriptDebuggerLogFile", m_ScriptDebuggerLogFileBuffer, MaxBufferSize);
+
+			ImGui::EndTable();
+		}
+		ImGui::TextWrapped("Script debugger changes take effect after restarting the editor because Mono configures the soft debugger before the scripting runtime starts.");
 
 		DrawSectionHeader("Startup");
 		if (ImGui::BeginTable("##ProjectStartupSettingsTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
@@ -456,6 +504,11 @@ namespace UI
 		config.m_Name = m_NameBuffer;
 		config.m_AssetDirectory = m_AssetDirBuffer;
 		config.m_ScriptModulePath = m_ScriptModulePathBuffer;
+		config.m_EnableScriptDebugging = m_EnableScriptDebugging;
+		config.m_ScriptDebuggerHost = m_ScriptDebuggerHostBuffer[0] ? m_ScriptDebuggerHostBuffer : "127.0.0.1";
+		config.m_ScriptDebuggerPort = std::clamp(m_ScriptDebuggerPort, 1, 65535);
+		config.m_ScriptDebuggerSuspendOnStart = m_ScriptDebuggerSuspendOnStart;
+		config.m_ScriptDebuggerLogFile = m_ScriptDebuggerLogFileBuffer[0] ? m_ScriptDebuggerLogFileBuffer : "MonoDebugger.log";
 
 		Project::SaveActive();
 		SyncFromActiveProject();

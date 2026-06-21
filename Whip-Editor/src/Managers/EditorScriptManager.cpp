@@ -89,6 +89,79 @@ namespace
 		return true;
 	}
 
+	const char* JsonBool(bool value)
+	{
+		return value ? "true" : "false";
+	}
+
+	std::string EscapeJsonString(std::string_view value)
+	{
+		std::string result;
+		result.reserve(value.size());
+		for (char character : value)
+		{
+			switch (character)
+			{
+			case '\\': result += "\\\\"; break;
+			case '"': result += "\\\""; break;
+			case '\n': result += "\\n"; break;
+			case '\r': result += "\\r"; break;
+			case '\t': result += "\\t"; break;
+			default: result += character; break;
+			}
+		}
+		return result;
+	}
+
+	std::string NormalizeJsonPath(const std::filesystem::path& path)
+	{
+		return EscapeJsonString(path.generic_string());
+	}
+
+	bool WriteScriptDebuggerContract(
+		const std::filesystem::path& scriptsDirectory,
+		const ProjectConfig& config,
+		const std::string& scriptWorkspaceName)
+	{
+		const std::filesystem::path solutionPath = scriptWorkspaceName + ".sln";
+		const std::filesystem::path projectPath = scriptWorkspaceName + ".csproj";
+		const std::filesystem::path scriptModulePath = config.m_ScriptModulePath;
+
+		std::ostringstream stream;
+		stream
+			<< "{\n"
+			<< "  \"version\": 1,\n"
+			<< "  \"engine\": \"Whip\",\n"
+			<< "  \"project\": {\n"
+			<< "    \"name\": \"" << EscapeJsonString(config.m_Name) << "\",\n"
+			<< "    \"assetDirectory\": \"" << NormalizeJsonPath(config.m_AssetDirectory) << "\",\n"
+			<< "    \"scriptModule\": \"" << NormalizeJsonPath(scriptModulePath) << "\"\n"
+			<< "  },\n"
+			<< "  \"workspace\": {\n"
+			<< "    \"root\": \".\",\n"
+			<< "    \"solution\": \"" << NormalizeJsonPath(solutionPath) << "\",\n"
+			<< "    \"project\": \"" << NormalizeJsonPath(projectPath) << "\"\n"
+			<< "  },\n"
+			<< "  \"mono\": {\n"
+			<< "    \"enabled\": " << JsonBool(config.m_EnableScriptDebugging) << ",\n"
+			<< "    \"transport\": \"dt_socket\",\n"
+			<< "    \"host\": \"" << EscapeJsonString(config.m_ScriptDebuggerHost.empty() ? "127.0.0.1" : config.m_ScriptDebuggerHost) << "\",\n"
+			<< "    \"port\": " << std::clamp(config.m_ScriptDebuggerPort, 1, 65535) << ",\n"
+			<< "    \"server\": true,\n"
+			<< "    \"suspendOnStart\": " << JsonBool(config.m_ScriptDebuggerSuspendOnStart) << ",\n"
+			<< "    \"softBreakpoints\": true,\n"
+			<< "    \"logFile\": \"" << EscapeJsonString(config.m_ScriptDebuggerLogFile.empty() ? "MonoDebugger.log" : config.m_ScriptDebuggerLogFile) << "\"\n"
+			<< "  }\n"
+			<< "}\n";
+
+		if (!WriteTextFile(scriptsDirectory / ".whip-debugger.json", stream.str()))
+		{
+			WHP_EDITOR_WARN("[Script Debugger] Could not write IDE debugger contract file.");
+			return false;
+		}
+		return true;
+	}
+
 	bool IsIgnoredScriptWatchSegment(const std::filesystem::path& path)
 	{
 		for (const auto& segment : path)
@@ -684,6 +757,7 @@ bool EditorScriptManager::BuildProjectScripts()
 
 	const std::filesystem::path scriptsDirectory = Project::GetActiveAssetDirectory() / "Scripts";
 	const std::string scriptWorkspaceName = GetScriptWorkspaceName(config);
+	WriteScriptDebuggerContract(scriptsDirectory, config, scriptWorkspaceName);
 	const std::filesystem::path preferredProjectFile = scriptsDirectory / (scriptWorkspaceName + ".csproj");
 	const std::filesystem::path preferredSolutionFile = scriptsDirectory / (scriptWorkspaceName + ".sln");
 	const std::filesystem::path buildPropsFile = scriptsDirectory / "Directory.Build.props";

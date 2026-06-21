@@ -70,7 +70,13 @@ namespace UI
 		char m_AssetDirBuffer[MaxBufferSize]{ 0 };
 		char m_StartSceneBuffer[MaxBufferSize]{ 0 };
 		char m_ScriptModulePathBuffer[MaxBufferSize]{ 0 };
+		char m_ScriptDebuggerHostBuffer[MaxBufferSize]{ 0 };
+		char m_ScriptDebuggerLogFileBuffer[MaxBufferSize]{ 0 };
 		char m_NewSceneNameBuffer[MaxBufferSize]{ 0 };
+
+		bool m_EnableScriptDebugging = false;
+		bool m_ScriptDebuggerSuspendOnStart = false;
+		int m_ScriptDebuggerPort = 2550;
 
 		AssetHandle m_PendingDeleteScene = 0;
 		std::filesystem::path m_PendingDeleteScenePath;

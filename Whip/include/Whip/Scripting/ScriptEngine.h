@@ -339,6 +339,9 @@ public:
 	static ScriptFieldMap& GetScriptFieldMap(Entity entityIn);
 	static ScriptFieldMap& GetBaseScriptFieldMap(const std::string& className);
 	static void CopyScriptFieldMap(Entity sourceEntity, Entity destinationEntity);
+	static bool IsDebuggerEnabled();
+	static std::string GetDebuggerHost();
+	static int GetDebuggerPort();
 
 	static MonoObject* GetManagedInstance(UUID uuid);
 private:
