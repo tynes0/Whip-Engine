@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 
 $Root = $PSScriptRoot
 $LocalGradleRoot = Join-Path $Root ".gradle-local"
-$GradleUserHome = Join-Path ([System.IO.Path]::GetTempPath()) "WhipToolsRider\gradle-user-home-v2"
+$GradleUserHome = Join-Path ([System.IO.Path]::GetTempPath()) ("WhipToolsRider\gradle-user-home\" + [Guid]::NewGuid().ToString("N"))
 $GradleBuildRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("WhipToolsRider\gradle-build\" + [Guid]::NewGuid().ToString("N"))
 $GradleHome = Join-Path $LocalGradleRoot "gradle-$GradleVersion"
 $GradleExe = Join-Path $GradleHome "bin\gradle.bat"

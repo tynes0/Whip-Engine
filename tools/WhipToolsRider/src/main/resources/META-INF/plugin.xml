@@ -12,6 +12,12 @@
 
 	<extensions defaultExtensionNs="com.intellij">
 		<postStartupActivity implementation="com.whip.rider.debugger.WhipToolsStartupActivity"/>
+		<toolWindow
+			id="Whip"
+			anchor="right"
+			icon="/icons/whip.svg"
+			factoryClass="com.whip.rider.debugger.WhipToolWindowFactory"
+			canCloseContents="false"/>
 	</extensions>
 
 	<actions>

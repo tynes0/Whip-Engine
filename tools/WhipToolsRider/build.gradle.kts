@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.whip"
-version = "0.1.1"
+version = "0.1.2"
 
 val whipBuildRoot = providers.gradleProperty("whipBuildRoot")
 val localRiderPath = providers.gradleProperty("localRiderPath")

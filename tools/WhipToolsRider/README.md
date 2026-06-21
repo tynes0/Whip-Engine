@@ -4,6 +4,7 @@ JetBrains Rider plugin scaffold for Whip Engine script debugging.
 
 The plugin reads Whip's generated `Assets/Scripts/.whip-debugger.json` file and exposes:
 
+- `Whip` tool window with debugger status and attach/copy controls
 - `Tools > Whip > Attach to Whip Debugger`
 - debugger contract discovery from either the generated script workspace or the Whip project root
 - Mono debugger endpoint validation
