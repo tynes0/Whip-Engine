@@ -20,7 +20,13 @@ Requirements:
 From this directory:
 
 ```powershell
-.\build.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+Or use the Windows wrapper:
+
+```cmd
+build.cmd
 ```
 
 The script uses a global Gradle installation if available. If Gradle is not installed,
