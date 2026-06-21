@@ -26,7 +26,8 @@ public final class AttachToWhipDebuggerAction extends DumbAwareAction {
 
 	@Override
 	public void update(AnActionEvent event) {
-		event.getPresentation().setEnabledAndVisible(event.getProject() != null);
+		event.getPresentation().setVisible(true);
+		event.getPresentation().setEnabled(true);
 	}
 
 	@Override
@@ -38,6 +39,9 @@ public final class AttachToWhipDebuggerAction extends DumbAwareAction {
 	public void actionPerformed(AnActionEvent event) {
 		Project project = event.getProject();
 		if (project == null) {
+			Messages.showInfoMessage(
+				"Open the generated Whip C# solution in Rider, then run this action again.",
+				"Whip Debugger");
 			return;
 		}
 

@@ -10,8 +10,13 @@
 
 	<depends>com.intellij.modules.platform</depends>
 
+	<extensions defaultExtensionNs="com.intellij">
+		<postStartupActivity implementation="com.whip.rider.debugger.WhipToolsStartupActivity"/>
+	</extensions>
+
 	<actions>
 		<group id="Whip.Tools.Group" text="Whip" description="Whip Engine tools" popup="true">
+			<add-to-group group-id="MainMenu" anchor="last"/>
 			<add-to-group group-id="ToolsMenu" anchor="last"/>
 			<action
 				id="Whip.Tools.AttachToDebugger"
