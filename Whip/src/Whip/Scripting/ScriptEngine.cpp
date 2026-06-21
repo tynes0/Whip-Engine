@@ -1495,7 +1495,7 @@ void ScriptEngine::InitMono()
 	if (s_ScriptEngineData->m_EnableDebugging)
 	{
 		std::string debuggerAgent = nps::formatter::format(
-			"--debugger-agent=transport=dt_socket,address={}:{},server=y,suspend={},loglevel=3,logfile={}",
+			"--debugger-agent=transport=dt_socket,address={0}:{1},server=y,suspend={2},loglevel=3,logfile={3}",
 			s_ScriptEngineData->m_DebuggerHost,
 			s_ScriptEngineData->m_DebuggerPort,
 			s_ScriptEngineData->m_DebuggerSuspendOnStart ? "y" : "n",
