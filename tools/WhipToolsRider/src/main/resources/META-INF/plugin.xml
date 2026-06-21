@@ -1,0 +1,23 @@
+<idea-plugin>
+	<id>com.whip.rider.tools</id>
+	<name>Whip Tools Rider</name>
+	<vendor>Whip Engine</vendor>
+
+	<description><![CDATA[
+		Whip Engine tooling for JetBrains Rider. The first tool reads Whip's generated
+		.whip-debugger.json contract and prepares the Mono soft debugger attach endpoint.
+	]]></description>
+
+	<depends>com.intellij.modules.platform</depends>
+
+	<actions>
+		<group id="Whip.Tools.Group" text="Whip" description="Whip Engine tools" popup="true">
+			<add-to-group group-id="ToolsMenu" anchor="last"/>
+			<action
+				id="Whip.Tools.AttachToDebugger"
+				class="com.whip.rider.debugger.AttachToWhipDebuggerAction"
+				text="Attach to Whip Debugger"
+				description="Read .whip-debugger.json and prepare a Mono debugger attach endpoint"/>
+		</group>
+	</actions>
+</idea-plugin>
