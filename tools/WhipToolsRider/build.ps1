@@ -1,15 +1,21 @@
 param(
 	[string]$Task = "buildPlugin",
 	[string]$GradleVersion = "9.0.0",
-	[switch]$ForceDownload
+	[switch]$ForceDownload,
+	[Parameter(ValueFromRemainingArguments = $true)]
+	[string[]]$GradleArguments
 )
 
 $ErrorActionPreference = "Stop"
 
 $Root = $PSScriptRoot
 $LocalGradleRoot = Join-Path $Root ".gradle-local"
+$GradleUserHome = Join-Path ([System.IO.Path]::GetTempPath()) "WhipToolsRider\gradle-user-home"
+$GradleBuildRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("WhipToolsRider\gradle-build\" + [Guid]::NewGuid().ToString("N"))
 $GradleHome = Join-Path $LocalGradleRoot "gradle-$GradleVersion"
 $GradleExe = Join-Path $GradleHome "bin\gradle.bat"
+
+Set-Location -LiteralPath $Root
 
 function Get-JavaMajorVersion {
 	param([string]$JavaExe)
@@ -18,8 +24,17 @@ function Get-JavaMajorVersion {
 		return 0
 	}
 
-	$versionOutput = & $JavaExe -version 2>&1
-	$versionText = ($versionOutput | Out-String)
+	$startInfo = New-Object System.Diagnostics.ProcessStartInfo
+	$startInfo.FileName = $JavaExe
+	$startInfo.Arguments = "-version"
+	$startInfo.UseShellExecute = $false
+	$startInfo.RedirectStandardOutput = $true
+	$startInfo.RedirectStandardError = $true
+	$process = [System.Diagnostics.Process]::Start($startInfo)
+	$stdout = $process.StandardOutput.ReadToEnd()
+	$stderr = $process.StandardError.ReadToEnd()
+	$process.WaitForExit()
+	$versionText = "$stdout`n$stderr"
 	if ($versionText -match 'version\s+"(?<version>[^"]+)"') {
 		$version = $Matches.version
 		if ($version.StartsWith("1.")) {
@@ -130,6 +145,114 @@ function Get-GlobalGradle {
 	return Get-Command gradle -ErrorAction SilentlyContinue
 }
 
+function Test-RiderHome {
+	param([string]$RiderHome)
+
+	if ([string]::IsNullOrWhiteSpace($RiderHome) -or -not (Test-Path -LiteralPath $RiderHome)) {
+		return $false
+	}
+
+	return (
+		(Test-Path -LiteralPath (Join-Path $RiderHome "product-info.json")) -or
+		(Test-Path -LiteralPath (Join-Path $RiderHome "bin\rider64.exe")) -or
+		(Test-Path -LiteralPath (Join-Path $RiderHome "bin\rider.bat"))
+	)
+}
+
+function Get-RiderHomeFromRegistry {
+	$registryRoots = @(
+		"HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+		"HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+		"HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+	)
+
+	foreach ($registryRoot in $registryRoots) {
+		$entries = Get-ItemProperty $registryRoot -ErrorAction SilentlyContinue |
+			Where-Object { $_.DisplayName -like "JetBrains Rider*" -and -not [string]::IsNullOrWhiteSpace($_.InstallLocation) } |
+			Sort-Object DisplayName -Descending
+
+		foreach ($entry in $entries) {
+			if (Test-RiderHome $entry.InstallLocation) {
+				return (Resolve-Path -LiteralPath $entry.InstallLocation).Path
+			}
+		}
+	}
+
+	return $null
+}
+
+function Get-RiderHomeFromCommonRoots {
+	$roots = @(
+		"$env:LOCALAPPDATA\Programs",
+		"$env:LOCALAPPDATA\JetBrains\Toolbox\apps",
+		"$env:ProgramFiles\JetBrains",
+		"$env:ProgramFiles",
+		"F:\Uygulamalar"
+	)
+
+	foreach ($root in $roots) {
+		if ([string]::IsNullOrWhiteSpace($root) -or -not (Test-Path -LiteralPath $root)) {
+			continue
+		}
+
+		$riderExe = Get-ChildItem -LiteralPath $root -Recurse -Filter rider64.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+		if ($riderExe) {
+			$riderHome = Split-Path -Parent (Split-Path -Parent $riderExe.FullName)
+			if (Test-RiderHome $riderHome) {
+				return (Resolve-Path -LiteralPath $riderHome).Path
+			}
+		}
+	}
+
+	return $null
+}
+
+function Get-LocalRiderHome {
+	$envRiderHome = [Environment]::GetEnvironmentVariable("WHP_RIDER_HOME")
+	if (Test-RiderHome $envRiderHome) {
+		return (Resolve-Path -LiteralPath $envRiderHome).Path
+	}
+
+	$registryRiderHome = Get-RiderHomeFromRegistry
+	if ($registryRiderHome) {
+		return $registryRiderHome
+	}
+
+	return Get-RiderHomeFromCommonRoots
+}
+
+function Get-GradleTaskArguments {
+	$resolvedArguments = @($GradleArguments)
+	$hasLocalRiderPath = $false
+	$hasBuildRoot = $false
+	foreach ($argument in $resolvedArguments) {
+		if ($argument -like "-PlocalRiderPath=*") {
+			$hasLocalRiderPath = $true
+		}
+
+		if ($argument -like "-PwhipBuildRoot=*") {
+			$hasBuildRoot = $true
+		}
+	}
+
+	if (-not $hasLocalRiderPath) {
+		$localRiderHome = Get-LocalRiderHome
+		if ($localRiderHome) {
+			Write-Host "Using local Rider platform: $localRiderHome"
+			$resolvedArguments += "-PlocalRiderPath=$localRiderHome"
+		} else {
+			Write-Host "Local Rider platform not found; Gradle will download Rider platform artifacts."
+		}
+	}
+
+	if (-not $hasBuildRoot) {
+		Write-Host "Using Gradle build root: $GradleBuildRoot"
+		$resolvedArguments += "-PwhipBuildRoot=$GradleBuildRoot"
+	}
+
+	return @($Task) + $resolvedArguments + @("--no-daemon")
+}
+
 function Install-LocalGradle {
 	if ((Test-Path -LiteralPath $GradleExe) -and -not $ForceDownload) {
 		return
@@ -154,12 +277,27 @@ function Install-LocalGradle {
 	Expand-Archive -LiteralPath $zipPath -DestinationPath $LocalGradleRoot -Force
 }
 
+function Clear-GradleTemporaryFiles {
+	$temporaryDirectory = Join-Path $GradleUserHome ".tmp"
+	if (Test-Path -LiteralPath $temporaryDirectory) {
+		Write-Host "Cleaning Gradle temp directory: $temporaryDirectory"
+		Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force
+	}
+
+	New-Item -ItemType Directory -Force -Path $temporaryDirectory | Out-Null
+}
+
 Use-Java17
+$GradleTaskArguments = Get-GradleTaskArguments
+$env:GRADLE_USER_HOME = $GradleUserHome
+New-Item -ItemType Directory -Force -Path $env:GRADLE_USER_HOME | Out-Null
+Clear-GradleTemporaryFiles
+Write-Host "Using Gradle user home: $env:GRADLE_USER_HOME"
 
 $globalGradle = Get-GlobalGradle
 if ($globalGradle) {
 	Write-Host "Using global Gradle: $($globalGradle.Source)"
-	& $globalGradle.Source $Task
+	& $globalGradle.Source @GradleTaskArguments
 	exit $LASTEXITCODE
 }
 
@@ -170,5 +308,5 @@ if (-not (Test-Path -LiteralPath $GradleExe)) {
 }
 
 Write-Host "Using local Gradle: $GradleExe"
-& $GradleExe $Task
+& $GradleExe @GradleTaskArguments
 exit $LASTEXITCODE

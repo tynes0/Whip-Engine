@@ -15,7 +15,7 @@ The plugin reads Whip's generated `Assets/Scripts/.whip-debugger.json` file and 
 Requirements:
 
 - Java 17
-- network access for JetBrains Platform artifacts
+- Rider installed locally, or network access for JetBrains Platform artifacts
 
 From this directory:
 
@@ -33,11 +33,18 @@ The script uses a global Gradle installation if available. If Gradle is not inst
 it downloads a local portable Gradle distribution into `.gradle-local/` and builds with it.
 It also searches for Java 17+ and temporarily sets `JAVA_HOME` for the build, so a system
 PATH that still points to Java 8 should not break the plugin build.
+If Rider is installed, the script uses that local Rider installation instead of downloading
+the full Rider platform ZIP. Set `WHP_RIDER_HOME` if Rider lives in a custom directory:
 
-The plugin ZIP will be produced under:
+```powershell
+$env:WHP_RIDER_HOME = "F:\Uygulamalar\JetBrains Rider 2025.2.2.1"
+```
+
+The wrapper builds in a fresh temp directory to avoid Windows file locks from stale Gradle
+outputs. The plugin ZIP is produced under the temp build root printed by the command:
 
 ```text
-build/distributions/
+%TEMP%\WhipToolsRider\gradle-build\<run-id>\distributions\
 ```
 
 If Java 17 is missing on Windows:
