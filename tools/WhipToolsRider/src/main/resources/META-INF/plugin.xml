@@ -5,12 +5,14 @@
 
 	<description><![CDATA[
 		Whip Engine tooling for JetBrains Rider. The first tool reads Whip's generated
-		.whip-debugger.json contract and prepares the Mono soft debugger attach endpoint.
+		.whip-debugger.json contract and starts a Mono soft debugger attach session.
 	]]></description>
 
 	<depends>com.intellij.modules.platform</depends>
+	<depends>com.intellij.modules.rider</depends>
 
 	<extensions defaultExtensionNs="com.intellij">
+		<configurationType implementation="com.whip.rider.debugger.WhipMonoRemoteConfigurationType"/>
 		<postStartupActivity implementation="com.whip.rider.debugger.WhipToolsStartupActivity"/>
 		<toolWindow
 			id="Whip"
@@ -28,7 +30,7 @@
 				id="Whip.Tools.AttachToDebugger"
 				class="com.whip.rider.debugger.AttachToWhipDebuggerAction"
 				text="Attach to Whip Debugger"
-				description="Read .whip-debugger.json and prepare a Mono debugger attach endpoint"/>
+				description="Read .whip-debugger.json and attach Rider to Whip's Mono debugger"/>
 		</group>
 	</actions>
 </idea-plugin>

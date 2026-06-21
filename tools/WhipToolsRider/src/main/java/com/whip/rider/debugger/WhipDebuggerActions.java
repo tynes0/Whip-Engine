@@ -46,13 +46,17 @@ final class WhipDebuggerActions {
 		}
 
 		boolean reachable = debugger.canConnect(ConnectionProbeTimeout);
+		boolean startedDebugger = false;
 		boolean openedAttachUi = false;
 		if (reachable) {
-			openedAttachUi = tryOpenAttachUi();
+			startedDebugger = WhipRemoteDebugLauncher.start(project, debugger);
+			if (!startedDebugger) {
+				openedAttachUi = tryOpenAttachUi();
+			}
 		}
 
 		if (reachable) {
-			Messages.showInfoMessage(project, makeReachableMessage(debugger, openedAttachUi), "Whip Debugger Ready");
+			Messages.showInfoMessage(project, makeReachableMessage(debugger, startedDebugger, openedAttachUi), "Whip Debugger Ready");
 		} else {
 			Messages.showWarningDialog(project, makeUnreachableMessage(debugger), "Whip Debugger Not Reachable");
 		}
@@ -80,13 +84,17 @@ final class WhipDebuggerActions {
 		return false;
 	}
 
-	private static String makeReachableMessage(WhipDebuggerContract debugger, boolean openedAttachUi) {
+	private static String makeReachableMessage(WhipDebuggerContract debugger, boolean startedDebugger, boolean openedAttachUi) {
 		StringBuilder message = new StringBuilder();
 		message.append("Whip Mono debugger is listening at ").append(debugger.getEndpoint()).append(".\n\n");
-		message.append("The endpoint has been copied to the clipboard.");
-		if (openedAttachUi) {
-			message.append("\n\nRider's attach UI was opened. Choose the Whip/Mono debugger target if Rider asks for a process or endpoint.");
+		if (startedDebugger) {
+			message.append("Rider attach was started directly.");
 		} else {
+			message.append("The endpoint has been copied to the clipboard.");
+		}
+		if (!startedDebugger && openedAttachUi) {
+			message.append("\n\nRider's attach UI was opened. Choose the Whip/Mono debugger target if Rider asks for a process or endpoint.");
+		} else if (!startedDebugger) {
 			message.append("\n\nOpen Rider's attach debugger action and use the copied endpoint.");
 		}
 		appendContractDetails(message, debugger);
