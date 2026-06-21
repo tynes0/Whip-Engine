@@ -15,19 +15,33 @@ The plugin reads Whip's generated `Assets/Scripts/.whip-debugger.json` file and 
 Requirements:
 
 - Java 17
-- Gradle 9+
 - network access for JetBrains Platform artifacts
 
 From this directory:
 
 ```powershell
-gradle buildPlugin
+.\build.ps1
 ```
+
+The script uses a global Gradle installation if available. If Gradle is not installed,
+it downloads a local portable Gradle distribution into `.gradle-local/` and builds with it.
 
 The plugin ZIP will be produced under:
 
 ```text
 build/distributions/
+```
+
+If Java 17 is missing on Windows:
+
+```powershell
+winget install EclipseAdoptium.Temurin.17.JDK
+```
+
+If you still prefer a global Gradle install:
+
+```powershell
+winget install Gradle.Gradle
 ```
 
 If your Rider version differs, update `platformVersion` in `gradle.properties`.
