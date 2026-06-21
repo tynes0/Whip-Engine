@@ -31,6 +31,8 @@ build.cmd
 
 The script uses a global Gradle installation if available. If Gradle is not installed,
 it downloads a local portable Gradle distribution into `.gradle-local/` and builds with it.
+It also searches for Java 17+ and temporarily sets `JAVA_HOME` for the build, so a system
+PATH that still points to Java 8 should not break the plugin build.
 
 The plugin ZIP will be produced under:
 
