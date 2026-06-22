@@ -108,7 +108,7 @@ void AssistantPanel::OnImGuiRender()
 	}
 
 	ImGui::SameLine();
-	ImGui::TextDisabled("%s", settings.m_UseOnlineResponses ? "Online allowed" : "Local first");
+	ImGui::TextDisabled("%s", Assistant::ProviderDisplayName(settings.m_Provider));
 
 	(void)buttonRowHeight;
 	ImGui::End();
@@ -175,9 +175,14 @@ void AssistantPanel::SubmitPrompt(bool online)
 		AddAssistantMessage("Whip Assistant is disabled in Settings.");
 		return;
 	}
-	if (!settings.m_UseOnlineResponses || settings.m_ApiKey.empty())
+	if (settings.m_Provider == Assistant::ProviderKind::Offline)
 	{
-		AddAssistantMessage("Online responses are not configured. Enable them and add an API key in Project Settings > Whip Assistant.");
+		AddAssistantMessage("Assistant provider is set to Offline. Pick OpenAI or Gemini in Project Settings > Whip Assistant for model responses.");
+		return;
+	}
+	if (!Assistant::HasProviderCredentials(settings))
+	{
+		AddAssistantMessage(std::string(Assistant::ProviderDisplayName(settings.m_Provider)) + " is missing an API key in Project Settings > Whip Assistant.");
 		return;
 	}
 
@@ -185,7 +190,7 @@ void AssistantPanel::SubmitPrompt(bool online)
 	m_Status = "Sending request";
 	m_RequestFuture = std::async(std::launch::async, [settings, context, prompt]()
 	{
-		return Assistant::RequestOpenAIResponse(settings, context, prompt);
+		return Assistant::RequestResponse(settings, context, prompt);
 	});
 }
 
@@ -216,7 +221,7 @@ void AssistantPanel::DrawHeader(const Assistant::ContextSnapshot& context, const
 {
 	ImGui::TextUnformatted("Whip Assistant");
 	ImGui::SameLine();
-	ImGui::TextDisabled("%s", settings.m_UseOnlineResponses && !settings.m_ApiKey.empty() ? "Responses API" : "Offline proposals");
+	ImGui::TextDisabled("%s", Assistant::ProviderDisplayName(settings.m_Provider));
 
 	if (context.m_HasProject)
 	{

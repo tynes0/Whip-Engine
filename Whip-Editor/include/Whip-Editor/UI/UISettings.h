@@ -3,7 +3,7 @@
 #include <Whip/Core/Core.h>
 #include <Whip/Core/Log.h>
 #include <Whip/Core/KeyCodes.h>
-#include <Whip-Editor/Assistant/WhipAssistant.h>
+#include <Whip-Assistant/WhipAssistant.h>
 
 #include <array>
 #include <string>

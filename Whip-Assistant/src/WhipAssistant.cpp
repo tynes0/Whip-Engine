@@ -1,11 +1,10 @@
-#include <WhipPch.h>
-#include <Whip-Editor/Assistant/WhipAssistant.h>
+#include <Whip-Assistant/WhipAssistant.h>
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <sstream>
 #include <string_view>
+#include <utility>
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -163,11 +162,19 @@ namespace Assistant
 			return false;
 		}
 
-		std::string ExtractResponseText(const std::string& response)
+		std::string ExtractOpenAIText(const std::string& response)
 		{
 			std::string text;
 			if (ExtractJsonStringAfterKey(response, "output_text", text))
 				return text;
+			if (ExtractJsonStringAfterKey(response, "text", text))
+				return text;
+			return {};
+		}
+
+		std::string ExtractGeminiText(const std::string& response)
+		{
+			std::string text;
 			if (ExtractJsonStringAfterKey(response, "text", text))
 				return text;
 			return {};
@@ -199,32 +206,37 @@ namespace Assistant
 			operator HINTERNET() const { return m_Handle; }
 		};
 
-		Response SendResponsesRequest(const Settings& settings, const std::string& body)
+		struct HttpResponse
 		{
-			Response result;
-			WinHttpHandle session{ WinHttpOpen(L"Whip Assistant/0.1", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0) };
+			bool m_Success = false;
+			DWORD m_StatusCode = 0;
+			std::string m_Body;
+			std::string m_Error;
+		};
+
+		HttpResponse PostJson(std::wstring host, std::wstring path, std::wstring headers, const std::string& body)
+		{
+			HttpResponse result;
+			WinHttpHandle session{ WinHttpOpen(L"Whip Assistant/0.2", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0) };
 			if (!session)
 			{
 				result.m_Error = "Could not open WinHTTP session.";
 				return result;
 			}
 
-			WinHttpHandle connection{ WinHttpConnect(session, L"api.openai.com", INTERNET_DEFAULT_HTTPS_PORT, 0) };
+			WinHttpHandle connection{ WinHttpConnect(session, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, 0) };
 			if (!connection)
 			{
-				result.m_Error = "Could not connect to api.openai.com.";
+				result.m_Error = "Could not connect to provider host.";
 				return result;
 			}
 
-			WinHttpHandle request{ WinHttpOpenRequest(connection, L"POST", L"/v1/responses", nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE) };
+			WinHttpHandle request{ WinHttpOpenRequest(connection, L"POST", path.c_str(), nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE) };
 			if (!request)
 			{
 				result.m_Error = "Could not create HTTP request.";
 				return result;
 			}
-
-			const std::wstring headers =
-				L"Content-Type: application/json\r\nAuthorization: Bearer " + ToWide(settings.m_ApiKey) + L"\r\n";
 
 			const BOOL sent = WinHttpSendRequest(
 				request,
@@ -237,15 +249,15 @@ namespace Assistant
 
 			if (!sent || !WinHttpReceiveResponse(request, nullptr))
 			{
-				result.m_Error = "OpenAI request failed before a response was received.";
+				result.m_Error = "Provider request failed before a response was received.";
 				return result;
 			}
 
 			DWORD statusCode = 0;
 			DWORD statusCodeSize = sizeof(statusCode);
 			WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &statusCodeSize, WINHTTP_NO_HEADER_INDEX);
+			result.m_StatusCode = statusCode;
 
-			std::string responseText;
 			for (;;)
 			{
 				DWORD available = 0;
@@ -258,21 +270,16 @@ namespace Assistant
 				if (!WinHttpReadData(request, chunk.data(), available, &read))
 					break;
 				chunk.resize(read);
-				responseText += chunk;
+				result.m_Body += chunk;
 			}
 
-			if (statusCode < 200 || statusCode >= 300)
+			result.m_Success = statusCode >= 200 && statusCode < 300;
+			if (!result.m_Success)
 			{
-				result.m_Error = "OpenAI request returned HTTP " + std::to_string(statusCode) + ".";
-				if (!responseText.empty())
-					result.m_Error += " " + responseText.substr(0, 320);
-				return result;
+				result.m_Error = "Provider request returned HTTP " + std::to_string(statusCode) + ".";
+				if (!result.m_Body.empty())
+					result.m_Error += " " + result.m_Body.substr(0, 320);
 			}
-
-			result.m_Text = ExtractResponseText(responseText);
-			if (result.m_Text.empty())
-				result.m_Text = "OpenAI responded, but no text output was found in the response.";
-			result.m_Success = true;
 			return result;
 		}
 #endif
@@ -298,6 +305,49 @@ namespace Assistant
 		case ToolKind::SetTransform: return "Set Transform";
 		case ToolKind::None:
 		default: return "None";
+		}
+	}
+
+	const char* ProviderName(ProviderKind provider)
+	{
+		switch (provider)
+		{
+		case ProviderKind::OpenAI: return "openai";
+		case ProviderKind::Gemini: return "gemini";
+		case ProviderKind::Offline:
+		default: return "offline";
+		}
+	}
+
+	const char* ProviderDisplayName(ProviderKind provider)
+	{
+		switch (provider)
+		{
+		case ProviderKind::OpenAI: return "OpenAI";
+		case ProviderKind::Gemini: return "Gemini";
+		case ProviderKind::Offline:
+		default: return "Offline";
+		}
+	}
+
+	ProviderKind ProviderFromName(const std::string& name)
+	{
+		const std::string lower = LowerCopy(name);
+		if (lower == "openai")
+			return ProviderKind::OpenAI;
+		if (lower == "gemini")
+			return ProviderKind::Gemini;
+		return ProviderKind::Offline;
+	}
+
+	bool HasProviderCredentials(const Settings& settings)
+	{
+		switch (settings.m_Provider)
+		{
+		case ProviderKind::OpenAI: return !settings.m_OpenAIApiKey.empty();
+		case ProviderKind::Gemini: return !settings.m_GeminiApiKey.empty();
+		case ProviderKind::Offline:
+		default: return false;
 		}
 	}
 
@@ -373,6 +423,24 @@ namespace Assistant
 		return proposals;
 	}
 
+	Response RequestResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt)
+	{
+		switch (settings.m_Provider)
+		{
+		case ProviderKind::OpenAI: return RequestOpenAIResponse(settings, context, prompt);
+		case ProviderKind::Gemini: return RequestGeminiResponse(settings, context, prompt);
+		case ProviderKind::Offline:
+		default:
+		{
+			Response response;
+			response.m_Success = true;
+			response.m_Text = "Offline provider created local proposals only.";
+			response.m_Proposals = BuildLocalProposals(context, prompt);
+			return response;
+		}
+		}
+	}
+
 	Response RequestOpenAIResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt)
 	{
 		Response result;
@@ -381,12 +449,7 @@ namespace Assistant
 			result.m_Error = "Whip Assistant is disabled in settings.";
 			return result;
 		}
-		if (!settings.m_UseOnlineResponses)
-		{
-			result.m_Error = "Online responses are disabled in settings.";
-			return result;
-		}
-		if (settings.m_ApiKey.empty())
+		if (settings.m_OpenAIApiKey.empty())
 		{
 			result.m_Error = "OpenAI API key is empty.";
 			return result;
@@ -398,7 +461,7 @@ namespace Assistant
 			"Do not claim file or scene changes were applied unless the editor explicitly applies a proposal.";
 
 		const std::string input = BuildContextPrompt(context, settings) + "\n\nUser request:\n" + prompt;
-		const std::string model = settings.m_Model.empty() ? "gpt-5.5" : settings.m_Model;
+		const std::string model = settings.m_OpenAIModel.empty() ? "gpt-5.5" : settings.m_OpenAIModel;
 		const std::string body =
 			"{\"model\":\"" + EscapeJson(model) +
 			"\",\"instructions\":\"" + EscapeJson(instructions) +
@@ -406,9 +469,70 @@ namespace Assistant
 			"\",\"store\":false}";
 
 #ifdef _WIN32
-		result = SendResponsesRequest(settings, body);
+		const std::wstring headers =
+			L"Content-Type: application/json\r\nAuthorization: Bearer " + ToWide(settings.m_OpenAIApiKey) + L"\r\n";
+		const HttpResponse http = PostJson(L"api.openai.com", L"/v1/responses", headers, body);
+		if (!http.m_Success)
+		{
+			result.m_Error = http.m_Error;
+			return result;
+		}
+		result.m_Text = ExtractOpenAIText(http.m_Body);
+		if (result.m_Text.empty())
+			result.m_Text = "OpenAI responded, but no text output was found in the response.";
+		result.m_Success = true;
 #else
-		result.m_Error = "Online responses are currently implemented for Windows editor builds.";
+		result.m_Error = "OpenAI responses are currently implemented for Windows editor builds.";
+#endif
+		if (result.m_Success)
+			result.m_Proposals = BuildLocalProposals(context, prompt);
+		return result;
+	}
+
+	Response RequestGeminiResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt)
+	{
+		Response result;
+		if (!settings.m_Enabled)
+		{
+			result.m_Error = "Whip Assistant is disabled in settings.";
+			return result;
+		}
+		if (settings.m_GeminiApiKey.empty())
+		{
+			result.m_Error = "Gemini API key is empty.";
+			return result;
+		}
+
+		const std::string model = settings.m_GeminiModel.empty() ? "gemini-2.0-flash" : settings.m_GeminiModel;
+		const std::string input =
+			"You are Whip Assistant inside the Whip game engine editor. Be concise and practical. "
+			"Scene edits must be described as reviewable steps.\n\n" +
+			BuildContextPrompt(context, settings) + "\n\nUser request:\n" + prompt;
+		const std::string body =
+			"{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"" + EscapeJson(input) +
+			"\"}]}],\"generationConfig\":{\"temperature\":0.35}}";
+
+#ifdef _WIN32
+		std::string normalizedModel = model;
+		if (!normalizedModel.starts_with("models/"))
+			normalizedModel = "models/" + normalizedModel;
+		std::wstring path = L"/v1beta/";
+		path += ToWide(normalizedModel);
+		path += L":generateContent";
+		const std::wstring headers =
+			L"Content-Type: application/json\r\nx-goog-api-key: " + ToWide(settings.m_GeminiApiKey) + L"\r\n";
+		const HttpResponse http = PostJson(L"generativelanguage.googleapis.com", path, headers, body);
+		if (!http.m_Success)
+		{
+			result.m_Error = http.m_Error;
+			return result;
+		}
+		result.m_Text = ExtractGeminiText(http.m_Body);
+		if (result.m_Text.empty())
+			result.m_Text = "Gemini responded, but no text output was found in the response.";
+		result.m_Success = true;
+#else
+		result.m_Error = "Gemini responses are currently implemented for Windows editor builds.";
 #endif
 		if (result.m_Success)
 			result.m_Proposals = BuildLocalProposals(context, prompt);

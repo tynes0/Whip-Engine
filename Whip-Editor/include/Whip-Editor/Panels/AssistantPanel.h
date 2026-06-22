@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Whip-Editor/Assistant/WhipAssistant.h>
+#include <Whip-Assistant/WhipAssistant.h>
 #include <Whip-Editor/Panels/EditorPanel.h>
 
 #include <functional>

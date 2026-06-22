@@ -414,11 +414,15 @@ void EditorProjectManager::LoadEditorPreferences()
 		{
 			Assistant::Settings settings = layer.m_UISettings.GetAssistantSettings();
 			settings.m_Enabled = assistant["enabled"].as<bool>(settings.m_Enabled);
-			settings.m_UseOnlineResponses = assistant["online"].as<bool>(settings.m_UseOnlineResponses);
+			settings.m_Provider = Assistant::ProviderFromName(assistant["provider"].as<std::string>(""));
+			if (!assistant["provider"] && assistant["online"].as<bool>(false))
+				settings.m_Provider = Assistant::ProviderKind::OpenAI;
 			settings.m_SendSceneContext = assistant["send_scene_context"].as<bool>(settings.m_SendSceneContext);
 			settings.m_SendConsoleContext = assistant["send_console_context"].as<bool>(settings.m_SendConsoleContext);
-			settings.m_Model = assistant["model"].as<std::string>(settings.m_Model);
-			settings.m_ApiKey = assistant["api_key"].as<std::string>(settings.m_ApiKey);
+			settings.m_OpenAIModel = assistant["openai_model"].as<std::string>(assistant["model"].as<std::string>(settings.m_OpenAIModel));
+			settings.m_OpenAIApiKey = assistant["openai_api_key"].as<std::string>(assistant["api_key"].as<std::string>(settings.m_OpenAIApiKey));
+			settings.m_GeminiModel = assistant["gemini_model"].as<std::string>(settings.m_GeminiModel);
+			settings.m_GeminiApiKey = assistant["gemini_api_key"].as<std::string>(settings.m_GeminiApiKey);
 			layer.m_UISettings.SetAssistantSettings(settings);
 		}
 
@@ -529,11 +533,13 @@ void EditorProjectManager::SaveEditorPreferences() const
 		const Assistant::Settings& assistant = layer.m_UISettings.GetAssistantSettings();
 		out << YAML::Key << "assistant" << YAML::Value << YAML::BeginMap;
 		out << YAML::Key << "enabled" << YAML::Value << assistant.m_Enabled;
-		out << YAML::Key << "online" << YAML::Value << assistant.m_UseOnlineResponses;
+		out << YAML::Key << "provider" << YAML::Value << Assistant::ProviderName(assistant.m_Provider);
 		out << YAML::Key << "send_scene_context" << YAML::Value << assistant.m_SendSceneContext;
 		out << YAML::Key << "send_console_context" << YAML::Value << assistant.m_SendConsoleContext;
-		out << YAML::Key << "model" << YAML::Value << assistant.m_Model;
-		out << YAML::Key << "api_key" << YAML::Value << assistant.m_ApiKey;
+		out << YAML::Key << "openai_model" << YAML::Value << assistant.m_OpenAIModel;
+		out << YAML::Key << "openai_api_key" << YAML::Value << assistant.m_OpenAIApiKey;
+		out << YAML::Key << "gemini_model" << YAML::Value << assistant.m_GeminiModel;
+		out << YAML::Key << "gemini_api_key" << YAML::Value << assistant.m_GeminiApiKey;
 		out << YAML::EndMap;
 	}
 	out << YAML::Key << "snap" << YAML::Value << YAML::BeginMap;

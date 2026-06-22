@@ -20,10 +20,7 @@ target_include_directories(Whip-Editor PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-target_link_libraries(Whip-Editor PRIVATE whip::engine)
-if(WIN32)
-    target_link_libraries(Whip-Editor PRIVATE winhttp)
-endif()
+target_link_libraries(Whip-Editor PRIVATE whip::engine whip::assistant)
 whip_suppress_external_link_warnings(Whip-Editor)
 
 if(TARGET Whip-ScriptCore)

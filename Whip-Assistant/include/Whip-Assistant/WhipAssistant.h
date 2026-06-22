@@ -27,14 +27,23 @@ namespace Assistant
 		SetTransform
 	};
 
+	enum class ProviderKind : uint8_t
+	{
+		Offline = 0,
+		OpenAI,
+		Gemini
+	};
+
 	struct Settings
 	{
 		bool m_Enabled = true;
-		bool m_UseOnlineResponses = false;
+		ProviderKind m_Provider = ProviderKind::Offline;
 		bool m_SendSceneContext = true;
 		bool m_SendConsoleContext = true;
-		std::string m_Model = "gpt-5.5";
-		std::string m_ApiKey;
+		std::string m_OpenAIModel = "gpt-5.5";
+		std::string m_OpenAIApiKey;
+		std::string m_GeminiModel = "gemini-2.0-flash";
+		std::string m_GeminiApiKey;
 	};
 
 	struct Message
@@ -80,10 +89,16 @@ namespace Assistant
 
 	const char* RoleName(Role role);
 	const char* ToolKindName(ToolKind kind);
+	const char* ProviderName(ProviderKind provider);
+	const char* ProviderDisplayName(ProviderKind provider);
+	ProviderKind ProviderFromName(const std::string& name);
+	bool HasProviderCredentials(const Settings& settings);
 
 	std::string BuildContextPrompt(const ContextSnapshot& context, const Settings& settings);
 	std::vector<ToolProposal> BuildLocalProposals(const ContextSnapshot& context, const std::string& prompt);
+	Response RequestResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt);
 	Response RequestOpenAIResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt);
+	Response RequestGeminiResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt);
 }
 
 _WHIP_END

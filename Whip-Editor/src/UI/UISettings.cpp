@@ -618,18 +618,47 @@ namespace UI
 		DrawSettingsHeading("Whip Assistant");
 		if (ImGui::Checkbox("Enable assistant", &m_AssistantSettings.m_Enabled))
 			MarkDirty();
-		if (ImGui::Checkbox("Allow online OpenAI responses", &m_AssistantSettings.m_UseOnlineResponses))
-			MarkDirty();
-		if (ImGui::IsItemHovered())
-			ImGui::SetTooltip("When disabled, Whip Assistant only creates local editor proposals.");
 
 		ImGui::SetNextItemWidth(220.0f);
-		if (ImGui::InputText("Model", &m_AssistantSettings.m_Model))
-			MarkDirty();
-		ImGui::SetNextItemWidth(360.0f);
-		if (ImGui::InputText("API Key", &m_AssistantSettings.m_ApiKey, ImGuiInputTextFlags_Password))
-			MarkDirty();
-		ImGui::TextDisabled("The key is kept in local editor preferences. Scene edits still require Apply.");
+		if (ImGui::BeginCombo("Provider", Assistant::ProviderDisplayName(m_AssistantSettings.m_Provider)))
+		{
+			for (Assistant::ProviderKind provider : { Assistant::ProviderKind::Offline, Assistant::ProviderKind::OpenAI, Assistant::ProviderKind::Gemini })
+			{
+				const bool selected = m_AssistantSettings.m_Provider == provider;
+				if (ImGui::Selectable(Assistant::ProviderDisplayName(provider), selected))
+				{
+					m_AssistantSettings.m_Provider = provider;
+					MarkDirty();
+				}
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+
+		if (m_AssistantSettings.m_Provider == Assistant::ProviderKind::OpenAI)
+		{
+			ImGui::SetNextItemWidth(220.0f);
+			if (ImGui::InputText("OpenAI Model", &m_AssistantSettings.m_OpenAIModel))
+				MarkDirty();
+			ImGui::SetNextItemWidth(360.0f);
+			if (ImGui::InputText("OpenAI API Key", &m_AssistantSettings.m_OpenAIApiKey, ImGuiInputTextFlags_Password))
+				MarkDirty();
+		}
+		else if (m_AssistantSettings.m_Provider == Assistant::ProviderKind::Gemini)
+		{
+			ImGui::SetNextItemWidth(220.0f);
+			if (ImGui::InputText("Gemini Model", &m_AssistantSettings.m_GeminiModel))
+				MarkDirty();
+			ImGui::SetNextItemWidth(360.0f);
+			if (ImGui::InputText("Gemini API Key", &m_AssistantSettings.m_GeminiApiKey, ImGuiInputTextFlags_Password))
+				MarkDirty();
+		}
+		else
+		{
+			ImGui::TextDisabled("Offline mode uses local proposals only.");
+		}
+		ImGui::TextDisabled("API keys are kept in local editor preferences. Scene edits still require Apply.");
 
 		if (ImGui::Checkbox("Send scene selection context", &m_AssistantSettings.m_SendSceneContext))
 			MarkDirty();

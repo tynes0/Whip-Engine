@@ -23,6 +23,7 @@ endfunction()
 
 function(whip_apply_solution_folders)
     whip_set_folder_if_exists(Whip "Whip/Engine")
+    whip_set_folder_if_exists(Whip-Assistant "Whip/Assistant")
     whip_set_folder_if_exists(Whip-Editor "Whip/Editor")
     whip_set_folder_if_exists(Whip-ScriptCore "Whip/Scripts")
     whip_set_folder_if_exists(F-Box "Whip/Games")
@@ -65,6 +66,7 @@ whip_configure_output_directories()
 whip_resolve_dependencies()
 
 add_subdirectory(Whip)
+add_subdirectory(Whip-Assistant)
 
 if(WHP_BUILD_SCRIPT_CORE)
     if(CMAKE_GENERATOR MATCHES "Visual Studio")
