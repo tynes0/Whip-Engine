@@ -339,6 +339,35 @@ function(whip_add_mono)
     whip_create_alias(whip::mono whip_mono)
 endfunction()
 
+function(whip_add_gemini_cpp)
+    if(TARGET whip::gemini_cpp)
+        return()
+    endif()
+
+    if(NOT WHP_ENABLE_GEMINI_CPP)
+        add_library(whip_gemini_cpp INTERFACE)
+        whip_create_alias(whip::gemini_cpp whip_gemini_cpp)
+        return()
+    endif()
+
+    set(GEMINI_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(CURL_ZLIB OFF CACHE STRING "" FORCE)
+
+    if(WHP_USE_LOCAL_VENDOR AND EXISTS "${CMAKE_SOURCE_DIR}/Whip/vendor/Gemini-cpp/CMakeLists.txt")
+        add_subdirectory("${CMAKE_SOURCE_DIR}/Whip/vendor/Gemini-cpp" "${CMAKE_BINARY_DIR}/vendor/Gemini-cpp")
+    elseif(WHP_FETCH_DEPS)
+        FetchContent_Declare(gemini_cpp
+            GIT_REPOSITORY https://github.com/tynes0/Gemini-cpp.git
+            GIT_TAG        87a79e10bd47013838f5263f079c5f225775cde6
+            GIT_SHALLOW    FALSE)
+        FetchContent_MakeAvailable(gemini_cpp)
+    else()
+        message(FATAL_ERROR "Gemini-cpp SDK is required for Whip Assistant Gemini support. Enable WHP_FETCH_DEPS, disable WHP_ENABLE_GEMINI_CPP, or place it under Whip/vendor/Gemini-cpp.")
+    endif()
+
+    whip_alias_first_existing(whip::gemini_cpp gemini-cpp gemini-core)
+endfunction()
+
 function(whip_resolve_dependencies)
     # Keep all CMake-fetched dependencies under build/_deps. Source checkout stays clean.
     # Third-party targets are grouped under Additionals by default.
@@ -560,6 +589,7 @@ function(whip_resolve_dependencies)
 
     whip_add_shader_tools()
     whip_add_mono()
+    whip_add_gemini_cpp()
 
     find_package(OpenGL REQUIRED)
 

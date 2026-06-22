@@ -11,6 +11,7 @@ option(WHP_UPDATE_DEPS "Allow FetchContent dependencies to update existing git c
 option(WHP_ENABLE_MONO "Enable Mono scripting support. Requires Mono headers and a compatible Mono import/static library." ON)
 option(WHP_ENABLE_OPENGL "Enable OpenGL renderer backend." ON)
 option(WHP_ENABLE_SHADER_COMPILER "Use shaderc/SPIRV-Cross from the Vulkan SDK for runtime shader compilation." ON)
+option(WHP_ENABLE_GEMINI_CPP "Use the Gemini-cpp SDK for Gemini-backed Whip Assistant requests." ON)
 option(WHP_SUPPRESS_EXTERNAL_LINK_WARNINGS "Suppress known MSVC linker warning noise from third-party binary/static dependencies." ON)
 option(WHP_SUPPRESS_EXTERNAL_CMAKE_WARNINGS "Suppress noisy CMake deprecation warnings emitted by third-party dependency projects." ON)
 

@@ -17,6 +17,11 @@ target_include_directories(Whip-Assistant PUBLIC
     "${CMAKE_SOURCE_DIR}/Whip/vendor")
 
 target_link_libraries(Whip-Assistant PUBLIC whip::glm)
+target_link_libraries(Whip-Assistant PRIVATE whip::gemini_cpp)
+
+if(WHP_ENABLE_GEMINI_CPP)
+    target_compile_definitions(Whip-Assistant PRIVATE WHP_ENABLE_GEMINI_CPP=1)
+endif()
 
 if(WIN32)
     target_link_libraries(Whip-Assistant PRIVATE winhttp)

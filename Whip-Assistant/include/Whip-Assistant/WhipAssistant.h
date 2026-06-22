@@ -44,6 +44,7 @@ namespace Assistant
 		std::string m_OpenAIApiKey;
 		std::string m_GeminiModel = "gemini-2.0-flash";
 		std::string m_GeminiApiKey;
+		bool m_GeminiUseGoogleSearch = true;
 	};
 
 	struct Message

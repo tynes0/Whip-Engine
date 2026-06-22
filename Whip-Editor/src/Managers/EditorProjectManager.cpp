@@ -423,6 +423,7 @@ void EditorProjectManager::LoadEditorPreferences()
 			settings.m_OpenAIApiKey = assistant["openai_api_key"].as<std::string>(assistant["api_key"].as<std::string>(settings.m_OpenAIApiKey));
 			settings.m_GeminiModel = assistant["gemini_model"].as<std::string>(settings.m_GeminiModel);
 			settings.m_GeminiApiKey = assistant["gemini_api_key"].as<std::string>(settings.m_GeminiApiKey);
+			settings.m_GeminiUseGoogleSearch = assistant["gemini_google_search"].as<bool>(settings.m_GeminiUseGoogleSearch);
 			layer.m_UISettings.SetAssistantSettings(settings);
 		}
 
@@ -540,6 +541,7 @@ void EditorProjectManager::SaveEditorPreferences() const
 		out << YAML::Key << "openai_api_key" << YAML::Value << assistant.m_OpenAIApiKey;
 		out << YAML::Key << "gemini_model" << YAML::Value << assistant.m_GeminiModel;
 		out << YAML::Key << "gemini_api_key" << YAML::Value << assistant.m_GeminiApiKey;
+		out << YAML::Key << "gemini_google_search" << YAML::Value << assistant.m_GeminiUseGoogleSearch;
 		out << YAML::EndMap;
 	}
 	out << YAML::Key << "snap" << YAML::Value << YAML::BeginMap;

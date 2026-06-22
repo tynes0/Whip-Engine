@@ -2,9 +2,19 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
+#include <ctime>
+#include <exception>
+#include <iomanip>
 #include <sstream>
 #include <string_view>
 #include <utility>
+#include <variant>
+
+#if WHP_ENABLE_GEMINI_CPP
+#include <gemini/client.h>
+#include <gemini/request_builder.h>
+#endif
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -58,6 +68,22 @@ namespace Assistant
 			if (ContainsAny(lower, { "enemy", "dusman", "dushman" }))
 				return "Enemy";
 			return "AI Entity";
+		}
+
+		std::string GetLocalEditorTime()
+		{
+			const auto now = std::chrono::system_clock::now();
+			const std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+			std::tm localTime{};
+#ifdef _WIN32
+			localtime_s(&localTime, &nowTime);
+#else
+			localtime_r(&nowTime, &localTime);
+#endif
+
+			std::ostringstream stream;
+			stream << std::put_time(&localTime, "%Y-%m-%d %A %H:%M:%S");
+			return stream.str();
 		}
 
 		void PushAddComponentProposal(std::vector<ToolProposal>& proposals, const ContextSnapshot& context, std::string componentName)
@@ -179,6 +205,36 @@ namespace Assistant
 				return text;
 			return {};
 		}
+
+#if WHP_ENABLE_GEMINI_CPP
+		std::string BuildGeminiGroundingSummary(const GeminiCPP::GenerationResult& generation)
+		{
+			if (!generation.groundingMetadata.has_value())
+				return {};
+
+			std::ostringstream stream;
+			size_t sourceCount = 0;
+			for (const GeminiCPP::GroundingChunk& chunk : generation.groundingMetadata->groundingChunks)
+			{
+				const auto* web = std::get_if<GeminiCPP::Web>(&chunk.chunk);
+				if (!web || web->uri.empty())
+					continue;
+
+				if (sourceCount == 0)
+					stream << "\n\nSources:";
+
+				stream << "\n- ";
+				if (!web->title.empty())
+					stream << web->title << ": ";
+				stream << web->uri;
+
+				if (++sourceCount >= 5)
+					break;
+			}
+
+			return stream.str();
+		}
+#endif
 
 #ifdef _WIN32
 		std::wstring ToWide(std::string_view value)
@@ -355,6 +411,7 @@ namespace Assistant
 	{
 		std::ostringstream stream;
 		stream << "Whip Editor context:\n";
+		stream << "- Local editor time: " << GetLocalEditorTime() << '\n';
 		stream << "- Project: " << (context.m_HasProject ? context.m_ProjectName : "none") << '\n';
 		stream << "- Scene: " << (context.m_HasScene ? context.m_ScenePath : "none") << '\n';
 
@@ -504,14 +561,52 @@ namespace Assistant
 		}
 
 		const std::string model = settings.m_GeminiModel.empty() ? "gemini-2.0-flash" : settings.m_GeminiModel;
-		const std::string input =
-			"You are Whip Assistant inside the Whip game engine editor. Be concise and practical. "
-			"Scene edits must be described as reviewable steps.\n\n" +
-			BuildContextPrompt(context, settings) + "\n\nUser request:\n" + prompt;
-		const std::string body =
-			"{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"" + EscapeJson(input) +
-			"\"}]}],\"generationConfig\":{\"temperature\":0.35}}";
+		const std::string instructions =
+			"You are Whip Assistant inside the Whip game engine editor. "
+			"Be concise, practical, and action-oriented. Use available tools when current real-world data is needed. "
+			"Scene edits must be described as reviewable steps unless the editor explicitly applies a proposal.";
+		const std::string input = BuildContextPrompt(context, settings) + "\n\nUser request:\n" + prompt;
 
+#if WHP_ENABLE_GEMINI_CPP
+		try
+		{
+			GeminiCPP::Client client(settings.m_GeminiApiKey);
+			GeminiCPP::RequestBuilder request = client.request();
+			request
+				.model(model)
+				.systemInstruction(instructions)
+				.text(input)
+				.temperature(0.35f);
+
+			if (settings.m_GeminiUseGoogleSearch)
+				request.googleSearch();
+
+			const GeminiCPP::GenerationResult generation = request.generate();
+			if (!generation.success)
+			{
+				result.m_Error = generation.errorMessage.empty() ? "Gemini SDK request failed." : generation.errorMessage;
+				return result;
+			}
+
+			result.m_Text = generation.text();
+			if (result.m_Text.empty())
+				result.m_Text = "Gemini responded, but no text output was found in the SDK response.";
+
+			const std::string groundingSummary = BuildGeminiGroundingSummary(generation);
+			if (!groundingSummary.empty())
+				result.m_Text += groundingSummary;
+
+			result.m_Success = true;
+		}
+		catch (const std::exception& exception)
+		{
+			result.m_Error = std::string("Gemini SDK request failed: ") + exception.what();
+			return result;
+		}
+#else
+		const std::string body =
+			"{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"" + EscapeJson(instructions + "\n\n" + input) +
+			"\"}]}],\"generationConfig\":{\"temperature\":0.35}}";
 #ifdef _WIN32
 		std::string normalizedModel = model;
 		if (!normalizedModel.starts_with("models/"))
@@ -533,6 +628,7 @@ namespace Assistant
 		result.m_Success = true;
 #else
 		result.m_Error = "Gemini responses are currently implemented for Windows editor builds.";
+#endif
 #endif
 		if (result.m_Success)
 			result.m_Proposals = BuildLocalProposals(context, prompt);

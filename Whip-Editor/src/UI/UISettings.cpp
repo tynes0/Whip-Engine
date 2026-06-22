@@ -653,6 +653,8 @@ namespace UI
 			ImGui::SetNextItemWidth(360.0f);
 			if (ImGui::InputText("Gemini API Key", &m_AssistantSettings.m_GeminiApiKey, ImGuiInputTextFlags_Password))
 				MarkDirty();
+			if (ImGui::Checkbox("Use Google Search grounding", &m_AssistantSettings.m_GeminiUseGoogleSearch))
+				MarkDirty();
 		}
 		else
 		{
