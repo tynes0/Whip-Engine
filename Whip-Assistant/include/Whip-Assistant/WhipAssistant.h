@@ -63,6 +63,8 @@ namespace Assistant
 		uint64_t m_SelectedEntity = 0;
 		std::string m_SelectedEntityName;
 		std::vector<std::string> m_SelectedComponents;
+		bool m_HasSelectedScript = false;
+		std::string m_SelectedScriptClass;
 		std::vector<std::string> m_RecentConsole;
 	};
 

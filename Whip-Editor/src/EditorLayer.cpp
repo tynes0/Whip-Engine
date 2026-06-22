@@ -904,7 +904,15 @@ Assistant::ContextSnapshot EditorLayer::BuildAssistantContextSnapshot() const
 		if (selected.HasComponent<CameraComponent>())
 			context.m_SelectedComponents.emplace_back("Camera");
 		if (selected.HasComponent<ScriptComponent>())
+		{
 			context.m_SelectedComponents.emplace_back("Script");
+			const auto& script = selected.GetComponent<ScriptComponent>();
+			if (!script.m_ClassName.empty())
+			{
+				context.m_HasSelectedScript = true;
+				context.m_SelectedScriptClass = script.m_ClassName;
+			}
+		}
 		if (selected.HasComponent<AnimatorComponent>())
 			context.m_SelectedComponents.emplace_back("Animator");
 		if (selected.HasComponent<Rigidbody2DComponent>())
