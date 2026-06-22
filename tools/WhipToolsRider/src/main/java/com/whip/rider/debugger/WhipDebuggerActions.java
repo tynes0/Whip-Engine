@@ -8,11 +8,9 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 
 import java.awt.datatransfer.StringSelection;
-import java.time.Duration;
 import java.util.Optional;
 
 final class WhipDebuggerActions {
-	private static final Duration ConnectionProbeTimeout = Duration.ofMillis(600);
 	private static final String[] KnownAttachActionIds = {
 		"RiderAttachToProcess",
 		"RiderAttachToProcessAction",
@@ -45,21 +43,13 @@ final class WhipDebuggerActions {
 			return;
 		}
 
-		boolean reachable = debugger.canConnect(ConnectionProbeTimeout);
-		boolean startedDebugger = false;
+		boolean startedDebugger = WhipRemoteDebugLauncher.start(project, debugger);
 		boolean openedAttachUi = false;
-		if (reachable) {
-			startedDebugger = WhipRemoteDebugLauncher.start(project, debugger);
-			if (!startedDebugger) {
-				openedAttachUi = tryOpenAttachUi();
-			}
+		if (!startedDebugger) {
+			openedAttachUi = tryOpenAttachUi();
 		}
 
-		if (reachable) {
-			Messages.showInfoMessage(project, makeReachableMessage(debugger, startedDebugger, openedAttachUi), "Whip Debugger Ready");
-		} else {
-			Messages.showWarningDialog(project, makeUnreachableMessage(debugger), "Whip Debugger Not Reachable");
-		}
+		Messages.showInfoMessage(project, makeAttachStartedMessage(debugger, startedDebugger, openedAttachUi), "Whip Debugger");
 	}
 
 	static Optional<WhipDebuggerContract> findContract(Project project) {
@@ -84,28 +74,19 @@ final class WhipDebuggerActions {
 		return false;
 	}
 
-	private static String makeReachableMessage(WhipDebuggerContract debugger, boolean startedDebugger, boolean openedAttachUi) {
+	private static String makeAttachStartedMessage(WhipDebuggerContract debugger, boolean startedDebugger, boolean openedAttachUi) {
 		StringBuilder message = new StringBuilder();
-		message.append("Whip Mono debugger is listening at ").append(debugger.getEndpoint()).append(".\n\n");
 		if (startedDebugger) {
-			message.append("Rider attach was started directly.");
+			message.append("Rider attach was started directly for ").append(debugger.getEndpoint()).append(".");
 		} else {
+			message.append("Could not start Rider attach directly.\n\n");
 			message.append("The endpoint has been copied to the clipboard.");
+			if (openedAttachUi) {
+				message.append("\n\nRider's attach UI was opened. Choose the Whip/Mono debugger target if Rider asks for a process or endpoint.");
+			} else {
+				message.append("\n\nOpen Rider's attach debugger action and use the copied endpoint.");
+			}
 		}
-		if (!startedDebugger && openedAttachUi) {
-			message.append("\n\nRider's attach UI was opened. Choose the Whip/Mono debugger target if Rider asks for a process or endpoint.");
-		} else if (!startedDebugger) {
-			message.append("\n\nOpen Rider's attach debugger action and use the copied endpoint.");
-		}
-		appendContractDetails(message, debugger);
-		return message.toString();
-	}
-
-	private static String makeUnreachableMessage(WhipDebuggerContract debugger) {
-		StringBuilder message = new StringBuilder();
-		message.append("Could not connect to ").append(debugger.getEndpoint()).append(".\n\n");
-		message.append("Make sure Whip Editor is running with the project open and that Project Settings > Script Debugger is enabled.");
-		message.append("\n\nThe endpoint has been copied to the clipboard.");
 		appendContractDetails(message, debugger);
 		return message.toString();
 	}

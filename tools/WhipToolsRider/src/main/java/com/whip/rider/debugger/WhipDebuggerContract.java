@@ -1,12 +1,9 @@
 package com.whip.rider.debugger;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -102,15 +99,6 @@ final class WhipDebuggerContract {
 
 	String getEndpoint() {
 		return host + ":" + port;
-	}
-
-	boolean canConnect(Duration timeout) {
-		try (Socket socket = new Socket()) {
-			socket.connect(new InetSocketAddress(host, port), Math.toIntExact(timeout.toMillis()));
-			return true;
-		} catch (IOException | ArithmeticException ignored) {
-			return false;
-		}
 	}
 
 	private static String readString(String json, String key, String fallback) {

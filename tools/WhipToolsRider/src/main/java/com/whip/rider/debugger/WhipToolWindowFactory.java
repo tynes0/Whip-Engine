@@ -83,7 +83,7 @@ public final class WhipToolWindowFactory implements ToolWindowFactory, DumbAware
 			text.append("Contract found.\n\n");
 			text.append("Enabled: ").append(debugger.isEnabled() ? "true" : "false").append('\n');
 			text.append("Endpoint: ").append(debugger.getEndpoint()).append('\n');
-			text.append("Reachable: ").append(debugger.canConnect(java.time.Duration.ofMillis(250)) ? "true" : "false").append('\n');
+			text.append("Connection: checked by Rider when Attach starts\n");
 			text.append("Suspend on start: ").append(debugger.isSuspendOnStart() ? "true" : "false").append('\n');
 			if (!debugger.getSolution().isBlank()) {
 				text.append("Solution: ").append(debugger.getSolution()).append('\n');
