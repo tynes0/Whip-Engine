@@ -410,6 +410,17 @@ void EditorProjectManager::LoadEditorPreferences()
 		layer.m_UISettings.SetShowPhysicsColliders(editor["show_physics_colliders"].as<bool>(layer.m_UISettings.GetShowPhysicsColliders()));
 		layer.m_UISettings.SetStepFrame(editor["step_frame"].as<int>(layer.m_UISettings.GetStepFrame()));
 		layer.m_UISettings.SetTheme(ThemeFromString(editor["theme"].as<std::string>(UI::UISettings::GetThemeName(layer.m_UISettings.GetTheme()))));
+		if (YAML::Node assistant = editor["assistant"])
+		{
+			Assistant::Settings settings = layer.m_UISettings.GetAssistantSettings();
+			settings.m_Enabled = assistant["enabled"].as<bool>(settings.m_Enabled);
+			settings.m_UseOnlineResponses = assistant["online"].as<bool>(settings.m_UseOnlineResponses);
+			settings.m_SendSceneContext = assistant["send_scene_context"].as<bool>(settings.m_SendSceneContext);
+			settings.m_SendConsoleContext = assistant["send_console_context"].as<bool>(settings.m_SendConsoleContext);
+			settings.m_Model = assistant["model"].as<std::string>(settings.m_Model);
+			settings.m_ApiKey = assistant["api_key"].as<std::string>(settings.m_ApiKey);
+			layer.m_UISettings.SetAssistantSettings(settings);
+		}
 
 		if (YAML::Node snap = editor["snap"])
 		{
@@ -447,6 +458,7 @@ void EditorProjectManager::LoadEditorPreferences()
 		layer.m_SceneHierarchyPanel.SetOpen(panels["scene_hierarchy"].as<bool>(layer.m_SceneHierarchyPanel.IsOpen()));
 		layer.m_UIStatistics.SetOpen(panels["statistics"].as<bool>(layer.m_UIStatistics.IsOpen()));
 		ConsolePanel::SetOpen(panels["console"].as<bool>(ConsolePanel::IsOpen()));
+		layer.m_AssistantPanel.SetOpen(panels["assistant"].as<bool>(layer.m_AssistantPanel.IsOpen()));
 
 		if (YAML::Node animationWorkspace = panels["animation_workspace"])
 		{
@@ -492,6 +504,7 @@ void EditorProjectManager::LoadEditorPreferences()
 	layer.m_AnimationEditorPanel.ConsumeLayoutDirty();
 	layer.m_AssetEditorPanel.ConsumeLayoutDirty();
 	layer.m_UIStatistics.ConsumeOpenDirty();
+	layer.m_AssistantPanel.ConsumeOpenDirty();
 	ConsolePanel::ConsumeOpenDirty();
 	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
 }
@@ -512,6 +525,17 @@ void EditorProjectManager::SaveEditorPreferences() const
 	out << YAML::Key << "show_physics_colliders" << YAML::Value << layer.m_UISettings.GetShowPhysicsColliders();
 	out << YAML::Key << "step_frame" << YAML::Value << layer.m_UISettings.GetStepFrame();
 	out << YAML::Key << "theme" << YAML::Value << UI::UISettings::GetThemeName(layer.m_UISettings.GetTheme());
+	{
+		const Assistant::Settings& assistant = layer.m_UISettings.GetAssistantSettings();
+		out << YAML::Key << "assistant" << YAML::Value << YAML::BeginMap;
+		out << YAML::Key << "enabled" << YAML::Value << assistant.m_Enabled;
+		out << YAML::Key << "online" << YAML::Value << assistant.m_UseOnlineResponses;
+		out << YAML::Key << "send_scene_context" << YAML::Value << assistant.m_SendSceneContext;
+		out << YAML::Key << "send_console_context" << YAML::Value << assistant.m_SendConsoleContext;
+		out << YAML::Key << "model" << YAML::Value << assistant.m_Model;
+		out << YAML::Key << "api_key" << YAML::Value << assistant.m_ApiKey;
+		out << YAML::EndMap;
+	}
 	out << YAML::Key << "snap" << YAML::Value << YAML::BeginMap;
 	out << YAML::Key << "translation" << YAML::Value; WriteVec3(out, layer.m_UISettings.GetSnapValues(0));
 	out << YAML::Key << "rotation" << YAML::Value; WriteVec3(out, layer.m_UISettings.GetSnapValues(1));
@@ -540,6 +564,7 @@ void EditorProjectManager::SaveEditorPreferences() const
 	out << YAML::Key << "scene_hierarchy" << YAML::Value << layer.m_SceneHierarchyPanel.IsOpen();
 	out << YAML::Key << "statistics" << YAML::Value << layer.m_UIStatistics.IsOpen();
 	out << YAML::Key << "console" << YAML::Value << ConsolePanel::IsOpen();
+	out << YAML::Key << "assistant" << YAML::Value << layer.m_AssistantPanel.IsOpen();
 	{
 		const AnimationEditorPanel::WorkspacePreferences preferences = layer.m_AnimationEditorPanel.GetWorkspacePreferences();
 		out << YAML::Key << "animation_workspace" << YAML::Value << YAML::BeginMap;

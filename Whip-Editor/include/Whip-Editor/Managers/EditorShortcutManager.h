@@ -24,6 +24,7 @@ enum class EditorShortcutScope : uint8_t
 	AssetEditor,
 	AnimationEditor,
 	Console,
+	Assistant,
 	Statistics,
 	ProjectHub
 };

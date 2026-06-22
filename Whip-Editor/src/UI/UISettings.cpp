@@ -2,6 +2,7 @@
 #include <Whip-Editor/UI/UISettings.h>
 
 #include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
 #include <Whip-Editor/Managers/EditorShortcutManager.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 
@@ -423,6 +424,12 @@ namespace UI
 		MarkDirty();
 	}
 
+	void UISettings::SetAssistantSettings(const Assistant::Settings& settings)
+	{
+		m_AssistantSettings = settings;
+		MarkDirty();
+	}
+
 	bool UISettings::ConsumeDirty()
 	{
 		bool dirty = m_Dirty;
@@ -606,6 +613,30 @@ namespace UI
 		ImGui::TextDisabled("%s", GetThemeDescription(m_Theme));
 	}
 
+	void UISettings::DrawAssistantSettings()
+	{
+		DrawSettingsHeading("Whip Assistant");
+		if (ImGui::Checkbox("Enable assistant", &m_AssistantSettings.m_Enabled))
+			MarkDirty();
+		if (ImGui::Checkbox("Allow online OpenAI responses", &m_AssistantSettings.m_UseOnlineResponses))
+			MarkDirty();
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("When disabled, Whip Assistant only creates local editor proposals.");
+
+		ImGui::SetNextItemWidth(220.0f);
+		if (ImGui::InputText("Model", &m_AssistantSettings.m_Model))
+			MarkDirty();
+		ImGui::SetNextItemWidth(360.0f);
+		if (ImGui::InputText("API Key", &m_AssistantSettings.m_ApiKey, ImGuiInputTextFlags_Password))
+			MarkDirty();
+		ImGui::TextDisabled("The key is kept in local editor preferences. Scene edits still require Apply.");
+
+		if (ImGui::Checkbox("Send scene selection context", &m_AssistantSettings.m_SendSceneContext))
+			MarkDirty();
+		if (ImGui::Checkbox("Send recent console context", &m_AssistantSettings.m_SendConsoleContext))
+			MarkDirty();
+	}
+
 	void UISettings::DrawShortcutSettings()
 	{
 		DrawSettingsHeading("Shortcut Map");
@@ -685,6 +716,8 @@ namespace UI
 		DrawGeneralSettings();
 		ImGui::Spacing();
 		DrawAppearanceSettings();
+		ImGui::Spacing();
+		DrawAssistantSettings();
 		ImGui::Spacing();
 		DrawShortcutSettings();
 	}

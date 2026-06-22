@@ -174,6 +174,9 @@ void EditorLayer::OnAttach()
 	m_AssetEditorPanel.SetOpenAnimationCallback([this](AssetHandle handle) { return m_AnimationEditorPanel.OpenAsset(handle, false); });
 	m_AssetEditorPanel.SetDrawAnimationEditorCallback([this]() { m_AnimationEditorPanel.OnImGuiRenderEmbedded(); });
 	m_AssetEditorPanel.SetRefreshAssetTreeCallback([this]() { if (m_ContentBrowserPanel) { m_ContentBrowserPanel->RefreshAssetTree(); } });
+	m_AssistantPanel.SetSettingsCallback([this]() -> const Assistant::Settings& { return m_UISettings.GetAssistantSettings(); });
+	m_AssistantPanel.SetContextCallback([this]() { return BuildAssistantContextSnapshot(); });
+	m_AssistantPanel.SetApplyProposalCallback([this](const Assistant::ToolProposal& proposal) { return ApplyAssistantProposal(proposal); });
 	m_SceneHierarchyPanel.SetSceneChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(); });
 	m_SceneHierarchyPanel.SetSaveEntityTemplateCallback([this](Entity entityIn) { m_EntityTemplateManager.SaveEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetApplyEntityTemplateCallback([this](Entity entityIn) { m_EntityTemplateManager.ApplyEntityTemplate(entityIn); });
@@ -704,6 +707,16 @@ void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
 			drawMenuAction(UI::EditorShortcutAction::SaveProject);
 			ImGui::EndMenu();
 		}
+		if (ImGui::BeginMenu("AI"))
+		{
+			const std::string assistantShortcut = m_ShortcutManager.GetShortcutLabel("assistant.focus_prompt");
+			if (ImGui::MenuItem("Whip Assistant", assistantShortcut.c_str(), m_AssistantPanel.IsOpen()))
+			{
+				m_AssistantPanel.SetOpen(true);
+				m_AssistantPanel.FocusPrompt();
+			}
+			ImGui::EndMenu();
+		}
 		if (ImGui::BeginMenu("Window"))
 		{
 			RebuildEditorPanelRegistry();
@@ -766,6 +779,7 @@ void EditorLayer::DrawCommandPalette()
 				EditorShortcutScope::AssetEditor,
 				EditorShortcutScope::AnimationEditor,
 				EditorShortcutScope::Console,
+				EditorShortcutScope::Assistant,
 				EditorShortcutScope::Statistics,
 				EditorShortcutScope::ProjectHub })
 			{
@@ -855,6 +869,151 @@ void EditorLayer::DrawCommandPalette()
 
 	if (!open)
 		m_CommandPaletteOpen = false;
+}
+
+Assistant::ContextSnapshot EditorLayer::BuildAssistantContextSnapshot() const
+{
+	Assistant::ContextSnapshot context;
+	if (Ref<Project> activeProject = Project::GetActive())
+	{
+		context.m_HasProject = true;
+		context.m_ProjectName = activeProject->GetConfig().m_Name;
+	}
+
+	if (m_SceneManager.EditorScene())
+	{
+		context.m_HasScene = true;
+		context.m_ScenePath = m_SceneManager.EditorScenePath().empty() ? "Unsaved Scene" : m_SceneManager.EditorScenePath().generic_string();
+	}
+
+	Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
+	if (selected)
+	{
+		context.m_HasSelection = true;
+		context.m_SelectedEntity = static_cast<uint64_t>(selected.GetUUID());
+		context.m_SelectedEntityName = selected.GetName();
+
+		if (selected.HasComponent<TransformComponent>())
+			context.m_SelectedComponents.emplace_back("Transform");
+		if (selected.HasComponent<SpriteRendererComponent>())
+			context.m_SelectedComponents.emplace_back("Sprite Renderer");
+		if (selected.HasComponent<CircleRendererComponent>())
+			context.m_SelectedComponents.emplace_back("Circle Renderer");
+		if (selected.HasComponent<TextComponent>())
+			context.m_SelectedComponents.emplace_back("Text Renderer");
+		if (selected.HasComponent<CameraComponent>())
+			context.m_SelectedComponents.emplace_back("Camera");
+		if (selected.HasComponent<ScriptComponent>())
+			context.m_SelectedComponents.emplace_back("Script");
+		if (selected.HasComponent<AnimatorComponent>())
+			context.m_SelectedComponents.emplace_back("Animator");
+		if (selected.HasComponent<Rigidbody2DComponent>())
+			context.m_SelectedComponents.emplace_back("Rigidbody2D");
+		if (selected.HasComponent<BoxCollider2DComponent>())
+			context.m_SelectedComponents.emplace_back("BoxCollider2D");
+		if (selected.HasComponent<CircleCollider2DComponent>())
+			context.m_SelectedComponents.emplace_back("CircleCollider2D");
+		if (selected.HasComponent<AudioComponent>())
+			context.m_SelectedComponents.emplace_back("Audio");
+	}
+
+	context.m_RecentConsole = ConsolePanel::GetRecentMessages(8);
+	return context;
+}
+
+bool EditorLayer::ApplyAssistantProposal(const Assistant::ToolProposal& proposal)
+{
+	if (!HasProjectLoaded() || m_SceneManager.State() != SceneState::Edit || !m_SceneManager.EditorScene())
+		return false;
+
+	auto findTarget = [this, &proposal]() -> Entity
+	{
+		if (proposal.m_TargetEntity != 0)
+			if (Entity entity = m_SceneManager.EditorScene()->FindEntityByUUID(UUID(proposal.m_TargetEntity)))
+				return entity;
+		return m_SceneHierarchyPanel.GetSelectedEntity();
+	};
+
+	switch (proposal.m_Kind)
+	{
+	case Assistant::ToolKind::CreateEntity:
+	{
+		m_HistoryManager.CaptureSceneHistory();
+		Entity entity = m_SceneManager.EditorScene()->CreateEntity(proposal.m_EntityName.empty() ? "AI Entity" : proposal.m_EntityName);
+		if (proposal.m_HasTransform && entity.HasComponent<TransformComponent>())
+		{
+			auto& transform = entity.GetComponent<TransformComponent>();
+			transform.m_Translation = proposal.m_Translation;
+			transform.m_Rotation = proposal.m_Rotation;
+			transform.m_Scale = proposal.m_Scale;
+		}
+		const std::string lowerName = LowerCopy(entity.GetName());
+		if (lowerName.find("camera") != std::string::npos && !entity.HasComponent<CameraComponent>())
+			entity.AddComponent<CameraComponent>();
+		m_SceneHierarchyPanel.SetSelectedEntity(entity);
+		m_SceneManager.MarkDirty();
+		return true;
+	}
+	case Assistant::ToolKind::AddComponent:
+	{
+		Entity target = findTarget();
+		if (!target)
+			return false;
+
+		bool added = false;
+		auto addComponent = [this, &target]<typename T>()
+		{
+			if (target.HasComponent<T>())
+				return false;
+			m_HistoryManager.CaptureSceneHistory();
+			target.AddComponent<T>();
+			return true;
+		};
+		if (proposal.m_ComponentName == "Sprite Renderer" && !target.HasComponent<SpriteRendererComponent>())
+			added = addComponent.template operator()<SpriteRendererComponent>();
+		else if (proposal.m_ComponentName == "Circle Renderer" && !target.HasComponent<CircleRendererComponent>())
+			added = addComponent.template operator()<CircleRendererComponent>();
+		else if (proposal.m_ComponentName == "Text Renderer" && !target.HasComponent<TextComponent>())
+			added = addComponent.template operator()<TextComponent>();
+		else if (proposal.m_ComponentName == "Camera" && !target.HasComponent<CameraComponent>())
+			added = addComponent.template operator()<CameraComponent>();
+		else if (proposal.m_ComponentName == "Script" && !target.HasComponent<ScriptComponent>())
+			added = addComponent.template operator()<ScriptComponent>();
+		else if (proposal.m_ComponentName == "Animator" && !target.HasComponent<AnimatorComponent>())
+			added = addComponent.template operator()<AnimatorComponent>();
+		else if (proposal.m_ComponentName == "Rigidbody2D" && !target.HasComponent<Rigidbody2DComponent>())
+			added = addComponent.template operator()<Rigidbody2DComponent>();
+		else if (proposal.m_ComponentName == "BoxCollider2D" && !target.HasComponent<BoxCollider2DComponent>())
+			added = addComponent.template operator()<BoxCollider2DComponent>();
+		else if (proposal.m_ComponentName == "CircleCollider2D" && !target.HasComponent<CircleCollider2DComponent>())
+			added = addComponent.template operator()<CircleCollider2DComponent>();
+		else if (proposal.m_ComponentName == "Audio" && !target.HasComponent<AudioComponent>())
+			added = addComponent.template operator()<AudioComponent>();
+
+		if (!added)
+			return false;
+		m_SceneHierarchyPanel.SetSelectedEntity(target);
+		m_SceneManager.MarkDirty();
+		return true;
+	}
+	case Assistant::ToolKind::SetTransform:
+	{
+		Entity target = findTarget();
+		if (!target || !target.HasComponent<TransformComponent>() || !proposal.m_HasTransform)
+			return false;
+		m_HistoryManager.CaptureSceneHistory();
+		auto& transform = target.GetComponent<TransformComponent>();
+		transform.m_Translation = proposal.m_Translation;
+		transform.m_Rotation = proposal.m_Rotation;
+		transform.m_Scale = proposal.m_Scale;
+		m_SceneHierarchyPanel.SetSelectedEntity(target);
+		m_SceneManager.MarkDirty();
+		return true;
+	}
+	case Assistant::ToolKind::None:
+	default:
+		return false;
+	}
 }
 
 bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
@@ -1031,6 +1190,7 @@ void EditorLayer::RegisterEditorShortcuts()
 	m_SceneHierarchyPanel.RegisterShortcuts(m_ShortcutManager);
 	m_AnimationEditorPanel.RegisterShortcuts(m_ShortcutManager);
 	m_AssetEditorPanel.RegisterShortcuts(m_ShortcutManager);
+	m_AssistantPanel.RegisterShortcuts(m_ShortcutManager);
 	auto addConsoleShortcut = [this](const char* id, const char* displayName, const UI::ShortcutBinding& binding, std::function<bool()> callback)
 	{
 		m_ShortcutManager.Add(
@@ -1063,6 +1223,7 @@ void EditorLayer::RebuildEditorPanelRegistry()
 	m_PanelManager.AddPanel(m_SceneHierarchyPanel);
 	m_PanelManager.AddPanel(m_AnimationEditorPanel);
 	m_PanelManager.AddPanel(m_AssetEditorPanel);
+	m_PanelManager.AddPanel(m_AssistantPanel);
 	if (m_ConsolePanelAdapter)
 		m_PanelManager.AddPanel(*m_ConsolePanelAdapter);
 	if (m_ContentBrowserPanel)

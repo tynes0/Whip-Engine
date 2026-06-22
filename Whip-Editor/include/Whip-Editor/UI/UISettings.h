@@ -3,6 +3,7 @@
 #include <Whip/Core/Core.h>
 #include <Whip/Core/Log.h>
 #include <Whip/Core/KeyCodes.h>
+#include <Whip-Editor/Assistant/WhipAssistant.h>
 
 #include <array>
 #include <string>
@@ -84,6 +85,8 @@ namespace UI
 		void SetSnapValues(uint32_t idx, const glm::vec3& value);
 		EditorTheme GetTheme() const { return m_Theme; }
 		void SetTheme(EditorTheme theme);
+		const Assistant::Settings& GetAssistantSettings() const { return m_AssistantSettings; }
+		void SetAssistantSettings(const Assistant::Settings& settings);
 		bool ConsumeDirty();
 		static const char* GetActionDisplayName(EditorShortcutAction action);
 		static const char* GetActionCategory(EditorShortcutAction action);
@@ -99,6 +102,7 @@ namespace UI
 	private:
 		void DrawGeneralSettings();
 		void DrawAppearanceSettings();
+		void DrawAssistantSettings();
 		void DrawShortcutSettings();
 		void ResetShortcutsToDefault();
 		bool HasShortcutConflict(size_t index) const;
@@ -109,6 +113,7 @@ namespace UI
 		glm::vec3 m_SnapValues[3] = { {0.5f, 0.5f, 0.5f}, {45.0f, 45.0f, 45.0f}, {0.5f, 0.5f, 0.5f} };
 		int m_StepFrame = 1;
 		EditorTheme m_Theme = EditorTheme::WhipDark;
+		Assistant::Settings m_AssistantSettings;
 		std::array<ShortcutBinding, ActionCount> m_Shortcuts = {};
 		bool m_ShortcutsInitialized = false;
 		bool m_Dirty = false;

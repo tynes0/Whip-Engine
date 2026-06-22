@@ -17,6 +17,7 @@
 #include <Whip-Editor/Panels/ContentBrowserPanel.h>
 #include <Whip-Editor/Panels/AnimationEditorPanel.h>
 #include <Whip-Editor/Panels/AssetEditorPanel.h>
+#include <Whip-Editor/Panels/AssistantPanel.h>
 
 #include <Whip-Editor/UI/UIProject.h>
 #include <Whip-Editor/UI/UISettings.h>
@@ -63,6 +64,8 @@ private:
 	void DrawEditorMenuBar(bool projectLoaded);
 	void OpenCommandPalette();
 	void DrawCommandPalette();
+	Assistant::ContextSnapshot BuildAssistantContextSnapshot() const;
+	bool ApplyAssistantProposal(const Assistant::ToolProposal& proposal);
 
 	void UIToolbar();
 	Timestep m_Ts;
@@ -115,6 +118,7 @@ private:
 	SceneHierarchyPanel m_SceneHierarchyPanel;
 	AnimationEditorPanel m_AnimationEditorPanel;
 	AssetEditorPanel m_AssetEditorPanel;
+	AssistantPanel m_AssistantPanel;
 	Scope<ContentBrowserPanel> m_ContentBrowserPanel;
 };
 

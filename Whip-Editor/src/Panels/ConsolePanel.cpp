@@ -601,6 +601,23 @@ void ConsolePanel::ToggleAutoScroll()
 		ConsoleState.m_RequestScrollToBottom = true;
 }
 
+std::vector<std::string> ConsolePanel::GetRecentMessages(size_t maxCount)
+{
+	std::lock_guard lock(ConsoleState.m_Mutex);
+	std::vector<std::string> messages;
+	if (maxCount == 0 || ConsoleState.m_Buffer.empty())
+		return messages;
+
+	const size_t start = ConsoleState.m_Buffer.size() > maxCount ? ConsoleState.m_Buffer.size() - maxCount : 0;
+	messages.reserve(ConsoleState.m_Buffer.size() - start);
+	for (size_t i = start; i < ConsoleState.m_Buffer.size(); ++i)
+	{
+		const ConsoleEntry& entry = ConsoleState.m_Buffer[i];
+		messages.push_back("[" + entry.m_Timestamp + "] " + LevelName(entry.m_Level) + " " + entry.m_Category + ": " + SingleLineText(entry.m_Message));
+	}
+	return messages;
+}
+
 void ConsolePanel::SetOpen(bool open)
 {
 	std::lock_guard lock(ConsoleState.m_Mutex);

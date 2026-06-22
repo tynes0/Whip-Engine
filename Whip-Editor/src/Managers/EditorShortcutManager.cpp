@@ -313,6 +313,7 @@ void EditorShortcutManager::DrawSettings()
 			EditorShortcutScope::AssetEditor,
 			EditorShortcutScope::AnimationEditor,
 			EditorShortcutScope::Console,
+			EditorShortcutScope::Assistant,
 			EditorShortcutScope::Statistics,
 			EditorShortcutScope::ProjectHub })
 		{
@@ -341,6 +342,7 @@ void EditorShortcutManager::DrawSettings()
 		EditorShortcutScope::AssetEditor,
 		EditorShortcutScope::AnimationEditor,
 		EditorShortcutScope::Console,
+		EditorShortcutScope::Assistant,
 		EditorShortcutScope::Statistics,
 		EditorShortcutScope::ProjectHub
 	};
@@ -596,6 +598,7 @@ const char* EditorShortcutManager::GetScopeName(EditorShortcutScope scope)
 	case EditorShortcutScope::AssetEditor: return "Asset Editor";
 	case EditorShortcutScope::AnimationEditor: return "Animation Editor";
 	case EditorShortcutScope::Console: return "Console";
+	case EditorShortcutScope::Assistant: return "Whip Assistant";
 	case EditorShortcutScope::Statistics: return "Statistics";
 	case EditorShortcutScope::ProjectHub: return "Project Hub";
 	default: return "Unknown";

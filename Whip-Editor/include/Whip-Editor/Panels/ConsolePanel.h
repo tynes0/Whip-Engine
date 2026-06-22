@@ -2,6 +2,9 @@
 
 #include <Whip.h>
 
+#include <string>
+#include <vector>
+
 _WHIP_START
 
 class ConsolePanel
@@ -22,6 +25,7 @@ public:
 	static void ShowWarningsAndErrors();
 	static void ShowErrorsOnly();
 	static void ToggleAutoScroll();
+	static std::vector<std::string> GetRecentMessages(size_t maxCount = 8);
 };
 
 _WHIP_END
