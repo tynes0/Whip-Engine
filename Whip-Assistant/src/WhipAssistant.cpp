@@ -1,5 +1,6 @@
 #include <Whip-Assistant/WhipAssistant.h>
 
+#include <Whip-Assistant/AssistantToolRegistry.h>
 #include <Whip-Assistant/Providers/GeminiProvider.h>
 #include <Whip-Assistant/Providers/IAssistantProvider.h>
 #include <Whip-Assistant/Providers/OpenAIProvider.h>
@@ -121,15 +122,9 @@ namespace Assistant
 
 	const char* ToolKindName(ToolKind kind)
 	{
-		switch (kind)
-		{
-		case ToolKind::CreateEntity: return "Create Entity";
-		case ToolKind::AddComponent: return "Add Component";
-		case ToolKind::SetTransform: return "Set Transform";
-		case ToolKind::EditScript: return "Edit Script";
-		case ToolKind::None:
-		default: return "None";
-		}
+		if (const ToolDefinition* definition = FindAssistantTool(kind))
+			return definition->m_DisplayName.c_str();
+		return "None";
 	}
 
 	const char* ProviderName(ProviderKind provider)

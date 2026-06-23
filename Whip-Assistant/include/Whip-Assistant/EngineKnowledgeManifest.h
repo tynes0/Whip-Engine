@@ -31,20 +31,12 @@ namespace Assistant
 		std::string m_Description;
 	};
 
-	struct KnowledgeTool
-	{
-		std::string m_Name;
-		std::string m_Status;
-		std::string m_Description;
-	};
-
 	struct EngineKnowledgeManifest
 	{
 		std::string m_Name;
 		std::string m_Version;
 		std::vector<KnowledgeCallback> m_ScriptCallbacks;
 		std::vector<KnowledgeType> m_ScriptTypes;
-		std::vector<KnowledgeTool> m_AssistantTools;
 		std::vector<std::string> m_ForbiddenApis;
 		std::vector<std::string> m_CodeEditRules;
 	};

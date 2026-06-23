@@ -1,5 +1,7 @@
 #include <Whip-Assistant/EngineKnowledgeManifest.h>
 
+#include <Whip-Assistant/AssistantToolRegistry.h>
+
 #include <sstream>
 
 _WHIP_START
@@ -239,17 +241,6 @@ namespace Assistant
 					}
 				}
 			},
-			.m_AssistantTools =
-			{
-				{ "CreateEntity", "available", "Creates a new entity in the active edit scene." },
-				{ "AddComponent", "available", "Adds a supported component to the selected entity." },
-				{ "SetTransform", "available", "Updates transform values on the target entity." },
-				{ "EditScript", "available", "Proposes a complete replacement for an existing C# script under Assets/Scripts." },
-				{ "EditComponent", "planned", "Will change serialized component fields through an applyable proposal." },
-				{ "EditAnimationController", "planned", "Will modify animation controller state graphs and transition logic." },
-				{ "AssetOperation", "planned", "Will import, create, find, or edit assets." },
-				{ "RunBuildOrValidation", "planned", "Will trigger build and validation flows." }
-			},
 			.m_ForbiddenApis =
 			{
 				"MonoBehaviour",
@@ -297,9 +288,7 @@ namespace Assistant
 			AppendMembers(stream, "Methods", type.m_Methods);
 		}
 
-		stream << "Assistant proposal tools:\n";
-		for (const KnowledgeTool& tool : manifest.m_AssistantTools)
-			stream << "- " << tool.m_Name << " [" << tool.m_Status << "] - " << tool.m_Description << '\n';
+		stream << BuildAssistantToolRegistryPrompt();
 
 		stream << "Forbidden APIs:\n";
 		for (const std::string& api : manifest.m_ForbiddenApis)
@@ -327,15 +316,7 @@ namespace Assistant
 			const KnowledgeCallback& callback = manifest.m_ScriptCallbacks[i];
 			stream << "{\"signature\":\"" << EscapeJson(callback.m_Signature) << "\",\"description\":\"" << EscapeJson(callback.m_Description) << "\"}";
 		}
-		stream << "],\"assistantTools\":[";
-		for (size_t i = 0; i < manifest.m_AssistantTools.size(); ++i)
-		{
-			if (i != 0)
-				stream << ',';
-			const KnowledgeTool& tool = manifest.m_AssistantTools[i];
-			stream << "{\"name\":\"" << EscapeJson(tool.m_Name) << "\",\"status\":\"" << EscapeJson(tool.m_Status) << "\",\"description\":\"" << EscapeJson(tool.m_Description) << "\"}";
-		}
-		stream << "],\"forbiddenApis\":[";
+		stream << "],\"assistantToolRegistry\":" << BuildAssistantToolRegistryJson() << ",\"forbiddenApis\":[";
 		for (size_t i = 0; i < manifest.m_ForbiddenApis.size(); ++i)
 		{
 			if (i != 0)
