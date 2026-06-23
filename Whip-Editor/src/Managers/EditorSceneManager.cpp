@@ -437,11 +437,16 @@ void EditorSceneManager::OnSceneSimulate()
 void EditorSceneManager::OnSceneStop()
 {
 	EditorLayer& layer = GetLayer();
-	WHP_CORE_ASSERT(m_State == EditorSceneState::Play || m_State == EditorSceneState::Simulate, "invalid SceneState!");
+	if (m_State != EditorSceneState::Play && m_State != EditorSceneState::Simulate)
+	{
+		WHP_EDITOR_WARN("[Scene Manager] Stop requested while no runtime scene is active.");
+		return;
+	}
+
 	Project::RunState(false);
-	if (m_State == EditorSceneState::Play)
+	if (m_State == EditorSceneState::Play && m_ActiveScene)
 		m_ActiveScene->OnRuntimeStop();
-	else if (m_State == EditorSceneState::Simulate)
+	else if (m_State == EditorSceneState::Simulate && m_ActiveScene)
 		m_ActiveScene->OnSimulationStop();
 	m_State = EditorSceneState::Edit;
 	ScriptEngine::ClearRuntimeSceneTransitionRequest();

@@ -751,6 +751,7 @@ void EditorProjectManager::FinishProjectSettings()
 	layer.m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetOpen(handle); });
 	layer.m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetInspect(handle); });
 	ApplyPreferencesToContentBrowser();
+	layer.RegisterEditorShortcuts();
 }
 
 void EditorProjectManager::MigrateProjectNativeFileExtensions() const
@@ -884,6 +885,7 @@ bool EditorProjectManager::OpenProject(const std::filesystem::path& path)
 		layer.m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetOpen(handle); });
 		layer.m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetInspect(handle); });
 		ApplyPreferencesToContentBrowser();
+		layer.RegisterEditorShortcuts();
 		AddRecentProject(projectPath);
 		m_ProjectLoader.SetLoaded(true);
 		m_ProjectLoader.SetStatus(scriptBuildSucceeded ? "Project opened." : "Project opened, script build failed.");
@@ -913,6 +915,7 @@ void EditorProjectManager::ResetEditorProjectState()
 	layer.m_HistoryManager.ClearSceneHistory();
 	Project::SetActive(nullptr);
 	m_ProjectLoader.SetLoaded(false);
+	layer.RegisterEditorShortcuts();
 }
 
 _WHIP_END

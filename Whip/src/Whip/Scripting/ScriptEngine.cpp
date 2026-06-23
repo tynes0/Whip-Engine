@@ -856,6 +856,11 @@ std::string ScriptInstance::MakeMethodContext(std::string_view methodName) const
 bool AssemblyManager::LoadAssembly(const std::filesystem::path& filepath)
 {
 	s_ScriptEngineData->m_AppDomain = mono_domain_create_appdomain(const_cast<char*>("WhipScriptRuntime"), nullptr);
+	if (!s_ScriptEngineData->m_AppDomain)
+	{
+		WHP_CORE_ERROR("[Script Engine] Failed to create Mono app domain.");
+		return false;
+	}
 	mono_domain_set(s_ScriptEngineData->m_AppDomain, true);
 
 	s_ScriptEngineData->m_CoreAssemblyFilepath = filepath;
@@ -902,9 +907,17 @@ bool AssemblyManager::ReloadAssembly(bool resetAppAssemblyFilepath)
 {
 	if (!s_ScriptEngineData || s_ScriptEngineData->m_IsShuttingDown)
 		return false;
+	if (resetAppAssemblyFilepath && !Project::GetActive())
+	{
+		WHP_CORE_WARN("[Script Engine] Reload requested without an active Project.");
+		return false;
+	}
 
 	s_ScriptEngineData->m_AppAssemblyWatcher.reset();
-	mono_domain_set(mono_get_root_domain(), false);
+	s_ScriptEngineData->m_EntityInstances.clear();
+	s_ScriptEngineData->m_MissingInstanceWarnings.clear();
+	if (MonoDomain* rootDomain = mono_get_root_domain())
+		mono_domain_set(rootDomain, false);
 
 	if (s_ScriptEngineData->m_AppDomain)
 	{

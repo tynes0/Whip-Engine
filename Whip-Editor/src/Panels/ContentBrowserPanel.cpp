@@ -221,7 +221,7 @@ void ContentBrowserPanel::OnImGuiRender()
 	bool open = m_Open;
 	ImGui::Begin("Content Browser", &open);
 	m_Hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
-	m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	if (open != m_Open)
 		SetOpen(open);
 

@@ -235,6 +235,39 @@ namespace
 		ImGui::SetClipboardText(clipboard.c_str());
 	}
 
+	void DrawSelectableConsoleCell(const char* id, const std::string& displayText, const std::string& cellClipboard, const std::string& rowClipboard, const ImVec4* color = nullptr)
+	{
+		ImGui::PushID(id);
+		if (color)
+			ImGui::PushStyleColor(ImGuiCol_Text, *color);
+
+		const std::string selectableText = displayText.empty() ? " " : displayText;
+		ImGui::Selectable(selectableText.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick, ImVec2(std::max(1.0f, ImGui::GetContentRegionAvail().x), 0.0f));
+
+		if (color)
+			ImGui::PopStyleColor();
+
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
+			if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+				ImGui::SetClipboardText(cellClipboard.c_str());
+		}
+
+		if (ImGui::BeginPopupContextItem("##ConsoleCellCopyMenu"))
+		{
+			if (ImGui::MenuItem("Copy Cell"))
+				ImGui::SetClipboardText(cellClipboard.c_str());
+			if (ImGui::MenuItem("Copy Row"))
+				ImGui::SetClipboardText(rowClipboard.c_str());
+			if (ImGui::MenuItem("Copy Visible Logs"))
+				CopyVisibleToClipboardUnlocked();
+			ImGui::EndPopup();
+		}
+
+		ImGui::PopID();
+	}
+
 	std::uintmax_t LogFileSize()
 	{
 		std::error_code error;
@@ -396,7 +429,10 @@ void ConsolePanel::OnImGuiRender()
 	if (!EditorLog::ShouldLog())
 		return;
 	if (!ConsoleState.m_Open)
+	{
+		ConsoleState.m_Focused = false;
 		return;
+	}
 
 	static constexpr ImU32 TraceColor = IM_COL32(214, 208, 196, 255);
 	static constexpr ImU32 DebugColor = IM_COL32(166, 154, 190, 255);
@@ -421,7 +457,7 @@ void ConsolePanel::OnImGuiRender()
 
 	bool open = ConsoleState.m_Open;
 	ImGui::Begin("Console", &open);
-	ConsoleState.m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	ConsoleState.m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	if (open != ConsoleState.m_Open)
 	{
 		ConsoleState.m_Open = open;
@@ -438,7 +474,8 @@ void ConsolePanel::OnImGuiRender()
 		SkipToEnd();
 	}
 	SameLineIfFits(EstimatedCheckboxWidth("Auto-scroll"));
-	ImGui::Checkbox("Auto-scroll", &ConsoleState.m_AutoScroll);
+	if (ImGui::Checkbox("Auto-scroll", &ConsoleState.m_AutoScroll) && ConsoleState.m_AutoScroll)
+		ConsoleState.m_RequestScrollToBottom = true;
 	SameLineIfFits(ImGui::CalcTextSize("000 logs").x);
 	ImGui::TextDisabled("%zu logs", ConsoleState.m_Buffer.size());
 
@@ -513,27 +550,40 @@ void ConsolePanel::OnImGuiRender()
 		ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthFixed, 1180.0f);
 		ImGui::TableHeadersRow();
 
+		size_t rowIndex = 0;
 		for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
 		{
 			if (!EntryVisible(entry))
+			{
+				++rowIndex;
 				continue;
+			}
 
+			const std::string rowClipboard = FormatEntryForClipboard(entry);
 			ImGui::TableNextRow();
+			ImGui::PushID(static_cast<int>(rowIndex));
 			ImGui::TableNextColumn();
-			ImGui::TextDisabled("%s", entry.m_Timestamp.c_str());
+			const ImVec4 disabledColor = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+			DrawSelectableConsoleCell("time", entry.m_Timestamp, entry.m_Timestamp, rowClipboard, &disabledColor);
 			ImGui::TableNextColumn();
-			ImGui::TextColored(GetColor(entry.m_Level), "%s", LevelName(entry.m_Level));
+			const ImVec4 levelColor = GetColor(entry.m_Level);
+			DrawSelectableConsoleCell("level", LevelName(entry.m_Level), LevelName(entry.m_Level), rowClipboard, &levelColor);
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(entry.m_Category.c_str());
+			DrawSelectableConsoleCell("category", entry.m_Category, entry.m_Category, rowClipboard);
 			ImGui::TableNextColumn();
 			const std::string message = SingleLineText(entry.m_Message);
-			ImGui::TextUnformatted(message.c_str());
+			DrawSelectableConsoleCell("message", message, entry.m_Message, rowClipboard);
+			ImGui::PopID();
+			++rowIndex;
 		}
 		ImGui::EndTable();
 	}
 
 	if (shouldScrollToBottom)
+	{
+		ImGui::SetScrollHereY(1.0f);
 		ImGui::SetScrollY(ImGui::GetScrollMaxY());
+	}
 
 	ConsoleState.m_RequestScrollToBottom = false;
 	ConsoleState.m_LastRenderedBufferSize = ConsoleState.m_Buffer.size();

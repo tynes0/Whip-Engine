@@ -145,6 +145,7 @@ void EditorHistoryManager::RestoreProjectHistory(const ProjectHistoryEntry& entr
 		layer.m_ContentBrowserPanel->SetAssetOpenCallback([&layer](AssetHandle handle) { return layer.m_AssetInteractionManager.HandleContentBrowserAssetOpen(handle); });
 		layer.m_ContentBrowserPanel->SetAssetInspectCallback([&layer](AssetHandle handle) { return layer.m_AssetInteractionManager.HandleContentBrowserAssetInspect(handle); });
 		layer.m_ProjectManager.ApplyPreferencesToContentBrowser();
+		layer.RegisterEditorShortcuts();
 	}
 }
 

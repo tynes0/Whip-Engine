@@ -331,7 +331,7 @@ void AnimationEditorPanel::OnImGuiRender()
 	ImGui::SetNextWindowSizeConstraints(ImVec2(420.0f, 260.0f), ImVec2(FLT_MAX, FLT_MAX));
 	const std::string windowTitle = GetWindowTitle();
 	ImGui::Begin(windowTitle.c_str(), &open);
-	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	if (open != m_Open)
 		SetOpen(open);
 	if (m_Fullscreen && TitlebarDragStarted())
@@ -348,10 +348,10 @@ void AnimationEditorPanel::OnImGuiRenderEmbedded()
 	m_Minimized = false;
 	m_Fullscreen = false;
 	m_FullscreenRequested = false;
-	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	UpdatePreview();
 	DrawEditorContent(false);
-	m_ShortcutContextActive = m_ShortcutContextActive || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	m_ShortcutContextActive = m_ShortcutContextActive || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 }
 
 void AnimationEditorPanel::DrawEditorContent(bool showWindowControls)

@@ -1388,13 +1388,10 @@ void EditorLayer::OnDetach()
 	WHP_PROFILE_FUNCTION();
 	m_SceneManager.WriteRecoverySnapshot("Editor shutdown");
 	m_ScriptManager.StopSourceWatcher();
+	if (m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate)
+		m_SceneManager.OnSceneStop();
 	m_ProjectManager.SaveEditorPreferences();
 	ConsolePanel::Shutdown();
-
-	if (m_SceneManager.State() == SceneState::Play)
-		m_SceneManager.ActiveScene()->OnRuntimeStop();
-	else if (m_SceneManager.State() == SceneState::Simulate)
-		m_SceneManager.ActiveScene()->OnSimulationStop();
 
 }
 

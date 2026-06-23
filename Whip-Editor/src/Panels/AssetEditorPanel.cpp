@@ -816,7 +816,7 @@ void AssetEditorPanel::OnImGuiRender()
 		return;
 	}
 
-	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	m_ShortcutContextActive = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	if (m_ShortcutContextActive)
 		m_FocusRequested = false;
 

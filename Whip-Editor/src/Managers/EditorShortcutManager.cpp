@@ -166,6 +166,24 @@ namespace
 			LowerCopy(EditorShortcutManager::GetScopeName(shortcut.m_Scope)).find(needle) != std::string::npos;
 	}
 
+	int ScopePriority(EditorShortcutScope scope)
+	{
+		switch (scope)
+		{
+		case EditorShortcutScope::AssetEditor: return 90;
+		case EditorShortcutScope::AnimationEditor: return 90;
+		case EditorShortcutScope::Assistant: return 80;
+		case EditorShortcutScope::Console: return 70;
+		case EditorShortcutScope::ContentBrowser: return 65;
+		case EditorShortcutScope::SceneHierarchy: return 60;
+		case EditorShortcutScope::Viewport: return 55;
+		case EditorShortcutScope::Statistics: return 50;
+		case EditorShortcutScope::ProjectHub: return 45;
+		case EditorShortcutScope::Global: return 0;
+		default: return 0;
+		}
+	}
+
 	void WriteBinding(YAML::Emitter& out, const UI::ShortcutBinding& binding)
 	{
 		out << YAML::BeginMap;
@@ -186,6 +204,9 @@ EditorShortcutManager::~EditorShortcutManager() = default;
 
 void EditorShortcutManager::Clear()
 {
+	for (const EditorShortcut& shortcut : m_Shortcuts)
+		if (!shortcut.m_Id.empty())
+			m_PendingBindings[shortcut.m_Id] = shortcut.m_Binding;
 	m_Shortcuts.clear();
 }
 
@@ -646,18 +667,31 @@ bool EditorShortcutManager::IsShortcutActive(const EditorShortcut& shortcut) con
 
 bool EditorShortcutManager::HandleShortcut(KeyCode key, bool ctrl, bool shift, bool alt, bool hasActiveWidget) const
 {
-	bool activePanelMatched = false;
+	std::vector<const EditorShortcut*> scopedCandidates;
 	for (const EditorShortcut& shortcut : m_Shortcuts)
 	{
 		if (shortcut.m_Scope == EditorShortcutScope::Global || !IsShortcutActive(shortcut) || !Matches(shortcut, key, ctrl, shift, alt))
 			continue;
 
-		activePanelMatched = true;
-		if (Execute(shortcut, hasActiveWidget))
+		scopedCandidates.push_back(&shortcut);
+	}
+
+	std::ranges::sort(scopedCandidates, [](const EditorShortcut* left, const EditorShortcut* right)
+	{
+		const int leftPriority = ScopePriority(left->m_Scope);
+		const int rightPriority = ScopePriority(right->m_Scope);
+		if (leftPriority != rightPriority)
+			return leftPriority > rightPriority;
+		return left->m_Id < right->m_Id;
+	});
+
+	for (const EditorShortcut* shortcut : scopedCandidates)
+	{
+		if (Execute(*shortcut, hasActiveWidget))
 			return true;
 	}
 
-	if (activePanelMatched)
+	if (!scopedCandidates.empty())
 		return true;
 
 	for (const EditorShortcut& shortcut : m_Shortcuts)

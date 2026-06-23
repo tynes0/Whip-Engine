@@ -554,7 +554,7 @@ void SceneHierarchyPanel::OnImGuiRender()
 
 	bool open = m_Open;
 	ImGui::Begin("Scene Hierarchy", &open);
-	m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	if (open != m_Open)
 		SetOpen(open);
 
@@ -602,7 +602,7 @@ void SceneHierarchyPanel::OnImGuiRender()
 	ImGui::End();
 
 	ImGui::Begin("Properties");
-	m_Focused = m_Focused || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_DockHierarchy);
+	m_Focused = m_Focused || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	if (!m_Context)
 	{
 		ImGui::TextDisabled("No scene loaded.");
