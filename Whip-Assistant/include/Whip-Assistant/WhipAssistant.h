@@ -24,7 +24,8 @@ namespace Assistant
 		None = 0,
 		CreateEntity,
 		AddComponent,
-		SetTransform
+		SetTransform,
+		EditScript
 	};
 
 	enum class ProviderKind : uint8_t
@@ -65,6 +66,9 @@ namespace Assistant
 		std::vector<std::string> m_SelectedComponents;
 		bool m_HasSelectedScript = false;
 		std::string m_SelectedScriptClass;
+		bool m_HasSelectedScriptSource = false;
+		std::string m_SelectedScriptPath;
+		std::string m_SelectedScriptSource;
 		std::vector<std::string> m_RecentConsole;
 	};
 
@@ -80,6 +84,8 @@ namespace Assistant
 		glm::vec3 m_Rotation = { 0.0f, 0.0f, 0.0f };
 		glm::vec3 m_Scale = { 1.0f, 1.0f, 1.0f };
 		bool m_HasTransform = false;
+		std::string m_ScriptPath;
+		std::string m_ScriptContent;
 	};
 
 	struct Response
@@ -99,6 +105,8 @@ namespace Assistant
 
 	std::string BuildContextPrompt(const ContextSnapshot& context, const Settings& settings);
 	std::vector<ToolProposal> BuildLocalProposals(const ContextSnapshot& context, const std::string& prompt);
+	std::vector<ToolProposal> ParseToolProposals(const ContextSnapshot& context, const std::string& responseText);
+	std::string StripToolProposalBlocks(const std::string& responseText);
 	Response RequestResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt);
 	Response RequestOpenAIResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt);
 	Response RequestGeminiResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt);

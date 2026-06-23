@@ -13,6 +13,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 
 #include <imgui.h>
@@ -145,6 +148,141 @@ namespace
 		return ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b, a));
 	}
 
+	bool IsIgnoredScriptDirectory(const std::filesystem::path& path)
+	{
+		const std::string name = LowerCopy(path.filename().string());
+		return name == "binaries" || name == "intermediates" || name == "obj" || name == "whip-scriptcore";
+	}
+
+	std::string ShortClassName(std::string className)
+	{
+		const size_t dot = className.find_last_of('.');
+		if (dot != std::string::npos && dot + 1 < className.size())
+			return className.substr(dot + 1);
+		return className;
+	}
+
+	bool ReadTextFile(const std::filesystem::path& path, std::string& content, uintmax_t maxBytes = 48ull * 1024ull)
+	{
+		std::error_code error;
+		const uintmax_t size = std::filesystem::file_size(path, error);
+		if (error || size > maxBytes)
+			return false;
+
+		std::ifstream input(path, std::ios::binary);
+		if (!input)
+			return false;
+
+		content.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+		return true;
+	}
+
+	std::filesystem::path FindScriptSourcePath(const std::string& className)
+	{
+		if (!Project::GetActive() || className.empty())
+			return {};
+
+		const std::filesystem::path scriptsRoot = Project::GetActiveAssetDirectory() / "Scripts";
+		const std::string shortName = ShortClassName(className);
+		const std::filesystem::path preferred = scriptsRoot / "Source" / (shortName + ".cs");
+		std::error_code error;
+		if (std::filesystem::exists(preferred, error) && std::filesystem::is_regular_file(preferred, error))
+			return preferred;
+
+		const std::filesystem::path rootPreferred = scriptsRoot / (shortName + ".cs");
+		error.clear();
+		if (std::filesystem::exists(rootPreferred, error) && std::filesystem::is_regular_file(rootPreferred, error))
+			return rootPreferred;
+
+		error.clear();
+		if (!std::filesystem::exists(scriptsRoot, error) || !std::filesystem::is_directory(scriptsRoot, error))
+			return {};
+
+		std::filesystem::path fallback;
+		std::string fileContent;
+		for (std::filesystem::recursive_directory_iterator it(scriptsRoot, std::filesystem::directory_options::skip_permission_denied, error), end; it != end && !error; it.increment(error))
+		{
+			if (it->is_directory(error))
+			{
+				if (IsIgnoredScriptDirectory(it->path()))
+					it.disable_recursion_pending();
+				continue;
+			}
+
+			if (!it->is_regular_file(error) || it->path().extension() != ".cs")
+				continue;
+
+			if (it->path().filename() == shortName + ".cs")
+				return it->path();
+
+			if (fallback.empty() && ReadTextFile(it->path(), fileContent, 128ull * 1024ull) && fileContent.find("class " + shortName) != std::string::npos)
+				fallback = it->path();
+		}
+
+		return fallback;
+	}
+
+	std::string MakeAssistantScriptPath(const std::filesystem::path& absolutePath)
+	{
+		if (!Project::GetActive())
+			return absolutePath.generic_string();
+
+		std::error_code error;
+		const std::filesystem::path relative = std::filesystem::relative(absolutePath, Project::GetActiveProjectDirectory(), error);
+		if (!error && !relative.empty())
+			return relative.generic_string();
+		return absolutePath.generic_string();
+	}
+
+	bool IsPathInside(const std::filesystem::path& child, const std::filesystem::path& root)
+	{
+		std::error_code error;
+		const std::filesystem::path relative = std::filesystem::relative(child, root, error);
+		if (error || relative.empty() || relative.is_absolute())
+			return false;
+
+		for (const std::filesystem::path& part : relative)
+			if (part == "..")
+				return false;
+		return true;
+	}
+
+	std::filesystem::path ResolveAssistantScriptEditPath(const std::string& requestedPath)
+	{
+		if (!Project::GetActive() || requestedPath.empty())
+			return {};
+
+		const std::filesystem::path projectRoot = Project::GetActiveProjectDirectory();
+		const std::filesystem::path assetRoot = Project::GetActiveAssetDirectory();
+		const std::filesystem::path scriptsRoot = assetRoot / "Scripts";
+		std::filesystem::path candidate(requestedPath);
+
+		if (!candidate.is_absolute())
+		{
+			const std::string normalized = LowerCopy(candidate.generic_string());
+			if (normalized.starts_with("assets/scripts/"))
+				candidate = projectRoot / candidate;
+			else if (normalized.starts_with("scripts/"))
+				candidate = assetRoot / candidate;
+			else
+				candidate = scriptsRoot / candidate;
+		}
+
+		std::error_code error;
+		if (!std::filesystem::exists(candidate, error) || !std::filesystem::is_regular_file(candidate, error) || candidate.extension() != ".cs")
+			return {};
+
+		const std::filesystem::path canonicalCandidate = std::filesystem::weakly_canonical(candidate, error);
+		if (error)
+			return {};
+
+		error.clear();
+		const std::filesystem::path canonicalScriptsRoot = std::filesystem::weakly_canonical(scriptsRoot, error);
+		if (error || !IsPathInside(canonicalCandidate, canonicalScriptsRoot))
+			return {};
+
+		return canonicalCandidate;
+	}
 
 }
 
@@ -911,6 +1049,17 @@ Assistant::ContextSnapshot EditorLayer::BuildAssistantContextSnapshot() const
 			{
 				context.m_HasSelectedScript = true;
 				context.m_SelectedScriptClass = script.m_ClassName;
+				const std::filesystem::path scriptPath = FindScriptSourcePath(script.m_ClassName);
+				if (!scriptPath.empty())
+				{
+					context.m_SelectedScriptPath = MakeAssistantScriptPath(scriptPath);
+					std::string source;
+					if (ReadTextFile(scriptPath, source))
+					{
+						context.m_HasSelectedScriptSource = true;
+						context.m_SelectedScriptSource = std::move(source);
+					}
+				}
 			}
 		}
 		if (selected.HasComponent<AnimatorComponent>())
@@ -931,7 +1080,40 @@ Assistant::ContextSnapshot EditorLayer::BuildAssistantContextSnapshot() const
 
 bool EditorLayer::ApplyAssistantProposal(const Assistant::ToolProposal& proposal)
 {
-	if (!HasProjectLoaded() || m_SceneManager.State() != SceneState::Edit || !m_SceneManager.EditorScene())
+	if (!HasProjectLoaded())
+		return false;
+
+	if (proposal.m_Kind == Assistant::ToolKind::EditScript)
+	{
+		const std::filesystem::path scriptPath = ResolveAssistantScriptEditPath(proposal.m_ScriptPath);
+		if (scriptPath.empty() || proposal.m_ScriptContent.empty())
+			return false;
+
+		m_ScriptManager.StopSourceWatcher();
+		std::ofstream output(scriptPath, std::ios::binary | std::ios::trunc);
+		if (!output)
+		{
+			m_ScriptManager.StartSourceWatcher();
+			return false;
+		}
+
+		output << proposal.m_ScriptContent;
+		output.close();
+		if (!output)
+		{
+			m_ScriptManager.StartSourceWatcher();
+			return false;
+		}
+
+		WHP_EDITOR_INFO(std::string("[Whip Assistant] Applied script edit: ") + scriptPath.string());
+		const bool sceneEditable = m_SceneManager.State() == SceneState::Edit;
+		m_ScriptManager.ReloadAssembly(true, sceneEditable);
+		if (!sceneEditable)
+			m_ScriptManager.StartSourceWatcher();
+		return true;
+	}
+
+	if (m_SceneManager.State() != SceneState::Edit || !m_SceneManager.EditorScene())
 		return false;
 
 	auto findTarget = [this, &proposal]() -> Entity
@@ -1018,6 +1200,8 @@ bool EditorLayer::ApplyAssistantProposal(const Assistant::ToolProposal& proposal
 		m_SceneManager.MarkDirty();
 		return true;
 	}
+	case Assistant::ToolKind::EditScript:
+		return false;
 	case Assistant::ToolKind::None:
 	default:
 		return false;

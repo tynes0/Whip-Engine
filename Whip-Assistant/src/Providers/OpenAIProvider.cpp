@@ -52,7 +52,15 @@ namespace Assistant
 #endif
 
 		if (result.m_Success)
-			result.m_Proposals = BuildLocalProposals(context, prompt);
+		{
+			result.m_Proposals = ParseToolProposals(context, result.m_Text);
+			if (!result.m_Proposals.empty())
+			{
+				result.m_Text = StripToolProposalBlocks(result.m_Text);
+				if (result.m_Text.empty())
+					result.m_Text = "I prepared a script edit proposal for review.";
+			}
+		}
 		return result;
 	}
 }

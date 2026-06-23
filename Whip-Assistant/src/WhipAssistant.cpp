@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <sstream>
 #include <string_view>
 #include <utility>
@@ -36,6 +37,40 @@ namespace Assistant
 				if (Contains(haystack, needle))
 					return true;
 			return false;
+		}
+
+		std::string TrimCopy(std::string_view value)
+		{
+			while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())))
+				value.remove_prefix(1);
+			while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back())))
+				value.remove_suffix(1);
+			return std::string(value);
+		}
+
+		bool StartsWithNoCase(std::string_view value, std::string_view prefix)
+		{
+			if (value.size() < prefix.size())
+				return false;
+
+			for (size_t i = 0; i < prefix.size(); ++i)
+				if (std::tolower(static_cast<unsigned char>(value[i])) != std::tolower(static_cast<unsigned char>(prefix[i])))
+					return false;
+			return true;
+		}
+
+		std::string StripSingleEdgeNewline(std::string value)
+		{
+			if (value.starts_with("\r\n"))
+				value.erase(0, 2);
+			else if (value.starts_with('\n') || value.starts_with('\r'))
+				value.erase(0, 1);
+
+			if (value.ends_with("\r\n"))
+				value.erase(value.size() - 2);
+			else if (value.ends_with('\n') || value.ends_with('\r'))
+				value.erase(value.size() - 1);
+			return value;
 		}
 
 		std::string PickEntityName(const std::string& prompt)
@@ -91,6 +126,7 @@ namespace Assistant
 		case ToolKind::CreateEntity: return "Create Entity";
 		case ToolKind::AddComponent: return "Add Component";
 		case ToolKind::SetTransform: return "Set Transform";
+		case ToolKind::EditScript: return "Edit Script";
 		case ToolKind::None:
 		default: return "None";
 		}
@@ -153,6 +189,16 @@ namespace Assistant
 
 			if (context.m_HasSelectedScript)
 				stream << "- Selected script class: " << context.m_SelectedScriptClass << '\n';
+
+			if (context.m_HasSelectedScriptSource)
+			{
+				stream << "- Selected script path: " << context.m_SelectedScriptPath << '\n';
+				stream << "- Selected script source:\n```csharp\n";
+				stream << context.m_SelectedScriptSource;
+				if (!context.m_SelectedScriptSource.empty() && context.m_SelectedScriptSource.back() != '\n')
+					stream << '\n';
+				stream << "```\n";
+			}
 		}
 
 		if (settings.m_SendConsoleContext && !context.m_RecentConsole.empty())
@@ -210,6 +256,107 @@ namespace Assistant
 			PushAddComponentProposal(proposals, context, "Audio");
 
 		return proposals;
+	}
+
+	std::vector<ToolProposal> ParseToolProposals(const ContextSnapshot& context, const std::string& responseText)
+	{
+		std::vector<ToolProposal> proposals;
+		constexpr std::string_view fence = "```whip_script_edit";
+		constexpr std::string_view beginMarker = "---BEGIN CONTENT---";
+		constexpr std::string_view endMarker = "---END CONTENT---";
+
+		size_t searchOffset = 0;
+		while (searchOffset < responseText.size())
+		{
+			const size_t fenceStart = responseText.find(fence, searchOffset);
+			if (fenceStart == std::string::npos)
+				break;
+
+			const size_t blockStart = responseText.find('\n', fenceStart + fence.size());
+			if (blockStart == std::string::npos)
+				break;
+
+			const size_t fenceEnd = responseText.find("```", blockStart + 1);
+			if (fenceEnd == std::string::npos)
+				break;
+
+			const std::string block = responseText.substr(blockStart + 1, fenceEnd - blockStart - 1);
+			searchOffset = fenceEnd + 3;
+
+			const size_t contentBegin = block.find(beginMarker);
+			if (contentBegin == std::string::npos)
+				continue;
+
+			const size_t contentStart = contentBegin + beginMarker.size();
+			const size_t contentEnd = block.find(endMarker, contentStart);
+			if (contentEnd == std::string::npos)
+				continue;
+
+			const std::string header = block.substr(0, contentBegin);
+			std::string scriptPath = context.m_SelectedScriptPath;
+			std::string summary = "Assistant script edit";
+
+			size_t lineStart = 0;
+			while (lineStart < header.size())
+			{
+				size_t lineEnd = header.find('\n', lineStart);
+				if (lineEnd == std::string::npos)
+					lineEnd = header.size();
+
+				const std::string line = TrimCopy(std::string_view(header).substr(lineStart, lineEnd - lineStart));
+				if (StartsWithNoCase(line, "path:"))
+					scriptPath = TrimCopy(std::string_view(line).substr(5));
+				else if (StartsWithNoCase(line, "summary:"))
+					summary = TrimCopy(std::string_view(line).substr(8));
+
+				lineStart = lineEnd + 1;
+			}
+
+			std::string scriptContent = StripSingleEdgeNewline(block.substr(contentStart, contentEnd - contentStart));
+			if (scriptPath.empty() || scriptContent.empty())
+				continue;
+
+			ToolProposal proposal;
+			proposal.m_Kind = ToolKind::EditScript;
+			proposal.m_Title = "Edit " + std::filesystem::path(scriptPath).filename().string();
+			proposal.m_Description = summary.empty() ? "Replace selected script source with assistant generated code." : summary;
+			proposal.m_TargetEntity = context.m_SelectedEntity;
+			proposal.m_ScriptPath = std::move(scriptPath);
+			proposal.m_ScriptContent = std::move(scriptContent);
+			proposals.push_back(std::move(proposal));
+		}
+
+		return proposals;
+	}
+
+	std::string StripToolProposalBlocks(const std::string& responseText)
+	{
+		constexpr std::string_view fence = "```whip_script_edit";
+		std::string result;
+		size_t copyOffset = 0;
+
+		while (copyOffset < responseText.size())
+		{
+			const size_t fenceStart = responseText.find(fence, copyOffset);
+			if (fenceStart == std::string::npos)
+			{
+				result.append(responseText.substr(copyOffset));
+				break;
+			}
+
+			result.append(responseText.substr(copyOffset, fenceStart - copyOffset));
+			const size_t blockStart = responseText.find('\n', fenceStart + fence.size());
+			if (blockStart == std::string::npos)
+				break;
+
+			const size_t fenceEnd = responseText.find("```", blockStart + 1);
+			if (fenceEnd == std::string::npos)
+				break;
+
+			copyOffset = fenceEnd + 3;
+		}
+
+		return TrimCopy(result);
 	}
 
 	Response RequestResponse(const Settings& settings, const ContextSnapshot& context, const std::string& prompt)

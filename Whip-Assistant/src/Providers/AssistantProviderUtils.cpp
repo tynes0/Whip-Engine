@@ -106,7 +106,16 @@ namespace Assistant::ProviderUtils
 			"- Rigidbody2DComponent has LinearVelocity, AngularVelocity, Type, FixedRotation, GravityScale, Enabled, Awake, ApplyForce, ApplyLinearImpulse, ApplyAngularImpulse, ApplyTorque, SetTransform.\n"
 			"- AnimatorComponent has Play, Stop, SetBool/GetBool, SetInt/GetInt, SetFloat/GetFloat, SetTrigger/ResetTrigger, IsTriggerSet, IsPlaying, CurrentState.\n"
 			"- Input API: Input.IsKeyDown/IsKeyUp/IsKeyPressed/IsKeyReleased(KeyCode.X), mouse methods with MouseCode.\n"
-			"- When asked to change code, draft exact Whip-compatible C# changes or a patch plan. Do not claim files were edited unless an editor tool explicitly applies the change.\n";
+			"- When asked to change code and selected script source is present, propose a complete replacement with this exact fenced block format:\n"
+			"```whip_script_edit\n"
+			"path: <Selected script path exactly as provided>\n"
+			"summary: <short reason for the edit>\n"
+			"---BEGIN CONTENT---\n"
+			"<complete Whip-compatible C# file content>\n"
+			"---END CONTENT---\n"
+			"```\n"
+			"- Keep the normal explanation short, then include the edit block. The editor will turn that block into an Apply-able proposal.\n"
+			"- Do not claim files were edited unless an editor tool explicitly applies the change.\n";
 	}
 
 	std::string BuildSystemInstructions()
