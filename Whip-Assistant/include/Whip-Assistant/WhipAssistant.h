@@ -25,6 +25,7 @@ namespace Assistant
 		CreateEntity,
 		AddComponent,
 		SetTransform,
+		EditComponent,
 		EditScript
 	};
 
@@ -72,6 +73,12 @@ namespace Assistant
 		std::vector<std::string> m_RecentConsole;
 	};
 
+	struct ComponentFieldEdit
+	{
+		std::string m_FieldName;
+		std::string m_Value;
+	};
+
 	struct ToolProposal
 	{
 		ToolKind m_Kind = ToolKind::None;
@@ -84,6 +91,7 @@ namespace Assistant
 		glm::vec3 m_Rotation = { 0.0f, 0.0f, 0.0f };
 		glm::vec3 m_Scale = { 1.0f, 1.0f, 1.0f };
 		bool m_HasTransform = false;
+		std::vector<ComponentFieldEdit> m_ComponentFields;
 		std::string m_ScriptPath;
 		std::string m_ScriptContent;
 	};

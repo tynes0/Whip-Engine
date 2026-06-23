@@ -158,6 +158,8 @@ namespace Assistant
 		std::string CanonicalComponentName(std::string value)
 		{
 			const std::string lower = LowerCopy(value);
+			if (lower == "transform" || lower == "transformcomponent")
+				return "Transform";
 			if (lower == "sprite" || lower == "sprite renderer" || lower == "spriterenderer" || lower == "spriterenderercomponent")
 				return "Sprite Renderer";
 			if (lower == "circle" || lower == "circle renderer" || lower == "circlerenderer" || lower == "circlerenderercomponent")
@@ -170,11 +172,11 @@ namespace Assistant
 				return "Script";
 			if (lower == "animator" || lower == "animatorcomponent")
 				return "Animator";
-			if (lower == "rigidbody" || lower == "rigidbody2d" || lower == "rigidbody2dcomponent")
+			if (lower == "rigidbody" || lower == "rigidbody 2d" || lower == "rigidbody2d" || lower == "rigidbody2dcomponent")
 				return "Rigidbody2D";
-			if (lower == "box collider" || lower == "boxcollider" || lower == "boxcollider2d" || lower == "boxcollider2dcomponent")
+			if (lower == "box collider" || lower == "box collider 2d" || lower == "boxcollider" || lower == "boxcollider2d" || lower == "boxcollider2dcomponent")
 				return "BoxCollider2D";
-			if (lower == "circle collider" || lower == "circlecollider" || lower == "circlecollider2d" || lower == "circlecollider2dcomponent")
+			if (lower == "circle collider" || lower == "circle collider 2d" || lower == "circlecollider" || lower == "circlecollider2d" || lower == "circlecollider2dcomponent")
 				return "CircleCollider2D";
 			if (lower == "audio" || lower == "audiocomponent")
 				return "Audio";
@@ -199,7 +201,7 @@ namespace Assistant
 			}
 
 			const std::vector<ToolBlockField> fields = ParseToolBlockFields(header);
-			const std::string toolName = GetToolBlockField(fields, { "tool", "name", "kind" });
+			const std::string toolName = GetToolBlockField(fields, { "tool", "kind" });
 			const ToolDefinition* definition = FindAssistantTool(toolName);
 			if (!definition || !definition->m_ProviderCallable || definition->m_Kind == ToolKind::None)
 				return std::nullopt;
@@ -269,6 +271,35 @@ namespace Assistant
 				proposal.m_Rotation = rotation;
 				proposal.m_Scale = scale;
 				proposal.m_HasTransform = true;
+				return proposal;
+			}
+			case ToolKind::EditComponent:
+			{
+				proposal.m_ComponentName = CanonicalComponentName(GetToolBlockField(fields, { "componentname", "component", "type" }));
+				if (proposal.m_ComponentName.empty())
+					return std::nullopt;
+
+				for (const ToolBlockField& field : fields)
+				{
+					if (!field.m_Key.starts_with("field."))
+						continue;
+
+					ComponentFieldEdit edit;
+					edit.m_FieldName = TrimCopy(std::string_view(field.m_Key).substr(6));
+					edit.m_Value = field.m_Value;
+					if (!edit.m_FieldName.empty() && !edit.m_Value.empty())
+						proposal.m_ComponentFields.push_back(std::move(edit));
+				}
+
+				const std::string singleField = GetToolBlockField(fields, { "field", "fieldname", "property", "propertyname" });
+				const std::string singleValue = GetToolBlockField(fields, { "value", "fieldvalue", "propertyvalue" });
+				if (!singleField.empty() && !singleValue.empty())
+					proposal.m_ComponentFields.push_back({ singleField, singleValue });
+
+				if (proposal.m_ComponentFields.empty())
+					return std::nullopt;
+				if (proposal.m_Title == definition->m_DisplayName)
+					proposal.m_Title = "Edit " + proposal.m_ComponentName;
 				return proposal;
 			}
 			case ToolKind::EditScript:

@@ -12,11 +12,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cctype>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <string>
+#include <string_view>
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -110,6 +113,376 @@ namespace
 		std::ranges::transform(value, value.begin(),
 		                       [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
 		return value;
+	}
+
+	std::string TrimCopy(std::string_view value)
+	{
+		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())))
+			value.remove_prefix(1);
+		while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back())))
+			value.remove_suffix(1);
+		return std::string(value);
+	}
+
+	std::string NormalizeAssistantName(std::string_view value)
+	{
+		std::string result;
+		result.reserve(value.size());
+		for (const unsigned char character : value)
+		{
+			if (std::isalnum(character))
+				result += static_cast<char>(std::tolower(character));
+		}
+		return result;
+	}
+
+	bool ParseAssistantFloat(std::string_view value, float& result)
+	{
+		try
+		{
+			const std::string text = TrimCopy(value);
+			if (text.empty())
+				return false;
+			size_t parsed = 0;
+			result = std::stof(text, &parsed);
+			return parsed == text.size();
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
+	bool ParseAssistantBool(std::string_view value, bool& result)
+	{
+		const std::string normalized = NormalizeAssistantName(value);
+		if (normalized == "true" || normalized == "yes" || normalized == "on" || normalized == "1")
+		{
+			result = true;
+			return true;
+		}
+		if (normalized == "false" || normalized == "no" || normalized == "off" || normalized == "0")
+		{
+			result = false;
+			return true;
+		}
+		return false;
+	}
+
+	bool ParseAssistantFloatList(std::string value, float* values, size_t count)
+	{
+		for (char& character : value)
+		{
+			if (character == ',' || character == ';' || character == '|' || character == '(' || character == ')' || character == '[' || character == ']')
+				character = ' ';
+		}
+
+		std::stringstream stream(value);
+		for (size_t i = 0; i < count; ++i)
+		{
+			if (!(stream >> values[i]))
+				return false;
+		}
+		return true;
+	}
+
+	bool ParseAssistantVec2(const std::string& value, glm::vec2& result)
+	{
+		float values[2]{};
+		if (!ParseAssistantFloatList(value, values, 2))
+			return false;
+		result = { values[0], values[1] };
+		return true;
+	}
+
+	bool ParseAssistantVec3(const std::string& value, glm::vec3& result)
+	{
+		float values[3]{};
+		if (!ParseAssistantFloatList(value, values, 3))
+			return false;
+		result = { values[0], values[1], values[2] };
+		return true;
+	}
+
+	bool ParseAssistantVec4(const std::string& value, glm::vec4& result)
+	{
+		float values[4]{};
+		if (!ParseAssistantFloatList(value, values, 4))
+			return false;
+
+		const float maxValue = std::max(std::max(values[0], values[1]), std::max(values[2], values[3]));
+		if (maxValue > 1.0f)
+		{
+			for (float& channel : values)
+				channel /= 255.0f;
+		}
+
+		result = { values[0], values[1], values[2], values[3] };
+		return true;
+	}
+
+	bool ParseRigidbodyBodyType(std::string_view value, Rigidbody2DComponent::BodyType& result)
+	{
+		const std::string normalized = NormalizeAssistantName(value);
+		if (normalized == "static" || normalized == "0")
+		{
+			result = Rigidbody2DComponent::BodyType::Static;
+			return true;
+		}
+		if (normalized == "dynamic" || normalized == "1")
+		{
+			result = Rigidbody2DComponent::BodyType::Dynamic;
+			return true;
+		}
+		if (normalized == "kinematic" || normalized == "2")
+		{
+			result = Rigidbody2DComponent::BodyType::Kinematic;
+			return true;
+		}
+		return false;
+	}
+
+	bool ApplyTransformField(TransformComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		if (field == "translation" || field == "position")
+			return ParseAssistantVec3(edit.m_Value, component.m_Translation);
+		if (field == "rotation")
+			return ParseAssistantVec3(edit.m_Value, component.m_Rotation);
+		if (field == "scale")
+			return ParseAssistantVec3(edit.m_Value, component.m_Scale);
+		return false;
+	}
+
+	bool ApplySpriteRendererField(SpriteRendererComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		if (field == "color" || field == "tint")
+			return ParseAssistantVec4(edit.m_Value, component.m_Color);
+		if (field == "tiling" || field == "tilingfactor")
+			return ParseAssistantFloat(edit.m_Value, component.m_TilingFactor);
+		return false;
+	}
+
+	bool ApplyCircleRendererField(CircleRendererComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		if (field == "color" || field == "tint")
+			return ParseAssistantVec4(edit.m_Value, component.m_Color);
+		if (field == "thickness")
+			return ParseAssistantFloat(edit.m_Value, component.m_Thickness);
+		if (field == "fade")
+			return ParseAssistantFloat(edit.m_Value, component.m_Fade);
+		return false;
+	}
+
+	bool ApplyTextField(TextComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		if (field == "text" || field == "textstring" || field == "string")
+		{
+			component.m_TextString = edit.m_Value;
+			return true;
+		}
+		if (field == "color" || field == "tint")
+			return ParseAssistantVec4(edit.m_Value, component.m_Color);
+		if (field == "kerning")
+			return ParseAssistantFloat(edit.m_Value, component.m_Kerning);
+		if (field == "linespacing")
+			return ParseAssistantFloat(edit.m_Value, component.m_LineSpacing);
+		return false;
+	}
+
+	bool ApplyCameraField(CameraComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		bool boolValue = false;
+		float floatValue = 0.0f;
+		if (field == "primary" && ParseAssistantBool(edit.m_Value, boolValue))
+		{
+			component.m_Primary = boolValue;
+			return true;
+		}
+		if (field == "fixedaspectratio" && ParseAssistantBool(edit.m_Value, boolValue))
+		{
+			component.m_FixedAspectRatio = boolValue;
+			return true;
+		}
+		if (field == "projection" || field == "projectiontype")
+		{
+			const std::string projection = NormalizeAssistantName(edit.m_Value);
+			if (projection == "perspective")
+			{
+				component.m_Camera.SetProjectionType(SceneCamera::ProjectionType::Perspective);
+				return true;
+			}
+			if (projection == "orthographic")
+			{
+				component.m_Camera.SetProjectionType(SceneCamera::ProjectionType::Orthographic);
+				return true;
+			}
+		}
+		if ((field == "orthographicsize" || field == "ortho") && ParseAssistantFloat(edit.m_Value, floatValue))
+		{
+			component.m_Camera.SetOrthographicSize(floatValue);
+			return true;
+		}
+		if ((field == "orthographicnearclip" || field == "orthonear") && ParseAssistantFloat(edit.m_Value, floatValue))
+		{
+			component.m_Camera.SetOrthographicNearClip(floatValue);
+			return true;
+		}
+		if ((field == "orthographicfarclip" || field == "orthofar") && ParseAssistantFloat(edit.m_Value, floatValue))
+		{
+			component.m_Camera.SetOrthographicFarClip(floatValue);
+			return true;
+		}
+		if ((field == "perspectiveverticalfov" || field == "perspectivefov" || field == "fov") && ParseAssistantFloat(edit.m_Value, floatValue))
+		{
+			component.m_Camera.SetPerspectiveVerticalFOV(floatValue);
+			return true;
+		}
+		if ((field == "perspectivenearclip" || field == "perspectivenear") && ParseAssistantFloat(edit.m_Value, floatValue))
+		{
+			component.m_Camera.SetPerspectiveNearClip(floatValue);
+			return true;
+		}
+		if ((field == "perspectivefarclip" || field == "perspectivefar") && ParseAssistantFloat(edit.m_Value, floatValue))
+		{
+			component.m_Camera.SetPerspectiveFarClip(floatValue);
+			return true;
+		}
+		return false;
+	}
+
+	bool ApplyScriptField(ScriptComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		if (field == "class" || field == "classname" || field == "script")
+		{
+			component.m_ClassName = edit.m_Value;
+			return true;
+		}
+		return false;
+	}
+
+	bool ApplyAnimatorField(AnimatorComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		bool boolValue = false;
+		if (field == "initialstate" || field == "state")
+		{
+			component.m_InitialState = edit.m_Value;
+			return true;
+		}
+		if (field == "playonstart" && ParseAssistantBool(edit.m_Value, boolValue))
+		{
+			component.m_PlayOnStart = boolValue;
+			return true;
+		}
+		if (field == "speed")
+			return ParseAssistantFloat(edit.m_Value, component.m_Speed);
+		return false;
+	}
+
+	bool ApplyRigidbody2DField(Rigidbody2DComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		bool boolValue = false;
+		if (field == "type" || field == "bodytype")
+			return ParseRigidbodyBodyType(edit.m_Value, component.m_Type);
+		if (field == "fixedrotation" && ParseAssistantBool(edit.m_Value, boolValue))
+		{
+			component.m_FixedRotation = boolValue;
+			return true;
+		}
+		if (field == "gravity" || field == "gravityscale")
+			return ParseAssistantFloat(edit.m_Value, component.m_GravityScale);
+		return false;
+	}
+
+	bool ApplyBoxCollider2DField(BoxCollider2DComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		bool boolValue = false;
+		if (field == "tag")
+		{
+			component.m_Tag = edit.m_Value;
+			return true;
+		}
+		if ((field == "sensor" || field == "issensor") && ParseAssistantBool(edit.m_Value, boolValue))
+		{
+			component.m_Sensor = boolValue;
+			return true;
+		}
+		if (field == "offset")
+			return ParseAssistantVec2(edit.m_Value, component.m_Offset);
+		if (field == "size")
+			return ParseAssistantVec2(edit.m_Value, component.m_Size);
+		if (field == "density")
+			return ParseAssistantFloat(edit.m_Value, component.m_Density);
+		if (field == "friction")
+			return ParseAssistantFloat(edit.m_Value, component.m_Friction);
+		if (field == "restitution" || field == "bounciness")
+			return ParseAssistantFloat(edit.m_Value, component.m_Restitution);
+		if (field == "restitutionthreshold" || field == "threshold")
+			return ParseAssistantFloat(edit.m_Value, component.m_RestitutionThreshold);
+		return false;
+	}
+
+	bool ApplyCircleCollider2DField(CircleCollider2DComponent& component, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string field = NormalizeAssistantName(edit.m_FieldName);
+		bool boolValue = false;
+		if (field == "tag")
+		{
+			component.m_Tag = edit.m_Value;
+			return true;
+		}
+		if ((field == "sensor" || field == "issensor") && ParseAssistantBool(edit.m_Value, boolValue))
+		{
+			component.m_Sensor = boolValue;
+			return true;
+		}
+		if (field == "offset")
+			return ParseAssistantVec2(edit.m_Value, component.m_Offset);
+		if (field == "radius")
+			return ParseAssistantFloat(edit.m_Value, component.m_Radius);
+		if (field == "density")
+			return ParseAssistantFloat(edit.m_Value, component.m_Density);
+		if (field == "friction")
+			return ParseAssistantFloat(edit.m_Value, component.m_Friction);
+		if (field == "restitution" || field == "bounciness")
+			return ParseAssistantFloat(edit.m_Value, component.m_Restitution);
+		if (field == "restitutionthreshold" || field == "threshold")
+			return ParseAssistantFloat(edit.m_Value, component.m_RestitutionThreshold);
+		return false;
+	}
+
+	bool ApplyAssistantComponentField(Entity target, const std::string& componentName, const Assistant::ComponentFieldEdit& edit)
+	{
+		const std::string component = NormalizeAssistantName(componentName);
+		if (component == "transform" && target.HasComponent<TransformComponent>())
+			return ApplyTransformField(target.GetComponent<TransformComponent>(), edit);
+		if (component == "spriterenderer" && target.HasComponent<SpriteRendererComponent>())
+			return ApplySpriteRendererField(target.GetComponent<SpriteRendererComponent>(), edit);
+		if (component == "circlerenderer" && target.HasComponent<CircleRendererComponent>())
+			return ApplyCircleRendererField(target.GetComponent<CircleRendererComponent>(), edit);
+		if ((component == "textrenderer" || component == "text") && target.HasComponent<TextComponent>())
+			return ApplyTextField(target.GetComponent<TextComponent>(), edit);
+		if (component == "camera" && target.HasComponent<CameraComponent>())
+			return ApplyCameraField(target.GetComponent<CameraComponent>(), edit);
+		if (component == "script" && target.HasComponent<ScriptComponent>())
+			return ApplyScriptField(target.GetComponent<ScriptComponent>(), edit);
+		if (component == "animator" && target.HasComponent<AnimatorComponent>())
+			return ApplyAnimatorField(target.GetComponent<AnimatorComponent>(), edit);
+		if (component == "rigidbody2d" && target.HasComponent<Rigidbody2DComponent>())
+			return ApplyRigidbody2DField(target.GetComponent<Rigidbody2DComponent>(), edit);
+		if (component == "boxcollider2d" && target.HasComponent<BoxCollider2DComponent>())
+			return ApplyBoxCollider2DField(target.GetComponent<BoxCollider2DComponent>(), edit);
+		if (component == "circlecollider2d" && target.HasComponent<CircleCollider2DComponent>())
+			return ApplyCircleCollider2DField(target.GetComponent<CircleCollider2DComponent>(), edit);
+		return false;
 	}
 
 	std::string EditorActionShortcutId(UI::EditorShortcutAction action)
@@ -1196,6 +1569,24 @@ bool EditorLayer::ApplyAssistantProposal(const Assistant::ToolProposal& proposal
 		transform.m_Translation = proposal.m_Translation;
 		transform.m_Rotation = proposal.m_Rotation;
 		transform.m_Scale = proposal.m_Scale;
+		m_SceneHierarchyPanel.SetSelectedEntity(target);
+		m_SceneManager.MarkDirty();
+		return true;
+	}
+	case Assistant::ToolKind::EditComponent:
+	{
+		Entity target = findTarget();
+		if (!target || proposal.m_ComponentName.empty() || proposal.m_ComponentFields.empty())
+			return false;
+
+		m_HistoryManager.CaptureSceneHistory();
+		bool changed = false;
+		for (const Assistant::ComponentFieldEdit& edit : proposal.m_ComponentFields)
+			changed |= ApplyAssistantComponentField(target, proposal.m_ComponentName, edit);
+
+		if (!changed)
+			return false;
+
 		m_SceneHierarchyPanel.SetSelectedEntity(target);
 		m_SceneManager.MarkDirty();
 		return true;

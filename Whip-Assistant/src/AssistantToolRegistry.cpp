@@ -56,6 +56,7 @@ namespace Assistant
 			case ToolKind::CreateEntity: return "createEntity";
 			case ToolKind::AddComponent: return "addComponent";
 			case ToolKind::SetTransform: return "setTransform";
+			case ToolKind::EditComponent: return "editComponent";
 			case ToolKind::EditScript: return "editScript";
 			case ToolKind::None:
 			default: return "none";
@@ -114,6 +115,21 @@ namespace Assistant
 				}
 			},
 			{
+				.m_Kind = ToolKind::EditComponent,
+				.m_Name = "edit_component",
+				.m_DisplayName = "Edit Component",
+				.m_Status = "available",
+				.m_Description = "Changes safe serialized fields on a component attached to the selected entity.",
+				.m_ResponseFormat = "Return a ```whip_tool block with tool: edit_component, componentName, and one or more field.<FieldName>: <value> lines. Omit targetEntity to use the current selection.",
+				.m_ProviderCallable = true,
+				.m_Fields =
+				{
+					{ "targetEntity", "EntityId", false, "Selected entity id when available." },
+					{ "componentName", "string", true, "Supported component display name, such as Transform, Sprite Renderer, Text Renderer, Camera, Rigidbody2D, BoxCollider2D, CircleCollider2D, Script, or Animator." },
+					{ "field.<FieldName>", "string/number/bool/vector", true, "Field edit. Examples: field.Color: 1,1,1,1, field.GravityScale: 2.0, field.Text: Hello." }
+				}
+			},
+			{
 				.m_Kind = ToolKind::EditScript,
 				.m_Name = "edit_script",
 				.m_DisplayName = "Edit Script",
@@ -127,15 +143,6 @@ namespace Assistant
 					{ "summary", "string", true, "Short user-facing summary of the change." },
 					{ "content", "C# source", true, "Complete replacement file content." }
 				}
-			},
-			{
-				.m_Kind = ToolKind::None,
-				.m_Name = "edit_component",
-				.m_DisplayName = "Edit Component",
-				.m_Status = "planned",
-				.m_Description = "Will change serialized component fields through an applyable proposal.",
-				.m_ResponseFormat = "Not callable yet.",
-				.m_ProviderCallable = false
 			},
 			{
 				.m_Kind = ToolKind::None,
