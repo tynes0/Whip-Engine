@@ -180,14 +180,14 @@ namespace Assistant
 				.m_Name = "create_sprite_level",
 				.m_DisplayName = "Create Sprite Level",
 				.m_Status = "available",
-				.m_Description = "Creates multiple sprite entities in the active edit scene from an existing spritesheet texture.",
-				.m_ResponseFormat = "Return a ```whip_tool block with tool: create_sprite_level, assetHandle or assetPath, and repeated placement lines. Prefer one placement per line: placement: name=Grass 01; spriteIndex=0; position=0,0,0; scale=1,1,1.",
+				.m_Description = "Creates multiple sprite entities in the active edit scene from one or more existing spritesheet textures.",
+				.m_ResponseFormat = "Return a ```whip_tool block with tool: create_sprite_level, optional top-level assetHandle or assetPath, and repeated placement lines. Prefer one placement per line: placement: assetHandle=123; name=Grass 01; spriteIndex=0; position=0,0,0; scale=1,1,1. Include assetHandle per placement when mixing tilesets/props.",
 				.m_ProviderCallable = true,
 				.m_Fields =
 				{
 					{ "assetHandle", "uint64", false, "Preferred Texture2D spritesheet handle from context." },
 					{ "assetPath", "project-relative path", false, "Fallback Texture2D spritesheet path from context." },
-					{ "placement", "semicolon-separated fields", true, "Repeat for every created entity. Keys: name, spriteIndex or spriteName, position, optional scale, optional rotationZ." }
+					{ "placement", "semicolon-separated fields", true, "Repeat for every created entity. Keys: optional assetHandle/assetPath/assetName, name, spriteIndex or spriteName, position, optional scale, optional rotationZ." }
 				}
 			},
 			{

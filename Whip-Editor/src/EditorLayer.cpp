@@ -504,13 +504,39 @@ namespace
 		}
 	}
 
+	void AppendAssistantComponentNames(Entity entity, std::vector<std::string>& components)
+	{
+		if (entity.HasComponent<TransformComponent>())
+			components.emplace_back("Transform");
+		if (entity.HasComponent<SpriteRendererComponent>())
+			components.emplace_back("Sprite Renderer");
+		if (entity.HasComponent<CircleRendererComponent>())
+			components.emplace_back("Circle Renderer");
+		if (entity.HasComponent<TextComponent>())
+			components.emplace_back("Text Renderer");
+		if (entity.HasComponent<CameraComponent>())
+			components.emplace_back("Camera");
+		if (entity.HasComponent<ScriptComponent>())
+			components.emplace_back("Script");
+		if (entity.HasComponent<AnimatorComponent>())
+			components.emplace_back("Animator");
+		if (entity.HasComponent<Rigidbody2DComponent>())
+			components.emplace_back("Rigidbody2D");
+		if (entity.HasComponent<BoxCollider2DComponent>())
+			components.emplace_back("BoxCollider2D");
+		if (entity.HasComponent<CircleCollider2DComponent>())
+			components.emplace_back("CircleCollider2D");
+		if (entity.HasComponent<AudioComponent>())
+			components.emplace_back("Audio");
+	}
+
 	void AppendAssistantAssetContext(const Ref<Project>& activeProject, Assistant::ContextSnapshot& context)
 	{
 		if (!activeProject || !activeProject->GetEditorAssetManager())
 			return;
 
 		constexpr size_t MaxAssets = 80;
-		constexpr size_t MaxSpritesPerTexture = 64;
+		constexpr size_t MaxSpritesPerTexture = 128;
 		std::vector<Assistant::ContextSnapshot::AssetSummary> assets;
 		activeProject->GetEditorAssetManager()->GetAssetRegistry().Foreach(
 			[&assets](const AssetRegistry::ValueType& value)
@@ -558,6 +584,55 @@ namespace
 		if (assets.size() > MaxAssets)
 			assets.resize(MaxAssets);
 		context.m_ProjectAssets = std::move(assets);
+	}
+
+	void AppendAssistantSceneContext(const Ref<Scene>& scene, Assistant::ContextSnapshot& context)
+	{
+		if (!scene)
+			return;
+
+		constexpr size_t MaxSceneEntities = 80;
+		Ref<Project> activeProject = Project::GetActive();
+		EditorAssetManager* assetManager = activeProject && activeProject->GetEditorAssetManager() ? activeProject->GetEditorAssetManager().get() : nullptr;
+
+		auto view = scene->GetAllEntitiesWith<IDComponent>();
+		for (entt::entity entityHandle : view)
+		{
+			if (context.m_SceneEntities.size() >= MaxSceneEntities)
+				break;
+
+			Entity entity(entityHandle, scene.get());
+			Assistant::ContextSnapshot::EntitySummary summary;
+			summary.m_Id = static_cast<uint64_t>(entity.GetUUID());
+			summary.m_Name = entity.HasComponent<TagComponent>() ? entity.GetName() : "Entity";
+			AppendAssistantComponentNames(entity, summary.m_Components);
+
+			if (entity.HasComponent<TransformComponent>())
+			{
+				const TransformComponent& transform = entity.GetComponent<TransformComponent>();
+				summary.m_HasTransform = true;
+				summary.m_Translation = transform.m_Translation;
+				summary.m_Scale = transform.m_Scale;
+			}
+
+			if (entity.HasComponent<SpriteRendererComponent>())
+			{
+				const SpriteRendererComponent& spriteRenderer = entity.GetComponent<SpriteRendererComponent>();
+				summary.m_TextureHandle = static_cast<uint64_t>(spriteRenderer.m_Texture);
+				summary.m_TextureSpriteIndex = spriteRenderer.m_TextureSpriteIndex;
+
+				if (assetManager && spriteRenderer.m_Texture != 0 && assetManager->IsAssetHandleValid(spriteRenderer.m_Texture) && assetManager->GetAssetType(spriteRenderer.m_Texture) == AssetType::Texture2D)
+				{
+					const AssetMetadata& metadata = assetManager->GetMetadata(spriteRenderer.m_Texture);
+					summary.m_TexturePath = metadata.m_Filepath.generic_string();
+					const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
+					if (spriteRenderer.m_TextureSpriteIndex >= 0 && std::cmp_less(spriteRenderer.m_TextureSpriteIndex, sprites.size()))
+						summary.m_SpriteName = sprites[static_cast<size_t>(spriteRenderer.m_TextureSpriteIndex)].m_Name;
+				}
+			}
+
+			context.m_SceneEntities.push_back(std::move(summary));
+		}
 	}
 
 	AssetType ExpectedAssistantAssetType(const std::string& componentName, const std::string& fieldName)
@@ -755,6 +830,16 @@ namespace
 		return -1;
 	}
 
+	bool HasAssistantAssetReference(const Assistant::ToolProposal& proposal)
+	{
+		return proposal.m_AssetHandle != 0 || !proposal.m_AssetPath.empty() || !proposal.m_AssetName.empty();
+	}
+
+	bool HasAssistantAssetReference(const Assistant::SpriteLevelPlacement& placement)
+	{
+		return placement.m_AssetHandle != 0 || !placement.m_AssetPath.empty() || !placement.m_AssetName.empty();
+	}
+
 	glm::vec3 ComputeAssistantSpriteLevelScale(AssetHandle textureHandle, int32_t spriteIndex, const Assistant::SpriteLevelPlacement& placement)
 	{
 		if (placement.m_HasScale)
@@ -787,19 +872,41 @@ namespace
 		if (!scene || proposal.m_LevelPlacements.empty())
 			return false;
 
-		AssetHandle textureHandle = 0;
-		if (!ResolveAssistantAssetHandle(proposal, AssetType::Texture2D, textureHandle))
+		AssetHandle defaultTextureHandle = 0;
+		if (HasAssistantAssetReference(proposal) && !ResolveAssistantAssetHandle(proposal, AssetType::Texture2D, defaultTextureHandle))
 			return false;
 
 		const Ref<Project> activeProject = Project::GetActive();
 		if (!activeProject || !activeProject->GetEditorAssetManager())
 			return false;
 
-		const AssetMetadata& metadata = activeProject->GetEditorAssetManager()->GetMetadata(textureHandle);
-		const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
 		size_t createdCount = 0;
+		size_t skippedCount = 0;
 		for (const Assistant::SpriteLevelPlacement& placement : proposal.m_LevelPlacements)
 		{
+			AssetHandle textureHandle = defaultTextureHandle;
+			if (HasAssistantAssetReference(placement))
+			{
+				Assistant::ToolProposal placementAsset;
+				placementAsset.m_AssetHandle = placement.m_AssetHandle;
+				placementAsset.m_AssetPath = placement.m_AssetPath;
+				placementAsset.m_AssetName = placement.m_AssetName;
+				placementAsset.m_AssetType = AssetType::Texture2D;
+				if (!ResolveAssistantAssetHandle(placementAsset, AssetType::Texture2D, textureHandle))
+				{
+					++skippedCount;
+					continue;
+				}
+			}
+
+			if (textureHandle == 0 || !activeProject->GetEditorAssetManager()->IsAssetHandleValid(textureHandle) || activeProject->GetEditorAssetManager()->GetAssetType(textureHandle) != AssetType::Texture2D)
+			{
+				++skippedCount;
+				continue;
+			}
+
+			const AssetMetadata& metadata = activeProject->GetEditorAssetManager()->GetMetadata(textureHandle);
+			const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
 			const int32_t spriteIndex = ResolveAssistantSpriteLevelPlacementIndex(textureHandle, placement);
 			const bool validSpriteIndex = spriteIndex >= 0 && std::cmp_less(spriteIndex, sprites.size());
 			const TextureSpriteRect* spriteRect = validSpriteIndex ? &sprites[static_cast<size_t>(spriteIndex)] : nullptr;
@@ -824,7 +931,12 @@ namespace
 		}
 
 		if (createdCount > 0)
-			WHP_EDITOR_INFO("[Whip Assistant] Created " + std::to_string(createdCount) + " sprite level entities from " + metadata.m_Filepath.generic_string());
+		{
+			std::string message = "[Whip Assistant] Created " + std::to_string(createdCount) + " sprite level entities";
+			if (skippedCount > 0)
+				message += " (" + std::to_string(skippedCount) + " skipped due to invalid asset references)";
+			WHP_EDITOR_INFO(message);
+		}
 		return createdCount > 0;
 	}
 
@@ -1739,6 +1851,7 @@ Assistant::ContextSnapshot EditorLayer::BuildAssistantContextSnapshot() const
 	{
 		context.m_HasScene = true;
 		context.m_ScenePath = m_SceneManager.EditorScenePath().empty() ? "Unsaved Scene" : m_SceneManager.EditorScenePath().generic_string();
+		AppendAssistantSceneContext(m_SceneManager.EditorScene(), context);
 	}
 
 	Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
@@ -1748,19 +1861,9 @@ Assistant::ContextSnapshot EditorLayer::BuildAssistantContextSnapshot() const
 		context.m_SelectedEntity = static_cast<uint64_t>(selected.GetUUID());
 		context.m_SelectedEntityName = selected.GetName();
 
-		if (selected.HasComponent<TransformComponent>())
-			context.m_SelectedComponents.emplace_back("Transform");
-		if (selected.HasComponent<SpriteRendererComponent>())
-			context.m_SelectedComponents.emplace_back("Sprite Renderer");
-		if (selected.HasComponent<CircleRendererComponent>())
-			context.m_SelectedComponents.emplace_back("Circle Renderer");
-		if (selected.HasComponent<TextComponent>())
-			context.m_SelectedComponents.emplace_back("Text Renderer");
-		if (selected.HasComponent<CameraComponent>())
-			context.m_SelectedComponents.emplace_back("Camera");
+		AppendAssistantComponentNames(selected, context.m_SelectedComponents);
 		if (selected.HasComponent<ScriptComponent>())
 		{
-			context.m_SelectedComponents.emplace_back("Script");
 			const auto& script = selected.GetComponent<ScriptComponent>();
 			if (!script.m_ClassName.empty())
 			{
@@ -1779,16 +1882,6 @@ Assistant::ContextSnapshot EditorLayer::BuildAssistantContextSnapshot() const
 				}
 			}
 		}
-		if (selected.HasComponent<AnimatorComponent>())
-			context.m_SelectedComponents.emplace_back("Animator");
-		if (selected.HasComponent<Rigidbody2DComponent>())
-			context.m_SelectedComponents.emplace_back("Rigidbody2D");
-		if (selected.HasComponent<BoxCollider2DComponent>())
-			context.m_SelectedComponents.emplace_back("BoxCollider2D");
-		if (selected.HasComponent<CircleCollider2DComponent>())
-			context.m_SelectedComponents.emplace_back("CircleCollider2D");
-		if (selected.HasComponent<AudioComponent>())
-			context.m_SelectedComponents.emplace_back("Audio");
 	}
 
 	context.m_RecentConsole = ConsolePanel::GetRecentMessages(8);

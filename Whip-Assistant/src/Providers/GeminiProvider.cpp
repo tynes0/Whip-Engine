@@ -73,6 +73,9 @@ namespace Assistant
 			};
 
 			std::vector<Candidate> candidates;
+			const bool promptMentionsTileset = ProviderUtils::ContainsAny(lowerPrompt, { "tileset", "tilesets", "tile set", "tile" });
+			const bool promptMentionsTexturesFolder = ProviderUtils::ContainsAny(lowerPrompt, { "texture", "textures", "dokular", "atlas", "sprite" });
+			const bool promptMentionsLevelDesign = ProviderUtils::ContainsAny(lowerPrompt, { "level", "seviye", "sahne", "harita", "platform", "tasarla", "dizayn" });
 			for (const ContextSnapshot::AssetSummary& asset : context.m_ProjectAssets)
 			{
 				if (asset.m_Type != AssetType::Texture2D || asset.m_AbsolutePath.empty())
@@ -92,16 +95,24 @@ namespace Assistant
 					score += 35;
 				if (ProviderUtils::ContainsAny(path, { "sprite", "atlas", "tileset", "tile", "sheet" }))
 					score += 20;
+				if (promptMentionsTileset && ProviderUtils::ContainsAny(path + " " + name, { "tileset", "tilesets", "tile", "tiles" }))
+					score += 70;
+				if (promptMentionsTexturesFolder && ProviderUtils::ContainsAny(path, { "texture", "textures" }))
+					score += 20;
+				if (promptMentionsLevelDesign && asset.m_SpriteCount > 1)
+					score += 25;
 
 				candidates.push_back({ &asset, score });
 			}
 
 			std::ranges::sort(candidates, [](const Candidate& left, const Candidate& right)
 			{
-				return left.m_Score > right.m_Score;
+				if (left.m_Score != right.m_Score)
+					return left.m_Score > right.m_Score;
+				return left.m_Asset && right.m_Asset && left.m_Asset->m_Path < right.m_Asset->m_Path;
 			});
 
-			constexpr size_t MaxAttachments = 2;
+			constexpr size_t MaxAttachments = 6;
 			for (const Candidate& candidate : candidates)
 			{
 				if (!candidate.m_Asset || attachments.size() >= MaxAttachments)
@@ -133,6 +144,7 @@ namespace Assistant
 
 		const std::string model = settings.m_GeminiModel.empty() ? "gemini-2.0-flash" : settings.m_GeminiModel;
 		const std::vector<const ContextSnapshot::AssetSummary*> imageAttachments = settings.m_SendAssetImages ? CollectTextureImageAttachments(context, prompt) : std::vector<const ContextSnapshot::AssetSummary*>{};
+		const float temperature = WantsVisualAssetReasoning(prompt) ? 0.45f : 0.25f;
 		std::string input = BuildContextPrompt(context, settings) + "\n\nUser request:\n" + prompt;
 		if (!imageAttachments.empty())
 		{
@@ -154,7 +166,7 @@ namespace Assistant
 				.model(model)
 				.systemInstruction(ProviderUtils::BuildSystemInstructions())
 				.text(input)
-				.temperature(0.25f);
+				.temperature(temperature);
 
 			for (const ContextSnapshot::AssetSummary* asset : imageAttachments)
 				request.image(asset->m_AbsolutePath);
@@ -187,7 +199,7 @@ namespace Assistant
 #else
 		const std::string body =
 			"{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"" + ProviderUtils::EscapeJson(ProviderUtils::BuildSystemInstructions() + "\n\n" + input) +
-			"\"}]}],\"generationConfig\":{\"temperature\":0.25}}";
+			"\"}]}],\"generationConfig\":{\"temperature\":" + std::to_string(temperature) + "}}";
 #ifdef _WIN32
 		std::string normalizedModel = model;
 		if (!normalizedModel.starts_with("models/"))

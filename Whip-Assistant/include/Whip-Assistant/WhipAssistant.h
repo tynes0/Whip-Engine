@@ -90,6 +90,20 @@ namespace Assistant
 			std::vector<SpriteSummary> m_SpriteDetails;
 		};
 
+		struct EntitySummary
+		{
+			uint64_t m_Id = 0;
+			std::string m_Name;
+			std::vector<std::string> m_Components;
+			bool m_HasTransform = false;
+			glm::vec3 m_Translation = { 0.0f, 0.0f, 0.0f };
+			glm::vec3 m_Scale = { 1.0f, 1.0f, 1.0f };
+			uint64_t m_TextureHandle = 0;
+			int32_t m_TextureSpriteIndex = -1;
+			std::string m_TexturePath;
+			std::string m_SpriteName;
+		};
+
 		bool m_HasProject = false;
 		std::string m_ProjectName;
 		bool m_HasScene = false;
@@ -105,6 +119,7 @@ namespace Assistant
 		std::string m_SelectedScriptSource;
 		std::vector<std::string> m_RecentConsole;
 		std::vector<AssetSummary> m_ProjectAssets;
+		std::vector<EntitySummary> m_SceneEntities;
 	};
 
 	struct ComponentFieldEdit
@@ -116,6 +131,9 @@ namespace Assistant
 	struct SpriteLevelPlacement
 	{
 		std::string m_EntityName;
+		uint64_t m_AssetHandle = 0;
+		std::string m_AssetPath;
+		std::string m_AssetName;
 		std::string m_SpriteName;
 		int32_t m_SpriteIndex = -1;
 		glm::vec3 m_Translation = { 0.0f, 0.0f, 0.0f };

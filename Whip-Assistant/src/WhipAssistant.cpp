@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <iomanip>
 #include <optional>
 #include <sstream>
 #include <string_view>
@@ -51,6 +52,13 @@ namespace Assistant
 				if (Contains(haystack, needle))
 					return true;
 			return false;
+		}
+
+		std::string FormatVec3(const glm::vec3& value)
+		{
+			std::ostringstream stream;
+			stream << std::fixed << std::setprecision(2) << value.x << ',' << value.y << ',' << value.z;
+			return stream.str();
 		}
 
 		std::string TrimCopy(std::string_view value)
@@ -254,6 +262,10 @@ namespace Assistant
 						inlineKey == "sprite" ||
 						inlineKey == "spritename" ||
 						inlineKey == "spriteindex" ||
+						inlineKey == "assethandle" ||
+						inlineKey == "assetid" ||
+						inlineKey == "assetpath" ||
+						inlineKey == "assetname" ||
 						inlineKey == "position" ||
 						inlineKey == "translation" ||
 						inlineKey == "scale" ||
@@ -334,8 +346,12 @@ namespace Assistant
 
 			SpriteLevelPlacement placement;
 			placement.m_EntityName = GetToolBlockField(fields, { "name", "entityname", "entity" });
+			placement.m_AssetPath = GetToolBlockField(fields, { "assetpath", "path" });
+			placement.m_AssetName = GetToolBlockField(fields, { "assetname", "asset" });
 			placement.m_SpriteName = GetToolBlockField(fields, { "spritename", "sprite", "subresource" });
 
+			if (const std::optional<uint64_t> assetHandle = ParseUInt64(GetToolBlockField(fields, { "assethandle", "handle", "assetid" })))
+				placement.m_AssetHandle = *assetHandle;
 			if (const std::optional<int32_t> spriteIndex = ParseInt32(GetToolBlockField(fields, { "spriteindex", "index", "subresourceindex" })))
 				placement.m_SpriteIndex = *spriteIndex;
 
@@ -552,7 +568,12 @@ namespace Assistant
 						proposal.m_LevelPlacements.push_back(std::move(*placement));
 				}
 
-				if ((proposal.m_AssetHandle == 0 && proposal.m_AssetPath.empty() && proposal.m_AssetName.empty()) || proposal.m_LevelPlacements.empty())
+				const bool hasPlacementAsset = std::ranges::any_of(proposal.m_LevelPlacements,
+					[](const SpriteLevelPlacement& placement)
+					{
+						return placement.m_AssetHandle != 0 || !placement.m_AssetPath.empty() || !placement.m_AssetName.empty();
+					});
+				if ((proposal.m_AssetHandle == 0 && proposal.m_AssetPath.empty() && proposal.m_AssetName.empty() && !hasPlacementAsset) || proposal.m_LevelPlacements.empty())
 					return std::nullopt;
 				if (proposal.m_Title == definition->m_DisplayName)
 					proposal.m_Title = "Create sprite level";
@@ -850,7 +871,7 @@ namespace Assistant
 
 		if (!context.m_ProjectAssets.empty())
 		{
-			stream << "- Project assets available for asset_operation. Prefer assetHandle over name/path when emitting a tool block:\n";
+			stream << "- Project assets available for asset_operation and create_sprite_level. Prefer assetHandle over name/path when emitting a tool block:\n";
 			for (const ContextSnapshot::AssetSummary& asset : context.m_ProjectAssets)
 			{
 				stream << "  - handle: " << asset.m_Handle << ", type: " << AssetTypeName(asset.m_Type) << ", path: " << asset.m_Path;
@@ -887,6 +908,36 @@ namespace Assistant
 			if (settings.m_SendAssetImages)
 				stream << "- Gemini may receive matching texture files as image attachments. Use the attached atlas image plus sprite rect indices to choose sensible sprites.\n";
 		}
+
+		if (settings.m_SendSceneContext && !context.m_SceneEntities.empty())
+		{
+			stream << "- Scene entities for scale/reference. Respect these when placing new level pieces:\n";
+			for (const ContextSnapshot::EntitySummary& entity : context.m_SceneEntities)
+			{
+				stream << "  - " << entity.m_Name << " (" << entity.m_Id << ")";
+				if (!entity.m_Components.empty())
+				{
+					stream << " components:";
+					for (const std::string& component : entity.m_Components)
+						stream << ' ' << component;
+				}
+				if (entity.m_HasTransform)
+					stream << " pos=" << FormatVec3(entity.m_Translation) << " scale=" << FormatVec3(entity.m_Scale);
+				if (entity.m_TextureHandle != 0)
+				{
+					stream << " textureHandle=" << entity.m_TextureHandle;
+					if (!entity.m_TexturePath.empty())
+						stream << " texturePath=" << entity.m_TexturePath;
+					if (entity.m_TextureSpriteIndex >= 0)
+						stream << " spriteIndex=" << entity.m_TextureSpriteIndex;
+					if (!entity.m_SpriteName.empty())
+						stream << " spriteName=" << entity.m_SpriteName;
+				}
+				stream << '\n';
+			}
+		}
+
+		stream << "- Level design quality rules for create_sprite_level: use existing entity scale as reference, build a playable composition with a start, route, platforms, gaps, landmarks, and decoration when assets exist. Do not create only a flat repeated block grid unless the user explicitly asks for a test grid. Use varied sprite indices and sprite roles; when mixing texture assets, include assetHandle on each placement line. Keep solid ground/support pieces aligned, place props on top of support surfaces, and avoid overlapping the player start.\n";
 
 		stream << "\n" << ProviderUtils::BuildWhipScriptingGuide();
 		stream << "\nAnswer as a concise game-engine assistant. When scene or code changes are needed, emit provider-callable tool blocks and then add a short human summary. Prefer one larger proposal over many tiny proposals when the operation is naturally one user action.";
