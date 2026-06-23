@@ -50,7 +50,97 @@ This is the highest priority because it answers the core user question: "I made 
   - copied script binaries
   - copied runtime dependencies
 
-### 2. Platform Abstraction Foundation
+### 2. Asset Pipeline
+
+This is one of the most-used editor areas and should stay polished while export/runtime work starts.
+
+- Polish the texture and sprite editors.
+- Finalize sprite slicing metadata.
+- Improve sub-sprite management:
+  - expand/collapse under parent texture
+  - batch delete
+  - rename
+  - reorder where useful
+  - clear all slices
+- Improve multi-selection in the content browser.
+- Support multi drag/drop into scenes and animation tools.
+- Add "Create Animation From Selected Sprites" workflows.
+- Harden missing asset and deleted file behavior.
+- Continue fixing texture bleeding, padding, atlas preview, and import settings.
+- Keep import settings visible and predictable for texture/sprite assets.
+
+### 3. Editor UX And Panel System
+
+This keeps the editor feeling professional instead of like a pile of useful tools.
+
+- Polish panel layout, docking, floating, minimize, fullscreen, and restore behavior.
+- Do one final pass over shortcut focus, scope, conflicts, and settings UX.
+- Improve hierarchy multi-select.
+- Improve hierarchy duplicate, delete, rename, grouping, and reordering.
+- Fix inspector text overflow and narrow-panel layout issues.
+- Continue console/filter/log UX polish.
+- Improve command palette and global actions.
+- Keep panel base class and panel manager patterns consistent.
+
+### 4. Animation Runtime Control
+
+The animation editor is in a strong place, but runtime behavior must be just as clear.
+
+- Finalize animator parameter API.
+- Validate transition runtime behavior.
+- Add warnings for missing states, clips, controllers, and invalid sprite indices.
+- Keep animation preview behavior consistent with runtime behavior.
+- Add controller debug view:
+  - current state
+  - active transition
+  - parameter values
+  - transition condition results
+- Add script-facing animation helper APIs where needed.
+
+### 5. Physics And Character Feel
+
+This is critical for actually making games that feel good.
+
+- Write and enforce a Rigidbody2D usage pattern.
+- Add a character controller helper.
+- Standardize jump and ground detection.
+- Add collider setup tools.
+- Add platformer movement examples.
+- Add recommended settings for dynamic, kinematic, gravity scale, friction, and jump feel.
+- Add scene tools that make collider authoring less manual.
+
+### 6. Validation System
+
+Validation gives the editor a big quality jump and prevents broken exports.
+
+- Add a Project Health / Scene Validator panel.
+- Detect missing scripts.
+- Detect missing assets and textures.
+- Detect invalid sprite indices.
+- Detect broken animator controllers.
+- Detect duplicate or invalid UUIDs.
+- Detect suspicious transform scale.
+- Detect build, script reload, and hot reload diagnostics.
+- Show actionable fixes where possible.
+- Gate export with warnings/errors that the user can inspect.
+
+### 7. Project And Templates
+
+This improves the first-run and new-project experience.
+
+- Polish starter templates.
+- Ensure default scenes and starter entities are correct.
+- Move sample/test projects out of the engine/editor repo path or keep them isolated from source control.
+- Finalize project creation.
+- Finalize project open/recent project behavior.
+- Add template metadata:
+  - platformer
+  - empty 2D
+  - UI sample
+  - animation sample
+  - physics sample
+
+### 8. Platform Abstraction Foundation
 
 This unlocks Windows/Linux/Android work without spreading platform checks through gameplay systems.
 
@@ -68,7 +158,7 @@ This unlocks Windows/Linux/Android work without spreading platform checks throug
 - Move Windows-only logic out of generic engine/editor code where possible.
 - Make unsupported platforms fail with clear build/runtime diagnostics.
 
-### 3. Input And Cursor Runtime System
+### 9. Input And Cursor Runtime System
 
 This is needed before Android and before polished desktop games.
 
@@ -89,7 +179,7 @@ This is needed before Android and before polished desktop games.
   - platform fallback cursor shapes
 - Add runtime input mapping for game actions.
 
-### 4. Save / Load Runtime System
+### 10. Save / Load Runtime System
 
 This is needed for real games and especially mobile.
 
@@ -102,7 +192,7 @@ This is needed for real games and especially mobile.
 - Add script-facing save/load API.
 - Add editor settings for default save behavior.
 
-### 5. Runtime UI System
+### 11. Runtime UI System
 
 Editor ImGui is not a game UI solution. Whip needs a runtime UI layer.
 
@@ -115,7 +205,7 @@ Editor ImGui is not a game UI solution. Whip needs a runtime UI layer.
 - Add script callbacks for UI interaction.
 - Add UI asset/component editing in the editor.
 
-### 6. Renderer OpenGL ES Readiness
+### 12. Renderer OpenGL ES Readiness
 
 Android needs OpenGL ES or Vulkan. OpenGL ES is the shortest path for a 2D engine.
 
@@ -127,7 +217,7 @@ Android needs OpenGL ES or Vulkan. OpenGL ES is the shortest path for a 2D engin
 - Add a backend selection path even if only OpenGL is implemented at first.
 - Prepare an `OpenGLES` backend or compatibility layer.
 
-### 7. Android Player / Export Prototype
+### 13. Android Player / Export Prototype
 
 This should come after the export pipeline, platform abstraction, input, save paths, and GLES readiness have a first pass.
 
@@ -145,7 +235,7 @@ This should come after the export pipeline, platform abstraction, input, save pa
 - Add orientation, app icon, splash, and manifest settings.
 - Produce first runnable APK.
 
-### 8. Linux Desktop Port
+### 14. Linux Desktop Port
 
 Linux is not the main product target, but it is a useful portability check after the platform layer exists.
 
@@ -154,7 +244,7 @@ Linux is not the main product target, but it is a useful portability check after
 - Verify OpenGL backend on Linux.
 - Replace or wrap Windows-only editor/process/file-dialog paths.
 
-### 9. Long-Term Renderer Backends
+### 15. Long-Term Renderer Backends
 
 Do this after shipping/export foundations are real.
 
@@ -165,14 +255,20 @@ Do this after shipping/export foundations are real.
 ## Recommended Execution Order
 
 1. Build / Export Pipeline And Whip Player Runtime.
-2. Platform Abstraction Foundation.
-3. Input And Cursor Runtime System.
-4. Save / Load Runtime System.
-5. Runtime UI System.
-6. Renderer OpenGL ES Readiness.
-7. Android Player / Export Prototype.
-8. Linux Desktop Port.
-9. Long-term renderer backend work.
+2. Asset Pipeline.
+3. Editor UX And Panel System.
+4. Animation Runtime Control.
+5. Physics And Character Feel.
+6. Validation System.
+7. Project And Templates.
+8. Platform Abstraction Foundation.
+9. Input And Cursor Runtime System.
+10. Save / Load Runtime System.
+11. Runtime UI System.
+12. Renderer OpenGL ES Readiness.
+13. Android Player / Export Prototype.
+14. Linux Desktop Port.
+15. Long-term renderer backend work.
 
 ## First Implementation Milestone
 
