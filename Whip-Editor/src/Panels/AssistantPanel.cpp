@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <sstream>
 
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -156,16 +157,13 @@ void AssistantPanel::SubmitPrompt(bool online)
 	m_Status.clear();
 
 	std::vector<Assistant::ToolProposal> localProposals = Assistant::BuildLocalProposals(context, prompt);
-	if (!localProposals.empty())
-	{
-		for (Assistant::ToolProposal& proposal : localProposals)
-			m_Proposals.push_back(std::move(proposal));
-		AddAssistantMessage("I prepared reviewable editor action(s). Check the proposal queue before applying them.");
-	}
+	const bool hadLocalProposals = !localProposals.empty();
+	if (hadLocalProposals)
+		HandleProposals(std::move(localProposals));
 
 	if (!online)
 	{
-		if (localProposals.empty())
+		if (!hadLocalProposals)
 			AddAssistantMessage("I do not have a safe local action for that yet. I can still help plan it if online responses are enabled in Settings.");
 		return;
 	}
@@ -213,8 +211,7 @@ void AssistantPanel::PollRequest()
 	}
 
 	AddAssistantMessage(response.m_Text);
-	for (Assistant::ToolProposal& proposal : response.m_Proposals)
-		m_Proposals.push_back(std::move(proposal));
+	HandleProposals(std::move(response.m_Proposals));
 }
 
 void AssistantPanel::DrawHeader(const Assistant::ContextSnapshot& context, const Assistant::Settings& settings)
@@ -237,6 +234,10 @@ void AssistantPanel::DrawHeader(const Assistant::ContextSnapshot& context, const
 	{
 		DrawChip("No selection");
 	}
+	ImGui::SameLine();
+	std::string applyMode = "Mode: ";
+	applyMode += Assistant::ApplyModeDisplayName(settings.m_ApplyMode);
+	DrawChip(applyMode.c_str());
 }
 
 void AssistantPanel::DrawMessages()
@@ -275,6 +276,18 @@ void AssistantPanel::DrawProposals()
 	}
 
 	ImGui::TextDisabled("%zu pending proposal(s)", m_Proposals.size());
+	if (ImGui::SmallButton("Apply All"))
+		ApplyAllQueuedProposals();
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Dismiss All"))
+	{
+		const size_t dismissed = m_Proposals.size();
+		m_Proposals.clear();
+		AddAssistantMessage("Dismissed " + std::to_string(dismissed) + " queued proposal(s).");
+	}
+	if (m_Proposals.empty())
+		return;
+
 	if (!ImGui::BeginChild("##AssistantProposals", ImVec2(0.0f, 116.0f), true))
 	{
 		ImGui::EndChild();
@@ -293,8 +306,9 @@ void AssistantPanel::DrawProposals()
 		bool remove = false;
 		if (ImGui::SmallButton("Apply"))
 		{
-			const bool applied = m_ApplyProposalCallback && m_ApplyProposalCallback(proposal);
-			m_Messages.push_back({ applied ? Assistant::Role::Assistant : Assistant::Role::System, applied ? "Proposal applied." : "Proposal could not be applied in the current editor state." });
+			std::string message;
+			const bool applied = ApplyProposalNow(proposal, &message);
+			m_Messages.push_back({ applied ? Assistant::Role::Assistant : Assistant::Role::System, message });
 			m_ShouldScrollMessages = true;
 			remove = applied;
 		}
@@ -312,6 +326,100 @@ void AssistantPanel::DrawProposals()
 	}
 
 	ImGui::EndChild();
+}
+
+bool AssistantPanel::CanAutoApplyProposal(const Assistant::ToolProposal& proposal, const Assistant::Settings& settings) const
+{
+	switch (settings.m_ApplyMode)
+	{
+	case Assistant::ApplyMode::AutoApplyAll:
+		return proposal.m_Kind != Assistant::ToolKind::None;
+	case Assistant::ApplyMode::AutoApplySafe:
+		return proposal.m_Kind != Assistant::ToolKind::None && proposal.m_Kind != Assistant::ToolKind::EditScript;
+	case Assistant::ApplyMode::Review:
+	default:
+		return false;
+	}
+}
+
+bool AssistantPanel::ApplyProposalNow(const Assistant::ToolProposal& proposal, std::string* outMessage)
+{
+	const bool applied = m_ApplyProposalCallback && m_ApplyProposalCallback(proposal);
+	if (outMessage)
+	{
+		const std::string title = proposal.m_Title.empty() ? std::string(Assistant::ToolKindName(proposal.m_Kind)) : proposal.m_Title;
+		*outMessage = applied ? "Applied: " + title : "Could not apply: " + title;
+	}
+	return applied;
+}
+
+void AssistantPanel::HandleProposals(std::vector<Assistant::ToolProposal>&& proposals)
+{
+	if (proposals.empty())
+		return;
+
+	const Assistant::Settings& settings = GetSettings();
+	size_t autoApplied = 0;
+	size_t queued = 0;
+	size_t failed = 0;
+
+	for (Assistant::ToolProposal& proposal : proposals)
+	{
+		if (CanAutoApplyProposal(proposal, settings))
+		{
+			if (ApplyProposalNow(proposal))
+			{
+				++autoApplied;
+				continue;
+			}
+			++failed;
+		}
+
+		m_Proposals.push_back(std::move(proposal));
+		++queued;
+	}
+
+	std::ostringstream message;
+	if (autoApplied > 0)
+		message << "Auto-applied " << autoApplied << " proposal(s).";
+	if (queued > 0)
+	{
+		if (message.tellp() > 0)
+			message << ' ';
+		message << "Queued " << queued << " proposal(s)";
+		if (failed > 0)
+			message << " (" << failed << " could not auto-apply)";
+		message << '.';
+	}
+	AddAssistantMessage(message.str());
+}
+
+void AssistantPanel::ApplyAllQueuedProposals()
+{
+	if (m_Proposals.empty())
+		return;
+
+	size_t appliedCount = 0;
+	for (size_t i = 0; i < m_Proposals.size();)
+	{
+		if (ApplyProposalNow(m_Proposals[i]))
+		{
+			m_Proposals.erase(m_Proposals.begin() + static_cast<std::ptrdiff_t>(i));
+			++appliedCount;
+		}
+		else
+		{
+			++i;
+		}
+	}
+
+	if (appliedCount > 0)
+		AddAssistantMessage("Applied " + std::to_string(appliedCount) + " queued proposal(s).");
+	if (!m_Proposals.empty())
+	{
+		m_Messages.push_back({ Assistant::Role::System, std::to_string(m_Proposals.size()) + " proposal(s) could not be applied in the current editor state." });
+		m_ShouldScrollMessages = true;
+	}
 }
 
 void AssistantPanel::AddAssistantMessage(std::string content)

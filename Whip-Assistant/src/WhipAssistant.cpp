@@ -720,6 +720,49 @@ namespace Assistant
 		return ProviderKind::Offline;
 	}
 
+	const char* ApplyModeName(ApplyMode mode)
+	{
+		switch (mode)
+		{
+		case ApplyMode::Review: return "review";
+		case ApplyMode::AutoApplySafe: return "auto_safe";
+		case ApplyMode::AutoApplyAll: return "auto_all";
+		default: return "review";
+		}
+	}
+
+	const char* ApplyModeDisplayName(ApplyMode mode)
+	{
+		switch (mode)
+		{
+		case ApplyMode::Review: return "Review";
+		case ApplyMode::AutoApplySafe: return "Auto Safe";
+		case ApplyMode::AutoApplyAll: return "Auto All";
+		default: return "Review";
+		}
+	}
+
+	const char* ApplyModeDescription(ApplyMode mode)
+	{
+		switch (mode)
+		{
+		case ApplyMode::Review: return "Queue every proposal until you apply it.";
+		case ApplyMode::AutoApplySafe: return "Automatically apply undo-friendly scene and asset proposals; queue script edits.";
+		case ApplyMode::AutoApplyAll: return "Automatically apply every proposal, including script edits.";
+		default: return "Queue every proposal until you apply it.";
+		}
+	}
+
+	ApplyMode ApplyModeFromName(const std::string& name)
+	{
+		const std::string lower = LowerCopy(name);
+		if (lower == "auto_safe" || lower == "autosafe" || lower == "safe")
+			return ApplyMode::AutoApplySafe;
+		if (lower == "auto_all" || lower == "autoall" || lower == "all")
+			return ApplyMode::AutoApplyAll;
+		return ApplyMode::Review;
+	}
+
 	bool HasProviderCredentials(const Settings& settings)
 	{
 		if (AssistantProviderPtr provider = CreateAssistantProvider(settings.m_Provider))
@@ -778,14 +821,34 @@ namespace Assistant
 				{
 					stream << ", sprites:";
 					for (size_t i = 0; i < asset.m_Sprites.size(); ++i)
+					{
 						stream << " [" << i << "] " << asset.m_Sprites[i];
+						if (i < asset.m_SpriteDetails.size())
+						{
+							const ContextSnapshot::SpriteSummary& sprite = asset.m_SpriteDetails[i];
+							stream << " rect=" << sprite.m_X << ',' << sprite.m_Y << ',' << sprite.m_Width << 'x' << sprite.m_Height;
+							if (sprite.m_Width > sprite.m_Height * 2)
+								stream << " wide";
+							else if (sprite.m_Height > sprite.m_Width * 2)
+								stream << " tall";
+							else if (sprite.m_Width > sprite.m_Height)
+								stream << " landscape";
+							else if (sprite.m_Height > sprite.m_Width)
+								stream << " portrait";
+							else
+								stream << " square";
+						}
+						stream << ';';
+					}
 				}
 				stream << '\n';
 			}
+			if (settings.m_SendAssetImages)
+				stream << "- Gemini may receive matching texture files as image attachments. Use the attached atlas image plus sprite rect indices to choose sensible sprites.\n";
 		}
 
 		stream << "\n" << ProviderUtils::BuildWhipScriptingGuide();
-		stream << "\nAnswer as a concise game-engine assistant. When scene or code changes are needed, describe them as reviewable steps instead of pretending they are already applied.";
+		stream << "\nAnswer as a concise game-engine assistant. When scene or code changes are needed, emit provider-callable tool blocks and then add a short human summary. Prefer one larger proposal over many tiny proposals when the operation is naturally one user action.";
 		return stream.str();
 	}
 

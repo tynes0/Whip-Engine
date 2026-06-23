@@ -524,6 +524,8 @@ namespace
 				summary.m_Handle = static_cast<uint64_t>(handle);
 				summary.m_Type = metadata.m_Type;
 				summary.m_Path = metadata.m_Filepath.generic_string();
+				const std::filesystem::path absoluteAssetPath = Project::GetActiveAssetDirectory() / metadata.m_Filepath;
+				summary.m_AbsolutePath = absoluteAssetPath.lexically_normal().string();
 				summary.m_Name = metadata.m_Filepath.filename().string();
 
 				if (metadata.m_Type == AssetType::Texture2D)
@@ -531,7 +533,16 @@ namespace
 					const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
 					summary.m_SpriteCount = sprites.size();
 					for (size_t i = 0; i < sprites.size() && i < MaxSpritesPerTexture; ++i)
+					{
 						summary.m_Sprites.push_back(sprites[i].m_Name);
+						summary.m_SpriteDetails.push_back({
+							.m_Name = sprites[i].m_Name,
+							.m_X = sprites[i].m_X,
+							.m_Y = sprites[i].m_Y,
+							.m_Width = sprites[i].m_Width,
+							.m_Height = sprites[i].m_Height
+						});
+					}
 				}
 
 				assets.push_back(std::move(summary));

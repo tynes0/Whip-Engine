@@ -36,6 +36,10 @@ private:
 	void DrawMessages();
 	void DrawProposals();
 	void AddAssistantMessage(std::string content);
+	bool CanAutoApplyProposal(const Assistant::ToolProposal& proposal, const Assistant::Settings& settings) const;
+	bool ApplyProposalNow(const Assistant::ToolProposal& proposal, std::string* outMessage = nullptr);
+	void HandleProposals(std::vector<Assistant::ToolProposal>&& proposals);
+	void ApplyAllQueuedProposals();
 	const Assistant::Settings& GetSettings() const;
 	Assistant::ContextSnapshot BuildContext() const;
 

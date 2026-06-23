@@ -105,7 +105,8 @@ namespace Assistant::ProviderUtils
 		return
 			"You are Whip Assistant inside the Whip game engine editor. "
 			"Be concise, practical, and action-oriented. Use available tools when current real-world data is needed. "
-			"Scene edits must be described as reviewable steps unless the editor explicitly applies a proposal. "
+			"When the user asks you to change the scene, assets, or scripts, emit the matching provider-callable whip_tool block instead of only explaining manual steps. "
+			"Scene edits are proposals until the editor applies them; the editor may auto-apply proposals depending on the user's trust setting. "
 			"Never invent engine APIs. Prefer exact Whip API names from the guide below.\n\n" +
 			BuildWhipScriptingGuide();
 	}

@@ -419,6 +419,8 @@ void EditorProjectManager::LoadEditorPreferences()
 				settings.m_Provider = Assistant::ProviderKind::OpenAI;
 			settings.m_SendSceneContext = assistant["send_scene_context"].as<bool>(settings.m_SendSceneContext);
 			settings.m_SendConsoleContext = assistant["send_console_context"].as<bool>(settings.m_SendConsoleContext);
+			settings.m_SendAssetImages = assistant["send_asset_images"].as<bool>(settings.m_SendAssetImages);
+			settings.m_ApplyMode = Assistant::ApplyModeFromName(assistant["apply_mode"].as<std::string>(Assistant::ApplyModeName(settings.m_ApplyMode)));
 			settings.m_OpenAIModel = assistant["openai_model"].as<std::string>(assistant["model"].as<std::string>(settings.m_OpenAIModel));
 			settings.m_OpenAIApiKey = assistant["openai_api_key"].as<std::string>(assistant["api_key"].as<std::string>(settings.m_OpenAIApiKey));
 			settings.m_GeminiModel = assistant["gemini_model"].as<std::string>(settings.m_GeminiModel);
@@ -537,6 +539,8 @@ void EditorProjectManager::SaveEditorPreferences() const
 		out << YAML::Key << "provider" << YAML::Value << Assistant::ProviderName(assistant.m_Provider);
 		out << YAML::Key << "send_scene_context" << YAML::Value << assistant.m_SendSceneContext;
 		out << YAML::Key << "send_console_context" << YAML::Value << assistant.m_SendConsoleContext;
+		out << YAML::Key << "send_asset_images" << YAML::Value << assistant.m_SendAssetImages;
+		out << YAML::Key << "apply_mode" << YAML::Value << Assistant::ApplyModeName(assistant.m_ApplyMode);
 		out << YAML::Key << "openai_model" << YAML::Value << assistant.m_OpenAIModel;
 		out << YAML::Key << "openai_api_key" << YAML::Value << assistant.m_OpenAIApiKey;
 		out << YAML::Key << "gemini_model" << YAML::Value << assistant.m_GeminiModel;

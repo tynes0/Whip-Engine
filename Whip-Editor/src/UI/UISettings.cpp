@@ -660,11 +660,33 @@ namespace UI
 		{
 			ImGui::TextDisabled("Offline mode uses local proposals only.");
 		}
-		ImGui::TextDisabled("API keys are kept in local editor preferences. Scene edits still require Apply.");
+		ImGui::TextDisabled("API keys are kept in local editor preferences.");
+
+		ImGui::SetNextItemWidth(220.0f);
+		if (ImGui::BeginCombo("Apply Mode", Assistant::ApplyModeDisplayName(m_AssistantSettings.m_ApplyMode)))
+		{
+			for (Assistant::ApplyMode mode : { Assistant::ApplyMode::Review, Assistant::ApplyMode::AutoApplySafe, Assistant::ApplyMode::AutoApplyAll })
+			{
+				const bool selected = m_AssistantSettings.m_ApplyMode == mode;
+				if (ImGui::Selectable(Assistant::ApplyModeDisplayName(mode), selected))
+				{
+					m_AssistantSettings.m_ApplyMode = mode;
+					MarkDirty();
+				}
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip("%s", Assistant::ApplyModeDescription(mode));
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::TextDisabled("%s", Assistant::ApplyModeDescription(m_AssistantSettings.m_ApplyMode));
 
 		if (ImGui::Checkbox("Send scene selection context", &m_AssistantSettings.m_SendSceneContext))
 			MarkDirty();
 		if (ImGui::Checkbox("Send recent console context", &m_AssistantSettings.m_SendConsoleContext))
+			MarkDirty();
+		if (ImGui::Checkbox("Send texture images for visual reasoning", &m_AssistantSettings.m_SendAssetImages))
 			MarkDirty();
 	}
 

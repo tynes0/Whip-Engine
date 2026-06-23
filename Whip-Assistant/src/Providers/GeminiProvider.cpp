@@ -2,9 +2,12 @@
 
 #include "AssistantProviderUtils.h"
 
+#include <algorithm>
 #include <exception>
+#include <filesystem>
 #include <sstream>
 #include <variant>
+#include <vector>
 
 #if WHP_ENABLE_GEMINI_CPP
 #include <gemini/client.h>
@@ -46,6 +49,67 @@ namespace Assistant
 			return stream.str();
 		}
 #endif
+
+		bool WantsVisualAssetReasoning(const std::string& prompt)
+		{
+			const std::string lower = ProviderUtils::LowerCopy(prompt);
+			return ProviderUtils::ContainsAny(lower, {
+				"level", "sahne", "tasarla", "dizayn", "sprite", "spritesheet", "sprite sheet",
+				"atlas", "tileset", "tile", "texture", "harita", "platform", "zemin"
+			});
+		}
+
+		std::vector<const ContextSnapshot::AssetSummary*> CollectTextureImageAttachments(const ContextSnapshot& context, const std::string& prompt)
+		{
+			std::vector<const ContextSnapshot::AssetSummary*> attachments;
+			if (!WantsVisualAssetReasoning(prompt))
+				return attachments;
+
+			const std::string lowerPrompt = ProviderUtils::LowerCopy(prompt);
+			struct Candidate
+			{
+				const ContextSnapshot::AssetSummary* m_Asset = nullptr;
+				int m_Score = 0;
+			};
+
+			std::vector<Candidate> candidates;
+			for (const ContextSnapshot::AssetSummary& asset : context.m_ProjectAssets)
+			{
+				if (asset.m_Type != AssetType::Texture2D || asset.m_AbsolutePath.empty())
+					continue;
+				std::error_code error;
+				if (!std::filesystem::exists(asset.m_AbsolutePath, error) || error)
+					continue;
+
+				int score = asset.m_SpriteCount > 0 ? 30 : 5;
+				const std::string path = ProviderUtils::LowerCopy(asset.m_Path);
+				const std::string name = ProviderUtils::LowerCopy(asset.m_Name);
+				if (!name.empty() && ProviderUtils::Contains(lowerPrompt, name))
+					score += 80;
+				if (!path.empty() && ProviderUtils::Contains(lowerPrompt, path))
+					score += 70;
+				if (ProviderUtils::ContainsAny(name, { "sprite", "atlas", "tileset", "tile", "sheet" }))
+					score += 35;
+				if (ProviderUtils::ContainsAny(path, { "sprite", "atlas", "tileset", "tile", "sheet" }))
+					score += 20;
+
+				candidates.push_back({ &asset, score });
+			}
+
+			std::ranges::sort(candidates, [](const Candidate& left, const Candidate& right)
+			{
+				return left.m_Score > right.m_Score;
+			});
+
+			constexpr size_t MaxAttachments = 2;
+			for (const Candidate& candidate : candidates)
+			{
+				if (!candidate.m_Asset || attachments.size() >= MaxAttachments)
+					break;
+				attachments.push_back(candidate.m_Asset);
+			}
+			return attachments;
+		}
 	}
 
 	bool GeminiProvider::HasCredentials(const Settings& settings) const
@@ -68,7 +132,18 @@ namespace Assistant
 		}
 
 		const std::string model = settings.m_GeminiModel.empty() ? "gemini-2.0-flash" : settings.m_GeminiModel;
-		const std::string input = BuildContextPrompt(context, settings) + "\n\nUser request:\n" + prompt;
+		const std::vector<const ContextSnapshot::AssetSummary*> imageAttachments = settings.m_SendAssetImages ? CollectTextureImageAttachments(context, prompt) : std::vector<const ContextSnapshot::AssetSummary*>{};
+		std::string input = BuildContextPrompt(context, settings) + "\n\nUser request:\n" + prompt;
+		if (!imageAttachments.empty())
+		{
+			input += "\n\nAttached texture atlas images:";
+			for (size_t i = 0; i < imageAttachments.size(); ++i)
+			{
+				const ContextSnapshot::AssetSummary& asset = *imageAttachments[i];
+				input += "\n- Image " + std::to_string(i + 1) + ": handle " + std::to_string(asset.m_Handle) + ", path " + asset.m_Path + ", spriteCount " + std::to_string(asset.m_SpriteCount);
+			}
+			input += "\nUse these images to infer sprite roles visually, but emit placements using the listed assetHandle and sprite indices/names.";
+		}
 
 #if WHP_ENABLE_GEMINI_CPP
 		try
@@ -80,6 +155,9 @@ namespace Assistant
 				.systemInstruction(ProviderUtils::BuildSystemInstructions())
 				.text(input)
 				.temperature(0.25f);
+
+			for (const ContextSnapshot::AssetSummary* asset : imageAttachments)
+				request.image(asset->m_AbsolutePath);
 
 			if (settings.m_GeminiUseGoogleSearch)
 				request.googleSearch();

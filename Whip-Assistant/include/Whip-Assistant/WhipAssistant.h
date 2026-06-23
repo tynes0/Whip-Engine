@@ -39,12 +39,21 @@ namespace Assistant
 		Gemini
 	};
 
+	enum class ApplyMode : uint8_t
+	{
+		Review = 0,
+		AutoApplySafe,
+		AutoApplyAll
+	};
+
 	struct Settings
 	{
 		bool m_Enabled = true;
 		ProviderKind m_Provider = ProviderKind::Offline;
 		bool m_SendSceneContext = true;
 		bool m_SendConsoleContext = true;
+		bool m_SendAssetImages = true;
+		ApplyMode m_ApplyMode = ApplyMode::AutoApplySafe;
 		std::string m_OpenAIModel = "gpt-5.5";
 		std::string m_OpenAIApiKey;
 		std::string m_GeminiModel = "gemini-2.0-flash";
@@ -60,14 +69,25 @@ namespace Assistant
 
 	struct ContextSnapshot
 	{
+		struct SpriteSummary
+		{
+			std::string m_Name;
+			uint32_t m_X = 0;
+			uint32_t m_Y = 0;
+			uint32_t m_Width = 0;
+			uint32_t m_Height = 0;
+		};
+
 		struct AssetSummary
 		{
 			uint64_t m_Handle = 0;
 			AssetType m_Type = AssetType::None;
 			std::string m_Path;
+			std::string m_AbsolutePath;
 			std::string m_Name;
 			size_t m_SpriteCount = 0;
 			std::vector<std::string> m_Sprites;
+			std::vector<SpriteSummary> m_SpriteDetails;
 		};
 
 		bool m_HasProject = false;
@@ -143,6 +163,10 @@ namespace Assistant
 	const char* ProviderName(ProviderKind provider);
 	const char* ProviderDisplayName(ProviderKind provider);
 	ProviderKind ProviderFromName(const std::string& name);
+	const char* ApplyModeName(ApplyMode mode);
+	const char* ApplyModeDisplayName(ApplyMode mode);
+	const char* ApplyModeDescription(ApplyMode mode);
+	ApplyMode ApplyModeFromName(const std::string& name);
 	bool HasProviderCredentials(const Settings& settings);
 
 	std::string BuildContextPrompt(const ContextSnapshot& context, const Settings& settings);
