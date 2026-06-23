@@ -263,6 +263,11 @@ namespace Assistant
 				key == "angle";
 		}
 
+		bool IsPlacementBlockKey(const std::string& key)
+		{
+			return key == "placement" || key == "placements" || key == "levelplacements";
+		}
+
 		void PushStructuredPlacement(std::vector<ToolBlockField>& fields, std::vector<std::string>& parts)
 		{
 			if (parts.empty())
@@ -303,7 +308,7 @@ namespace Assistant
 
 				const size_t separator = line.find(':');
 				const std::string normalizedKey = separator == std::string::npos ? std::string() : NormalizeName(TrimCopy(std::string_view(line).substr(0, separator)));
-				if (normalizedKey == "placement")
+				if (IsPlacementBlockKey(normalizedKey))
 				{
 					PushStructuredPlacement(fields, placementParts);
 					const std::string value = TrimCopy(std::string_view(line).substr(separator + 1));
@@ -412,7 +417,7 @@ namespace Assistant
 					ToolBlockField field;
 					field.m_Key = LowerCopy(TrimCopy(std::string_view(line).substr(0, separator)));
 					field.m_Value = TrimCopy(std::string_view(line).substr(separator + 1));
-					multilineKey = field.m_Key == "placement" ? "placement" : std::string();
+					multilineKey = IsPlacementBlockKey(NormalizeName(field.m_Key)) ? "placement" : std::string();
 					fields.push_back(std::move(field));
 				}
 				else
@@ -704,7 +709,7 @@ namespace Assistant
 
 				for (const ToolBlockField& field : fields)
 				{
-					if (field.m_Key != "placement")
+					if (!IsPlacementBlockKey(NormalizeName(field.m_Key)))
 						continue;
 					if (std::optional<SpriteLevelPlacement> placement = ParseSpriteLevelPlacement(field.m_Value))
 					{

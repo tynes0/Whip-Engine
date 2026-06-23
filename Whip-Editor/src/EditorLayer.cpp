@@ -840,6 +840,13 @@ namespace
 		return placement.m_AssetHandle != 0 || !placement.m_AssetPath.empty() || !placement.m_AssetName.empty();
 	}
 
+	struct ResolvedAssistantSpriteLevelPlacement
+	{
+		const Assistant::SpriteLevelPlacement* m_Placement = nullptr;
+		AssetHandle m_TextureHandle = 0;
+		int32_t m_SpriteIndex = -1;
+	};
+
 	glm::vec3 ComputeAssistantSpriteLevelScale(AssetHandle textureHandle, int32_t spriteIndex, const Assistant::SpriteLevelPlacement& placement)
 	{
 		if (placement.m_HasScale)
@@ -880,7 +887,7 @@ namespace
 		if (!activeProject || !activeProject->GetEditorAssetManager())
 			return false;
 
-		size_t createdCount = 0;
+		std::vector<ResolvedAssistantSpriteLevelPlacement> resolvedPlacements;
 		size_t skippedCount = 0;
 		for (const Assistant::SpriteLevelPlacement& placement : proposal.m_LevelPlacements)
 		{
@@ -908,6 +915,45 @@ namespace
 			const AssetMetadata& metadata = activeProject->GetEditorAssetManager()->GetMetadata(textureHandle);
 			const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
 			const int32_t spriteIndex = ResolveAssistantSpriteLevelPlacementIndex(textureHandle, placement);
+			const bool validSpriteIndex = spriteIndex >= 0 && std::cmp_less(spriteIndex, sprites.size());
+			const bool requestedSprite = placement.m_SpriteIndex >= 0 || !placement.m_SpriteName.empty();
+			if (requestedSprite && !validSpriteIndex)
+			{
+				++skippedCount;
+				continue;
+			}
+
+			resolvedPlacements.push_back({
+				.m_Placement = &placement,
+				.m_TextureHandle = textureHandle,
+				.m_SpriteIndex = validSpriteIndex ? spriteIndex : -1
+			});
+		}
+
+		if (resolvedPlacements.empty())
+		{
+			WHP_CORE_WARN("[Whip Assistant] Sprite level proposal rejected: no valid placements resolved.");
+			return false;
+		}
+		if (proposal.m_LevelPlacements.size() >= 6 && resolvedPlacements.size() < 6)
+		{
+			WHP_CORE_WARN("[Whip Assistant] Sprite level proposal rejected: only {0}/{1} placements resolved.", resolvedPlacements.size(), proposal.m_LevelPlacements.size());
+			return false;
+		}
+		if (skippedCount > 0 && resolvedPlacements.size() * 2 < proposal.m_LevelPlacements.size())
+		{
+			WHP_CORE_WARN("[Whip Assistant] Sprite level proposal rejected: too many invalid placements ({0}/{1} skipped).", skippedCount, proposal.m_LevelPlacements.size());
+			return false;
+		}
+
+		size_t createdCount = 0;
+		for (const ResolvedAssistantSpriteLevelPlacement& resolved : resolvedPlacements)
+		{
+			const Assistant::SpriteLevelPlacement& placement = *resolved.m_Placement;
+			const AssetHandle textureHandle = resolved.m_TextureHandle;
+			const int32_t spriteIndex = resolved.m_SpriteIndex;
+			const AssetMetadata& metadata = activeProject->GetEditorAssetManager()->GetMetadata(textureHandle);
+			const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
 			const bool validSpriteIndex = spriteIndex >= 0 && std::cmp_less(spriteIndex, sprites.size());
 			const TextureSpriteRect* spriteRect = validSpriteIndex ? &sprites[static_cast<size_t>(spriteIndex)] : nullptr;
 
