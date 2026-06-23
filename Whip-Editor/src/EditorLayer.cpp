@@ -805,6 +805,10 @@ namespace
 		return false;
 	}
 
+	int32_t ExtractAssistantTrailingNumber(std::string_view value);
+	uint32_t StableAssistantHash(std::string_view value);
+	std::string BuildAssistantPlacementHint(const Assistant::SpriteLevelPlacement& placement);
+
 	int32_t ResolveAssistantSpriteLevelPlacementIndex(AssetHandle textureHandle, const Assistant::SpriteLevelPlacement& placement)
 	{
 		if (!AssetManager::IsAssetHandleValid(textureHandle) || AssetManager::GetAssetType(textureHandle) != AssetType::Texture2D)
@@ -818,6 +822,8 @@ namespace
 		const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
 		if (placement.m_SpriteIndex >= 0 && std::cmp_less(placement.m_SpriteIndex, sprites.size()))
 			return placement.m_SpriteIndex;
+		if (placement.m_SpriteIndex >= 0 && !sprites.empty())
+			return placement.m_SpriteIndex % static_cast<int32_t>(sprites.size());
 		if (placement.m_SpriteName.empty())
 			return -1;
 
@@ -827,6 +833,18 @@ namespace
 			if (NormalizeAssistantName(sprites[static_cast<size_t>(spriteIndex)].m_Name) == needle)
 				return spriteIndex;
 		}
+		for (int32_t spriteIndex = 0; std::cmp_less(spriteIndex, sprites.size()); ++spriteIndex)
+		{
+			const std::string spriteName = NormalizeAssistantName(sprites[static_cast<size_t>(spriteIndex)].m_Name);
+			if (!spriteName.empty() && (spriteName.find(needle) != std::string::npos || needle.find(spriteName) != std::string::npos))
+				return spriteIndex;
+		}
+
+		const int32_t numberedIndex = ExtractAssistantTrailingNumber(needle);
+		if (numberedIndex >= 0 && std::cmp_less(numberedIndex, sprites.size()))
+			return numberedIndex;
+		if (!sprites.empty())
+			return static_cast<int32_t>(StableAssistantHash(BuildAssistantPlacementHint(placement)) % sprites.size());
 		return -1;
 	}
 
@@ -840,12 +858,114 @@ namespace
 		return placement.m_AssetHandle != 0 || !placement.m_AssetPath.empty() || !placement.m_AssetName.empty();
 	}
 
+	bool ContainsAnyToken(const std::string& haystack, std::initializer_list<std::string_view> needles)
+	{
+		for (std::string_view needle : needles)
+			if (haystack.find(needle) != std::string::npos)
+				return true;
+		return false;
+	}
+
+	uint32_t StableAssistantHash(std::string_view value)
+	{
+		uint32_t hash = 2166136261u;
+		for (unsigned char character : value)
+		{
+			hash ^= character;
+			hash *= 16777619u;
+		}
+		return hash;
+	}
+
+	int32_t ExtractAssistantTrailingNumber(std::string_view value)
+	{
+		if (value.empty())
+			return -1;
+
+		size_t end = value.size();
+		while (end > 0 && !std::isdigit(static_cast<unsigned char>(value[end - 1])))
+			--end;
+		if (end == 0)
+			return -1;
+
+		size_t begin = end;
+		while (begin > 0 && std::isdigit(static_cast<unsigned char>(value[begin - 1])))
+			--begin;
+
+		try
+		{
+			return std::stoi(std::string(value.substr(begin, end - begin)));
+		}
+		catch (...)
+		{
+			return -1;
+		}
+	}
+
+	std::string BuildAssistantPlacementHint(const Assistant::SpriteLevelPlacement& placement)
+	{
+		return LowerCopy(placement.m_EntityName + " " + placement.m_SpriteName + " " + placement.m_AssetName + " " + placement.m_AssetPath);
+	}
+
 	struct ResolvedAssistantSpriteLevelPlacement
 	{
 		const Assistant::SpriteLevelPlacement* m_Placement = nullptr;
 		AssetHandle m_TextureHandle = 0;
 		int32_t m_SpriteIndex = -1;
 	};
+
+	AssetHandle ResolveAssistantFallbackTextureHandle(const Assistant::SpriteLevelPlacement& placement, AssetHandle defaultTextureHandle)
+	{
+		const Ref<Project> activeProject = Project::GetActive();
+		if (!activeProject || !activeProject->GetEditorAssetManager())
+			return defaultTextureHandle;
+
+		EditorAssetManager& assetManager = *activeProject->GetEditorAssetManager();
+		if (defaultTextureHandle != 0 && assetManager.IsAssetHandleValid(defaultTextureHandle) && assetManager.GetAssetType(defaultTextureHandle) == AssetType::Texture2D)
+			return defaultTextureHandle;
+
+		const std::string hint = BuildAssistantPlacementHint(placement);
+		struct Candidate
+		{
+			AssetHandle m_Handle = 0;
+			int m_Score = -1;
+		};
+
+		Candidate best;
+		assetManager.GetAssetRegistry().Foreach(AssetType::Texture2D, [&](const AssetRegistry::ValueType& value)
+		{
+			const AssetHandle handle = value.first;
+			const AssetMetadata& metadata = value.second;
+			const std::string path = LowerCopy(metadata.m_Filepath.generic_string());
+			const std::string name = LowerCopy(metadata.m_Filepath.filename().string());
+
+			int score = metadata.m_TextureSettings.m_Sprites.empty() ? 0 : 20;
+			if (!placement.m_AssetPath.empty() && path.find(LowerCopy(placement.m_AssetPath)) != std::string::npos)
+				score += 100;
+			if (!placement.m_AssetName.empty() && name.find(LowerCopy(placement.m_AssetName)) != std::string::npos)
+				score += 90;
+			if (ContainsAnyToken(hint, { "ground", "zemin", "floor", "platform", "tile", "path", "wall" }) &&
+				ContainsAnyToken(path + " " + name, { "tile", "tileset", "ground", "platform" }))
+			{
+				score += 55;
+			}
+			if (ContainsAnyToken(hint, { "tree", "bush", "grass", "flower", "rock", "crate", "barrel", "bench", "sign", "torch", "chest", "prop" }) &&
+				ContainsAnyToken(path + " " + name, { "prop", "props", "village", "chest", "tileset" }))
+			{
+				score += 55;
+			}
+			if (ContainsAnyToken(hint, { "fx", "flame", "fire", "torch", "spark", "light" }) &&
+				ContainsAnyToken(path + " " + name, { "fx", "flame", "fire" }))
+			{
+				score += 45;
+			}
+
+			if (score > best.m_Score)
+				best = { handle, score };
+		});
+
+		return best.m_Handle;
+	}
 
 	glm::vec3 ComputeAssistantSpriteLevelScale(AssetHandle textureHandle, int32_t spriteIndex, const Assistant::SpriteLevelPlacement& placement)
 	{
@@ -901,9 +1021,17 @@ namespace
 				placementAsset.m_AssetType = AssetType::Texture2D;
 				if (!ResolveAssistantAssetHandle(placementAsset, AssetType::Texture2D, textureHandle))
 				{
-					++skippedCount;
-					continue;
+					textureHandle = ResolveAssistantFallbackTextureHandle(placement, defaultTextureHandle);
+					if (textureHandle == 0)
+					{
+						++skippedCount;
+						continue;
+					}
 				}
+			}
+			else if (textureHandle == 0)
+			{
+				textureHandle = ResolveAssistantFallbackTextureHandle(placement, defaultTextureHandle);
 			}
 
 			if (textureHandle == 0 || !activeProject->GetEditorAssetManager()->IsAssetHandleValid(textureHandle) || activeProject->GetEditorAssetManager()->GetAssetType(textureHandle) != AssetType::Texture2D)
