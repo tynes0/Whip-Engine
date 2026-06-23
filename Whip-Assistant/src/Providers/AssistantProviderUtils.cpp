@@ -107,6 +107,7 @@ namespace Assistant::ProviderUtils
 			"Be concise, practical, and action-oriented. Use available tools when current real-world data is needed. "
 			"When the user asks you to change the scene, assets, or scripts, emit the matching provider-callable whip_tool block instead of only explaining manual steps. "
 			"Scene edits are proposals until the editor applies them; the editor may auto-apply proposals depending on the user's trust setting. "
+			"Never say you already created, changed, or applied something yourself; say you prepared the proposal, then the editor will report whether it was applied. "
 			"Never invent engine APIs. Prefer exact Whip API names from the guide below.\n\n" +
 			BuildWhipScriptingGuide();
 	}

@@ -223,6 +223,7 @@ namespace Assistant
 		std::vector<ToolBlockField> ParseToolBlockFields(std::string_view header)
 		{
 			std::vector<ToolBlockField> fields;
+			std::string multilineKey;
 			size_t lineStart = 0;
 			while (lineStart < header.size())
 			{
@@ -231,13 +232,53 @@ namespace Assistant
 					lineEnd = header.size();
 
 				const std::string line = TrimCopy(header.substr(lineStart, lineEnd - lineStart));
+				if (line.empty())
+				{
+					lineStart = lineEnd + 1;
+					continue;
+				}
+
+				if (multilineKey == "placement")
+				{
+					std::string continuation = line;
+					if (!continuation.empty() && (continuation.front() == '-' || continuation.front() == '*'))
+						continuation = TrimCopy(std::string_view(continuation).substr(1));
+
+					const size_t inlineSeparator = continuation.find_first_of(":=");
+					const std::string inlineKey = inlineSeparator == std::string::npos ? std::string() : NormalizeName(TrimCopy(std::string_view(continuation).substr(0, inlineSeparator)));
+					const bool looksLikePlacement =
+						continuation.find('=') != std::string::npos ||
+						inlineKey == "name" ||
+						inlineKey == "entity" ||
+						inlineKey == "entityname" ||
+						inlineKey == "sprite" ||
+						inlineKey == "spritename" ||
+						inlineKey == "spriteindex" ||
+						inlineKey == "position" ||
+						inlineKey == "translation" ||
+						inlineKey == "scale" ||
+						inlineKey == "rotation" ||
+						inlineKey == "rotationz";
+					if (looksLikePlacement)
+					{
+						fields.push_back({ "placement", continuation });
+						lineStart = lineEnd + 1;
+						continue;
+					}
+				}
+
 				const size_t separator = line.find(':');
 				if (separator != std::string::npos)
 				{
 					ToolBlockField field;
 					field.m_Key = LowerCopy(TrimCopy(std::string_view(line).substr(0, separator)));
 					field.m_Value = TrimCopy(std::string_view(line).substr(separator + 1));
+					multilineKey = field.m_Key == "placement" ? "placement" : std::string();
 					fields.push_back(std::move(field));
+				}
+				else
+				{
+					multilineKey.clear();
 				}
 
 				lineStart = lineEnd + 1;

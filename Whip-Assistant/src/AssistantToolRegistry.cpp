@@ -181,7 +181,7 @@ namespace Assistant
 				.m_DisplayName = "Create Sprite Level",
 				.m_Status = "available",
 				.m_Description = "Creates multiple sprite entities in the active edit scene from an existing spritesheet texture.",
-				.m_ResponseFormat = "Return a ```whip_tool block with tool: create_sprite_level, assetHandle or assetPath, and repeated placement lines. Example placement: name=Grass 01; spriteIndex=0; position=0,0,0; scale=1,1,1.",
+				.m_ResponseFormat = "Return a ```whip_tool block with tool: create_sprite_level, assetHandle or assetPath, and repeated placement lines. Prefer one placement per line: placement: name=Grass 01; spriteIndex=0; position=0,0,0; scale=1,1,1.",
 				.m_ProviderCallable = true,
 				.m_Fields =
 				{
