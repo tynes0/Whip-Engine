@@ -264,6 +264,8 @@ namespace Assistant
 				"When designing a level from existing spritesheet textures, return one provider-callable whip_tool create_sprite_level block with repeated placement lines using spriteIndex or spriteName from context.",
 				"For create_sprite_level, include assetHandle on each placement when mixing different texture assets. Use varied sprites for ground, platforms, props, landmarks, and decoration when available.",
 				"For level design, respect existing scene entity positions/scales, create a playable route with start/middle/end beats, and avoid a flat repeated block grid unless the user explicitly asks for a test grid.",
+				"For normal level design requests, emit at least 18 create_sprite_level placements. For detailed or big level requests, emit 30-80 placements.",
+				"Never describe placed level elements in prose unless those elements are also present as create_sprite_level placement lines.",
 				"When changing a script, return one complete provider-callable whip_tool edit_script block for the selected script path.",
 				"Script edit block format: ```whip_tool, tool: edit_script, path: <Selected script path>, summary: <short summary>, ---BEGIN CONTENT---, complete C# file, ---END CONTENT---, ```."
 			}

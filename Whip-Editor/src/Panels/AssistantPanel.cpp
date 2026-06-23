@@ -335,6 +335,8 @@ bool AssistantPanel::CanAutoApplyProposal(const Assistant::ToolProposal& proposa
 	case Assistant::ApplyMode::AutoApplyAll:
 		return proposal.m_Kind != Assistant::ToolKind::None;
 	case Assistant::ApplyMode::AutoApplySafe:
+		if (proposal.m_Kind == Assistant::ToolKind::CreateSpriteLevel && proposal.m_LevelPlacements.size() < 6)
+			return false;
 		return proposal.m_Kind != Assistant::ToolKind::None && proposal.m_Kind != Assistant::ToolKind::EditScript;
 	case Assistant::ApplyMode::Review:
 	default:

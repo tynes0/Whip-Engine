@@ -108,6 +108,7 @@ namespace Assistant::ProviderUtils
 			"When the user asks you to change the scene, assets, or scripts, emit the matching provider-callable whip_tool block instead of only explaining manual steps. "
 			"Scene edits are proposals until the editor applies them; the editor may auto-apply proposals depending on the user's trust setting. "
 			"Never say you already created, changed, or applied something yourself; say you prepared the proposal, then the editor will report whether it was applied. "
+			"For level-generation requests, every object you mention as placed must exist in the create_sprite_level placement lines; do not summarize imaginary placements. "
 			"Never invent engine APIs. Prefer exact Whip API names from the guide below.\n\n" +
 			BuildWhipScriptingGuide();
 	}

@@ -228,6 +228,133 @@ namespace Assistant
 			std::string m_Value;
 		};
 
+		size_t CountLeadingWhitespace(std::string_view value)
+		{
+			size_t count = 0;
+			while (count < value.size() && (value[count] == ' ' || value[count] == '\t'))
+				++count;
+			return count;
+		}
+
+		bool IsPlacementInlineKey(const std::string& key)
+		{
+			return key == "name" ||
+				key == "entity" ||
+				key == "entityname" ||
+				key == "sprite" ||
+				key == "spritename" ||
+				key == "spriteindex" ||
+				key == "index" ||
+				key == "subresourceindex" ||
+				key == "assethandle" ||
+				key == "handle" ||
+				key == "assetid" ||
+				key == "assetpath" ||
+				key == "assetname" ||
+				key == "asset" ||
+				key == "path" ||
+				key == "position" ||
+				key == "translation" ||
+				key == "pos" ||
+				key == "scale" ||
+				key == "size" ||
+				key == "rotation" ||
+				key == "rotationz" ||
+				key == "angle";
+		}
+
+		void PushStructuredPlacement(std::vector<ToolBlockField>& fields, std::vector<std::string>& parts)
+		{
+			if (parts.empty())
+				return;
+
+			std::ostringstream value;
+			for (size_t i = 0; i < parts.size(); ++i)
+			{
+				if (i != 0)
+					value << "; ";
+				value << parts[i];
+			}
+			fields.push_back({ "placement", value.str() });
+			parts.clear();
+		}
+
+		void AppendStructuredPlacementFields(std::string_view header, std::vector<ToolBlockField>& fields)
+		{
+			bool inPlacementBlock = false;
+			size_t placementIndent = 0;
+			std::vector<std::string> placementParts;
+
+			size_t lineStart = 0;
+			while (lineStart < header.size())
+			{
+				size_t lineEnd = header.find('\n', lineStart);
+				if (lineEnd == std::string_view::npos)
+					lineEnd = header.size();
+
+				const std::string_view rawLine = header.substr(lineStart, lineEnd - lineStart);
+				const size_t indent = CountLeadingWhitespace(rawLine);
+				std::string line = TrimCopy(rawLine);
+				if (line.empty())
+				{
+					lineStart = lineEnd + 1;
+					continue;
+				}
+
+				const size_t separator = line.find(':');
+				const std::string normalizedKey = separator == std::string::npos ? std::string() : NormalizeName(TrimCopy(std::string_view(line).substr(0, separator)));
+				if (normalizedKey == "placement")
+				{
+					PushStructuredPlacement(fields, placementParts);
+					const std::string value = TrimCopy(std::string_view(line).substr(separator + 1));
+					inPlacementBlock = value.empty();
+					placementIndent = indent;
+					lineStart = lineEnd + 1;
+					continue;
+				}
+
+				if (!inPlacementBlock)
+				{
+					lineStart = lineEnd + 1;
+					continue;
+				}
+
+				if (indent <= placementIndent && !line.starts_with('-') && !line.starts_with('*'))
+				{
+					PushStructuredPlacement(fields, placementParts);
+					inPlacementBlock = false;
+					lineStart = lineEnd + 1;
+					continue;
+				}
+
+				if (line.starts_with('-') || line.starts_with('*'))
+				{
+					PushStructuredPlacement(fields, placementParts);
+					line = TrimCopy(std::string_view(line).substr(1));
+					if (line.empty())
+					{
+						lineStart = lineEnd + 1;
+						continue;
+					}
+				}
+
+				size_t inlineSeparator = line.find('=');
+				if (inlineSeparator == std::string::npos)
+					inlineSeparator = line.find(':');
+				if (inlineSeparator != std::string::npos)
+				{
+					std::string key = TrimCopy(std::string_view(line).substr(0, inlineSeparator));
+					std::string value = TrimCopy(std::string_view(line).substr(inlineSeparator + 1));
+					if (!key.empty() && !value.empty() && IsPlacementInlineKey(NormalizeName(key)))
+						placementParts.push_back(key + "=" + value);
+				}
+
+				lineStart = lineEnd + 1;
+			}
+
+			PushStructuredPlacement(fields, placementParts);
+		}
+
 		std::vector<ToolBlockField> ParseToolBlockFields(std::string_view header)
 		{
 			std::vector<ToolBlockField> fields;
@@ -295,6 +422,7 @@ namespace Assistant
 
 				lineStart = lineEnd + 1;
 			}
+			AppendStructuredPlacementFields(header, fields);
 			return fields;
 		}
 
@@ -375,6 +503,20 @@ namespace Assistant
 			if (placement.m_EntityName.empty())
 				placement.m_EntityName = placement.m_SpriteName.empty() ? "Level Sprite" : placement.m_SpriteName;
 			return placement;
+		}
+
+		bool SameSpriteLevelPlacement(const SpriteLevelPlacement& left, const SpriteLevelPlacement& right)
+		{
+			return left.m_EntityName == right.m_EntityName &&
+				left.m_AssetHandle == right.m_AssetHandle &&
+				left.m_AssetPath == right.m_AssetPath &&
+				left.m_AssetName == right.m_AssetName &&
+				left.m_SpriteName == right.m_SpriteName &&
+				left.m_SpriteIndex == right.m_SpriteIndex &&
+				left.m_Translation == right.m_Translation &&
+				left.m_Scale == right.m_Scale &&
+				left.m_HasScale == right.m_HasScale &&
+				left.m_RotationZ == right.m_RotationZ;
 		}
 
 		std::string CanonicalComponentName(std::string value)
@@ -565,7 +707,15 @@ namespace Assistant
 					if (field.m_Key != "placement")
 						continue;
 					if (std::optional<SpriteLevelPlacement> placement = ParseSpriteLevelPlacement(field.m_Value))
-						proposal.m_LevelPlacements.push_back(std::move(*placement));
+					{
+						const bool duplicate = std::ranges::any_of(proposal.m_LevelPlacements,
+							[&placement](const SpriteLevelPlacement& existing)
+							{
+								return SameSpriteLevelPlacement(existing, *placement);
+							});
+						if (!duplicate)
+							proposal.m_LevelPlacements.push_back(std::move(*placement));
+					}
 				}
 
 				const bool hasPlacementAsset = std::ranges::any_of(proposal.m_LevelPlacements,
@@ -937,7 +1087,7 @@ namespace Assistant
 			}
 		}
 
-		stream << "- Level design quality rules for create_sprite_level: use existing entity scale as reference, build a playable composition with a start, route, platforms, gaps, landmarks, and decoration when assets exist. Do not create only a flat repeated block grid unless the user explicitly asks for a test grid. Use varied sprite indices and sprite roles; when mixing texture assets, include assetHandle on each placement line. Keep solid ground/support pieces aligned, place props on top of support surfaces, and avoid overlapping the player start.\n";
+		stream << "- Level design quality rules for create_sprite_level: use existing entity scale as reference, build a playable composition with a start, route, platforms, gaps, landmarks, and decoration when assets exist. Do not create only a flat repeated block grid unless the user explicitly asks for a test grid. For normal level requests emit at least 18 placement lines; for detailed/big level requests emit 30-80 placement lines. Every prop, landmark, platform, chest, tree, bush, crate, torch, or decoration mentioned in your summary must have a matching placement line. Use varied sprite indices and sprite roles; when mixing texture assets, include assetHandle on each placement line. Keep solid ground/support pieces aligned, place props on top of support surfaces, and avoid overlapping the player start.\n";
 
 		stream << "\n" << ProviderUtils::BuildWhipScriptingGuide();
 		stream << "\nAnswer as a concise game-engine assistant. When scene or code changes are needed, emit provider-callable tool blocks and then add a short human summary. Prefer one larger proposal over many tiny proposals when the operation is naturally one user action.";
