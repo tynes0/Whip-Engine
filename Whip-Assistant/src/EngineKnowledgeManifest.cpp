@@ -259,8 +259,8 @@ namespace Assistant
 				"Use OnColliderEnter(string tag) and OnColliderExit(string tag) for collision callbacks.",
 				"Use OnUpdate(float ts) and the ts parameter for frame delta time.",
 				"Do not claim a file changed until the editor applies the proposal.",
-				"When changing a script, return one complete whip_script_edit block for the selected script path.",
-				"Script edit block format: ```whip_script_edit, path: <Selected script path>, summary: <short summary>, ---BEGIN CONTENT---, complete C# file, ---END CONTENT---, ```."
+				"When changing a script, return one complete provider-callable whip_tool edit_script block for the selected script path.",
+				"Script edit block format: ```whip_tool, tool: edit_script, path: <Selected script path>, summary: <short summary>, ---BEGIN CONTENT---, complete C# file, ---END CONTENT---, ```."
 			}
 		};
 	}

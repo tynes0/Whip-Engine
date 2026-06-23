@@ -58,7 +58,7 @@ namespace Assistant
 			{
 				result.m_Text = StripToolProposalBlocks(result.m_Text);
 				if (result.m_Text.empty())
-					result.m_Text = "I prepared a script edit proposal for review.";
+					result.m_Text = "I prepared reviewable editor proposal(s).";
 			}
 		}
 		return result;

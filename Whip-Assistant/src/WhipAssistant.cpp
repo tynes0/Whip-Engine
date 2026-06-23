@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <optional>
 #include <sstream>
 #include <string_view>
 #include <utility>
@@ -72,6 +73,320 @@ namespace Assistant
 			else if (value.ends_with('\n') || value.ends_with('\r'))
 				value.erase(value.size() - 1);
 			return value;
+		}
+
+		std::optional<uint64_t> ParseUInt64(std::string_view value)
+		{
+			try
+			{
+				std::string text = TrimCopy(value);
+				if (text.empty())
+					return std::nullopt;
+				size_t parsed = 0;
+				const uint64_t result = std::stoull(text, &parsed, 10);
+				return parsed == text.size() ? std::optional<uint64_t>(result) : std::nullopt;
+			}
+			catch (...)
+			{
+				return std::nullopt;
+			}
+		}
+
+		bool ParseVector3(std::string value, glm::vec3& result)
+		{
+			for (char& character : value)
+			{
+				if (character == ',' || character == ';' || character == '|' || character == '(' || character == ')' || character == '[' || character == ']')
+					character = ' ';
+			}
+
+			std::stringstream stream(value);
+			float x = 0.0f;
+			float y = 0.0f;
+			float z = 0.0f;
+			if (!(stream >> x >> y >> z))
+				return false;
+
+			result = { x, y, z };
+			return true;
+		}
+
+		struct ToolBlockField
+		{
+			std::string m_Key;
+			std::string m_Value;
+		};
+
+		std::vector<ToolBlockField> ParseToolBlockFields(std::string_view header)
+		{
+			std::vector<ToolBlockField> fields;
+			size_t lineStart = 0;
+			while (lineStart < header.size())
+			{
+				size_t lineEnd = header.find('\n', lineStart);
+				if (lineEnd == std::string_view::npos)
+					lineEnd = header.size();
+
+				const std::string line = TrimCopy(header.substr(lineStart, lineEnd - lineStart));
+				const size_t separator = line.find(':');
+				if (separator != std::string::npos)
+				{
+					ToolBlockField field;
+					field.m_Key = LowerCopy(TrimCopy(std::string_view(line).substr(0, separator)));
+					field.m_Value = TrimCopy(std::string_view(line).substr(separator + 1));
+					fields.push_back(std::move(field));
+				}
+
+				lineStart = lineEnd + 1;
+			}
+			return fields;
+		}
+
+		std::string GetToolBlockField(const std::vector<ToolBlockField>& fields, std::initializer_list<std::string_view> names)
+		{
+			for (const ToolBlockField& field : fields)
+			{
+				for (std::string_view name : names)
+				{
+					if (field.m_Key == LowerCopy(std::string(name)))
+						return field.m_Value;
+				}
+			}
+			return {};
+		}
+
+		std::string CanonicalComponentName(std::string value)
+		{
+			const std::string lower = LowerCopy(value);
+			if (lower == "sprite" || lower == "sprite renderer" || lower == "spriterenderer" || lower == "spriterenderercomponent")
+				return "Sprite Renderer";
+			if (lower == "circle" || lower == "circle renderer" || lower == "circlerenderer" || lower == "circlerenderercomponent")
+				return "Circle Renderer";
+			if (lower == "text" || lower == "text renderer" || lower == "textrenderer" || lower == "textcomponent")
+				return "Text Renderer";
+			if (lower == "camera" || lower == "cameracomponent")
+				return "Camera";
+			if (lower == "script" || lower == "scriptcomponent")
+				return "Script";
+			if (lower == "animator" || lower == "animatorcomponent")
+				return "Animator";
+			if (lower == "rigidbody" || lower == "rigidbody2d" || lower == "rigidbody2dcomponent")
+				return "Rigidbody2D";
+			if (lower == "box collider" || lower == "boxcollider" || lower == "boxcollider2d" || lower == "boxcollider2dcomponent")
+				return "BoxCollider2D";
+			if (lower == "circle collider" || lower == "circlecollider" || lower == "circlecollider2d" || lower == "circlecollider2dcomponent")
+				return "CircleCollider2D";
+			if (lower == "audio" || lower == "audiocomponent")
+				return "Audio";
+			return value;
+		}
+
+		std::optional<ToolProposal> ParseGenericToolBlock(const ContextSnapshot& context, std::string_view block)
+		{
+			constexpr std::string_view beginMarker = "---BEGIN CONTENT---";
+			constexpr std::string_view endMarker = "---END CONTENT---";
+
+			const size_t contentBegin = block.find(beginMarker);
+			std::string_view header = contentBegin == std::string_view::npos ? block : block.substr(0, contentBegin);
+			std::string content;
+			if (contentBegin != std::string_view::npos)
+			{
+				const size_t contentStart = contentBegin + beginMarker.size();
+				const size_t contentEnd = block.find(endMarker, contentStart);
+				if (contentEnd == std::string_view::npos)
+					return std::nullopt;
+				content = StripSingleEdgeNewline(std::string(block.substr(contentStart, contentEnd - contentStart)));
+			}
+
+			const std::vector<ToolBlockField> fields = ParseToolBlockFields(header);
+			const std::string toolName = GetToolBlockField(fields, { "tool", "name", "kind" });
+			const ToolDefinition* definition = FindAssistantTool(toolName);
+			if (!definition || !definition->m_ProviderCallable || definition->m_Kind == ToolKind::None)
+				return std::nullopt;
+
+			ToolProposal proposal;
+			proposal.m_Kind = definition->m_Kind;
+			proposal.m_Title = GetToolBlockField(fields, { "title" });
+			proposal.m_Description = GetToolBlockField(fields, { "summary", "description" });
+			if (proposal.m_Title.empty())
+				proposal.m_Title = definition->m_DisplayName;
+			if (proposal.m_Description.empty())
+				proposal.m_Description = definition->m_Description;
+
+			if (const std::optional<uint64_t> targetEntity = ParseUInt64(GetToolBlockField(fields, { "targetentity", "entityid", "target" })))
+				proposal.m_TargetEntity = *targetEntity;
+			else
+				proposal.m_TargetEntity = context.m_SelectedEntity;
+
+			switch (definition->m_Kind)
+			{
+			case ToolKind::CreateEntity:
+			{
+				proposal.m_EntityName = GetToolBlockField(fields, { "entityname", "entity", "name" });
+				if (proposal.m_EntityName.empty())
+					proposal.m_EntityName = "AI Entity";
+				if (proposal.m_Title == definition->m_DisplayName)
+					proposal.m_Title = "Create " + proposal.m_EntityName;
+
+				glm::vec3 vector;
+				if (ParseVector3(GetToolBlockField(fields, { "translation", "position" }), vector))
+				{
+					proposal.m_Translation = vector;
+					proposal.m_HasTransform = true;
+				}
+				if (ParseVector3(GetToolBlockField(fields, { "rotation" }), vector))
+				{
+					proposal.m_Rotation = vector;
+					proposal.m_HasTransform = true;
+				}
+				if (ParseVector3(GetToolBlockField(fields, { "scale" }), vector))
+				{
+					proposal.m_Scale = vector;
+					proposal.m_HasTransform = true;
+				}
+				return proposal;
+			}
+			case ToolKind::AddComponent:
+				proposal.m_ComponentName = CanonicalComponentName(GetToolBlockField(fields, { "componentname", "component", "type" }));
+				if (proposal.m_ComponentName.empty())
+					return std::nullopt;
+				if (proposal.m_Title == definition->m_DisplayName)
+					proposal.m_Title = "Add " + proposal.m_ComponentName;
+				return proposal;
+			case ToolKind::SetTransform:
+			{
+				glm::vec3 translation;
+				glm::vec3 rotation;
+				glm::vec3 scale;
+				if (!ParseVector3(GetToolBlockField(fields, { "translation", "position" }), translation) ||
+					!ParseVector3(GetToolBlockField(fields, { "rotation" }), rotation) ||
+					!ParseVector3(GetToolBlockField(fields, { "scale" }), scale))
+				{
+					return std::nullopt;
+				}
+
+				proposal.m_Translation = translation;
+				proposal.m_Rotation = rotation;
+				proposal.m_Scale = scale;
+				proposal.m_HasTransform = true;
+				return proposal;
+			}
+			case ToolKind::EditScript:
+				proposal.m_ScriptPath = GetToolBlockField(fields, { "path", "scriptpath" });
+				if (proposal.m_ScriptPath.empty())
+					proposal.m_ScriptPath = context.m_SelectedScriptPath;
+				if (proposal.m_ScriptPath.empty() || content.empty())
+					return std::nullopt;
+				proposal.m_ScriptContent = std::move(content);
+				if (proposal.m_Title == definition->m_DisplayName)
+					proposal.m_Title = "Edit " + std::filesystem::path(proposal.m_ScriptPath).filename().string();
+				return proposal;
+			case ToolKind::None:
+			default:
+				return std::nullopt;
+			}
+		}
+
+		std::optional<ToolProposal> ParseLegacyScriptEditBlock(const ContextSnapshot& context, std::string_view block)
+		{
+			constexpr std::string_view beginMarker = "---BEGIN CONTENT---";
+			constexpr std::string_view endMarker = "---END CONTENT---";
+
+			const size_t contentBegin = block.find(beginMarker);
+			if (contentBegin == std::string_view::npos)
+				return std::nullopt;
+
+			const size_t contentStart = contentBegin + beginMarker.size();
+			const size_t contentEnd = block.find(endMarker, contentStart);
+			if (contentEnd == std::string_view::npos)
+				return std::nullopt;
+
+			const std::string header = std::string(block.substr(0, contentBegin));
+			std::string scriptPath = context.m_SelectedScriptPath;
+			std::string summary = "Assistant script edit";
+
+			size_t lineStart = 0;
+			while (lineStart < header.size())
+			{
+				size_t lineEnd = header.find('\n', lineStart);
+				if (lineEnd == std::string::npos)
+					lineEnd = header.size();
+
+				const std::string line = TrimCopy(std::string_view(header).substr(lineStart, lineEnd - lineStart));
+				if (StartsWithNoCase(line, "path:"))
+					scriptPath = TrimCopy(std::string_view(line).substr(5));
+				else if (StartsWithNoCase(line, "summary:"))
+					summary = TrimCopy(std::string_view(line).substr(8));
+
+				lineStart = lineEnd + 1;
+			}
+
+			std::string scriptContent = StripSingleEdgeNewline(std::string(block.substr(contentStart, contentEnd - contentStart)));
+			if (scriptPath.empty() || scriptContent.empty())
+				return std::nullopt;
+
+			ToolProposal proposal;
+			proposal.m_Kind = ToolKind::EditScript;
+			proposal.m_Title = "Edit " + std::filesystem::path(scriptPath).filename().string();
+			proposal.m_Description = summary.empty() ? "Replace selected script source with assistant generated code." : summary;
+			proposal.m_TargetEntity = context.m_SelectedEntity;
+			proposal.m_ScriptPath = std::move(scriptPath);
+			proposal.m_ScriptContent = std::move(scriptContent);
+			return proposal;
+		}
+
+		template<typename Parser>
+		void ParseFencedToolBlocks(std::vector<ToolProposal>& proposals, const ContextSnapshot& context, const std::string& responseText, std::string_view fence, Parser parser)
+		{
+			size_t searchOffset = 0;
+			while (searchOffset < responseText.size())
+			{
+				const size_t fenceStart = responseText.find(fence, searchOffset);
+				if (fenceStart == std::string::npos)
+					break;
+
+				const size_t blockStart = responseText.find('\n', fenceStart + fence.size());
+				if (blockStart == std::string::npos)
+					break;
+
+				const size_t fenceEnd = responseText.find("```", blockStart + 1);
+				if (fenceEnd == std::string::npos)
+					break;
+
+				if (std::optional<ToolProposal> proposal = parser(context, std::string_view(responseText).substr(blockStart + 1, fenceEnd - blockStart - 1)))
+					proposals.push_back(std::move(*proposal));
+
+				searchOffset = fenceEnd + 3;
+			}
+		}
+
+		void StripFencedToolBlocks(std::string& text, std::string_view fence)
+		{
+			size_t copyOffset = 0;
+			std::string result;
+
+			while (copyOffset < text.size())
+			{
+				const size_t fenceStart = text.find(fence, copyOffset);
+				if (fenceStart == std::string::npos)
+				{
+					result.append(text.substr(copyOffset));
+					break;
+				}
+
+				result.append(text.substr(copyOffset, fenceStart - copyOffset));
+				const size_t blockStart = text.find('\n', fenceStart + fence.size());
+				if (blockStart == std::string::npos)
+					break;
+
+				const size_t fenceEnd = text.find("```", blockStart + 1);
+				if (fenceEnd == std::string::npos)
+					break;
+
+				copyOffset = fenceEnd + 3;
+			}
+
+			text = std::move(result);
 		}
 
 		std::string PickEntityName(const std::string& prompt)
@@ -256,101 +571,17 @@ namespace Assistant
 	std::vector<ToolProposal> ParseToolProposals(const ContextSnapshot& context, const std::string& responseText)
 	{
 		std::vector<ToolProposal> proposals;
-		constexpr std::string_view fence = "```whip_script_edit";
-		constexpr std::string_view beginMarker = "---BEGIN CONTENT---";
-		constexpr std::string_view endMarker = "---END CONTENT---";
-
-		size_t searchOffset = 0;
-		while (searchOffset < responseText.size())
-		{
-			const size_t fenceStart = responseText.find(fence, searchOffset);
-			if (fenceStart == std::string::npos)
-				break;
-
-			const size_t blockStart = responseText.find('\n', fenceStart + fence.size());
-			if (blockStart == std::string::npos)
-				break;
-
-			const size_t fenceEnd = responseText.find("```", blockStart + 1);
-			if (fenceEnd == std::string::npos)
-				break;
-
-			const std::string block = responseText.substr(blockStart + 1, fenceEnd - blockStart - 1);
-			searchOffset = fenceEnd + 3;
-
-			const size_t contentBegin = block.find(beginMarker);
-			if (contentBegin == std::string::npos)
-				continue;
-
-			const size_t contentStart = contentBegin + beginMarker.size();
-			const size_t contentEnd = block.find(endMarker, contentStart);
-			if (contentEnd == std::string::npos)
-				continue;
-
-			const std::string header = block.substr(0, contentBegin);
-			std::string scriptPath = context.m_SelectedScriptPath;
-			std::string summary = "Assistant script edit";
-
-			size_t lineStart = 0;
-			while (lineStart < header.size())
-			{
-				size_t lineEnd = header.find('\n', lineStart);
-				if (lineEnd == std::string::npos)
-					lineEnd = header.size();
-
-				const std::string line = TrimCopy(std::string_view(header).substr(lineStart, lineEnd - lineStart));
-				if (StartsWithNoCase(line, "path:"))
-					scriptPath = TrimCopy(std::string_view(line).substr(5));
-				else if (StartsWithNoCase(line, "summary:"))
-					summary = TrimCopy(std::string_view(line).substr(8));
-
-				lineStart = lineEnd + 1;
-			}
-
-			std::string scriptContent = StripSingleEdgeNewline(block.substr(contentStart, contentEnd - contentStart));
-			if (scriptPath.empty() || scriptContent.empty())
-				continue;
-
-			ToolProposal proposal;
-			proposal.m_Kind = ToolKind::EditScript;
-			proposal.m_Title = "Edit " + std::filesystem::path(scriptPath).filename().string();
-			proposal.m_Description = summary.empty() ? "Replace selected script source with assistant generated code." : summary;
-			proposal.m_TargetEntity = context.m_SelectedEntity;
-			proposal.m_ScriptPath = std::move(scriptPath);
-			proposal.m_ScriptContent = std::move(scriptContent);
-			proposals.push_back(std::move(proposal));
-		}
+		ParseFencedToolBlocks(proposals, context, responseText, "```whip_tool", ParseGenericToolBlock);
+		ParseFencedToolBlocks(proposals, context, responseText, "```whip_script_edit", ParseLegacyScriptEditBlock);
 
 		return proposals;
 	}
 
 	std::string StripToolProposalBlocks(const std::string& responseText)
 	{
-		constexpr std::string_view fence = "```whip_script_edit";
-		std::string result;
-		size_t copyOffset = 0;
-
-		while (copyOffset < responseText.size())
-		{
-			const size_t fenceStart = responseText.find(fence, copyOffset);
-			if (fenceStart == std::string::npos)
-			{
-				result.append(responseText.substr(copyOffset));
-				break;
-			}
-
-			result.append(responseText.substr(copyOffset, fenceStart - copyOffset));
-			const size_t blockStart = responseText.find('\n', fenceStart + fence.size());
-			if (blockStart == std::string::npos)
-				break;
-
-			const size_t fenceEnd = responseText.find("```", blockStart + 1);
-			if (fenceEnd == std::string::npos)
-				break;
-
-			copyOffset = fenceEnd + 3;
-		}
-
+		std::string result = responseText;
+		StripFencedToolBlocks(result, "```whip_tool");
+		StripFencedToolBlocks(result, "```whip_script_edit");
 		return TrimCopy(result);
 	}
 
