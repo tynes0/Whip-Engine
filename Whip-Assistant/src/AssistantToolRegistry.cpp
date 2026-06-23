@@ -57,6 +57,7 @@ namespace Assistant
 			case ToolKind::AddComponent: return "addComponent";
 			case ToolKind::SetTransform: return "setTransform";
 			case ToolKind::EditComponent: return "editComponent";
+			case ToolKind::AssetOperation: return "assetOperation";
 			case ToolKind::EditScript: return "editScript";
 			case ToolKind::None:
 			default: return "none";
@@ -154,13 +155,24 @@ namespace Assistant
 				.m_ProviderCallable = false
 			},
 			{
-				.m_Kind = ToolKind::None,
+				.m_Kind = ToolKind::AssetOperation,
 				.m_Name = "asset_operation",
 				.m_DisplayName = "Asset Operation",
-				.m_Status = "planned",
-				.m_Description = "Will import, create, find, slice, edit, or delete project assets.",
-				.m_ResponseFormat = "Not callable yet.",
-				.m_ProviderCallable = false
+				.m_Status = "available",
+				.m_Description = "Assigns an existing project asset to a safe component asset field.",
+				.m_ResponseFormat = "Return a ```whip_tool block with tool: asset_operation, operation: assign_asset, componentName, field, and assetHandle or assetPath. Optional spriteIndex or spriteName selects a texture sprite.",
+				.m_ProviderCallable = true,
+				.m_Fields =
+				{
+					{ "operation", "string", true, "Currently assign_asset." },
+					{ "targetEntity", "EntityId", false, "Selected entity id when available." },
+					{ "componentName", "string", true, "Sprite Renderer, Text Renderer, Animator, or Audio." },
+					{ "field", "string", true, "Texture, Font, Controller, or Audio." },
+					{ "assetHandle", "uint64", false, "Preferred exact asset handle from context." },
+					{ "assetPath", "project-relative path", false, "Fallback project asset path from context." },
+					{ "spriteIndex", "int", false, "Texture sprite index; omit or set -1 for full texture." },
+					{ "spriteName", "string", false, "Texture sprite name fallback." }
+				}
 			},
 			{
 				.m_Kind = ToolKind::None,

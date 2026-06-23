@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Whip/Core/Core.h>
+#include <Whip/Asset/Asset.h>
 
 #include <glm/vec3.hpp>
 
@@ -26,6 +27,7 @@ namespace Assistant
 		AddComponent,
 		SetTransform,
 		EditComponent,
+		AssetOperation,
 		EditScript
 	};
 
@@ -57,6 +59,15 @@ namespace Assistant
 
 	struct ContextSnapshot
 	{
+		struct AssetSummary
+		{
+			uint64_t m_Handle = 0;
+			AssetType m_Type = AssetType::None;
+			std::string m_Path;
+			std::string m_Name;
+			std::vector<std::string> m_Sprites;
+		};
+
 		bool m_HasProject = false;
 		std::string m_ProjectName;
 		bool m_HasScene = false;
@@ -71,6 +82,7 @@ namespace Assistant
 		std::string m_SelectedScriptPath;
 		std::string m_SelectedScriptSource;
 		std::vector<std::string> m_RecentConsole;
+		std::vector<AssetSummary> m_ProjectAssets;
 	};
 
 	struct ComponentFieldEdit
@@ -92,6 +104,14 @@ namespace Assistant
 		glm::vec3 m_Scale = { 1.0f, 1.0f, 1.0f };
 		bool m_HasTransform = false;
 		std::vector<ComponentFieldEdit> m_ComponentFields;
+		std::string m_AssetOperation;
+		uint64_t m_AssetHandle = 0;
+		AssetType m_AssetType = AssetType::None;
+		std::string m_AssetPath;
+		std::string m_AssetName;
+		std::string m_AssetField;
+		std::string m_AssetSubresource;
+		int32_t m_AssetSubresourceIndex = -1;
 		std::string m_ScriptPath;
 		std::string m_ScriptContent;
 	};

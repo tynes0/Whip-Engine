@@ -28,6 +28,18 @@ namespace Assistant
 			return value;
 		}
 
+		std::string NormalizeName(std::string_view value)
+		{
+			std::string result;
+			result.reserve(value.size());
+			for (const unsigned char character : value)
+			{
+				if (std::isalnum(character))
+					result += static_cast<char>(std::tolower(character));
+			}
+			return result;
+		}
+
 		bool Contains(std::string_view haystack, std::string_view needle)
 		{
 			return haystack.find(needle) != std::string_view::npos;
@@ -90,6 +102,59 @@ namespace Assistant
 			{
 				return std::nullopt;
 			}
+		}
+
+		std::optional<int32_t> ParseInt32(std::string_view value)
+		{
+			try
+			{
+				std::string text = TrimCopy(value);
+				if (text.empty())
+					return std::nullopt;
+				size_t parsed = 0;
+				const int result = std::stoi(text, &parsed, 10);
+				return parsed == text.size() ? std::optional<int32_t>(static_cast<int32_t>(result)) : std::nullopt;
+			}
+			catch (...)
+			{
+				return std::nullopt;
+			}
+		}
+
+		const char* AssetTypeName(AssetType type)
+		{
+			switch (type)
+			{
+			case AssetType::Scene: return "Scene";
+			case AssetType::Texture2D: return "Texture2D";
+			case AssetType::Audio: return "Audio";
+			case AssetType::Font: return "Font";
+			case AssetType::Animation: return "Animation";
+			case AssetType::AnimationController: return "AnimationController";
+			case AssetType::Entity: return "Entity";
+			case AssetType::None:
+			default: return "None";
+			}
+		}
+
+		AssetType ParseAssetType(std::string value)
+		{
+			const std::string lower = LowerCopy(std::move(value));
+			if (lower == "scene")
+				return AssetType::Scene;
+			if (lower == "texture" || lower == "texture2d" || lower == "sprite")
+				return AssetType::Texture2D;
+			if (lower == "audio" || lower == "sound")
+				return AssetType::Audio;
+			if (lower == "font")
+				return AssetType::Font;
+			if (lower == "animation")
+				return AssetType::Animation;
+			if (lower == "animationcontroller" || lower == "controller")
+				return AssetType::AnimationController;
+			if (lower == "entity" || lower == "entitytemplate" || lower == "prefab")
+				return AssetType::Entity;
+			return AssetType::None;
 		}
 
 		bool ParseVector3(std::string value, glm::vec3& result)
@@ -300,6 +365,34 @@ namespace Assistant
 					return std::nullopt;
 				if (proposal.m_Title == definition->m_DisplayName)
 					proposal.m_Title = "Edit " + proposal.m_ComponentName;
+				return proposal;
+			}
+			case ToolKind::AssetOperation:
+			{
+				const std::string operation = NormalizeName(GetToolBlockField(fields, { "operation", "assetoperation" }));
+				if (!operation.empty() && operation != "assignasset" && operation != "assign")
+					return std::nullopt;
+				proposal.m_AssetOperation = "assign_asset";
+
+				proposal.m_ComponentName = CanonicalComponentName(GetToolBlockField(fields, { "componentname", "component", "type" }));
+				proposal.m_AssetField = GetToolBlockField(fields, { "field", "assetfield", "property", "propertyname" });
+				proposal.m_AssetPath = GetToolBlockField(fields, { "assetpath", "path" });
+				proposal.m_AssetName = GetToolBlockField(fields, { "assetname", "name" });
+				proposal.m_AssetSubresource = GetToolBlockField(fields, { "spritename", "subresource", "subresourcename" });
+				proposal.m_AssetType = ParseAssetType(GetToolBlockField(fields, { "assettype", "typehint" }));
+
+				if (const std::optional<uint64_t> assetHandle = ParseUInt64(GetToolBlockField(fields, { "assethandle", "handle", "assetid" })))
+					proposal.m_AssetHandle = *assetHandle;
+				if (const std::optional<int32_t> spriteIndex = ParseInt32(GetToolBlockField(fields, { "spriteindex", "subresourceindex" })))
+					proposal.m_AssetSubresourceIndex = *spriteIndex;
+
+				if (proposal.m_ComponentName.empty() || proposal.m_AssetField.empty() ||
+					(proposal.m_AssetHandle == 0 && proposal.m_AssetPath.empty() && proposal.m_AssetName.empty()))
+				{
+					return std::nullopt;
+				}
+				if (proposal.m_Title == definition->m_DisplayName)
+					proposal.m_Title = "Assign asset to " + proposal.m_ComponentName;
 				return proposal;
 			}
 			case ToolKind::EditScript:
@@ -547,6 +640,24 @@ namespace Assistant
 			stream << "- Recent console:\n";
 			for (const std::string& line : context.m_RecentConsole)
 				stream << "  " << line << '\n';
+		}
+
+		if (!context.m_ProjectAssets.empty())
+		{
+			stream << "- Project assets available for asset_operation. Prefer assetHandle over name/path when emitting a tool block:\n";
+			for (const ContextSnapshot::AssetSummary& asset : context.m_ProjectAssets)
+			{
+				stream << "  - handle: " << asset.m_Handle << ", type: " << AssetTypeName(asset.m_Type) << ", path: " << asset.m_Path;
+				if (!asset.m_Name.empty())
+					stream << ", name: " << asset.m_Name;
+				if (!asset.m_Sprites.empty())
+				{
+					stream << ", sprites:";
+					for (size_t i = 0; i < asset.m_Sprites.size(); ++i)
+						stream << " [" << i << "] " << asset.m_Sprites[i];
+				}
+				stream << '\n';
+			}
 		}
 
 		stream << "\n" << ProviderUtils::BuildWhipScriptingGuide();

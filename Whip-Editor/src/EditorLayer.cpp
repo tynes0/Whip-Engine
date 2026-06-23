@@ -20,6 +20,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -482,6 +483,238 @@ namespace
 			return ApplyBoxCollider2DField(target.GetComponent<BoxCollider2DComponent>(), edit);
 		if (component == "circlecollider2d" && target.HasComponent<CircleCollider2DComponent>())
 			return ApplyCircleCollider2DField(target.GetComponent<CircleCollider2DComponent>(), edit);
+		return false;
+	}
+
+	bool IsAssistantVisibleAssetType(AssetType type)
+	{
+		switch (type)
+		{
+		case AssetType::Texture2D:
+		case AssetType::Audio:
+		case AssetType::Font:
+		case AssetType::Animation:
+		case AssetType::AnimationController:
+		case AssetType::Scene:
+		case AssetType::Entity:
+			return true;
+		case AssetType::None:
+		default:
+			return false;
+		}
+	}
+
+	void AppendAssistantAssetContext(const Ref<Project>& activeProject, Assistant::ContextSnapshot& context)
+	{
+		if (!activeProject || !activeProject->GetEditorAssetManager())
+			return;
+
+		constexpr size_t MaxAssets = 80;
+		constexpr size_t MaxSpritesPerTexture = 12;
+		std::vector<Assistant::ContextSnapshot::AssetSummary> assets;
+		activeProject->GetEditorAssetManager()->GetAssetRegistry().Foreach(
+			[&assets](const AssetRegistry::ValueType& value)
+			{
+				const AssetHandle handle = value.first;
+				const AssetMetadata& metadata = value.second;
+				if (!IsAssistantVisibleAssetType(metadata.m_Type))
+					return;
+
+				Assistant::ContextSnapshot::AssetSummary summary;
+				summary.m_Handle = static_cast<uint64_t>(handle);
+				summary.m_Type = metadata.m_Type;
+				summary.m_Path = metadata.m_Filepath.generic_string();
+				summary.m_Name = metadata.m_Filepath.filename().string();
+
+				if (metadata.m_Type == AssetType::Texture2D)
+				{
+					const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
+					for (size_t i = 0; i < sprites.size() && i < MaxSpritesPerTexture; ++i)
+						summary.m_Sprites.push_back(sprites[i].m_Name);
+				}
+
+				assets.push_back(std::move(summary));
+			});
+
+		std::ranges::sort(assets, [](const auto& left, const auto& right)
+		{
+			if (left.m_Type != right.m_Type)
+				return static_cast<uint8_t>(left.m_Type) < static_cast<uint8_t>(right.m_Type);
+			return left.m_Path < right.m_Path;
+		});
+
+		if (assets.size() > MaxAssets)
+			assets.resize(MaxAssets);
+		context.m_ProjectAssets = std::move(assets);
+	}
+
+	AssetType ExpectedAssistantAssetType(const std::string& componentName, const std::string& fieldName)
+	{
+		const std::string component = NormalizeAssistantName(componentName);
+		const std::string field = NormalizeAssistantName(fieldName);
+		if (component == "spriterenderer" && (field == "texture" || field == "sprite" || field == "image"))
+			return AssetType::Texture2D;
+		if ((component == "textrenderer" || component == "text") && field == "font")
+			return AssetType::Font;
+		if (component == "animator" && (field == "controller" || field == "animationcontroller"))
+			return AssetType::AnimationController;
+		if (component == "audio" && (field == "audio" || field == "audiofile" || field == "clip"))
+			return AssetType::Audio;
+		return AssetType::None;
+	}
+
+	bool ResolveAssistantAssetHandle(const Assistant::ToolProposal& proposal, AssetType expectedType, AssetHandle& outHandle)
+	{
+		Ref<Project> activeProject = Project::GetActive();
+		if (!activeProject || !activeProject->GetEditorAssetManager())
+			return false;
+
+		EditorAssetManager& assetManager = *activeProject->GetEditorAssetManager();
+		const AssetType acceptedType = expectedType != AssetType::None ? expectedType : proposal.m_AssetType;
+
+		if (proposal.m_AssetHandle != 0)
+		{
+			const AssetHandle handle = AssetHandle(proposal.m_AssetHandle);
+			if (assetManager.IsAssetHandleValid(handle) && (acceptedType == AssetType::None || assetManager.GetAssetType(handle) == acceptedType))
+			{
+				outHandle = handle;
+				return true;
+			}
+		}
+
+		const std::string pathNeedle = LowerCopy(proposal.m_AssetPath);
+		const std::string nameNeedle = LowerCopy(proposal.m_AssetName);
+		if (pathNeedle.empty() && nameNeedle.empty())
+			return false;
+
+		struct Candidate
+		{
+			AssetHandle m_Handle = 0;
+			int m_Score = 0;
+		};
+		Candidate best;
+		const auto consider = [&](const AssetRegistry::ValueType& value)
+		{
+			const AssetHandle handle = value.first;
+			const AssetMetadata& metadata = value.second;
+			if (acceptedType != AssetType::None && metadata.m_Type != acceptedType)
+				return;
+
+			const std::string path = LowerCopy(metadata.m_Filepath.generic_string());
+			const std::string filename = LowerCopy(metadata.m_Filepath.filename().string());
+			const std::string stem = LowerCopy(metadata.m_Filepath.stem().string());
+			int score = 0;
+			if (!pathNeedle.empty())
+			{
+				if (path == pathNeedle)
+					score = std::max(score, 100);
+				else if (filename == pathNeedle)
+					score = std::max(score, 90);
+				else if (path.find(pathNeedle) != std::string::npos)
+					score = std::max(score, 60);
+			}
+			if (!nameNeedle.empty())
+			{
+				if (filename == nameNeedle)
+					score = std::max(score, 95);
+				else if (stem == nameNeedle)
+					score = std::max(score, 85);
+				else if (filename.find(nameNeedle) != std::string::npos || stem.find(nameNeedle) != std::string::npos)
+					score = std::max(score, 50);
+			}
+
+			if (score > best.m_Score)
+				best = { handle, score };
+		};
+
+		if (acceptedType != AssetType::None)
+			assetManager.GetAssetRegistry().Foreach(acceptedType, consider);
+		else
+			assetManager.GetAssetRegistry().Foreach(consider);
+
+		if (best.m_Handle == 0)
+			return false;
+		outHandle = best.m_Handle;
+		return true;
+	}
+
+	int32_t ResolveAssistantTextureSpriteIndex(AssetHandle textureHandle, const Assistant::ToolProposal& proposal)
+	{
+		if (!AssetManager::IsAssetHandleValid(textureHandle) || AssetManager::GetAssetType(textureHandle) != AssetType::Texture2D)
+			return -1;
+
+		const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(textureHandle);
+		const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
+		if (proposal.m_AssetSubresourceIndex >= 0 && std::cmp_less(proposal.m_AssetSubresourceIndex, sprites.size()))
+			return proposal.m_AssetSubresourceIndex;
+		if (proposal.m_AssetSubresource.empty())
+			return -1;
+
+		const std::string needle = NormalizeAssistantName(proposal.m_AssetSubresource);
+		for (int32_t spriteIndex = 0; std::cmp_less(spriteIndex, sprites.size()); ++spriteIndex)
+		{
+			if (NormalizeAssistantName(sprites[static_cast<size_t>(spriteIndex)].m_Name) == needle)
+				return spriteIndex;
+		}
+		return -1;
+	}
+
+	bool ApplyAssistantAssetOperation(Entity target, const Assistant::ToolProposal& proposal)
+	{
+		if (!target)
+			return false;
+
+		const AssetType expectedType = ExpectedAssistantAssetType(proposal.m_ComponentName, proposal.m_AssetField);
+		if (expectedType == AssetType::None)
+			return false;
+
+		AssetHandle assetHandle = 0;
+		if (!ResolveAssistantAssetHandle(proposal, expectedType, assetHandle))
+			return false;
+
+		const std::string component = NormalizeAssistantName(proposal.m_ComponentName);
+		if (component == "spriterenderer" && target.HasComponent<SpriteRendererComponent>())
+		{
+			SpriteRendererComponent& sprite = target.GetComponent<SpriteRendererComponent>();
+			sprite.m_Texture = assetHandle;
+			sprite.m_TextureSpriteIndex = ResolveAssistantTextureSpriteIndex(assetHandle, proposal);
+			return true;
+		}
+		if ((component == "textrenderer" || component == "text") && target.HasComponent<TextComponent>())
+		{
+			target.GetComponent<TextComponent>().m_Font = assetHandle;
+			return true;
+		}
+		if (component == "animator" && target.HasComponent<AnimatorComponent>())
+		{
+			target.GetComponent<AnimatorComponent>().m_Controller = assetHandle;
+			return true;
+		}
+		if (component == "audio" && target.HasComponent<AudioComponent>())
+		{
+			AudioComponent& audio = target.GetComponent<AudioComponent>();
+			if (audio.m_AudioDatas.empty())
+			{
+				AudioComponent::AudioData data;
+				data.m_Tag = audio.m_UniqueNameManager.AddName(AudioComponent::AudioData::DefaultTag);
+				data.m_ID = UUID32{};
+				audio.m_AudioDatas.push_back(data);
+				audio.m_SelectedAudioIndex = 0;
+			}
+			if (audio.m_SelectedAudioIndex == npos<size_t> || audio.m_SelectedAudioIndex >= audio.m_AudioDatas.size())
+				audio.m_SelectedAudioIndex = 0;
+
+			AudioComponent::AudioData& data = audio.m_AudioDatas[audio.m_SelectedAudioIndex];
+			data.m_Audio = assetHandle;
+			if (Ref<AudioSource> audioAsset = AssetManager::GetAsset<AudioSource>(assetHandle))
+			{
+				data.m_FullClipLength = audioAsset->GetLength();
+				data.m_ClipStart = 0.0f;
+				data.m_ClipEnd = data.m_FullClipLength;
+			}
+			return true;
+		}
+
 		return false;
 	}
 
@@ -1389,6 +1622,7 @@ Assistant::ContextSnapshot EditorLayer::BuildAssistantContextSnapshot() const
 	{
 		context.m_HasProject = true;
 		context.m_ProjectName = activeProject->GetConfig().m_Name;
+		AppendAssistantAssetContext(activeProject, context);
 	}
 
 	if (m_SceneManager.EditorScene())
@@ -1585,6 +1819,20 @@ bool EditorLayer::ApplyAssistantProposal(const Assistant::ToolProposal& proposal
 			changed |= ApplyAssistantComponentField(target, proposal.m_ComponentName, edit);
 
 		if (!changed)
+			return false;
+
+		m_SceneHierarchyPanel.SetSelectedEntity(target);
+		m_SceneManager.MarkDirty();
+		return true;
+	}
+	case Assistant::ToolKind::AssetOperation:
+	{
+		Entity target = findTarget();
+		if (!target || proposal.m_AssetOperation != "assign_asset")
+			return false;
+
+		m_HistoryManager.CaptureSceneHistory();
+		if (!ApplyAssistantAssetOperation(target, proposal))
 			return false;
 
 		m_SceneHierarchyPanel.SetSelectedEntity(target);
