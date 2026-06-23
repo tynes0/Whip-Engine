@@ -510,7 +510,7 @@ namespace
 			return;
 
 		constexpr size_t MaxAssets = 80;
-		constexpr size_t MaxSpritesPerTexture = 12;
+		constexpr size_t MaxSpritesPerTexture = 64;
 		std::vector<Assistant::ContextSnapshot::AssetSummary> assets;
 		activeProject->GetEditorAssetManager()->GetAssetRegistry().Foreach(
 			[&assets](const AssetRegistry::ValueType& value)
@@ -529,6 +529,7 @@ namespace
 				if (metadata.m_Type == AssetType::Texture2D)
 				{
 					const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
+					summary.m_SpriteCount = sprites.size();
 					for (size_t i = 0; i < sprites.size() && i < MaxSpritesPerTexture; ++i)
 						summary.m_Sprites.push_back(sprites[i].m_Name);
 				}
@@ -716,6 +717,104 @@ namespace
 		}
 
 		return false;
+	}
+
+	int32_t ResolveAssistantSpriteLevelPlacementIndex(AssetHandle textureHandle, const Assistant::SpriteLevelPlacement& placement)
+	{
+		if (!AssetManager::IsAssetHandleValid(textureHandle) || AssetManager::GetAssetType(textureHandle) != AssetType::Texture2D)
+			return -1;
+
+		const Ref<Project> activeProject = Project::GetActive();
+		if (!activeProject || !activeProject->GetEditorAssetManager())
+			return -1;
+
+		const AssetMetadata& metadata = activeProject->GetEditorAssetManager()->GetMetadata(textureHandle);
+		const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
+		if (placement.m_SpriteIndex >= 0 && std::cmp_less(placement.m_SpriteIndex, sprites.size()))
+			return placement.m_SpriteIndex;
+		if (placement.m_SpriteName.empty())
+			return -1;
+
+		const std::string needle = NormalizeAssistantName(placement.m_SpriteName);
+		for (int32_t spriteIndex = 0; std::cmp_less(spriteIndex, sprites.size()); ++spriteIndex)
+		{
+			if (NormalizeAssistantName(sprites[static_cast<size_t>(spriteIndex)].m_Name) == needle)
+				return spriteIndex;
+		}
+		return -1;
+	}
+
+	glm::vec3 ComputeAssistantSpriteLevelScale(AssetHandle textureHandle, int32_t spriteIndex, const Assistant::SpriteLevelPlacement& placement)
+	{
+		if (placement.m_HasScale)
+			return { glm::max(placement.m_Scale.x, 0.01f), glm::max(placement.m_Scale.y, 0.01f), placement.m_Scale.z == 0.0f ? 1.0f : placement.m_Scale.z };
+
+		const Ref<Project> activeProject = Project::GetActive();
+		if (!activeProject || !activeProject->GetEditorAssetManager())
+			return { 1.0f, 1.0f, 1.0f };
+
+		const AssetMetadata& metadata = activeProject->GetEditorAssetManager()->GetMetadata(textureHandle);
+		const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
+		const bool validSpriteIndex = spriteIndex >= 0 && std::cmp_less(spriteIndex, sprites.size());
+		const TextureSpriteRect* spriteRect = validSpriteIndex ? &sprites[static_cast<size_t>(spriteIndex)] : nullptr;
+		const Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(textureHandle);
+		if (!texture || !texture->IsLoaded())
+			return { 1.0f, 1.0f, 1.0f };
+
+		const float pixelsPerUnit = metadata.m_TextureSettings.m_PixelsPerUnit > 0.0f ? metadata.m_TextureSettings.m_PixelsPerUnit : 100.0f;
+		const float spriteWidth = spriteRect ? static_cast<float>(spriteRect->m_Width) : static_cast<float>(texture->GetWidth());
+		const float spriteHeight = spriteRect ? static_cast<float>(spriteRect->m_Height) : static_cast<float>(texture->GetHeight());
+		return {
+			glm::max(spriteWidth / pixelsPerUnit, 0.1f),
+			glm::max(spriteHeight / pixelsPerUnit, 0.1f),
+			1.0f
+		};
+	}
+
+	bool ApplyAssistantSpriteLevel(const Assistant::ToolProposal& proposal, const Ref<Scene>& scene, Entity& outLastCreated)
+	{
+		if (!scene || proposal.m_LevelPlacements.empty())
+			return false;
+
+		AssetHandle textureHandle = 0;
+		if (!ResolveAssistantAssetHandle(proposal, AssetType::Texture2D, textureHandle))
+			return false;
+
+		const Ref<Project> activeProject = Project::GetActive();
+		if (!activeProject || !activeProject->GetEditorAssetManager())
+			return false;
+
+		const AssetMetadata& metadata = activeProject->GetEditorAssetManager()->GetMetadata(textureHandle);
+		const std::vector<TextureSpriteRect>& sprites = metadata.m_TextureSettings.m_Sprites;
+		size_t createdCount = 0;
+		for (const Assistant::SpriteLevelPlacement& placement : proposal.m_LevelPlacements)
+		{
+			const int32_t spriteIndex = ResolveAssistantSpriteLevelPlacementIndex(textureHandle, placement);
+			const bool validSpriteIndex = spriteIndex >= 0 && std::cmp_less(spriteIndex, sprites.size());
+			const TextureSpriteRect* spriteRect = validSpriteIndex ? &sprites[static_cast<size_t>(spriteIndex)] : nullptr;
+
+			std::string entityName = placement.m_EntityName;
+			if (entityName.empty())
+				entityName = spriteRect ? spriteRect->m_Name : (metadata.m_Filepath.stem().empty() ? "Level Sprite" : metadata.m_Filepath.stem().string());
+
+			Entity entity = scene->CreateEntity(entityName);
+			TransformComponent& transform = entity.GetComponent<TransformComponent>();
+			transform.m_Translation = placement.m_Translation;
+			transform.m_Scale = ComputeAssistantSpriteLevelScale(textureHandle, spriteIndex, placement);
+			transform.m_Rotation.z = std::abs(placement.m_RotationZ) > 6.28318530718f ? placement.m_RotationZ * 0.017453292519943295f : placement.m_RotationZ;
+
+			SpriteRendererComponent& spriteRenderer = entity.AddComponent<SpriteRendererComponent>();
+			spriteRenderer.m_Texture = textureHandle;
+			spriteRenderer.m_TextureSpriteIndex = validSpriteIndex ? spriteIndex : -1;
+			spriteRenderer.m_Color = glm::vec4(1.0f);
+
+			outLastCreated = entity;
+			++createdCount;
+		}
+
+		if (createdCount > 0)
+			WHP_EDITOR_INFO("[Whip Assistant] Created " + std::to_string(createdCount) + " sprite level entities from " + metadata.m_Filepath.generic_string());
+		return createdCount > 0;
 	}
 
 	std::string EditorActionShortcutId(UI::EditorShortcutAction action)
@@ -1836,6 +1935,18 @@ bool EditorLayer::ApplyAssistantProposal(const Assistant::ToolProposal& proposal
 			return false;
 
 		m_SceneHierarchyPanel.SetSelectedEntity(target);
+		m_SceneManager.MarkDirty();
+		return true;
+	}
+	case Assistant::ToolKind::CreateSpriteLevel:
+	{
+		Entity lastCreated;
+		m_HistoryManager.CaptureSceneHistory();
+		if (!ApplyAssistantSpriteLevel(proposal, m_SceneManager.EditorScene(), lastCreated))
+			return false;
+
+		if (lastCreated)
+			m_SceneHierarchyPanel.SetSelectedEntity(lastCreated);
 		m_SceneManager.MarkDirty();
 		return true;
 	}

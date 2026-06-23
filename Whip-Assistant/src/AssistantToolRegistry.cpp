@@ -58,6 +58,7 @@ namespace Assistant
 			case ToolKind::SetTransform: return "setTransform";
 			case ToolKind::EditComponent: return "editComponent";
 			case ToolKind::AssetOperation: return "assetOperation";
+			case ToolKind::CreateSpriteLevel: return "createSpriteLevel";
 			case ToolKind::EditScript: return "editScript";
 			case ToolKind::None:
 			default: return "none";
@@ -172,6 +173,21 @@ namespace Assistant
 					{ "assetPath", "project-relative path", false, "Fallback project asset path from context." },
 					{ "spriteIndex", "int", false, "Texture sprite index; omit or set -1 for full texture." },
 					{ "spriteName", "string", false, "Texture sprite name fallback." }
+				}
+			},
+			{
+				.m_Kind = ToolKind::CreateSpriteLevel,
+				.m_Name = "create_sprite_level",
+				.m_DisplayName = "Create Sprite Level",
+				.m_Status = "available",
+				.m_Description = "Creates multiple sprite entities in the active edit scene from an existing spritesheet texture.",
+				.m_ResponseFormat = "Return a ```whip_tool block with tool: create_sprite_level, assetHandle or assetPath, and repeated placement lines. Example placement: name=Grass 01; spriteIndex=0; position=0,0,0; scale=1,1,1.",
+				.m_ProviderCallable = true,
+				.m_Fields =
+				{
+					{ "assetHandle", "uint64", false, "Preferred Texture2D spritesheet handle from context." },
+					{ "assetPath", "project-relative path", false, "Fallback Texture2D spritesheet path from context." },
+					{ "placement", "semicolon-separated fields", true, "Repeat for every created entity. Keys: name, spriteIndex or spriteName, position, optional scale, optional rotationZ." }
 				}
 			},
 			{

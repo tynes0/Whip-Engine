@@ -121,6 +121,23 @@ namespace Assistant
 			}
 		}
 
+		std::optional<float> ParseFloat(std::string_view value)
+		{
+			try
+			{
+				std::string text = TrimCopy(value);
+				if (text.empty())
+					return std::nullopt;
+				size_t parsed = 0;
+				const float result = std::stof(text, &parsed);
+				return parsed == text.size() ? std::optional<float>(result) : std::nullopt;
+			}
+			catch (...)
+			{
+				return std::nullopt;
+			}
+		}
+
 		const char* AssetTypeName(AssetType type)
 		{
 			switch (type)
@@ -176,6 +193,27 @@ namespace Assistant
 			return true;
 		}
 
+		bool ParseFlexibleVector3(std::string value, glm::vec3& result)
+		{
+			for (char& character : value)
+			{
+				if (character == ',' || character == ';' || character == '|' || character == '(' || character == ')' || character == '[' || character == ']')
+					character = ' ';
+			}
+
+			std::stringstream stream(value);
+			float x = 0.0f;
+			float y = 0.0f;
+			float z = 0.0f;
+			if (!(stream >> x >> y))
+				return false;
+			if (!(stream >> z))
+				z = 0.0f;
+
+			result = { x, y, z };
+			return true;
+		}
+
 		struct ToolBlockField
 		{
 			std::string m_Key;
@@ -218,6 +256,68 @@ namespace Assistant
 				}
 			}
 			return {};
+		}
+
+		std::vector<ToolBlockField> ParseInlineFields(std::string_view value)
+		{
+			std::vector<ToolBlockField> fields;
+			size_t partStart = 0;
+			while (partStart < value.size())
+			{
+				size_t partEnd = value.find(';', partStart);
+				if (partEnd == std::string_view::npos)
+					partEnd = value.size();
+
+				const std::string part = TrimCopy(value.substr(partStart, partEnd - partStart));
+				size_t separator = part.find('=');
+				if (separator == std::string::npos)
+					separator = part.find(':');
+				if (separator != std::string::npos)
+				{
+					ToolBlockField field;
+					field.m_Key = NormalizeName(TrimCopy(std::string_view(part).substr(0, separator)));
+					field.m_Value = TrimCopy(std::string_view(part).substr(separator + 1));
+					fields.push_back(std::move(field));
+				}
+
+				partStart = partEnd + 1;
+			}
+			return fields;
+		}
+
+		std::optional<SpriteLevelPlacement> ParseSpriteLevelPlacement(std::string_view value)
+		{
+			const std::vector<ToolBlockField> fields = ParseInlineFields(value);
+			if (fields.empty())
+				return std::nullopt;
+
+			SpriteLevelPlacement placement;
+			placement.m_EntityName = GetToolBlockField(fields, { "name", "entityname", "entity" });
+			placement.m_SpriteName = GetToolBlockField(fields, { "spritename", "sprite", "subresource" });
+
+			if (const std::optional<int32_t> spriteIndex = ParseInt32(GetToolBlockField(fields, { "spriteindex", "index", "subresourceindex" })))
+				placement.m_SpriteIndex = *spriteIndex;
+
+			glm::vec3 vector;
+			if (ParseFlexibleVector3(GetToolBlockField(fields, { "position", "translation", "pos" }), vector))
+				placement.m_Translation = vector;
+			else
+				return std::nullopt;
+
+			if (ParseFlexibleVector3(GetToolBlockField(fields, { "scale", "size" }), vector))
+			{
+				placement.m_Scale = vector;
+				if (placement.m_Scale.z == 0.0f)
+					placement.m_Scale.z = 1.0f;
+				placement.m_HasScale = true;
+			}
+
+			if (const std::optional<float> rotation = ParseFloat(GetToolBlockField(fields, { "rotationz", "rotation", "angle" })))
+				placement.m_RotationZ = *rotation;
+
+			if (placement.m_EntityName.empty())
+				placement.m_EntityName = placement.m_SpriteName.empty() ? "Level Sprite" : placement.m_SpriteName;
+			return placement;
 		}
 
 		std::string CanonicalComponentName(std::string value)
@@ -393,6 +493,28 @@ namespace Assistant
 				}
 				if (proposal.m_Title == definition->m_DisplayName)
 					proposal.m_Title = "Assign asset to " + proposal.m_ComponentName;
+				return proposal;
+			}
+			case ToolKind::CreateSpriteLevel:
+			{
+				proposal.m_AssetPath = GetToolBlockField(fields, { "assetpath", "path" });
+				proposal.m_AssetName = GetToolBlockField(fields, { "assetname", "name" });
+				proposal.m_AssetType = AssetType::Texture2D;
+				if (const std::optional<uint64_t> assetHandle = ParseUInt64(GetToolBlockField(fields, { "assethandle", "handle", "assetid" })))
+					proposal.m_AssetHandle = *assetHandle;
+
+				for (const ToolBlockField& field : fields)
+				{
+					if (field.m_Key != "placement")
+						continue;
+					if (std::optional<SpriteLevelPlacement> placement = ParseSpriteLevelPlacement(field.m_Value))
+						proposal.m_LevelPlacements.push_back(std::move(*placement));
+				}
+
+				if ((proposal.m_AssetHandle == 0 && proposal.m_AssetPath.empty() && proposal.m_AssetName.empty()) || proposal.m_LevelPlacements.empty())
+					return std::nullopt;
+				if (proposal.m_Title == definition->m_DisplayName)
+					proposal.m_Title = "Create sprite level";
 				return proposal;
 			}
 			case ToolKind::EditScript:
@@ -650,6 +772,8 @@ namespace Assistant
 				stream << "  - handle: " << asset.m_Handle << ", type: " << AssetTypeName(asset.m_Type) << ", path: " << asset.m_Path;
 				if (!asset.m_Name.empty())
 					stream << ", name: " << asset.m_Name;
+				if (asset.m_SpriteCount > 0)
+					stream << ", spriteCount: " << asset.m_SpriteCount;
 				if (!asset.m_Sprites.empty())
 				{
 					stream << ", sprites:";

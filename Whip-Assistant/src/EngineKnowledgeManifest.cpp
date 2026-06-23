@@ -261,6 +261,7 @@ namespace Assistant
 				"Do not claim a file changed until the editor applies the proposal.",
 				"When changing inspector component values, return a provider-callable whip_tool edit_component block using field.<FieldName> lines.",
 				"When assigning existing project assets to components, return a provider-callable whip_tool asset_operation block with operation: assign_asset and prefer assetHandle from context.",
+				"When designing a level from an existing spritesheet texture, return one provider-callable whip_tool create_sprite_level block with assetHandle and repeated placement lines using spriteIndex or spriteName from context.",
 				"When changing a script, return one complete provider-callable whip_tool edit_script block for the selected script path.",
 				"Script edit block format: ```whip_tool, tool: edit_script, path: <Selected script path>, summary: <short summary>, ---BEGIN CONTENT---, complete C# file, ---END CONTENT---, ```."
 			}

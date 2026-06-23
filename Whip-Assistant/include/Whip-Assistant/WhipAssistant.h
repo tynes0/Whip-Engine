@@ -28,6 +28,7 @@ namespace Assistant
 		SetTransform,
 		EditComponent,
 		AssetOperation,
+		CreateSpriteLevel,
 		EditScript
 	};
 
@@ -65,6 +66,7 @@ namespace Assistant
 			AssetType m_Type = AssetType::None;
 			std::string m_Path;
 			std::string m_Name;
+			size_t m_SpriteCount = 0;
 			std::vector<std::string> m_Sprites;
 		};
 
@@ -91,6 +93,17 @@ namespace Assistant
 		std::string m_Value;
 	};
 
+	struct SpriteLevelPlacement
+	{
+		std::string m_EntityName;
+		std::string m_SpriteName;
+		int32_t m_SpriteIndex = -1;
+		glm::vec3 m_Translation = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 m_Scale = { 1.0f, 1.0f, 1.0f };
+		bool m_HasScale = false;
+		float m_RotationZ = 0.0f;
+	};
+
 	struct ToolProposal
 	{
 		ToolKind m_Kind = ToolKind::None;
@@ -112,6 +125,7 @@ namespace Assistant
 		std::string m_AssetField;
 		std::string m_AssetSubresource;
 		int32_t m_AssetSubresourceIndex = -1;
+		std::vector<SpriteLevelPlacement> m_LevelPlacements;
 		std::string m_ScriptPath;
 		std::string m_ScriptContent;
 	};
