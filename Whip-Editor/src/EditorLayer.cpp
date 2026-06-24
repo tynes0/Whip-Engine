@@ -1317,7 +1317,20 @@ void EditorLayer::OnAttach()
 	m_AssistantPanel.SetSettingsCallback([this]() -> const Assistant::Settings& { return m_UISettings.GetAssistantSettings(); });
 	m_AssistantPanel.SetContextCallback([this]() { return BuildAssistantContextSnapshot(); });
 	m_AssistantPanel.SetApplyProposalCallback([this](const Assistant::ToolProposal& proposal) { return ApplyAssistantProposal(proposal); });
-	m_SceneHierarchyPanel.SetSceneChangeCallback([this]() { m_HistoryManager.CaptureSceneHistory(); });
+	m_ProjectHealthPanel.SetSceneCallback([this]() { return m_SceneManager.ActiveScene(); });
+	m_ProjectHealthPanel.SetSelectEntityCallback([this](UUID entityId)
+	{
+		if (Ref<Scene> scene = m_SceneManager.ActiveScene())
+		{
+			if (Entity entity = scene->FindEntityByUUID(entityId))
+				m_SceneHierarchyPanel.SetSelectedEntity(entity);
+		}
+	});
+	m_SceneHierarchyPanel.SetSceneChangeCallback([this]()
+	{
+		m_HistoryManager.CaptureSceneHistory();
+		m_ProjectHealthPanel.MarkDirty();
+	});
 	m_SceneHierarchyPanel.SetSaveEntityTemplateCallback([this](Entity entityIn) { m_EntityTemplateManager.SaveEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetApplyEntityTemplateCallback([this](Entity entityIn) { m_EntityTemplateManager.ApplyEntityTemplate(entityIn); });
 	m_SceneHierarchyPanel.SetRevertEntityTemplateCallback([this](Entity entityIn) { m_EntityTemplateManager.RevertEntityTemplate(entityIn); });
@@ -2421,6 +2434,33 @@ void EditorLayer::RegisterEditorShortcuts()
 	m_AnimationEditorPanel.RegisterShortcuts(m_ShortcutManager);
 	m_AssetEditorPanel.RegisterShortcuts(m_ShortcutManager);
 	m_AssistantPanel.RegisterShortcuts(m_ShortcutManager);
+	m_ProjectHealthPanel.RegisterShortcuts(m_ShortcutManager);
+	m_ShortcutManager.Add(
+		EditorShortcutScope::Viewport,
+		"viewport.toggle_physics_colliders",
+		"Toggle Physics Colliders",
+		"Viewport",
+		{ Key::C, true, true, false },
+		[this]()
+		{
+			m_UISettings.SetShowPhysicsColliders(!m_UISettings.GetShowPhysicsColliders());
+			return true;
+		},
+		[this]() { return HasProjectLoaded(); },
+		[this]() { return m_ViewportFocused; });
+	m_ShortcutManager.Add(
+		EditorShortcutScope::Viewport,
+		"viewport.toggle_grid",
+		"Toggle Viewport Grid",
+		"Viewport",
+		{ Key::G, true, false, false },
+		[this]()
+		{
+			m_UISettings.SetShowEditorGrid(!m_UISettings.GetShowEditorGrid());
+			return true;
+		},
+		[this]() { return HasProjectLoaded(); },
+		[this]() { return m_ViewportFocused; });
 	auto addConsoleShortcut = [this](const char* id, const char* displayName, const UI::ShortcutBinding& binding, std::function<bool()> callback)
 	{
 		m_ShortcutManager.Add(
@@ -2454,6 +2494,7 @@ void EditorLayer::RebuildEditorPanelRegistry()
 	m_PanelManager.AddPanel(m_AnimationEditorPanel);
 	m_PanelManager.AddPanel(m_AssetEditorPanel);
 	m_PanelManager.AddPanel(m_AssistantPanel);
+	m_PanelManager.AddPanel(m_ProjectHealthPanel);
 	if (m_ConsolePanelAdapter)
 		m_PanelManager.AddPanel(*m_ConsolePanelAdapter);
 	if (m_ContentBrowserPanel)
@@ -2499,6 +2540,9 @@ bool EditorLayer::OnWindowDrop(WindowDropEvent& event)
 
 void EditorLayer::DrawEditorGrid()
 {
+	if (!m_UISettings.GetShowEditorGrid())
+		return;
+
 	if (m_ViewportSize.x <= 0.0f || m_ViewportSize.y <= 0.0f)
 		return;
 

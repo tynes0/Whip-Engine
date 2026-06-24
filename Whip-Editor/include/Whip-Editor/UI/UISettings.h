@@ -73,6 +73,7 @@ namespace UI
 		UISettings();
 
 		bool GetShowPhysicsColliders() const { return m_ShowPhysicsColliders; }
+		bool GetShowEditorGrid() const { return m_ShowEditorGrid; }
 		const glm::vec3& GetSnapValues(uint32_t idx) const { return m_SnapValues[idx < 3 ? idx : 0]; }
 		int GetStepFrame() const { return m_StepFrame; }
 		bool ShortcutMatches(EditorShortcutAction action, KeyCode key, bool ctrl, bool shift, bool alt) const;
@@ -81,6 +82,7 @@ namespace UI
 		ShortcutBinding GetShortcutBinding(EditorShortcutAction action) const;
 		void SetShortcutBinding(EditorShortcutAction action, const ShortcutBinding& binding);
 		void SetShowPhysicsColliders(bool value);
+		void SetShowEditorGrid(bool value);
 		void SetStepFrame(int value);
 		void SetSnapValues(uint32_t idx, const glm::vec3& value);
 		EditorTheme GetTheme() const { return m_Theme; }
@@ -110,6 +112,7 @@ namespace UI
 		void MarkDirty();
 
 		bool m_ShowPhysicsColliders = false;
+		bool m_ShowEditorGrid = true;
 		glm::vec3 m_SnapValues[3] = { {0.5f, 0.5f, 0.5f}, {45.0f, 45.0f, 45.0f}, {0.5f, 0.5f, 0.5f} };
 		int m_StepFrame = 1;
 		EditorTheme m_Theme = EditorTheme::WhipDark;

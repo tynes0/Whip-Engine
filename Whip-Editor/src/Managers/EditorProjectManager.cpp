@@ -408,6 +408,7 @@ void EditorProjectManager::LoadEditorPreferences()
 	if (YAML::Node editor = data["editor"])
 	{
 		layer.m_UISettings.SetShowPhysicsColliders(editor["show_physics_colliders"].as<bool>(layer.m_UISettings.GetShowPhysicsColliders()));
+		layer.m_UISettings.SetShowEditorGrid(editor["show_editor_grid"].as<bool>(layer.m_UISettings.GetShowEditorGrid()));
 		layer.m_UISettings.SetStepFrame(editor["step_frame"].as<int>(layer.m_UISettings.GetStepFrame()));
 		layer.m_UISettings.SetTheme(ThemeFromString(editor["theme"].as<std::string>(UI::UISettings::GetThemeName(layer.m_UISettings.GetTheme()))));
 		if (YAML::Node assistant = editor["assistant"])
@@ -466,6 +467,7 @@ void EditorProjectManager::LoadEditorPreferences()
 		layer.m_UIStatistics.SetOpen(panels["statistics"].as<bool>(layer.m_UIStatistics.IsOpen()));
 		ConsolePanel::SetOpen(panels["console"].as<bool>(ConsolePanel::IsOpen()));
 		layer.m_AssistantPanel.SetOpen(panels["assistant"].as<bool>(layer.m_AssistantPanel.IsOpen()));
+		layer.m_ProjectHealthPanel.SetOpen(panels["project_health"].as<bool>(layer.m_ProjectHealthPanel.IsOpen()));
 
 		if (YAML::Node animationWorkspace = panels["animation_workspace"])
 		{
@@ -512,6 +514,7 @@ void EditorProjectManager::LoadEditorPreferences()
 	layer.m_AssetEditorPanel.ConsumeLayoutDirty();
 	layer.m_UIStatistics.ConsumeOpenDirty();
 	layer.m_AssistantPanel.ConsumeOpenDirty();
+	layer.m_ProjectHealthPanel.ConsumeOpenDirty();
 	ConsolePanel::ConsumeOpenDirty();
 	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
 }
@@ -530,6 +533,7 @@ void EditorProjectManager::SaveEditorPreferences() const
 
 	out << YAML::Key << "editor" << YAML::Value << YAML::BeginMap;
 	out << YAML::Key << "show_physics_colliders" << YAML::Value << layer.m_UISettings.GetShowPhysicsColliders();
+	out << YAML::Key << "show_editor_grid" << YAML::Value << layer.m_UISettings.GetShowEditorGrid();
 	out << YAML::Key << "step_frame" << YAML::Value << layer.m_UISettings.GetStepFrame();
 	out << YAML::Key << "theme" << YAML::Value << UI::UISettings::GetThemeName(layer.m_UISettings.GetTheme());
 	{
@@ -577,6 +581,7 @@ void EditorProjectManager::SaveEditorPreferences() const
 	out << YAML::Key << "statistics" << YAML::Value << layer.m_UIStatistics.IsOpen();
 	out << YAML::Key << "console" << YAML::Value << ConsolePanel::IsOpen();
 	out << YAML::Key << "assistant" << YAML::Value << layer.m_AssistantPanel.IsOpen();
+	out << YAML::Key << "project_health" << YAML::Value << layer.m_ProjectHealthPanel.IsOpen();
 	{
 		const AnimationEditorPanel::WorkspacePreferences preferences = layer.m_AnimationEditorPanel.GetWorkspacePreferences();
 		out << YAML::Key << "animation_workspace" << YAML::Value << YAML::BeginMap;

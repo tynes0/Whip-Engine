@@ -403,6 +403,12 @@ namespace UI
 		MarkDirty();
 	}
 
+	void UISettings::SetShowEditorGrid(bool value)
+	{
+		m_ShowEditorGrid = value;
+		MarkDirty();
+	}
+
 	void UISettings::SetStepFrame(int value)
 	{
 		m_StepFrame = value < 1 ? 1 : value;
@@ -572,6 +578,8 @@ namespace UI
 	void UISettings::DrawGeneralSettings()
 	{
 		DrawSettingsHeading("Viewport");
+		if (ImGui::Checkbox("Show editor grid", &m_ShowEditorGrid))
+			MarkDirty();
 		if (ImGui::Checkbox("Show physics colliders", &m_ShowPhysicsColliders))
 			MarkDirty();
 		ImGui::SetNextItemWidth(140.0f);
