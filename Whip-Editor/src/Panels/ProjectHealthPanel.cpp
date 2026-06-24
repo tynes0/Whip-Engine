@@ -162,6 +162,7 @@ void ProjectHealthPanel::Scan()
 		return;
 	}
 
+	ValidateProjectConfig();
 	ValidateAssetRegistry();
 	ValidateScene();
 }
@@ -344,6 +345,79 @@ bool ProjectHealthPanel::ValidateAssetReference(AssetHandle handle, AssetType ex
 	}
 
 	return true;
+}
+
+void ProjectHealthPanel::ValidateProjectConfig()
+{
+	const Ref<Project> project = Project::GetActive();
+	if (!project)
+		return;
+
+	const ProjectConfig& config = project->GetConfig();
+	std::error_code error;
+	if (config.m_Name.empty())
+		AddIssue(IssueSeverity::Warning, "Project", "Project name is empty.", {}, project->GetProjectPath().string());
+
+	if (config.m_AssetDirectory.empty())
+	{
+		AddIssue(IssueSeverity::Error, "Project", "Project asset directory is not configured.", {}, project->GetProjectPath().string());
+	}
+	else if (!std::filesystem::exists(project->GetAssetDirectory(), error))
+	{
+		AddIssue(IssueSeverity::Error, "Project", "Project asset directory is missing.", project->GetAssetDirectory().string(), project->GetProjectPath().string());
+	}
+
+	error.clear();
+	if (config.m_AssetRegistryPath.empty())
+	{
+		AddIssue(IssueSeverity::Error, "Project", "Asset registry path is not configured.", {}, project->GetProjectPath().string());
+	}
+	else if (!std::filesystem::exists(project->GetAssetRegistryPath(), error))
+	{
+		AddIssue(IssueSeverity::Error, "Project", "Asset registry file is missing.", project->GetAssetRegistryPath().string(), project->GetProjectPath().string());
+	}
+
+	if (config.m_ScriptModulePath.empty())
+	{
+		AddIssue(IssueSeverity::Warning, "Scripts", "Script module path is not configured.", {}, project->GetProjectPath().string());
+	}
+	else
+	{
+		error.clear();
+		const std::filesystem::path scriptsDirectory = project->GetAssetDirectory() / "Scripts";
+		if (!std::filesystem::exists(scriptsDirectory, error))
+			AddIssue(IssueSeverity::Warning, "Scripts", "Script workspace directory is missing.", scriptsDirectory.string(), project->GetProjectPath().string());
+
+		error.clear();
+		const std::filesystem::path sourceDirectory = scriptsDirectory / "Source";
+		if (!std::filesystem::exists(sourceDirectory, error))
+			AddIssue(IssueSeverity::Warning, "Scripts", "Script source directory is missing.", sourceDirectory.string(), project->GetProjectPath().string());
+	}
+
+	if (!project->GetEditorAssetManager())
+		return;
+
+	const auto& scenes = project->GetEditorAssetManager()->GetAssetRegistry().GetFiltered(AssetType::Scene);
+	if (scenes.empty())
+		AddIssue(IssueSeverity::Warning, "Project", "Project has no registered scenes.", "Create or import a scene and set it as the start scene.", project->GetProjectPath().string());
+
+	if (config.m_StartScene == 0)
+	{
+		AddIssue(IssueSeverity::Warning, "Project", "Project has no start scene.", "Build/export should point to a registered scene.", project->GetProjectPath().string());
+		return;
+	}
+
+	if (!project->GetEditorAssetManager()->IsAssetHandleValid(config.m_StartScene) ||
+		project->GetEditorAssetManager()->GetAssetType(config.m_StartScene) != AssetType::Scene)
+	{
+		AddIssue(IssueSeverity::Error, "Project", "Project start scene handle is invalid.", {}, project->GetProjectPath().string(), 0, config.m_StartScene);
+		return;
+	}
+
+	const AssetMetadata& startSceneMetadata = project->GetEditorAssetManager()->GetMetadata(config.m_StartScene);
+	error.clear();
+	if (!std::filesystem::exists(project->GetAssetDirectory() / startSceneMetadata.m_Filepath, error))
+		AddIssue(IssueSeverity::Error, "Project", "Project start scene file is missing.", startSceneMetadata.m_Filepath.generic_string(), project->GetProjectPath().string(), 0, config.m_StartScene);
 }
 
 void ProjectHealthPanel::ValidateAssetRegistry()

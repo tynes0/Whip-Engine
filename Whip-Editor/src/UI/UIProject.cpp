@@ -5,6 +5,8 @@
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Asset/SceneImporter.h>
 #include <Whip/Project/Project.h>
+#include <Whip/Scene/Components.h>
+#include <Whip/Scene/Entity.h>
 #include <Whip/Scene/Scene.h>
 #include <Whip/Utils/PlatformUtils.h>
 
@@ -98,6 +100,39 @@ namespace UI
 			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark), "%s", title);
 			ImGui::Separator();
 			ImGui::Spacing();
+		}
+
+		void PopulateDefaultScene(const Ref<Scene>& scene)
+		{
+			if (!scene)
+				return;
+
+			Entity camera = scene->CreateEntity("Main Camera");
+			CameraComponent& cameraComponent = camera.AddComponent<CameraComponent>();
+			cameraComponent.m_Primary = true;
+			cameraComponent.m_Camera.SetProjectionType(SceneCamera::ProjectionType::Orthographic);
+			cameraComponent.m_Camera.SetOrthographicSize(10.0f);
+			camera.GetComponent<TransformComponent>().m_Translation = { 0.0f, 0.0f, 8.0f };
+		}
+
+		AssetHandle FindNextAvailableScene(AssetHandle excludedHandle)
+		{
+			Ref<Project> activeProject = Project::GetActive();
+			if (!activeProject || !activeProject->GetEditorAssetManager())
+				return 0;
+
+			std::vector<SceneEntry> scenes = CollectSceneEntries();
+			for (const SceneEntry& scene : scenes)
+			{
+				if (scene.handle == excludedHandle)
+					continue;
+
+				std::error_code error;
+				if (std::filesystem::exists(Project::GetActiveAssetDirectory() / scene.metadata.m_Filepath, error))
+					return scene.handle;
+			}
+
+			return 0;
 		}
 
 		bool DrawSettingsNavItem(const char* label, bool selected)
@@ -529,8 +564,15 @@ namespace UI
 		std::filesystem::create_directories((Project::GetActiveAssetDirectory() / relativePath).parent_path());
 
 		Ref<Scene> newScene = MakeRef<Scene>();
+		PopulateDefaultScene(newScene);
 		SceneImporter::SaveScene(newScene, relativePath);
 		AssetHandle handle = activeProject->GetEditorAssetManager()->ImportAsset(relativePath);
+
+		if (handle != 0 && activeProject->GetConfig().m_StartScene == 0)
+		{
+			activeProject->GetConfig().m_StartScene = handle;
+			Project::SaveActive();
+		}
 
 		if (handle != 0 && m_OpenSceneCallback)
 			m_OpenSceneCallback(handle);
@@ -551,8 +593,9 @@ namespace UI
 		if (!activeScenePath.empty() && SameRelativePath(activeScenePath, m_PendingDeleteScenePath) && m_CloseSceneCallback)
 			m_CloseSceneCallback();
 
+		const bool deletingStartScene = activeProject->GetConfig().m_StartScene == m_PendingDeleteScene;
 		if (activeProject->GetConfig().m_StartScene == m_PendingDeleteScene)
-			activeProject->GetConfig().m_StartScene = 0;
+			activeProject->GetConfig().m_StartScene = FindNextAvailableScene(m_PendingDeleteScene);
 
 		const std::filesystem::path absoluteScenePath = Project::GetActiveAssetDirectory() / m_PendingDeleteScenePath;
 		std::error_code removeError;
@@ -564,6 +607,8 @@ namespace UI
 
 		activeProject->GetEditorAssetManager()->DeleteAsset(m_PendingDeleteScene);
 		activeProject->GetEditorAssetManager()->SerializeAssetRegistry();
+		if (deletingStartScene && activeProject->GetConfig().m_StartScene != 0 && !activeProject->GetEditorAssetManager()->IsAssetHandleValid(activeProject->GetConfig().m_StartScene))
+			activeProject->GetConfig().m_StartScene = 0;
 		Project::SaveActive();
 
 		m_PendingDeleteScene = 0;

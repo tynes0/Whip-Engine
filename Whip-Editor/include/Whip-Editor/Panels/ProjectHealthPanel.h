@@ -58,6 +58,7 @@ private:
 
 	bool IsIssueVisible(const HealthIssue& issue) const;
 	bool ValidateAssetReference(AssetHandle handle, AssetType expectedType, const std::string& owner, const std::string& field, UUID entityId = 0);
+	void ValidateProjectConfig();
 	void ValidateAssetRegistry();
 	void ValidateScene();
 	void ValidateAnimationAsset(AssetHandle handle, const std::filesystem::path& absolutePath);

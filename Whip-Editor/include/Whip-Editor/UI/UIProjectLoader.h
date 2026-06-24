@@ -201,9 +201,9 @@ namespace UI
 	private:
 		static constexpr std::array<ProjectTemplateOption, 3> s_Templates =
 		{
-			ProjectTemplateOption{ "Empty", "Folders, C# solution, and a clean startup scene." },
-			ProjectTemplateOption{ "2D Starter", "C# solution, Camera, and starter sprite." },
-			ProjectTemplateOption{ "Script Ready", "Starter scene with a script-bound entity." }
+			ProjectTemplateOption{ "Empty", "Folders, C# solution, and a camera-only startup scene." },
+			ProjectTemplateOption{ "2D Starter", "Camera and a visible starter sprite for fast scene checks." },
+			ProjectTemplateOption{ "Script Ready", "Starter Entity bound to the generated StarterEntity C# script." }
 		};
 
 		void OpenNewProjectWizard()
@@ -257,6 +257,14 @@ namespace UI
 			if (settings.m_CreateStartScene && settings.m_InitialSceneName.empty())
 			{
 				m_NewProjectError = "Initial scene name is required.";
+				return false;
+			}
+
+			const std::filesystem::path projectDirectory = settings.m_Location / SanitizePreviewToken(settings.m_Name);
+			std::error_code error;
+			if (std::filesystem::exists(projectDirectory, error) && !std::filesystem::is_empty(projectDirectory, error))
+			{
+				m_NewProjectError = "Project folder already exists and is not empty.";
 				return false;
 			}
 			return true;

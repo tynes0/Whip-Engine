@@ -17,8 +17,13 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <array>
+#include <cctype>
 #include <fstream>
+#include <optional>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 _WHIP_START
 
@@ -119,6 +124,256 @@ namespace
 
 		WHP_EDITOR_ERROR("[Whip Hub] Could not create {}: {} ({})", label, path.string(), error.message());
 		return false;
+	}
+
+	enum class ProjectTemplateKind
+	{
+		Empty = 0,
+		Starter2D,
+		ScriptReady
+	};
+
+	ProjectTemplateKind ProjectTemplateFromIndex(int index)
+	{
+		switch (index)
+		{
+		case 0: return ProjectTemplateKind::Empty;
+		case 2: return ProjectTemplateKind::ScriptReady;
+		case 1:
+		default: return ProjectTemplateKind::Starter2D;
+		}
+	}
+
+	const char* ProjectTemplateName(ProjectTemplateKind kind)
+	{
+		switch (kind)
+		{
+		case ProjectTemplateKind::Empty: return "Empty";
+		case ProjectTemplateKind::Starter2D: return "2D Starter";
+		case ProjectTemplateKind::ScriptReady: return "Script Ready";
+		default: return "Unknown";
+		}
+	}
+
+	bool WriteTextFileChecked(const std::filesystem::path& path, std::string_view contents, std::string_view label)
+	{
+		std::error_code error;
+		std::filesystem::create_directories(path.parent_path(), error);
+		if (error)
+		{
+			WHP_EDITOR_ERROR("[Whip Hub] Could not create {} directory: {} ({})", label, path.parent_path().string(), error.message());
+			return false;
+		}
+
+		std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+		if (!stream)
+		{
+			WHP_EDITOR_ERROR("[Whip Hub] Could not write {}: {}", label, path.string());
+			return false;
+		}
+
+		stream << contents;
+		return true;
+	}
+
+	bool EnsureProjectScaffoldDirectories(const std::filesystem::path& projectDirectory)
+	{
+		const std::array<std::filesystem::path, 10> directories =
+		{
+			std::filesystem::path("Assets") / "Scenes",
+			std::filesystem::path("Assets") / "Scripts" / "Source",
+			std::filesystem::path("Assets") / "Scripts" / "Binaries",
+			std::filesystem::path("Assets") / "Scripts" / "Intermediates",
+			std::filesystem::path("Assets") / "Animations",
+			std::filesystem::path("Assets") / "Audios",
+			std::filesystem::path("Assets") / "fonts",
+			std::filesystem::path("Assets") / "textures",
+			std::filesystem::path("Assets") / "Prefabs",
+			std::filesystem::path("Assets") / "UI"
+		};
+
+		for (const std::filesystem::path& directory : directories)
+		{
+			if (!CreateDirectoryChecked(projectDirectory / directory, directory.generic_string()))
+				return false;
+		}
+
+		return true;
+	}
+
+	void WriteProjectLocalGitIgnore(const std::filesystem::path& projectDirectory)
+	{
+		const std::filesystem::path gitignorePath = projectDirectory / ".gitignore";
+		std::error_code error;
+		if (std::filesystem::exists(gitignorePath, error))
+			return;
+
+		constexpr std::string_view contents =
+			"# Whip generated project cache\n"
+			"Assets/Scripts/Binaries/\n"
+			"Assets/Scripts/Intermediates/\n"
+			"Assets/Scripts/**/bin/\n"
+			"Assets/Scripts/**/obj/\n"
+			"Assets/Scripts/.vs/\n"
+			"Assets/Scripts/.idea/\n"
+			"*.user\n"
+			"*.suo\n";
+
+		if (!WriteTextFileChecked(gitignorePath, contents, "Project .gitignore"))
+			WHP_EDITOR_WARN("[Whip Hub] Project was created, but local .gitignore could not be written.");
+	}
+
+	Entity CreateTemplateCamera(const Ref<Scene>& scene)
+	{
+		Entity camera = scene->CreateEntity("Main Camera");
+		CameraComponent& cameraComponent = camera.AddComponent<CameraComponent>();
+		cameraComponent.m_Primary = true;
+		cameraComponent.m_Camera.SetProjectionType(SceneCamera::ProjectionType::Orthographic);
+		cameraComponent.m_Camera.SetOrthographicSize(10.0f);
+		camera.GetComponent<TransformComponent>().m_Translation = { 0.0f, 0.0f, 8.0f };
+		return camera;
+	}
+
+	Entity CreateTemplateSprite(const Ref<Scene>& scene, std::string_view name, const glm::vec4& color, const glm::vec3& translation)
+	{
+		Entity sprite = scene->CreateEntity(std::string(name));
+		sprite.GetComponent<TransformComponent>().m_Translation = translation;
+		sprite.AddComponent<SpriteRendererComponent>(color);
+		return sprite;
+	}
+
+	void PopulateTemplateScene(const Ref<Scene>& scene, ProjectTemplateKind kind, const std::string& scriptNamespace)
+	{
+		CreateTemplateCamera(scene);
+
+		if (kind == ProjectTemplateKind::Empty)
+			return;
+
+		Entity starter = CreateTemplateSprite(scene,
+			kind == ProjectTemplateKind::ScriptReady ? "Starter Entity" : "Sprite",
+			{ 0.86f, 0.58f, 0.28f, 1.0f },
+			{ 0.0f, 0.0f, 0.0f });
+		starter.GetComponent<TransformComponent>().m_Scale = { 1.5f, 1.5f, 1.0f };
+
+		if (kind == ProjectTemplateKind::ScriptReady)
+			starter.AddComponent<ScriptComponent>().m_ClassName = scriptNamespace + ".StarterEntity";
+	}
+
+	bool WriteStarterAssetRegistry(
+		const std::filesystem::path& registryPath,
+		std::optional<std::pair<AssetHandle, std::filesystem::path>> startScene)
+	{
+		YAML::Emitter out;
+		out << YAML::BeginMap;
+		out << YAML::Key << "asset_registry" << YAML::Value << YAML::BeginSeq;
+		if (startScene)
+		{
+			out << YAML::BeginMap;
+			out << YAML::Key << "handle" << YAML::Value << static_cast<uint64_t>(startScene->first);
+			out << YAML::Key << "filepath" << YAML::Value << startScene->second.generic_string();
+			out << YAML::Key << "type" << YAML::Value << frenum::to_string(AssetType::Scene);
+			out << YAML::EndMap;
+		}
+		out << YAML::EndSeq;
+		out << YAML::EndMap;
+
+		return WriteTextFileChecked(registryPath, out.c_str(), "Asset registry");
+	}
+
+	bool EnsureAssetRegistryFileExists(const Ref<Project>& project)
+	{
+		if (!project)
+			return false;
+
+		const std::filesystem::path registryPath = project->GetAssetRegistryPath();
+		std::error_code error;
+		if (std::filesystem::exists(registryPath, error))
+			return true;
+
+		if (!WriteStarterAssetRegistry(registryPath, std::nullopt))
+		{
+			WHP_EDITOR_ERROR("[Project] Could not create missing Asset registry.");
+			return false;
+		}
+
+		WHP_EDITOR_INFO("[Project] Created missing Asset registry.");
+		return true;
+	}
+
+	AssetHandle FindFirstAvailableSceneHandle(const Ref<Project>& project)
+	{
+		if (!project || !project->GetEditorAssetManager())
+			return 0;
+
+		std::vector<std::pair<AssetHandle, std::filesystem::path>> scenes;
+		const auto& registry = project->GetEditorAssetManager()->GetAssetRegistry().GetFiltered(AssetType::Scene);
+		scenes.reserve(registry.size());
+		for (const auto& [handle, metadata] : registry)
+			scenes.emplace_back(handle, metadata.m_Filepath);
+
+		std::ranges::sort(scenes, [](const auto& left, const auto& right)
+		{
+			return left.second.generic_string() < right.second.generic_string();
+		});
+
+		for (const auto& [handle, relativePath] : scenes)
+		{
+			std::error_code error;
+			if (std::filesystem::exists(project->GetAssetDirectory() / relativePath, error))
+				return handle;
+		}
+		return 0;
+	}
+
+	AssetHandle ResolveStartSceneHandle(const Ref<Project>& project)
+	{
+		if (!project || !project->GetEditorAssetManager())
+			return 0;
+
+		const AssetHandle configuredStartScene = project->GetConfig().m_StartScene;
+		if (configuredStartScene != 0 && project->GetEditorAssetManager()->IsAssetHandleValid(configuredStartScene))
+		{
+			const std::filesystem::path startScenePath = project->GetEditorAssetManager()->GetFilepath(configuredStartScene);
+			std::error_code error;
+			if (std::filesystem::exists(project->GetAssetDirectory() / startScenePath, error))
+				return configuredStartScene;
+		}
+
+		return FindFirstAvailableSceneHandle(project);
+	}
+
+	bool RepairLoadedProjectScaffold(const Ref<Project>& project)
+	{
+		if (!project)
+			return false;
+
+		bool changed = false;
+		const std::filesystem::path projectDirectory = project->GetProjectDirectory();
+		ProjectConfig& config = project->GetConfig();
+		if (config.m_AssetDirectory.empty())
+		{
+			config.m_AssetDirectory = "Assets";
+			changed = true;
+		}
+		if (config.m_AssetRegistryPath.empty())
+		{
+			config.m_AssetRegistryPath = FileExtensions::AssetRegistryFilename;
+			changed = true;
+		}
+		if (config.m_ScriptModulePath.empty())
+		{
+			const std::string projectFolderName = SanitizePathToken(config.m_Name, project->GetProjectPath().stem().string());
+			config.m_ScriptModulePath = std::filesystem::path("Scripts") / "Binaries" / (projectFolderName + ".dll");
+			changed = true;
+		}
+
+		if (changed)
+			Project::SaveActive();
+
+		EnsureProjectScaffoldDirectories(projectDirectory);
+		WriteProjectLocalGitIgnore(projectDirectory);
+		EnsureAssetRegistryFileExists(project);
+		return changed;
 	}
 }
 
@@ -645,6 +900,7 @@ bool EditorProjectManager::NewProject(const UI::ProjectCreateSettings& settings)
 	const std::string projectName = SanitizeProjectToken(settings.m_Name, "Untitled");
 	const std::string projectFolderName = SanitizePathToken(projectName, "Untitled");
 	const std::string initialSceneName = SanitizePathToken(settings.m_InitialSceneName, "Main");
+	const ProjectTemplateKind templateKind = ProjectTemplateFromIndex(settings.m_TemplateIndex);
 	if (settings.m_Location.empty())
 		return false;
 
@@ -657,16 +913,17 @@ bool EditorProjectManager::NewProject(const UI::ProjectCreateSettings& settings)
 		return false;
 	}
 
-	if (!CreateDirectoryChecked(projectDirectory / "Assets" / "Scenes", "Project scenes directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "Scripts" / "Source", "script source directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "Scripts" / "Binaries", "script binaries directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "Animations", "animations directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "Audios", "audio directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "fonts", "font directory") ||
-		!CreateDirectoryChecked(projectDirectory / "Assets" / "textures", "texture directory"))
+	if (std::filesystem::exists(projectDirectory, error) && !std::filesystem::is_empty(projectDirectory, error))
+	{
+		WHP_EDITOR_WARN(std::string("[Whip Hub] Project folder is not empty: ") + projectDirectory.string());
+		return false;
+	}
+
+	if (!EnsureProjectScaffoldDirectories(projectDirectory))
 	{
 		return false;
 	}
+	WriteProjectLocalGitIgnore(projectDirectory);
 
 	Ref<Project> newProject = Project::NewProject();
 	Project::SetActiveProjectPath(projectPath);
@@ -693,17 +950,7 @@ bool EditorProjectManager::NewProject(const UI::ProjectCreateSettings& settings)
 		startSceneRelativePath = std::filesystem::path("Scenes") / (initialSceneName + FileExtensions::Scene);
 
 		Ref<Scene> startScene = MakeRef<Scene>(startSceneHandle);
-		if (settings.m_TemplateIndex == 1 || settings.m_TemplateIndex == 2)
-		{
-			Entity camera = startScene->CreateEntity("Main Camera");
-			camera.AddComponent<CameraComponent>();
-			camera.GetComponent<TransformComponent>().m_Translation = { 0.0f, 0.0f, 8.0f };
-
-			Entity sprite = startScene->CreateEntity(settings.m_TemplateIndex == 2 ? "Starter Entity" : "Sprite");
-			sprite.AddComponent<SpriteRendererComponent>(glm::vec4{ 0.86f, 0.58f, 0.28f, 1.0f });
-			if (settings.m_TemplateIndex == 2)
-				sprite.AddComponent<ScriptComponent>().m_ClassName = projectFolderName + ".StarterEntity";
-		}
+		PopulateTemplateScene(startScene, templateKind, projectFolderName);
 
 		SceneImporter::SaveScene(startScene, projectDirectory / config.m_AssetDirectory / startSceneRelativePath);
 	}
@@ -714,26 +961,16 @@ bool EditorProjectManager::NewProject(const UI::ProjectCreateSettings& settings)
 		return false;
 	}
 
-	std::ofstream registry(projectPath.parent_path() / config.m_AssetDirectory / config.m_AssetRegistryPath, std::ios::trunc);
-	if (!registry)
+	if (!WriteStarterAssetRegistry(
+		projectPath.parent_path() / config.m_AssetDirectory / config.m_AssetRegistryPath,
+		settings.m_CreateStartScene ? std::optional<std::pair<AssetHandle, std::filesystem::path>>{ { startSceneHandle, startSceneRelativePath } } : std::nullopt))
 	{
 		WHP_EDITOR_ERROR("[Whip Hub] Could not write Asset registry.");
 		Project::SetActive(nullptr);
 		return false;
 	}
 
-	if (settings.m_CreateStartScene)
-	{
-		registry << "AssetRegistry:\n";
-		registry << "  - handle: " << (uint64_t)startSceneHandle << '\n';
-		registry << "    filepath: " << startSceneRelativePath.generic_string() << '\n';
-		registry << "    type: scene\n";
-	}
-	else
-	{
-		registry << "AssetRegistry: []\n";
-	}
-	registry.close();
+	WHP_EDITOR_INFO(std::string("[Whip Hub] Created ") + ProjectTemplateName(templateKind) + " Project: " + projectPath.string());
 
 	Project::SetActive(nullptr);
 	if (!settings.m_OpenAfterCreate)
@@ -854,6 +1091,8 @@ bool EditorProjectManager::OpenProject(const std::filesystem::path& path)
 	if (Project::Load(projectPath))
 	{
 		WHP_EDITOR_INFO("[Project] Project file loaded.");
+		RepairLoadedProjectScaffold(Project::GetActive());
+		WHP_EDITOR_INFO("[Project] Project scaffold verified.");
 		MigrateProjectNativeFileExtensions();
 		WHP_EDITOR_INFO("[Project] Native file extension migration complete.");
 		const bool scriptBuildSucceeded = layer.m_ScriptManager.BuildProjectScripts();
@@ -863,27 +1102,35 @@ bool EditorProjectManager::OpenProject(const std::filesystem::path& path)
 		ScriptEngine::Init();
 		WHP_EDITOR_INFO("[Project] Script engine initialized.");
 		layer.m_ScriptManager.StartSourceWatcher();
-		AssetHandle startScene = (Project::GetActive()->GetConfig().m_StartScene);
-		if (startScene && Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(startScene))
+		const AssetHandle configuredStartScene = Project::GetActive()->GetConfig().m_StartScene;
+		const AssetHandle startScene = ResolveStartSceneHandle(Project::GetActive());
+		if (startScene != configuredStartScene)
 		{
-			const std::filesystem::path startScenePath = Project::GetActive()->GetEditorAssetManager()->GetFilepath(startScene);
-			if (std::filesystem::exists(Project::GetActiveAssetDirectory() / startScenePath))
-				layer.m_SceneManager.OpenScene(startScene);
-			else
-			{
-				WHP_EDITOR_WARN("[Project] Start scene file is missing. Resetting Project start scene.");
-				Project::GetActive()->GetConfig().m_StartScene = 0;
-				Project::SaveActive();
-			}
-		}
-		else if (startScene)
-		{
-			WHP_EDITOR_WARN("[Project] Start scene is missing. Resetting Project start scene.");
-			Project::GetActive()->GetConfig().m_StartScene = 0;
+			if (configuredStartScene != 0 && startScene != 0)
+				WHP_EDITOR_WARN("[Project] Configured start scene is invalid. Falling back to first available scene.");
+			else if (configuredStartScene != 0)
+				WHP_EDITOR_WARN("[Project] Configured start scene is invalid. Resetting Project start scene.");
+
+			Project::GetActive()->GetConfig().m_StartScene = startScene;
 			Project::SaveActive();
+		}
+
+		if (startScene)
+		{
+			layer.m_SceneManager.OpenScene(startScene);
+			if (!layer.m_SceneManager.EditorScene())
+			{
+				WHP_EDITOR_WARN("[Project] Start scene could not be opened. Opening an empty scene.");
+				layer.m_SceneManager.NewScene();
+			}
 		}
 		else
 		{
+			if (configuredStartScene != 0)
+			{
+				Project::GetActive()->GetConfig().m_StartScene = 0;
+				Project::SaveActive();
+			}
 			layer.m_SceneManager.NewScene();
 		}
 		layer.m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
