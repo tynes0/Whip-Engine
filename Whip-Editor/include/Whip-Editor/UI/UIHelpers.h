@@ -8,6 +8,7 @@
 #include <functional>
 #include <cstdint>
 #include <type_traits>
+#include <algorithm>
 
 #include <glm/vec3.hpp>
 #include <imgui.h>
@@ -16,10 +17,18 @@ _WHIP_START
 
 namespace UI
 {
+	constexpr uint32_t MaxAssetReferencePayloadItems = 64;
+
 	struct AssetReferencePayload
 	{
 		AssetHandle m_Handle = 0;
 		int32_t m_TextureSpriteIndex = -1;
+	};
+
+	struct AssetReferenceListPayload
+	{
+		uint32_t m_Count = 0;
+		AssetReferencePayload m_Items[MaxAssetReferencePayloadItems]{};
 	};
 
 	WHP_NODISCARD inline AssetReferencePayload ReadAssetReferencePayload(const ImGuiPayload* payload)
@@ -37,6 +46,30 @@ namespace UI
 		if (payload->DataSize >= static_cast<int>(sizeof(AssetHandle)))
 			result.m_Handle = *static_cast<const AssetHandle*>(payload->Data);
 
+		return result;
+	}
+
+	WHP_NODISCARD inline std::vector<AssetReferencePayload> ReadAssetReferenceListPayload(const ImGuiPayload* payload)
+	{
+		std::vector<AssetReferencePayload> result;
+		if (!payload || !payload->Data)
+			return result;
+
+		if (payload->DataSize >= static_cast<int>(sizeof(AssetReferenceListPayload)))
+		{
+			const AssetReferenceListPayload& list = *static_cast<const AssetReferenceListPayload*>(payload->Data);
+			const uint32_t count = std::min(list.m_Count, MaxAssetReferencePayloadItems);
+			result.reserve(count);
+			for (uint32_t i = 0; i < count; ++i)
+			{
+				if (list.m_Items[i].m_Handle != 0)
+					result.push_back(list.m_Items[i]);
+			}
+			return result;
+		}
+
+		if (AssetReferencePayload single = ReadAssetReferencePayload(payload); single.m_Handle != 0)
+			result.push_back(single);
 		return result;
 	}
 

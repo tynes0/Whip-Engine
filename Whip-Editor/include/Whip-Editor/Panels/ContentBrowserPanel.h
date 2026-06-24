@@ -147,7 +147,9 @@ private:
 	bool InspectAsset(const BrowserItem& item);
 	bool SetSceneAsStartScene(const BrowserItem& item);
 	bool RemoveSpriteSlice(const BrowserItem& item);
+	bool RemoveSelectedSpriteSlices();
 	bool ClearTextureSprites(const BrowserItem& item);
+	bool RemoveMissingRegistryEntries();
 	bool CreateAnimationFromSelection();
 	void ClearPendingOperation();
 	bool RenamePendingItem();
@@ -209,7 +211,7 @@ private:
 	bool m_ShowAutoSlicePopup = false;
 	AssetHandle m_AutoSliceHandle = 0;
 	std::filesystem::path m_AutoSliceRelativePath;
-	int m_AutoSliceMinPixels = 24;
+	int m_AutoSliceMinPixels = 8;
 	int m_AutoSliceBackgroundTolerance = 24;
 	int m_AutoSliceMergeGap = 0;
 	int m_AutoSlicePadding = 1;

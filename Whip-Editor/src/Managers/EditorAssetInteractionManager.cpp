@@ -10,6 +10,7 @@
 
 #include <imgui.h>
 
+#include <cmath>
 #include <utility>
 
 #include "Whip-Editor/Helpers/Utils.h"
@@ -52,6 +53,26 @@ _WHIP_START
 		}
 		return {};
 	}
+
+	glm::vec2 EstimateSpriteWorldSize(AssetHandle handle, int32_t textureSpriteIndex)
+	{
+		Ref<Project> activeProject = Project::GetActive();
+		if (!activeProject || !activeProject->GetEditorAssetManager() || !activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle))
+			return { 1.0f, 1.0f };
+
+		const AssetMetadata& metadata = activeProject->GetEditorAssetManager()->GetMetadata(handle);
+		const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+		const bool validSpriteIndex = textureSpriteIndex >= 0 && std::cmp_less(textureSpriteIndex, sprites.size());
+		const TextureSpriteRect* spriteRect = validSpriteIndex ? &sprites[static_cast<size_t>(textureSpriteIndex)] : nullptr;
+		Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(handle);
+		const float pixelsPerUnit = metadata.m_TextureSettings.m_PixelsPerUnit > 0.0f ? metadata.m_TextureSettings.m_PixelsPerUnit : 100.0f;
+		const float width = spriteRect ? static_cast<float>(spriteRect->m_Width) : (texture && texture->IsLoaded() ? static_cast<float>(texture->GetWidth()) : pixelsPerUnit);
+		const float height = spriteRect ? static_cast<float>(spriteRect->m_Height) : (texture && texture->IsLoaded() ? static_cast<float>(texture->GetHeight()) : pixelsPerUnit);
+		return {
+			glm::max(width / pixelsPerUnit, 0.1f),
+			glm::max(height / pixelsPerUnit, 0.1f)
+		};
+	}
 }
 
 EditorAssetInteractionManager::EditorAssetInteractionManager(EditorLayer* boundedLayer)
@@ -89,6 +110,54 @@ bool EditorAssetInteractionManager::HandleViewportAssetDrop(AssetHandle handle, 
 		return false;
 	}
 	return false;
+}
+
+bool EditorAssetInteractionManager::HandleViewportAssetDrops(const std::vector<std::pair<AssetHandle, int32_t>>& assetReferences) const
+{
+	EditorLayer& layer = GetLayer();
+	if (assetReferences.empty() || !layer.HasProjectLoaded() || !layer.m_SceneManager.EditorScene() || layer.m_SceneManager.State() != EditorSceneState::Edit)
+		return false;
+
+	std::vector<std::pair<AssetHandle, int32_t>> textureReferences;
+	textureReferences.reserve(assetReferences.size());
+	Ref<Project> activeProject = Project::GetActive();
+	for (const auto& [handle, spriteIndex] : assetReferences)
+	{
+		if (handle == 0 || !activeProject->GetEditorAssetManager()->IsAssetHandleValid(handle))
+			continue;
+
+		if (activeProject->GetEditorAssetManager()->GetAssetType(handle) == AssetType::Texture2D)
+			textureReferences.emplace_back(handle, spriteIndex);
+		else if (assetReferences.size() == 1)
+			return HandleViewportAssetDrop(handle, spriteIndex);
+	}
+
+	if (textureReferences.empty())
+		return false;
+
+	const size_t count = textureReferences.size();
+	const uint32_t columns = static_cast<uint32_t>(std::ceil(std::sqrt(static_cast<float>(count))));
+	const glm::vec3 origin = GetViewportMouseWorldPosition();
+	glm::vec2 maxSpriteSize{ 0.1f, 0.1f };
+	for (const auto& [handle, spriteIndex] : textureReferences)
+		maxSpriteSize = glm::max(maxSpriteSize, EstimateSpriteWorldSize(handle, spriteIndex));
+
+	const glm::vec2 spacing = maxSpriteSize + glm::vec2(0.20f);
+	const glm::vec3 topLeft = origin - glm::vec3(spacing.x * static_cast<float>(std::min<size_t>(columns, count) - 1) * 0.5f, 0.0f, 0.0f);
+	layer.m_HistoryManager.CaptureSceneHistory();
+
+	bool createdAny = false;
+	for (size_t index = 0; index < textureReferences.size(); ++index)
+	{
+		const uint32_t column = static_cast<uint32_t>(index % columns);
+		const uint32_t row = static_cast<uint32_t>(index / columns);
+		const glm::vec3 position = topLeft + glm::vec3(static_cast<float>(column) * spacing.x, -static_cast<float>(row) * spacing.y, 0.0f);
+		createdAny = CreateSpriteEntityFromTexture(textureReferences[index].first, position, textureReferences[index].second, false) || createdAny;
+	}
+
+	if (createdAny)
+		WHP_EDITOR_INFO("[Viewport] Created {0} sprite entities from multi-asset drop.", textureReferences.size());
+	return createdAny;
 }
 
 bool EditorAssetInteractionManager::HandleContentBrowserAssetOpen(AssetHandle handle) const
@@ -150,7 +219,7 @@ void EditorAssetInteractionManager::SetStartScene(AssetHandle handle) const
 	WHP_EDITOR_INFO(std::string("[Project] Start scene set: ") + activeProject->GetEditorAssetManager()->GetFilepath(handle).generic_string());
 }
 
-bool EditorAssetInteractionManager::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex) const
+bool EditorAssetInteractionManager::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex, bool captureHistory) const
 {
 	EditorLayer& layer = GetLayer();
 	if (!layer.HasProjectLoaded() || !layer.m_SceneManager.EditorScene() || layer.m_SceneManager.State() != EditorSceneState::Edit)
@@ -163,7 +232,8 @@ bool EditorAssetInteractionManager::CreateSpriteEntityFromTexture(AssetHandle ha
 		return false;
 	}
 
-	layer.m_HistoryManager.CaptureSceneHistory();
+	if (captureHistory)
+		layer.m_HistoryManager.CaptureSceneHistory();
 	const auto& metadata = activeProject->GetEditorAssetManager()->GetMetadata(handle);
 	const auto& sprites = metadata.m_TextureSettings.m_Sprites;
 	const bool validSpriteIndex = textureSpriteIndex >= 0 && std::cmp_less(textureSpriteIndex, sprites.size());

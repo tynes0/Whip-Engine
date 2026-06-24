@@ -24,6 +24,7 @@
 #include <set>
 #include <sstream>
 #include <system_error>
+#include <unordered_map>
 #include <utility>
 
 _WHIP_START
@@ -499,6 +500,12 @@ void ContentBrowserPanel::DrawContentGrid(const std::vector<BrowserItem>& items)
 	const char* modeLabel = m_Mode == Mode::Filesystem ? "filesystem" : "imported";
 	ImGui::TextDisabled("%zu item(s) in %s view | %zu imported | %zu missing | %zu unsupported %s",
 		items.size(), modeLabel, m_CachedItemMetrics.m_Imported, m_CachedItemMetrics.m_Missing, m_CachedItemMetrics.m_Unsupported, m_ShowUnsupported ? "visible" : "hidden");
+	if (m_CachedItemMetrics.m_Missing > 0)
+	{
+		SameLineIfFits(EstimatedButtonWidth("Clean Missing"));
+		if (ImGui::Button("Clean Missing"))
+			RemoveMissingRegistryEntries();
+	}
 
 	if (items.empty())
 	{
@@ -658,6 +665,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 		if (!IsItemSelected(item))
 			SelectItem(item, false);
 		const std::vector<BrowserItem> selectedItems = GetSelectedItems();
+		UI::AssetReferenceListPayload listPayload;
 		std::string relativePath = item.m_RelativePath.generic_string();
 		if (!item.m_SubAsset)
 			ImGui::SetDragDropPayload("CONTENT_BROWSER_PATH", relativePath.data(), relativePath.size());
@@ -677,6 +685,27 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 				ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", &assetPayload, sizeof(UI::AssetReferencePayload));
 			}
 		}
+		for (BrowserItem selectedItem : selectedItems)
+		{
+			if (listPayload.m_Count >= UI::MaxAssetReferencePayloadItems || selectedItem.m_Directory || selectedItem.m_Missing || !selectedItem.m_Supported)
+				continue;
+
+			AssetHandle handle = selectedItem.m_Handle;
+			if (handle == 0 && !selectedItem.m_SubAsset)
+			{
+				ImportFile(selectedItem.m_RelativePath);
+				handle = FindAssetHandle(selectedItem.m_RelativePath);
+			}
+
+			if (handle == 0)
+				continue;
+
+			UI::AssetReferencePayload& payloadItem = listPayload.m_Items[listPayload.m_Count++];
+			payloadItem.m_Handle = handle;
+			payloadItem.m_TextureSpriteIndex = selectedItem.m_TextureSpriteIndex;
+		}
+		if (listPayload.m_Count > 1)
+			ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEMS", &listPayload, sizeof(UI::AssetReferenceListPayload));
 		if (selectedItems.size() > 1)
 			ImGui::Text("%zu selected item(s)", selectedItems.size());
 		else
@@ -704,6 +733,9 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 			ImGui::TextDisabled("%zu selected", selectedItems.size());
 			if (SelectionContainsOnlyTextures(selectedItems) && ImGui::MenuItem("Create Animation From Selection"))
 				CreateAnimationFromSelection();
+			const bool hasSpriteSlices = std::ranges::any_of(selectedItems, [](const BrowserItem& selectedItem) { return selectedItem.m_SubAsset; });
+			if (hasSpriteSlices && ImGui::MenuItem("Remove Selected Sprite Slices"))
+				RemoveSelectedSpriteSlices();
 			ImGui::Separator();
 		}
 
@@ -749,6 +781,8 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 			{
 				if (ImGui::MenuItem("Remove Missing Registration"))
 					RequestRemoveAsset(item.m_Handle, item.m_RelativePath);
+				if (m_CachedItemMetrics.m_Missing > 1 && ImGui::MenuItem("Clean All Missing Registrations"))
+					RemoveMissingRegistryEntries();
 			}
 			else
 			{
@@ -1255,8 +1289,6 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectAssetI
 			item.m_Imported = true;
 			item.m_Supported = true;
 			item.m_Missing = !std::filesystem::exists(item.m_AbsolutePath);
-			if (item.m_Missing)
-				return;
 
 			if (!m_SearchQuery.empty())
 			{
@@ -1428,7 +1460,7 @@ void ContentBrowserPanel::RequestAutoSliceTexture(const BrowserItem& item)
 {
 	m_AutoSliceHandle = item.m_Handle;
 	m_AutoSliceRelativePath = item.m_RelativePath;
-	m_AutoSliceMinPixels = 24;
+	m_AutoSliceMinPixels = 8;
 	m_AutoSliceBackgroundTolerance = 24;
 	m_AutoSliceMergeGap = 0;
 	m_AutoSlicePadding = 1;
@@ -1667,6 +1699,59 @@ bool ContentBrowserPanel::RemoveSpriteSlice(const BrowserItem& item)
 	return true;
 }
 
+bool ContentBrowserPanel::RemoveSelectedSpriteSlices()
+{
+	if (!m_Project || !m_Project->GetEditorAssetManager())
+		return false;
+
+	const std::vector<BrowserItem> selectedItems = GetSelectedItems();
+	std::unordered_map<AssetHandle, std::vector<int32_t>> slicesByTexture;
+	for (const BrowserItem& selectedItem : selectedItems)
+	{
+		if (selectedItem.m_SubAsset && selectedItem.m_Handle != 0 && selectedItem.m_TextureSpriteIndex >= 0)
+			slicesByTexture[selectedItem.m_Handle].push_back(selectedItem.m_TextureSpriteIndex);
+	}
+
+	if (slicesByTexture.empty())
+	{
+		SetStatus("No selected sprite slices to remove.", true);
+		return false;
+	}
+
+	size_t removedCount = 0;
+	for (auto& [handle, indices] : slicesByTexture)
+	{
+		if (!m_Project->GetEditorAssetManager()->IsAssetHandleValid(handle))
+			continue;
+
+		AssetMetadata metadata = m_Project->GetEditorAssetManager()->GetMetadata(handle);
+		auto& sprites = metadata.m_TextureSettings.m_Sprites;
+		std::ranges::sort(indices);
+		indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
+		for (auto it = indices.rbegin(); it != indices.rend(); ++it)
+		{
+			if (*it < 0 || std::cmp_greater_equal(*it, sprites.size()))
+				continue;
+			sprites.erase(sprites.begin() + *it);
+			++removedCount;
+		}
+
+		if (sprites.empty())
+			metadata.m_TextureSettings.m_SpriteMode = TextureSpriteMode::Single;
+		m_Project->GetEditorAssetManager()->UpdateAssetMetadata(handle, metadata);
+	}
+
+	if (removedCount == 0)
+	{
+		SetStatus("No valid selected sprite slices were removed.", true);
+		return false;
+	}
+
+	RefreshAssetTree();
+	SetStatus("Removed " + std::to_string(removedCount) + " selected sprite slice(s).");
+	return true;
+}
+
 bool ContentBrowserPanel::ClearTextureSprites(const BrowserItem& item)
 {
 	if (!m_Project || !m_Project->GetEditorAssetManager() || item.m_Handle == 0 || item.m_Type != AssetType::Texture2D)
@@ -1691,6 +1776,41 @@ bool ContentBrowserPanel::ClearTextureSprites(const BrowserItem& item)
 	return true;
 }
 
+bool ContentBrowserPanel::RemoveMissingRegistryEntries()
+{
+	if (!m_Project || !m_Project->GetEditorAssetManager())
+		return false;
+
+	std::vector<AssetHandle> missingHandles;
+	const auto& registry = m_Project->GetEditorAssetManager()->GetAssetRegistry();
+	registry.Foreach([&](const AssetRegistry::ValueType& value)
+	{
+		const std::filesystem::path absolutePath = m_BaseDirectory / value.second.m_Filepath;
+		if (!std::filesystem::exists(absolutePath))
+			missingHandles.push_back(value.first);
+	});
+
+	if (missingHandles.empty())
+	{
+		SetStatus("No missing Asset registrations found.");
+		return false;
+	}
+
+	Ref<Project> activeProject = Project::GetActive();
+	if (activeProject && std::ranges::find(missingHandles, activeProject->GetConfig().m_StartScene) != missingHandles.end())
+	{
+		activeProject->GetConfig().m_StartScene = 0;
+		Project::SaveActive();
+	}
+
+	for (AssetHandle handle : missingHandles)
+		m_Project->GetEditorAssetManager()->DeleteAsset(handle);
+
+	RefreshAssetTree();
+	SetStatus("Removed " + std::to_string(missingHandles.size()) + " missing Asset registration(s).");
+	return true;
+}
+
 bool ContentBrowserPanel::CreateAnimationFromSelection()
 {
 	if (!m_Project || !m_Project->GetEditorAssetManager())
@@ -1709,8 +1829,12 @@ bool ContentBrowserPanel::CreateAnimationFromSelection()
 	});
 
 	Ref<Animation2D> animation = MakeRef<Animation2D>();
-	animation->SetName("New Animation");
+	std::string animationName = "New Animation";
+	if (!selectedItems.empty())
+		animationName = selectedItems.front().m_RelativePath.stem().empty() ? "New Animation" : selectedItems.front().m_RelativePath.stem().string();
+	animation->SetName(animationName);
 	animation->SetLoop(true);
+	std::set<std::pair<uint64_t, int32_t>> insertedFrames;
 	for (BrowserItem& item : selectedItems)
 	{
 		AssetHandle textureHandle = item.m_Handle;
@@ -1722,11 +1846,33 @@ bool ContentBrowserPanel::CreateAnimationFromSelection()
 		if (textureHandle == 0)
 			continue;
 
-		AnimationFrame frame;
-		frame.m_Texture = textureHandle;
-		frame.m_TextureSpriteIndex = item.m_TextureSpriteIndex;
-		frame.m_Duration = 0.1f;
-		animation->AddFrame(frame);
+		auto addFrame = [&](int32_t spriteIndex)
+		{
+			const std::pair<uint64_t, int32_t> key{ static_cast<uint64_t>(textureHandle), spriteIndex };
+			if (insertedFrames.contains(key))
+				return;
+
+			AnimationFrame frame;
+			frame.m_Texture = textureHandle;
+			frame.m_TextureSpriteIndex = spriteIndex;
+			frame.m_Duration = 0.1f;
+			animation->AddFrame(frame);
+			insertedFrames.insert(key);
+		};
+
+		if (!item.m_SubAsset && item.m_TextureSpriteIndex < 0 && m_Project->GetEditorAssetManager()->IsAssetHandleValid(textureHandle))
+		{
+			const AssetMetadata& textureMetadata = m_Project->GetEditorAssetManager()->GetMetadata(textureHandle);
+			const auto& sprites = textureMetadata.m_TextureSettings.m_Sprites;
+			if (!sprites.empty())
+			{
+				for (int32_t spriteIndex = 0; std::cmp_less(spriteIndex, sprites.size()); ++spriteIndex)
+					addFrame(spriteIndex);
+				continue;
+			}
+		}
+
+		addFrame(item.m_TextureSpriteIndex);
 	}
 
 	if (animation->GetFrames().empty())
@@ -1737,7 +1883,7 @@ bool ContentBrowserPanel::CreateAnimationFromSelection()
 
 	std::error_code error;
 	const std::filesystem::path outputDirectory = std::filesystem::exists(m_CurrentDirectory, error) ? m_CurrentDirectory : m_BaseDirectory;
-	const std::filesystem::path animationPath = MakeUniqueAssetPath(outputDirectory, "New Animation", FileExtensions::Animation);
+	const std::filesystem::path animationPath = MakeUniqueAssetPath(outputDirectory, animationName + " Animation", FileExtensions::Animation);
 	animation->Serialize(animationPath);
 
 	AssetMetadata metadata;
@@ -2165,6 +2311,8 @@ bool ContentBrowserPanel::DeleteSelectedItem()
 	std::vector<BrowserItem> selectedItems = GetSelectedItems();
 	if (selectedItems.empty())
 		return false;
+	if (std::ranges::any_of(selectedItems, [](const BrowserItem& item) { return item.m_SubAsset; }))
+		return RemoveSelectedSpriteSlices();
 	RequestDeleteItem(selectedItems.front());
 	if (selectedItems.size() > 1)
 		SetStatus("Delete shortcut targets the primary selected item. Use context menu for careful batch cleanup.");

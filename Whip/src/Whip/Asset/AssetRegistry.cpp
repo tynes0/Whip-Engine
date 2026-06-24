@@ -223,6 +223,8 @@ namespace
 				sprite.m_Name = "Sprite";
 			settings.m_Sprites.push_back(std::move(sprite));
 		}
+
+		Utils::NormalizeTextureSprites(settings);
 	}
 }
 

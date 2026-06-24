@@ -199,7 +199,11 @@ bool EditorAssetManager::UpdateAssetMetadata(AssetHandle handle, const AssetMeta
 	if (!IsAssetHandleValid(handle))
 		return false;
 
-	if (!m_AssetRegistry.AddOrReset(handle, metadata))
+	AssetMetadata normalizedMetadata = metadata;
+	if (normalizedMetadata.m_Type == AssetType::Texture2D)
+		Utils::NormalizeTextureSprites(normalizedMetadata.m_TextureSettings, 0, 0, normalizedMetadata.m_Filepath.stem().string());
+
+	if (!m_AssetRegistry.AddOrReset(handle, normalizedMetadata))
 		return false;
 
 	bool result = false;

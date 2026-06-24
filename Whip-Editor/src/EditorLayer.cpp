@@ -1569,10 +1569,23 @@ void EditorLayer::OnImGuiRender()
 		if (ImGui::BeginDragDropTarget())
 		{
 			bool handledDrop = false;
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEMS"))
 			{
-				const UI::AssetReferencePayload assetPayload = UI::ReadAssetReferencePayload(payload);
-				handledDrop = m_AssetInteractionManager.HandleViewportAssetDrop(assetPayload.m_Handle, assetPayload.m_TextureSpriteIndex);
+				const std::vector<UI::AssetReferencePayload> assetPayloads = UI::ReadAssetReferenceListPayload(payload);
+				std::vector<std::pair<AssetHandle, int32_t>> assetReferences;
+				assetReferences.reserve(assetPayloads.size());
+				for (const UI::AssetReferencePayload& assetPayload : assetPayloads)
+					assetReferences.emplace_back(assetPayload.m_Handle, assetPayload.m_TextureSpriteIndex);
+				handledDrop = m_AssetInteractionManager.HandleViewportAssetDrops(assetReferences);
+			}
+
+			if (!handledDrop)
+			{
+				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+				{
+					const UI::AssetReferencePayload assetPayload = UI::ReadAssetReferencePayload(payload);
+					handledDrop = m_AssetInteractionManager.HandleViewportAssetDrop(assetPayload.m_Handle, assetPayload.m_TextureSpriteIndex);
+				}
 			}
 
 			if (!handledDrop)

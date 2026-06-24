@@ -80,7 +80,7 @@ private:
 		int m_SliceCellHeight = 32;
 		int m_SlicePadding = 0;
 		int m_SliceSpacing = 0;
-		int m_AutoSliceMinPixels = 24;
+		int m_AutoSliceMinPixels = 8;
 		int m_AutoSliceBackgroundTolerance = 24;
 		int m_AutoSliceMergeGap = 0;
 		int m_AutoSlicePadding = 1;

@@ -20,6 +20,16 @@ This note captures the engine/editor/runtime work after the first stability pass
 - Hardened script reload around Mono domain reload.
 - Improved console auto-scroll and log copying behavior.
 
+### 2. Asset Pipeline Authoring Pass
+
+- Added safer texture sprite metadata normalization.
+- Added missing asset registry cleanup from the content browser.
+- Added multi-asset drag/drop payloads for content browser selections.
+- Added multi-sprite viewport drop placement.
+- Added selected sprite-slice batch removal.
+- Improved create-animation-from-selection for parent spritesheets and sub-sprites.
+- Improved texture editor sprite management with normalize, duplicate, and reorder controls.
+
 ## Priority Roadmap
 
 ### 1. Build / Export Pipeline And Whip Player Runtime

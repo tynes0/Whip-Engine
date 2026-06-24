@@ -2,6 +2,7 @@
 
 #include <Whip-Editor/Managers/EditorShortcutManager.h>
 #include <Whip/Asset/AssetManager.h>
+#include <Whip/Asset/AssetUtils.h>
 #include <Whip/Asset/TextureSlicer.h>
 #include <Whip/Audio/AudioEngine.h>
 #include <Whip/Audio/AudioSource.h>
@@ -1462,7 +1463,20 @@ bool AssetEditorPanel::SaveAssetMetadata(AssetHandle handle, const AssetMetadata
 	if (!Project::GetActive() || !Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(handle))
 		return false;
 
-	const bool saved = Project::GetActive()->GetEditorAssetManager()->UpdateAssetMetadata(handle, metadata);
+	AssetMetadata normalizedMetadata = metadata;
+	if (normalizedMetadata.m_Type == AssetType::Texture2D)
+	{
+		uint32_t textureWidth = 0;
+		uint32_t textureHeight = 0;
+		if (Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(handle); texture && texture->IsLoaded())
+		{
+			textureWidth = texture->GetWidth();
+			textureHeight = texture->GetHeight();
+		}
+		Utils::NormalizeTextureSprites(normalizedMetadata.m_TextureSettings, textureWidth, textureHeight, normalizedMetadata.m_Filepath.stem().string());
+	}
+
+	const bool saved = Project::GetActive()->GetEditorAssetManager()->UpdateAssetMetadata(handle, normalizedMetadata);
 	if (saved && m_RefreshAssetTreeCallback)
 		m_RefreshAssetTreeCallback();
 	return saved;
@@ -1938,6 +1952,18 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 				state.m_Status = "Sprite added.";
 		}
 		ImGui::BeginDisabled(importSettings.m_Sprites.empty());
+		if (ImGui::Button("Normalize Sprite Metadata", ImVec2(-1.0f, 0.0f)))
+		{
+			const bool normalized = Utils::NormalizeTextureSprites(importSettings, state.m_Width, state.m_Height, metadata.m_Filepath.stem().string());
+			if (!normalized)
+				state.m_Status = "Sprite metadata already clean.";
+			else if (SaveAssetMetadata(handle, editedMetadata))
+				state.m_Status = "Sprite metadata normalized.";
+			else
+				state.m_Status = "Could not save normalized sprite metadata.";
+		}
+		ImGui::EndDisabled();
+		ImGui::BeginDisabled(importSettings.m_Sprites.empty());
 		if (ImGui::Button("Clear Sprite Slices", ImVec2(-1.0f, 0.0f)))
 		{
 			const size_t removedCount = importSettings.m_Sprites.size();
@@ -1986,6 +2012,34 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 			ImGui::PopItemWidth();
 			if (spriteChanged && SaveAssetMetadata(handle, editedMetadata))
 				state.m_Status = "Sprite updated.";
+			if (ImGui::Button("Duplicate Sprite", ImVec2(-1.0f, 0.0f)))
+			{
+				TextureSpriteRect duplicate = sprite;
+				duplicate.m_Name += " Copy";
+				importSettings.m_Sprites.insert(importSettings.m_Sprites.begin() + state.m_SelectedSpriteIndex + 1, std::move(duplicate));
+				state.m_SelectedSpriteIndex += 1;
+				Utils::NormalizeTextureSprites(importSettings, state.m_Width, state.m_Height, metadata.m_Filepath.stem().string());
+				if (SaveAssetMetadata(handle, editedMetadata))
+					state.m_Status = "Sprite duplicated.";
+			}
+			ImGui::BeginDisabled(state.m_SelectedSpriteIndex <= 0);
+			if (ImGui::Button("Move Sprite Up", ImVec2(-1.0f, 0.0f)))
+			{
+				std::swap(importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex)], importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex - 1)]);
+				state.m_SelectedSpriteIndex -= 1;
+				if (SaveAssetMetadata(handle, editedMetadata))
+					state.m_Status = "Sprite moved.";
+			}
+			ImGui::EndDisabled();
+			ImGui::BeginDisabled(state.m_SelectedSpriteIndex + 1 >= static_cast<int>(importSettings.m_Sprites.size()));
+			if (ImGui::Button("Move Sprite Down", ImVec2(-1.0f, 0.0f)))
+			{
+				std::swap(importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex)], importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex + 1)]);
+				state.m_SelectedSpriteIndex += 1;
+				if (SaveAssetMetadata(handle, editedMetadata))
+					state.m_Status = "Sprite moved.";
+			}
+			ImGui::EndDisabled();
 			if (ImGui::Button("Remove Sprite", ImVec2(-1.0f, 0.0f)))
 			{
 				importSettings.m_Sprites.erase(importSettings.m_Sprites.begin() + state.m_SelectedSpriteIndex);
