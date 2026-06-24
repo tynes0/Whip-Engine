@@ -1,8 +1,13 @@
 include_guard(GLOBAL)
 
 option(WHP_BUILD_EDITOR "Build Whip-Editor." ON)
-option(WHP_BUILD_FBOX "Build F-Box sandbox application." ON)
+option(WHP_BUILD_PLAYER "Build Whip-Player runtime application." ON)
+option(WHP_BUILD_FBOX "Deprecated alias for WHP_BUILD_PLAYER." ON)
 option(WHP_BUILD_SCRIPT_CORE "Build Whip-ScriptCore C# assembly. Requires a Visual Studio generator." ON)
+
+if(NOT WHP_BUILD_FBOX)
+	set(WHP_BUILD_PLAYER OFF CACHE BOOL "Build Whip-Player runtime application." FORCE)
+endif()
 
 option(WHP_USE_LOCAL_VENDOR "Prefer dependency sources already present under Whip/vendor." ON)
 option(WHP_FETCH_DEPS "Fetch missing open-source dependencies with CMake FetchContent." ON)

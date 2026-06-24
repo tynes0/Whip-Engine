@@ -26,7 +26,7 @@ function(whip_apply_solution_folders)
     whip_set_folder_if_exists(Whip-Assistant "Whip/Assistant")
     whip_set_folder_if_exists(Whip-Editor "Whip/Editor")
     whip_set_folder_if_exists(Whip-ScriptCore "Whip/Scripts")
-    whip_set_folder_if_exists(F-Box "Whip/Games")
+    whip_set_folder_if_exists(Whip-Player "Whip/Player")
 
     foreach(target IN ITEMS
         glfw glfw3 update_mappings
@@ -81,7 +81,7 @@ if(WHP_BUILD_EDITOR)
     add_subdirectory(Whip-Editor)
 endif()
 
-if(WHP_BUILD_FBOX)
+if(WHP_BUILD_PLAYER)
     add_subdirectory(F-Box)
 endif()
 

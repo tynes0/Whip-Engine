@@ -20,6 +20,7 @@
         "WHP_UPDATE_DEPS": "OFF",
         "WHP_USE_LOCAL_VENDOR": "ON",
         "WHP_BUILD_EDITOR": "ON",
+        "WHP_BUILD_PLAYER": "ON",
         "WHP_BUILD_FBOX": "ON",
         "WHP_BUILD_SCRIPT_CORE": "ON",
         "WHP_BUILD_FBOX_SCRIPTS": "ON",
