@@ -114,6 +114,10 @@ This is critical for actually making games that feel good.
 - Write and enforce a Rigidbody2D usage pattern.
 - Add a character controller helper.
 - Standardize jump and ground detection.
+- Add an adjustable CapsuleCollider2D component for characters and rounded platformer bodies:
+  - configurable size, radius, offset, direction, density, friction, restitution, sensor, and tag
+  - runtime Box2D fixture creation/update
+  - scene serialization, inspector editing, multi-select editing, script API, debug draw, and validation
 - Add collider setup tools.
 - Add platformer movement examples.
 - Add recommended settings for dynamic, kinematic, gravity scale, friction, and jump feel.
