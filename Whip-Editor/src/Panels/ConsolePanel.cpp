@@ -462,7 +462,7 @@ void ConsolePanel::OnImGuiRender()
 
 	bool open = ConsoleState.m_Open;
 	ImGui::Begin("Console", &open);
-	ConsoleState.m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+	ConsoleState.m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 	if (open != ConsoleState.m_Open)
 	{
 		ConsoleState.m_Open = open;

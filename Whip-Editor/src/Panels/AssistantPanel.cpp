@@ -48,7 +48,10 @@ AssistantPanel::AssistantPanel()
 void AssistantPanel::OnImGuiRender()
 {
 	if (!m_Open)
+	{
+		m_Focused = false;
 		return;
+	}
 
 	PollRequest();
 
@@ -57,10 +60,12 @@ void AssistantPanel::OnImGuiRender()
 	if (!ImGui::Begin("Whip Assistant", &open))
 	{
 		SetOpen(open);
+		m_Focused = false;
 		ImGui::End();
 		return;
 	}
 	SetOpen(open);
+	m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 
 	const Assistant::Settings& settings = GetSettings();
 	const Assistant::ContextSnapshot context = BuildContext();

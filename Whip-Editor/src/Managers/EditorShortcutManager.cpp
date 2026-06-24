@@ -48,6 +48,18 @@ namespace
 		}
 	}
 
+	bool IsTextInputOwnedShortcut(KeyCode key, bool ctrl, bool shift, bool alt)
+	{
+		if (!ImGui::GetIO().WantTextInput)
+			return false;
+
+		const bool modifiedShortcut = ctrl || shift || alt;
+		if (!modifiedShortcut)
+			return true;
+
+		return IsTextEditingBinding({ key, ctrl, shift, alt });
+	}
+
 	ImGuiKey ToImGuiKey(KeyCode key)
 	{
 		switch (key)
@@ -667,6 +679,9 @@ bool EditorShortcutManager::IsShortcutActive(const EditorShortcut& shortcut) con
 
 bool EditorShortcutManager::HandleShortcut(KeyCode key, bool ctrl, bool shift, bool alt, bool hasActiveWidget) const
 {
+	if (IsTextInputOwnedShortcut(key, ctrl, shift, alt))
+		return false;
+
 	std::vector<const EditorShortcut*> scopedCandidates;
 	for (const EditorShortcut& shortcut : m_Shortcuts)
 	{

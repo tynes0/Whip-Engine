@@ -27,7 +27,7 @@ public:
 	void SetApplyProposalCallback(ApplyProposalCallback callback) { m_ApplyProposalCallback = std::move(callback); }
 
 	void FocusPrompt();
-	bool IsShortcutContextActive() const { return m_Open; }
+	bool IsShortcutContextActive() const { return m_Open && m_Focused; }
 
 private:
 	void SubmitPrompt(bool online);
@@ -52,6 +52,7 @@ private:
 	std::future<Assistant::Response> m_RequestFuture;
 	bool m_RequestInFlight = false;
 	bool m_FocusPrompt = false;
+	bool m_Focused = false;
 	bool m_ShouldScrollMessages = true;
 	std::string m_Input;
 	std::string m_Status;
