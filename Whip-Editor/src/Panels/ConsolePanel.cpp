@@ -206,6 +206,11 @@ namespace
 			levelEnabled = enabled;
 	}
 
+	void RequestScrollToBottom()
+	{
+		ConsoleState.m_RequestScrollToBottom = true;
+	}
+
 	void SetWarningsAndErrorsFilter()
 	{
 		SetAllLevelFilters(false);
@@ -489,32 +494,50 @@ void ConsolePanel::OnImGuiRender()
 			SetAllLevelFilters(true);
 			ConsoleState.m_TextFilter.clear();
 			ConsoleState.m_CategoryFilter.clear();
+			RequestScrollToBottom();
 		}
 		ImGui::SameLine();
 		if (ImGui::SmallButton("Warn+"))
+		{
 			SetWarningsAndErrorsFilter();
+			RequestScrollToBottom();
+		}
 		ImGui::SameLine();
 		if (ImGui::SmallButton("Errors"))
+		{
 			SetErrorsFilter();
+			RequestScrollToBottom();
+		}
 
 		ImGui::SeparatorText("Category");
 		if (ImGui::SmallButton("Scripts"))
+		{
 			ConsoleState.m_CategoryFilter = "Script";
+			RequestScrollToBottom();
+		}
 		ImGui::SameLine();
 		if (ImGui::SmallButton("Assets"))
+		{
 			ConsoleState.m_CategoryFilter = "Asset";
+			RequestScrollToBottom();
+		}
 		ImGui::SameLine();
 		if (ImGui::SmallButton("Project"))
+		{
 			ConsoleState.m_CategoryFilter = "Project";
+			RequestScrollToBottom();
+		}
 		ImGui::SetNextItemWidth(220.0f);
-		ImGui::InputTextWithHint("##ConsoleCategoryFilter", "Filter category", &ConsoleState.m_CategoryFilter);
+		if (ImGui::InputTextWithHint("##ConsoleCategoryFilter", "Filter category", &ConsoleState.m_CategoryFilter))
+			RequestScrollToBottom();
 
 		ImGui::SeparatorText("Levels");
 		for (size_t i = 0; i < ConsoleState.m_LevelFilter.size(); ++i)
 		{
 			if (i % 2 == 1)
 				ImGui::SameLine(130.0f);
-			ImGui::Checkbox(LevelName(static_cast<Log::Level>(i)), &ConsoleState.m_LevelFilter[i]);
+			if (ImGui::Checkbox(LevelName(static_cast<Log::Level>(i)), &ConsoleState.m_LevelFilter[i]))
+				RequestScrollToBottom();
 		}
 
 		ImGui::EndPopup();
@@ -536,12 +559,13 @@ void ConsolePanel::OnImGuiRender()
 		ImGui::SetKeyboardFocusHere();
 		ConsoleState.m_RequestSearchFocus = false;
 	}
-	ImGui::InputTextWithHint("##ConsoleTextFilter", "Search message, level, time", &ConsoleState.m_TextFilter);
+	if (ImGui::InputTextWithHint("##ConsoleTextFilter", "Search message, level, time", &ConsoleState.m_TextFilter))
+		RequestScrollToBottom();
 
 	ImGui::Separator();
-	ImGui::BeginChild("##ConsoleScroll", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
-
-	if (ImGui::BeginTable("##ConsoleTable", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollX | ImGuiTableFlags_SizingFixedFit))
+	const ImGuiTableFlags tableFlags = ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_RowBg |
+		ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit;
+	if (ImGui::BeginTable("##ConsoleTable", 4, tableFlags, ImVec2(0.0f, 0.0f)))
 	{
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, 78.0f);
@@ -551,6 +575,7 @@ void ConsolePanel::OnImGuiRender()
 		ImGui::TableHeadersRow();
 
 		size_t rowIndex = 0;
+		size_t visibleRowIndex = 0;
 		for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
 		{
 			if (!EntryVisible(entry))
@@ -574,22 +599,18 @@ void ConsolePanel::OnImGuiRender()
 			const std::string message = SingleLineText(entry.m_Message);
 			DrawSelectableConsoleCell("message", message, entry.m_Message, rowClipboard);
 			ImGui::PopID();
+			++visibleRowIndex;
 			++rowIndex;
+			if (shouldScrollToBottom && visibleRowIndex == visibleCount)
+				ImGui::SetScrollHereY(1.0f);
 		}
 		ImGui::EndTable();
-	}
-
-	if (shouldScrollToBottom)
-	{
-		ImGui::SetScrollHereY(1.0f);
-		ImGui::SetScrollY(ImGui::GetScrollMaxY());
 	}
 
 	ConsoleState.m_RequestScrollToBottom = false;
 	ConsoleState.m_LastRenderedBufferSize = ConsoleState.m_Buffer.size();
 	ConsoleState.m_LastRenderedVisibleCount = visibleCount;
 
-	ImGui::EndChild();
 	ImGui::PopStyleVar(2);
 	ImGui::End();
 }
