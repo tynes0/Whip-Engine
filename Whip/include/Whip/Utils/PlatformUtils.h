@@ -24,6 +24,7 @@ public:
 
 namespace Utils
 {
+	std::filesystem::path GetExecutableDirectory();
 	bool RestartProgram();
 	void WaitForRestartParentIfNeeded();
 	bool OpenExternalPath(const std::filesystem::path& path);

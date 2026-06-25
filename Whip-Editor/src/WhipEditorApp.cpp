@@ -1,5 +1,7 @@
 #include <Whip-Editor/EditorLayer.h>
 
+#include <Whip/Utils/PlatformUtils.h>
+
 _WHIP_START
 
 class WhipEditor : public Application
@@ -17,6 +19,7 @@ Application* CreateApplication(ApplicationCommandLineArgs args)
 	spec.m_Properties.m_Title = "Whip Editor";
 	spec.m_Properties.m_Fullscreen = true;
 	spec.m_Properties.m_CustomTitlebar = true;
+	spec.m_WorkingDirectory = Utils::GetExecutableDirectory().string();
 	spec.m_CommandLineArgs = args;
 	return new WhipEditor(spec);
 }

@@ -139,7 +139,8 @@ namespace UI
 
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(12.0f, 10.0f));
 			ImGui::SetCursorPos(ImVec2(28.0f, 24.0f));
-			const ImVec2 logoPos = ImGui::GetCursorScreenPos();
+			ImGui::InvisibleButton("##WhipHubLogo", ImVec2(44.0f, 44.0f));
+			const ImVec2 logoPos = ImGui::GetItemRectMin();
 			drawList->AddRectFilled(logoPos, ImVec2(logoPos.x + 44.0f, logoPos.y + 44.0f), IM_COL32(18, 30, 37, 255), 5.0f);
 			drawList->AddRect(logoPos, ImVec2(logoPos.x + 44.0f, logoPos.y + 44.0f), IM_COL32(73, 127, 159, 230), 5.0f, 0, 1.2f);
 			drawList->AddLine(ImVec2(logoPos.x + 13.0f, logoPos.y + 14.0f), ImVec2(logoPos.x + 31.0f, logoPos.y + 22.0f), IM_COL32(232, 238, 240, 255), 4.0f);
@@ -259,6 +260,7 @@ namespace UI
 					ImGui::EndDisabled();
 					ImGui::PopID();
 					ImGui::SetCursorScreenPos(ImVec2(rowPos.x, rowEnd.y + 8.0f));
+					ImGui::Dummy(ImVec2(rowWidth, 1.0f));
 				}
 			}
 

@@ -147,6 +147,18 @@ float Time::GetTime()
 	return (float)glfwGetTime();
 }
 
+std::filesystem::path Utils::GetExecutableDirectory()
+{
+	char programPath[MAX_PATH];
+	if (GetModuleFileNameA(NULL, programPath, MAX_PATH) == 0)
+	{
+		WHP_CORE_ERROR("[Application] Could not resolve executable directory. Windows error (GetModuleFileNameA): {0}", GetLastError());
+		return {};
+	}
+
+	return std::filesystem::path(programPath).parent_path();
+}
+
 bool Utils::RestartProgram()
 {
 	char programPath[MAX_PATH];
