@@ -171,7 +171,7 @@ namespace UI
 
 			ImGui::BeginDisabled(!m_LoadProjectCallback);
 			if (DrawHubActionButton("Open Project", "Browse for a .whipproj file", true))
-				OnProjectAction(m_LoadProjectCallback);
+				Application::Get().SubmitToNextTick([this]() { OnProjectAction(m_LoadProjectCallback); });
 			ImGui::EndDisabled();
 
 			ImGui::BeginDisabled(!m_CreateProjectCallback);
@@ -185,9 +185,17 @@ namespace UI
 			ImGui::TextUnformatted("Templates");
 			for (const ProjectTemplateOption& option : s_Templates)
 			{
-				ImGui::BulletText("%s", option.m_Name);
+				ImGui::Bullet();
 				ImGui::SameLine();
-				ImGui::TextDisabled("%s", option.m_Description);
+				ImGui::TextUnformatted(option.m_Name);
+				ImGui::Indent(20.0f);
+				ImGui::PushTextWrapPos(ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x);
+				ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+				ImGui::TextWrapped("%s", option.m_Description);
+				ImGui::PopStyleColor();
+				ImGui::PopTextWrapPos();
+				ImGui::Unindent(20.0f);
+				ImGui::Spacing();
 			}
 
 			ImGui::PopStyleVar();
@@ -225,18 +233,19 @@ namespace UI
 					const float rowHeight = 72.0f;
 					const ImVec2 rowPos = ImGui::GetCursorScreenPos();
 					const float rowWidth = ImGui::GetContentRegionAvail().x;
+					const float rowBodyWidth = std::max(0.0f, rowWidth - 176.0f);
 					const ImVec2 rowEnd(rowPos.x + rowWidth, rowPos.y + rowHeight);
 					drawList->AddRectFilled(rowPos, rowEnd, i % 2 == 0 ? IM_COL32(9, 15, 19, 255) : IM_COL32(13, 21, 25, 255), 4.0f);
 					drawList->AddRect(rowPos, rowEnd, IM_COL32(40, 60, 72, 170), 4.0f);
 					drawList->AddRectFilled(rowPos, ImVec2(rowPos.x + 4.0f, rowEnd.y), projectExists ? IM_COL32(73, 127, 159, 255) : IM_COL32(180, 104, 78, 255), 4.0f, ImDrawFlags_RoundCornersLeft);
 
 					ImGui::PushID(static_cast<int>(i));
-					ImGui::InvisibleButton("##RecentProjectRow", ImVec2(rowWidth, rowHeight));
+					ImGui::InvisibleButton("##RecentProjectRow", ImVec2(rowBodyWidth, rowHeight));
 					const bool rowHovered = ImGui::IsItemHovered();
 					if (rowHovered)
 						drawList->AddRect(rowPos, rowEnd, IM_COL32(91, 147, 180, 220), 4.0f, 0, 1.2f);
 					if (rowHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && m_OpenRecentProjectCallback)
-						OnProjectAction([this, projectPath]() { return m_OpenRecentProjectCallback(projectPath); });
+						Application::Get().SubmitToNextTick([this, projectPath]() { OnProjectAction([this, projectPath]() { return m_OpenRecentProjectCallback(projectPath); }); });
 
 					ImGui::SetCursorScreenPos(ImVec2(rowPos.x + 18.0f, rowPos.y + 12.0f));
 					ImGui::TextUnformatted(projectName.c_str());
@@ -251,7 +260,7 @@ namespace UI
 					ImGui::SetCursorScreenPos(ImVec2(rowEnd.x - 156.0f, rowPos.y + 19.0f));
 					ImGui::BeginDisabled(!m_OpenRecentProjectCallback);
 					if (ImGui::Button("Open", ImVec2(68.0f, 30.0f)))
-						OnProjectAction([this, projectPath]() { return m_OpenRecentProjectCallback(projectPath); });
+						Application::Get().SubmitToNextTick([this, projectPath]() { OnProjectAction([this, projectPath]() { return m_OpenRecentProjectCallback(projectPath); }); });
 					ImGui::EndDisabled();
 					ImGui::SameLine();
 					ImGui::BeginDisabled(!m_ForgetRecentProjectCallback && !m_DeleteRecentProjectCallback);
