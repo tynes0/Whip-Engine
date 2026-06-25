@@ -11,6 +11,7 @@
 
 #include <Whip/Core/Application.h>
 
+#include <cstdlib>
 #include <vector>
 
 _WHIP_START
@@ -158,6 +159,8 @@ bool Utils::RestartProgram()
 	std::string commandLine = GetCommandLineA();
 	std::vector<char> commandLineBuffer(commandLine.begin(), commandLine.end());
 	commandLineBuffer.push_back('\0');
+	const std::string parentProcessId = std::to_string(GetCurrentProcessId());
+	_putenv_s("WHIP_RESTART_PARENT_PID", parentProcessId.c_str());
 
 	STARTUPINFOA si;
 	PROCESS_INFORMATION pi;
@@ -167,14 +170,38 @@ bool Utils::RestartProgram()
 	ZeroMemory(&pi, sizeof(pi));
 	if (!CreateProcessA(programPath, commandLineBuffer.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
 	{
+		_putenv_s("WHIP_RESTART_PARENT_PID", "");
 		WHP_CORE_ERROR("[Application] RestartProgram failed. Windows error (CreateProcessA): {0}", GetLastError());
 		return false;
 	}
 
+	_putenv_s("WHIP_RESTART_PARENT_PID", "");
 	WHP_CORE_INFO("[Application] Program restart requested.");
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 	return true;
+}
+
+void Utils::WaitForRestartParentIfNeeded()
+{
+	const char* parentProcessIdText = std::getenv("WHIP_RESTART_PARENT_PID");
+	if (!parentProcessIdText || parentProcessIdText[0] == '\0')
+		return;
+
+	char* parseEnd = nullptr;
+	const unsigned long parentProcessId = std::strtoul(parentProcessIdText, &parseEnd, 10);
+	_putenv_s("WHIP_RESTART_PARENT_PID", "");
+	if (parseEnd == parentProcessIdText || parentProcessId == 0 || parentProcessId == GetCurrentProcessId())
+		return;
+
+	HANDLE parentProcess = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(parentProcessId));
+	if (!parentProcess)
+		return;
+
+	const DWORD waitResult = WaitForSingleObject(parentProcess, 15000);
+	CloseHandle(parentProcess);
+	if (waitResult == WAIT_TIMEOUT)
+		WHP_CORE_WARN("[Application] Restart wait timed out. Continuing startup.");
 }
 
 bool Utils::OpenExternalPath(const std::filesystem::path& path)

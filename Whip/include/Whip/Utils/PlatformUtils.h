@@ -25,6 +25,7 @@ public:
 namespace Utils
 {
 	bool RestartProgram();
+	void WaitForRestartParentIfNeeded();
 	bool OpenExternalPath(const std::filesystem::path& path);
 	bool OpenExternalPathWith(const std::filesystem::path& executable, const std::filesystem::path& path);
 	std::string WStringToUtf8(const std::wstring& wideString);

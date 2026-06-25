@@ -59,11 +59,15 @@ void Application::Run()
 	{
 		m_TickCount++;
 		ExecuteNextTickQueue();
+		if (!m_Running)
+			break;
 
 		float time = Time::GetTime();
 		Timestep ts = time - m_LastFrameTime;
 		m_LastFrameTime = time;
 		ExecuteMainThreadQueue();
+		if (!m_Running)
+			break;
 		TimerManager::Get().Tick(ts);
 
 		if (!m_Minimized)
@@ -93,8 +97,14 @@ void Application::Close()
 
 void Application::Restart()
 {
+	if (m_Restarting)
+		return;
+
 	if (Utils::RestartProgram())
+	{
+		m_Restarting = true;
 		Close();
+	}
 }
 
 void Application::OnEvent(Event& event)

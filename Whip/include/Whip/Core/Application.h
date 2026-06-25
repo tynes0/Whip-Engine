@@ -77,6 +77,7 @@ private:
 	ImGuiLayer* m_ImGuiLayer;
 	LayerStack m_LayerStack;
 	bool m_Running = true;
+	bool m_Restarting = false;
 	bool m_Minimized = false;
 	float m_LastFrameTime = 0.0f;
 	uint64_t m_TickCount = 0;

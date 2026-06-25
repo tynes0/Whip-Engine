@@ -4,6 +4,7 @@
 #include <Whip/Core/Log.h>
 #include <Whip/Core/Application.h>
 #include <Whip/Debug/Instrumentor.h>
+#include <Whip/Utils/PlatformUtils.h>
 
 #ifdef WHP_PLATFORM_WINDOWS
 
@@ -12,6 +13,7 @@ extern whip::Application* whip::CreateApplication(whip::ApplicationCommandLineAr
 inline int main(int argc, char** argv)
 {
 	whip::Log::Init();
+	whip::Utils::WaitForRestartParentIfNeeded();
 	WHP_PROFILE_BEGIN_SESSION("Startup", "WhipProfile-Startup.json");
 	auto app = whip::CreateApplication({
 		.m_Count = argc,
