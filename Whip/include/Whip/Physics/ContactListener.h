@@ -3,8 +3,7 @@
 #include <Whip/Core/Core.h>
 #include <Whip/Core/UUID.h>
 
-#include <box2d/b2_world_callbacks.h>
-#include <box2d/b2_contact.h>
+#include <box2d/box2d.h>
 
 #include <Whip/Scene/Entity.h>
 #include <Whip/Scene/Scene.h>
@@ -14,19 +13,11 @@
 
 _WHIP_START
 
-class ContactListener : public b2ContactListener
+class ContactListener
 {
 public:
-	void BeginContact(b2Contact* contact) override;
-
-	void EndContact(b2Contact* contact) override;
-
-	void PreSolve(b2Contact* contact, const b2Manifold* oldManifold) override;
-
-	//void PostSolve(b2Contact* contact, const b2ContactImpulse* impulse) override
-	//{
-	//}
-
+	void ProcessEvents(b2WorldId world) const;
+	static bool PreSolve(b2ShapeId shapeA, b2ShapeId shapeB, b2Manifold* manifold, void* context);
 };
 
 _WHIP_END

@@ -3,30 +3,29 @@
 #include <Whip/Core/Core.h>
 #include <Whip/Core/Timestep.h>
 
-#include <entt.hpp>
-
-class b2World;
+#include <box2d/box2d.h>
 
 _WHIP_START
 
 class Scene;
 
-class PhysicsWorld
+class PhysicsWorld // NOLINT(cppcoreguidelines-special-member-functions)
 {
 public:
-	PhysicsWorld() {}
-	PhysicsWorld(Scene* sceneContext) : m_SceneContext(sceneContext) {}
+	PhysicsWorld();
+	PhysicsWorld(Scene* sceneContext);
 	~PhysicsWorld();
 
 	void SetSceneContext(Scene* sceneContext);
 
 	void Create(float gravityX = 0.0f, float gravityY = 9.8f);
-	void Update(Timestep ts);
+	void Update(Timestep ts) const;
 	void Destroy();
 private:
-	bool PrivateCheck(bool checkWorld) const;
+	bool Verify(bool checkWorld) const;
+	void ResetRuntimeHandles() const;
 
-	b2World* m_PhysicsWorld = nullptr;
+	b2WorldId m_PhysicsWorld = b2_nullWorldId;
 	Scene* m_SceneContext = nullptr;
 };
 

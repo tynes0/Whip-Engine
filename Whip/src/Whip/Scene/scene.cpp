@@ -2,13 +2,10 @@
 #include <Whip/Scene/Scene.h>
 
 #include <Whip/Scene/Components.h>
-#include <Whip/Scene/ScriptableEntity.h>
 
-#include <Whip/Core/Input.h>
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Render/Renderer2D.h>
 
-#include <Whip/Physics/Physics2D.h>
 #include <Whip/Physics/PhysicsWorld.h>
 
 #include <Whip/Project/Project.h>
@@ -25,12 +22,6 @@
 
 #include <algorithm>
 #include <functional>
-
-#include "box2d/b2_world.h"
-#include "box2d/b2_body.h"
-#include "box2d/b2_fixture.h"
-#include "box2d/b2_polygon_shape.h"
-#include "box2d/b2_circle_shape.h"
 
 _WHIP_START
 
@@ -273,17 +264,6 @@ void Scene::OnUpdateRuntime(Timestep ts)
 					ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUpdate, ent, Payload::Ref<float>(f));
 				}
 			}
-
-			m_Registry.view<NativeScriptComponent>().each([=](auto ent, auto& nsc)
-				{
-					if (!nsc.m_Instance)
-					{
-						nsc.m_Instance = nsc.m_InstantiateScript();
-						nsc.m_Instance->m_Entity = Entity{ ent, this };
-						nsc.m_Instance->OnCreate();
-					}
-					nsc.m_Instance->OnUpdate(ts);
-				});
 		}
 
 		// Physics
@@ -665,11 +645,6 @@ void Scene::OnComponentAdded<ScriptComponent>(Entity entityIn, ScriptComponent& 
 
 template<>
 void Scene::OnComponentAdded<AnimatorComponent>(Entity entityIn, AnimatorComponent& component)
-{
-}
-
-template<>
-void Scene::OnComponentAdded<NativeScriptComponent>(Entity entityIn, NativeScriptComponent& component)
 {
 }
 

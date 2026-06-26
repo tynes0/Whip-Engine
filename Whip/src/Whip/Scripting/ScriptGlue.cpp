@@ -30,7 +30,7 @@
 #include <mono/metadata/assembly.h>
 #include <mono/metadata/reflection.h>
 
-#include <box2d/b2_body.h>
+#include <box2d/box2d.h>
 
 _WHIP_START
 
@@ -83,12 +83,12 @@ namespace
 			return nullptr;
 		}
 
-		b2Body* GetBody(UUID id)
+		b2BodyId GetBody(UUID id)
 		{
 			Entity ent = GetEntity(id);
 			auto& rb2d = ent.GetComponent<Rigidbody2DComponent>();
-			b2Body* body = static_cast<b2Body*>(rb2d.m_RuntimeBody);
-			WHP_CORE_ASSERT(body);
+			b2BodyId body = Physics2D::GetBodyID(rb2d);
+			WHP_CORE_ASSERT(b2Body_IsValid(body));
 			return body;
 		}
 
@@ -175,6 +175,35 @@ namespace
 		return result;
 	}
 
+	void TimerSubmitToNextTick(MonoObject* func, MonoObject* userData)
+	{
+		if (!func)
+		{
+			WHP_CORE_ERROR("[Script Engine] Function object is null!");
+			return;
+		}
+		MonoClass* klass = mono_object_get_class(func);
+
+		if (!klass)
+		{
+			WHP_CORE_ERROR("[Script Engine] Failed to get class from object!");
+			return;
+		}
+		MonoMethod* method = mono_class_get_method_from_name(klass, "Invoke", -1);
+
+		if (!method)
+		{
+			WHP_CORE_ERROR("[Script Engine] Failed to get the method from delegate.");
+			return;
+		}
+
+		Application::Get().SubmitToNextTick([&func, &method, &userData]()
+		{
+			void* args[] = { static_cast<void*>(userData) };
+			ScriptClass::InvokeMethod(func, method, args);
+		});
+	}
+
 	uint64_t TimerSetTimeout(MonoObject* func, float delayMs, MonoObject* userData)
 	{
 		if (!func)
@@ -249,7 +278,7 @@ namespace
 			TimerManager::Get().ResumeTimer(timerId);
 	}
 
-	static void TimerStopTimer(uint64_t timerId)
+	void TimerStopTimer(uint64_t timerId)
 	{
 		if (TimerManager::Get().GetGroupMap().Get(RuntimeTimersGroupId).Exists(timerId))
 		{
@@ -258,49 +287,49 @@ namespace
 		}
 	}
 
-	static void TimerClear()
+	void TimerClear()
 	{
 		TimerManager::Get().GetGroupMap().Get(RuntimeTimersGroupId).Clear();
 	}
 
-	static bool TimerExists(uint64_t id)
+	bool TimerExists(uint64_t id)
 	{
 		return TimerManager::Get().GetGroupMap().Get(RuntimeTimersGroupId).Exists(id);
 	}
 
-	static uint64_t AssetManagerImportAsset(MonoString* path)
+	uint64_t AssetManagerImportAsset(MonoString* path)
 	{
 		return Project::GetActive()->GetRuntimeAssetManager()->ImportAsset(detail::MonoStringToWstring(path));
 	}
 
-	static void AssetManagerDeleteAsset(AssetHandle handle)
+	void AssetManagerDeleteAsset(AssetHandle handle)
 	{
 		Project::GetActive()->GetRuntimeAssetManager()->DeleteAsset(handle);
 	}
 
-	static bool AssetManagerIsAssetHandleValid(AssetHandle handle)
+	bool AssetManagerIsAssetHandleValid(AssetHandle handle)
 	{
 		return Project::GetActive()->GetRuntimeAssetManager()->IsAssetHandleValid(handle);
 	}
 
-	static bool AssetManagerIsAsSetLoaded(AssetHandle handle)
+	bool AssetManagerIsAsSetLoaded(AssetHandle handle)
 	{
 		auto man = Project::GetActive()->GetRuntimeAssetManager();
 		return man->IsAssetLoaded(handle);
 	}
 
-	static AssetType AssetManagerGetAssetType(AssetHandle handle)
+	AssetType AssetManagerGetAssetType(AssetHandle handle)
 	{
 		return Project::GetActive()->GetRuntimeAssetManager()->GetAssetType(handle);
 	}
 
-	static MonoString* AssetManagerGetFilepath(AssetHandle handle)
+	MonoString* AssetManagerGetFilepath(AssetHandle handle)
 	{
 		auto& path = Project::GetActive()->GetRuntimeAssetManager()->GetFilepath(handle);
 		return Utils::CreateString(path.c_str());
 	}
 
-	static bool SceneManagerLoadScene(AssetHandle handle)
+	bool SceneManagerLoadScene(AssetHandle handle)
 	{
 		return ScriptEngine::RequestRuntimeSceneLoad(handle);
 	}
@@ -1025,147 +1054,150 @@ namespace
 
 	void Rigidbody2DComponentApplyForce(UUID entityId, glm::vec2* force, glm::vec2* point, bool wake)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->ApplyForce(b2Vec2(force->x, force->y), b2Vec2(point->x, point->y), wake);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_ApplyForce(body, b2Vec2(force->x, force->y), b2Vec2(point->x, point->y), wake);
 	}
 
 	void Rigidbody2DComponentApplyForceToCenter(UUID entityId, glm::vec2* force, bool wake)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->ApplyForceToCenter(b2Vec2(force->x, force->y), wake);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_ApplyForceToCenter(body, b2Vec2(force->x, force->y), wake);
 	}
 
 	void Rigidbody2DComponentApplyLinearImpulse(UUID entityId, glm::vec2* impulse, glm::vec2* point, bool wake)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->ApplyLinearImpulse(b2Vec2(impulse->x, impulse->y), b2Vec2(point->x, point->y), wake);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_ApplyLinearImpulse(body, b2Vec2(impulse->x, impulse->y), b2Vec2(point->x, point->y), wake);
 	}
 
 	void Rigidbody2DComponentApplyLinearImpulseToCenter(UUID entityId, glm::vec2* impulse, bool wake)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->ApplyLinearImpulseToCenter(b2Vec2(impulse->x, impulse->y), wake);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_ApplyLinearImpulseToCenter(body, b2Vec2(impulse->x, impulse->y), wake);
 	}
 
 	void Rigidbody2DComponentApplyAngularImpulse(UUID entityId, float impulse, bool wake)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->ApplyAngularImpulse(impulse, wake);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_ApplyAngularImpulse(body, impulse, wake);
 	}
 
 	void Rigidbody2DComponentApplyTorque(UUID entityId, float torque, bool wake)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->ApplyTorque(torque, wake);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_ApplyTorque(body, torque, wake);
 	}
 
 	void Rigidbody2DComponentGetLinearVelocity(UUID entityId, glm::vec2* outLinearVelocity)
 	{
-		auto* body = detail::GetBody(entityId);
-		const b2Vec2& linearVelocity = body->GetLinearVelocity();
+		b2BodyId body = detail::GetBody(entityId);
+		const b2Vec2 linearVelocity = b2Body_GetLinearVelocity(body);
 		*outLinearVelocity = glm::vec2(linearVelocity.x, linearVelocity.y);
 	}
 
 	void Rigidbody2DComponentSetLinearVelocity(UUID entityId, glm::vec2* linearVelocity)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->SetLinearVelocity(b2Vec2(linearVelocity->x, linearVelocity->y));
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_SetLinearVelocity(body, b2Vec2(linearVelocity->x, linearVelocity->y));
 	}
 
 	float Rigidbody2DComponentGetAngularVelocity(UUID entityId)
 	{
-		auto* body = detail::GetBody(entityId);
-		return body->GetAngularVelocity();
+		b2BodyId body = detail::GetBody(entityId);
+		return b2Body_GetAngularVelocity(body);
 	}
 
 	void Rigidbody2DComponentSetAngularVelocity(UUID entityId, float angularVelocity)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->SetAngularVelocity(angularVelocity);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_SetAngularVelocity(body, angularVelocity);
 	}
 
 	Rigidbody2DComponent::BodyType Rigidbody2DComponentGetType(UUID entityId)
 	{
-		auto* body = detail::GetBody(entityId);
-		return Physics2D::Rigidbody2DTypeFromBox2DBody(body->GetType());
+		b2BodyId body = detail::GetBody(entityId);
+		return Physics2D::Rigidbody2DTypeFromBox2DBody(b2Body_GetType(body));
 	}
 
 	void Rigidbody2DComponentSetType(UUID entityId, Rigidbody2DComponent::BodyType bodyType)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->SetType(Physics2D::Rigidbody2DTypeToBox2DBody(bodyType));
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_SetType(body, Physics2D::Rigidbody2DTypeToBox2DBody(bodyType));
 	}
 
 	bool Rigidbody2DComponentIsFixedRotation(UUID entityId)
 	{
-		auto* body = detail::GetBody(entityId);
-		return body->IsFixedRotation();
+		b2BodyId body = detail::GetBody(entityId);
+		return b2Body_IsFixedRotation(body);
 	}
 
 	void Rigidbody2DComponentSetFixedRotation(UUID entityId, bool fixed)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->SetFixedRotation(fixed);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_SetFixedRotation(body, fixed);
 	}
 
 	float Rigidbody2DComponentGetGravityScale(UUID entityId)
 	{
-		auto* body = detail::GetBody(entityId);
-		return body->GetGravityScale();
+		b2BodyId body = detail::GetBody(entityId);
+		return b2Body_GetGravityScale(body);
 	}
 
 	void Rigidbody2DComponentSetGravityScale(UUID entityId, float scale)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->SetGravityScale(scale);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_SetGravityScale(body, scale);
 	}
 
 	bool Rigidbody2DComponentIsEnabled(UUID entityId)
 	{
-		auto* body = detail::GetBody(entityId);
-		return body->IsEnabled();
+		b2BodyId body = detail::GetBody(entityId);
+		return b2Body_IsEnabled(body);
 	}
 
 	void Rigidbody2DComponentSetEnabled(UUID entityId, bool enabled)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->SetEnabled(enabled);
+		b2BodyId body = detail::GetBody(entityId);
+		if (enabled)
+			b2Body_Enable(body);
+		else
+			b2Body_Disable(body);
 	}
 
 	bool Rigidbody2DComponentIsAwake(UUID entityId)
 	{
-		auto* body = detail::GetBody(entityId);
-		return body->IsAwake();
+		b2BodyId body = detail::GetBody(entityId);
+		return b2Body_IsAwake(body);
 	}
 
 	void Rigidbody2DComponentSetAwake(UUID entityId, bool awake)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->SetAwake(awake);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_SetAwake(body, awake);
 	}
 
 	float Rigidbody2DComponentGetAngle(UUID entityId)
 	{
-		auto* body = detail::GetBody(entityId);
-		return body->GetAngle();
+		b2BodyId body = detail::GetBody(entityId);
+		return b2Rot_GetAngle(b2Body_GetRotation(body));
 	}
 
 	float Rigidbody2DComponentGetMass(UUID entityId)
 	{
-		auto* body = detail::GetBody(entityId);
-		return body->GetMass();
+		b2BodyId body = detail::GetBody(entityId);
+		return b2Body_GetMass(body);
 	}
 
 	float Rigidbody2DComponentGetIntertia(UUID entityId)
 	{
-		auto* body = detail::GetBody(entityId);
-		return body->GetInertia();
+		b2BodyId body = detail::GetBody(entityId);
+		return b2Body_GetRotationalInertia(body);
 	}
 
 	void Rigidbody2DComponentSetTransform(UUID entityId, glm::vec2* position, float angle)
 	{
-		auto* body = detail::GetBody(entityId);
-		body->SetTransform(b2Vec2(position->x, position->y), angle);
+		b2BodyId body = detail::GetBody(entityId);
+		b2Body_SetTransform(body, b2Vec2(position->x, position->y), b2MakeRot(angle));
 	}
 
 	MonoString* TextComponentGetData(UUID entityId)
@@ -1583,7 +1615,7 @@ namespace
 	{
 		([]()
 			{
-				std::string managedTypeName = std::string("Whip.") + Component::ScriptStructName;
+				std::string managedTypeName = std::string("Whip.") + std::string(Component::ScriptStructName);
 
 				MonoType* managedType = mono_reflection_type_from_name(managedTypeName.data(), AssemblyManager::GetCoreAssemblyImage());
 				if (!managedType)
@@ -1626,6 +1658,7 @@ void ScriptGlue::RegisterFunctions()
 
 	// timer
 	ADD_INTERNAL_CALL(Timer_WaitFor, TimerWaitFor);
+	ADD_INTERNAL_CALL(Timer_SubmitToNextTick, TimerSubmitToNextTick);
 	ADD_INTERNAL_CALL(Timer_SetTimeout, TimerSetTimeout);
 	ADD_INTERNAL_CALL(Timer_SetInterval, TimerSetInterval);
 	ADD_INTERNAL_CALL(Timer_PauseTimer, TimerPauseTimer);

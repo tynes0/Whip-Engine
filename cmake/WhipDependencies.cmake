@@ -422,7 +422,7 @@ function(whip_resolve_dependencies)
         set(BOX2D_BUILD_TESTBED OFF CACHE BOOL "" FORCE)
         set(BOX2D_BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
         set(BOX2D_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-        whip_fetch(box2d https://github.com/erincatto/box2d.git v2.4.1)
+        whip_fetch(box2d https://github.com/erincatto/box2d.git v3.1.1)
     endif()
     whip_alias_first_existing(whip::box2d box2d)
 

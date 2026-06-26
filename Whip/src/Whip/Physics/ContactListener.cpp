@@ -1,106 +1,109 @@
 #include "WhipPch.h"
 #include "Whip/Physics/ContactListener.h"
+#include "Whip/Physics/Physics2D.h"
 
 _WHIP_START
 
-void ContactListener::BeginContact(b2Contact* contact)
+namespace
 {
-	entt::entity dataA = (entt::entity)contact->GetFixtureA()->GetBody()->GetUserData().pointer;
-	entt::entity dataB = (entt::entity)contact->GetFixtureB()->GetBody()->GetUserData().pointer;
-
-	Scene* sceneContext = ScriptEngine::GetSceneContext();
-	if (!sceneContext)
-		return;
-
-	Entity entityA{ dataA, sceneContext };
-	Entity entityB{ dataB, sceneContext };
-
-	std::string aTag;
-	std::string bTag;
-
-	if (entityA.HasComponent<BoxCollider2DComponent>())
+	Entity GetEntityFromShape(b2ShapeId shape, Scene* scene)
 	{
-		auto& comp = entityA.GetComponent<BoxCollider2DComponent>();
-		aTag = comp.m_Tag;
-	}
-	else if (entityA.HasComponent<CircleCollider2DComponent>())
-	{
-		auto& comp = entityA.GetComponent<CircleCollider2DComponent>();
-		aTag = comp.m_Tag;
+		if (!scene || !b2Shape_IsValid(shape))
+			return {};
+
+		b2BodyId body = b2Shape_GetBody(shape);
+		if (!b2Body_IsValid(body))
+			return {};
+
+		auto* userData = static_cast<BodyUserData*>(b2Body_GetUserData(body));
+		if (!userData)
+			return {};
+
+		return Entity{ userData->m_EntityID, scene };
 	}
 
-	if (entityB.HasComponent<BoxCollider2DComponent>())
+	std::string GetColliderTag(Entity entity, b2ShapeId shape)
 	{
-		auto& comp = entityB.GetComponent<BoxCollider2DComponent>();
-		bTag = comp.m_Tag;
-	}
-	else if (entityB.HasComponent<CircleCollider2DComponent>())
-	{
-		auto& comp = entityB.GetComponent<CircleCollider2DComponent>();
-		bTag = comp.m_Tag;
+		if (!entity)
+			return {};
+
+		if (entity.HasComponent<BoxCollider2DComponent>())
+		{
+			auto& comp = entity.GetComponent<BoxCollider2DComponent>();
+			if (Physics2D::IsShape(comp.m_RuntimeFixture, shape))
+				return comp.m_Tag;
+		}
+		if (entity.HasComponent<CircleCollider2DComponent>())
+		{
+			auto& comp = entity.GetComponent<CircleCollider2DComponent>();
+			if (Physics2D::IsShape(comp.m_RuntimeFixture, shape))
+				return comp.m_Tag;
+		}
+		if (entity.HasComponent<BoxCollider2DComponent>())
+			return entity.GetComponent<BoxCollider2DComponent>().m_Tag;
+		if (entity.HasComponent<CircleCollider2DComponent>())
+			return entity.GetComponent<CircleCollider2DComponent>().m_Tag;
+		return {};
 	}
 
-	std::string_view aTagView = aTag;
-	std::string_view bTagView = bTag;
+	void InvokeColliderEvent(EntityMethodType methodType, b2ShapeId shapeA, b2ShapeId shapeB)
+	{
+		Scene* sceneContext = ScriptEngine::GetSceneContext();
+		if (!sceneContext)
+			return;
 
-	ScriptEngine::InvokeEntityMethod(EntityMethodType::OnColliderEnter, entityA, Payload::Ref(bTagView));
-	ScriptEngine::InvokeEntityMethod(EntityMethodType::OnColliderEnter, entityB, Payload::Ref(aTagView));
+		Entity entityA = GetEntityFromShape(shapeA, sceneContext);
+		Entity entityB = GetEntityFromShape(shapeB, sceneContext);
+		if (!entityA || !entityB)
+			return;
+
+		std::string aTag = GetColliderTag(entityA, shapeA);
+		std::string bTag = GetColliderTag(entityB, shapeB);
+
+		std::string_view aTagView = aTag;
+		std::string_view bTagView = bTag;
+
+		ScriptEngine::InvokeEntityMethod(methodType, entityA, Payload::Ref(bTagView));
+		ScriptEngine::InvokeEntityMethod(methodType, entityB, Payload::Ref(aTagView));
+	}
 }
 
-void ContactListener::EndContact(b2Contact* contact)
+void ContactListener::ProcessEvents(b2WorldId world) const
 {
-	entt::entity dataA = (entt::entity)contact->GetFixtureA()->GetBody()->GetUserData().pointer;
-	entt::entity dataB = (entt::entity)contact->GetFixtureB()->GetBody()->GetUserData().pointer;
-
-	Scene* sceneContext = ScriptEngine::GetSceneContext();
-	if (!sceneContext)
-		return;
-
-	Entity entityA{ dataA, sceneContext };
-	Entity entityB{ dataB, sceneContext };
-
-	std::string aTag;
-	std::string bTag;
-
-	if (entityA.HasComponent<BoxCollider2DComponent>())
+	b2ContactEvents contactEvents = b2World_GetContactEvents(world);
+	for (int i = 0; i < contactEvents.beginCount; ++i)
 	{
-		auto& comp = entityA.GetComponent<BoxCollider2DComponent>();
-		if (static_cast<b2Fixture*>(comp.m_RuntimeFixture) == contact->GetFixtureA())
-			aTag = comp.m_Tag;
+		const b2ContactBeginTouchEvent& event = contactEvents.beginEvents[i];
+		InvokeColliderEvent(EntityMethodType::OnColliderEnter, event.shapeIdA, event.shapeIdB);
 	}
-	else if (entityA.HasComponent<CircleCollider2DComponent>())
+	for (int i = 0; i < contactEvents.endCount; ++i)
 	{
-		auto& comp = entityA.GetComponent<CircleCollider2DComponent>();
-		if (static_cast<b2Fixture*>(comp.m_RuntimeFixture) == contact->GetFixtureA())
-			aTag = comp.m_Tag;
+		const b2ContactEndTouchEvent& event = contactEvents.endEvents[i];
+		if (b2Shape_IsValid(event.shapeIdA) && b2Shape_IsValid(event.shapeIdB))
+			InvokeColliderEvent(EntityMethodType::OnColliderExit, event.shapeIdA, event.shapeIdB);
 	}
 
-	if (entityB.HasComponent<BoxCollider2DComponent>())
+	b2SensorEvents sensorEvents = b2World_GetSensorEvents(world);
+	for (int i = 0; i < sensorEvents.beginCount; ++i)
 	{
-		auto& comp = entityB.GetComponent<BoxCollider2DComponent>();
-		if (static_cast<b2Fixture*>(comp.m_RuntimeFixture) == contact->GetFixtureB())
-			bTag = comp.m_Tag;
+		const b2SensorBeginTouchEvent& event = sensorEvents.beginEvents[i];
+		InvokeColliderEvent(EntityMethodType::OnColliderEnter, event.sensorShapeId, event.visitorShapeId);
 	}
-	else if (entityB.HasComponent<CircleCollider2DComponent>())
+	for (int i = 0; i < sensorEvents.endCount; ++i)
 	{
-		auto& comp = entityB.GetComponent<CircleCollider2DComponent>();
-		if (static_cast<b2Fixture*>(comp.m_RuntimeFixture) == contact->GetFixtureB())
-			bTag = comp.m_Tag;
+		const b2SensorEndTouchEvent& event = sensorEvents.endEvents[i];
+		if (b2Shape_IsValid(event.sensorShapeId) && b2Shape_IsValid(event.visitorShapeId))
+			InvokeColliderEvent(EntityMethodType::OnColliderExit, event.sensorShapeId, event.visitorShapeId);
 	}
-
-	std::string_view aTagView = aTag;
-	std::string_view bTagView = bTag;
-
-	ScriptEngine::InvokeEntityMethod(EntityMethodType::OnColliderExit, entityA, Payload::Ref(bTagView));
-	ScriptEngine::InvokeEntityMethod(EntityMethodType::OnColliderExit, entityB, Payload::Ref(aTagView));
-
 }
 
-void ContactListener::PreSolve(b2Contact* contact, const b2Manifold* oldManifold)
+bool ContactListener::PreSolve(b2ShapeId shapeA, b2ShapeId shapeB, b2Manifold* manifold, void* context)
 {
-	contact->ResetFriction();
-	contact->ResetRestitution();
-	contact->ResetRestitutionThreshold();
+	(void)shapeA;
+	(void)shapeB;
+	(void)manifold;
+	(void)context;
+	return true;
 }
 
 

@@ -3,10 +3,12 @@
 
 _WHIP_START
 
-bool ContactFilter::ShouldCollide(b2Fixture* fixtureA, b2Fixture* fixtureB)
+bool ContactFilter::ShouldCollide(b2ShapeId shapeA, b2ShapeId shapeB, void* context)
 {
-	const b2Filter& filterA = fixtureA->GetFilterData();
-	const b2Filter& filterB = fixtureB->GetFilterData();
+	(void)context;
+
+	const b2Filter filterA = b2Shape_GetFilter(shapeA);
+	const b2Filter filterB = b2Shape_GetFilter(shapeB);
 
 	if (filterA.groupIndex == filterB.groupIndex && filterA.groupIndex != 0)
 	{
