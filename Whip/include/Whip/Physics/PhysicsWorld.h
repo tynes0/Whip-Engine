@@ -24,6 +24,7 @@ public:
 private:
 	bool Verify(bool checkWorld) const;
 	void ResetRuntimeHandles() const;
+	void SyncMovedBodyTransforms() const;
 
 	b2WorldId m_PhysicsWorld = b2_nullWorldId;
 	Scene* m_SceneContext = nullptr;

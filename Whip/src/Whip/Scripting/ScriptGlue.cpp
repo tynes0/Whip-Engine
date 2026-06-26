@@ -1198,6 +1198,11 @@ namespace
 	{
 		b2BodyId body = detail::GetBody(entityId);
 		b2Body_SetTransform(body, b2Vec2(position->x, position->y), b2MakeRot(angle));
+		Entity ent = detail::GetEntity(entityId);
+		auto& transform = ent.GetComponent<TransformComponent>();
+		transform.m_Translation.x = position->x;
+		transform.m_Translation.y = position->y;
+		transform.m_Rotation.z = angle;
 	}
 
 	MonoString* TextComponentGetData(UUID entityId)

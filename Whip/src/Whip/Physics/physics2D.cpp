@@ -2,7 +2,7 @@
 #include "Whip/Physics/Physics2D.h"
 #include "Whip/Math/Math.h"
 
-#define NEQ(left, right) (!Math::EqualF((left), (right), COLLIDER_EPSILON))
+#define NEQ(left, right) (!Math::EqualF((left), (right), Physics2D::COLLIDER_EPSILON))
 
 _WHIP_START
 
@@ -39,6 +39,54 @@ namespace
 			{ cc2d.m_Offset.x, cc2d.m_Offset.y },
 			::abs(transform.m_Scale.x) * cc2d.m_Radius
 		};
+	}
+
+	void CacheBoxShape(PhysicsShapeHandle& handle, const BoxCollider2DComponent& bc2d, const TransformComponent& transform)
+	{
+		handle.m_CachedOffset = bc2d.m_Offset;
+		handle.m_CachedSize = bc2d.m_Size;
+		handle.m_CachedScale = { transform.m_Scale.x, transform.m_Scale.y };
+		handle.m_CachedDensity = bc2d.m_Density;
+		handle.m_CachedFriction = bc2d.m_Friction;
+		handle.m_CachedRestitution = bc2d.m_Restitution;
+		handle.m_CachedSensor = bc2d.m_Sensor;
+	}
+
+	void CacheCircleShape(PhysicsShapeHandle& handle, const CircleCollider2DComponent& cc2d, const TransformComponent& transform)
+	{
+		handle.m_CachedOffset = cc2d.m_Offset;
+		handle.m_CachedScale = { transform.m_Scale.x, transform.m_Scale.y };
+		handle.m_CachedRadius = cc2d.m_Radius;
+		handle.m_CachedDensity = cc2d.m_Density;
+		handle.m_CachedFriction = cc2d.m_Friction;
+		handle.m_CachedRestitution = cc2d.m_Restitution;
+		handle.m_CachedSensor = cc2d.m_Sensor;
+	}
+
+	bool BoxGeometryChanged(const PhysicsShapeHandle& handle, const BoxCollider2DComponent& bc2d, const TransformComponent& transform)
+	{
+		return NEQ(handle.m_CachedOffset.x, bc2d.m_Offset.x) ||
+			NEQ(handle.m_CachedOffset.y, bc2d.m_Offset.y) ||
+			NEQ(handle.m_CachedSize.x, bc2d.m_Size.x) ||
+			NEQ(handle.m_CachedSize.y, bc2d.m_Size.y) ||
+			NEQ(handle.m_CachedScale.x, transform.m_Scale.x) ||
+			NEQ(handle.m_CachedScale.y, transform.m_Scale.y);
+	}
+
+	bool CircleGeometryChanged(const PhysicsShapeHandle& handle, const CircleCollider2DComponent& cc2d, const TransformComponent& transform)
+	{
+		return NEQ(handle.m_CachedOffset.x, cc2d.m_Offset.x) ||
+			NEQ(handle.m_CachedOffset.y, cc2d.m_Offset.y) ||
+			NEQ(handle.m_CachedScale.x, transform.m_Scale.x) ||
+			NEQ(handle.m_CachedRadius, cc2d.m_Radius);
+	}
+
+	void DestroyRuntimeShape(void*& runtimeShape)
+	{
+		b2ShapeId shape = Physics2D::GetShapeID(runtimeShape);
+		if (b2Shape_IsValid(shape))
+			b2DestroyShape(shape, true);
+		Physics2D::DestroyShapeHandle(runtimeShape);
 	}
 }
 
@@ -129,16 +177,19 @@ void Physics2D::CreateBoxColliderShape(BoxCollider2DComponent& bc2d, const Trans
 
 	b2Polygon boxShape = CreateBoxPolygon(bc2d, transform);
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
+	const b2BodyType bodyType = Rigidbody2DTypeToBox2DBody(rb2d.m_Type);
 	shapeDef.density = bc2d.m_Density;
 	shapeDef.material = CreateSurfaceMaterial(bc2d.m_Friction, bc2d.m_Restitution);
 	shapeDef.isSensor = bc2d.m_Sensor;
-	shapeDef.enableContactEvents = true;
-	shapeDef.enableSensorEvents = true;
-	SetCollisionFilter(shapeDef, Rigidbody2DTypeToBox2DBody(rb2d.m_Type), bc2d.m_Sensor);
+	shapeDef.enableContactEvents = !bc2d.m_Sensor && bodyType != b2_staticBody;
+	shapeDef.enableSensorEvents = bc2d.m_Sensor || bodyType != b2_staticBody;
+	SetCollisionFilter(shapeDef, bodyType, bc2d.m_Sensor);
 	b2Body_SetGravityScale(body, !bc2d.m_Sensor ? rb2d.m_GravityScale : 0.0f);
 	if (bc2d.m_Sensor)
 		SetBodyAsSensor(body);
-	bc2d.m_RuntimeFixture = new PhysicsShapeHandle{ b2CreatePolygonShape(body, &shapeDef, &boxShape) };
+	auto* handle = new PhysicsShapeHandle{ b2CreatePolygonShape(body, &shapeDef, &boxShape) };
+	CacheBoxShape(*handle, bc2d, transform);
+	bc2d.m_RuntimeFixture = handle;
 }
 
 void Physics2D::CreateCircleColliderShape(CircleCollider2DComponent& cc2d, const TransformComponent& transform, const Rigidbody2DComponent& rb2d, b2BodyId body)
@@ -147,16 +198,19 @@ void Physics2D::CreateCircleColliderShape(CircleCollider2DComponent& cc2d, const
 
 	b2Circle circleShape = CreateCircle(cc2d, transform);
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
+	const b2BodyType bodyType = Rigidbody2DTypeToBox2DBody(rb2d.m_Type);
 	shapeDef.density = cc2d.m_Density;
 	shapeDef.material = CreateSurfaceMaterial(cc2d.m_Friction, cc2d.m_Restitution);
 	shapeDef.isSensor = cc2d.m_Sensor;
-	shapeDef.enableContactEvents = true;
-	shapeDef.enableSensorEvents = true;
-	SetCollisionFilter(shapeDef, Rigidbody2DTypeToBox2DBody(rb2d.m_Type), cc2d.m_Sensor);
+	shapeDef.enableContactEvents = !cc2d.m_Sensor && bodyType != b2_staticBody;
+	shapeDef.enableSensorEvents = cc2d.m_Sensor || bodyType != b2_staticBody;
+	SetCollisionFilter(shapeDef, bodyType, cc2d.m_Sensor);
 	b2Body_SetGravityScale(body, !cc2d.m_Sensor ? rb2d.m_GravityScale : 0.0f);
 	if (cc2d.m_Sensor)
 		SetBodyAsSensor(body);
-	cc2d.m_RuntimeFixture = new PhysicsShapeHandle{ b2CreateCircleShape(body, &shapeDef, &circleShape) };
+	auto* handle = new PhysicsShapeHandle{ b2CreateCircleShape(body, &shapeDef, &circleShape) };
+	CacheCircleShape(*handle, cc2d, transform);
+	cc2d.m_RuntimeFixture = handle;
 }
 
 void Physics2D::UpdateBody(b2BodyId body, const Rigidbody2DComponent& rb2d)
@@ -179,73 +233,95 @@ void Physics2D::UpdateTransform(TransformComponent& transform, b2BodyId body)
 	transform.m_Rotation.z = b2Rot_GetAngle(b2Body_GetRotation(body));
 }
 
-void Physics2D::UpdateBoxCollider(const BoxCollider2DComponent& bc2d, const TransformComponent& transform, b2BodyId body)
+void Physics2D::UpdateBoxCollider(BoxCollider2DComponent& bc2d, const TransformComponent& transform, const Rigidbody2DComponent& rb2d, b2BodyId body)
 {
-	b2ShapeId shape = GetShapeID(bc2d.m_RuntimeFixture);
+	PhysicsShapeHandle* handle = GetShapeHandle(bc2d.m_RuntimeFixture);
+	if (!handle)
+		return;
+
+	b2ShapeId shape = handle->m_Id;
 	if (!b2Shape_IsValid(shape))
 		return;
 
+	if (handle->m_CachedSensor != bc2d.m_Sensor)
+	{
+		DestroyRuntimeShape(bc2d.m_RuntimeFixture);
+		CreateBoxColliderShape(bc2d, transform, rb2d, body);
+		return;
+	}
+
 	bool massDirty = false;
 
-	if (NEQ(b2Shape_GetDensity(shape), bc2d.m_Density))
+	if (NEQ(handle->m_CachedDensity, bc2d.m_Density))
 	{
 		b2Shape_SetDensity(shape, bc2d.m_Density, false);
+		handle->m_CachedDensity = bc2d.m_Density;
 		massDirty = true;
 	}
 
-	b2Polygon polygon = b2Shape_GetPolygon(shape);
-	const b2Polygon desiredPolygon = CreateBoxPolygon(bc2d, transform);
-	if (polygon.count != desiredPolygon.count ||
-		NEQ(polygon.vertices[2].x, desiredPolygon.vertices[2].x) ||
-		NEQ(polygon.vertices[2].y, desiredPolygon.vertices[2].y) ||
-		NEQ(polygon.centroid.x, desiredPolygon.centroid.x) ||
-		NEQ(polygon.centroid.y, desiredPolygon.centroid.y))
+	if (BoxGeometryChanged(*handle, bc2d, transform))
 	{
+		const b2Polygon desiredPolygon = CreateBoxPolygon(bc2d, transform);
 		b2Shape_SetPolygon(shape, &desiredPolygon);
+		handle->m_CachedOffset = bc2d.m_Offset;
+		handle->m_CachedSize = bc2d.m_Size;
+		handle->m_CachedScale = { transform.m_Scale.x, transform.m_Scale.y };
 		massDirty = true;
 	}
 
-	if (bc2d.m_Sensor)
-		SetBodyAsSensor(body);
-
-	b2SurfaceMaterial material = b2Shape_GetSurfaceMaterial(shape);
-	if (NEQ(material.friction, bc2d.m_Friction) || NEQ(material.restitution, bc2d.m_Restitution))
+	if (NEQ(handle->m_CachedFriction, bc2d.m_Friction) || NEQ(handle->m_CachedRestitution, bc2d.m_Restitution))
+	{
 		b2Shape_SetSurfaceMaterial(shape, CreateSurfaceMaterial(bc2d.m_Friction, bc2d.m_Restitution));
+		handle->m_CachedFriction = bc2d.m_Friction;
+		handle->m_CachedRestitution = bc2d.m_Restitution;
+	}
 
 	if (massDirty && b2Body_IsValid(body))
 		b2Body_ApplyMassFromShapes(body);
 }
 
-void Physics2D::UpdateCircleCollider(const CircleCollider2DComponent& cc2d, const TransformComponent& transform, b2BodyId body)
+void Physics2D::UpdateCircleCollider(CircleCollider2DComponent& cc2d, const TransformComponent& transform, const Rigidbody2DComponent& rb2d, b2BodyId body)
 {
-	b2ShapeId shape = GetShapeID(cc2d.m_RuntimeFixture);
+	PhysicsShapeHandle* handle = GetShapeHandle(cc2d.m_RuntimeFixture);
+	if (!handle)
+		return;
+
+	b2ShapeId shape = handle->m_Id;
 	if (!b2Shape_IsValid(shape))
 		return;
 
+	if (handle->m_CachedSensor != cc2d.m_Sensor)
+	{
+		DestroyRuntimeShape(cc2d.m_RuntimeFixture);
+		CreateCircleColliderShape(cc2d, transform, rb2d, body);
+		return;
+	}
+
 	bool massDirty = false;
 
-	if (NEQ(b2Shape_GetDensity(shape), cc2d.m_Density))
+	if (NEQ(handle->m_CachedDensity, cc2d.m_Density))
 	{
 		b2Shape_SetDensity(shape, cc2d.m_Density, false);
+		handle->m_CachedDensity = cc2d.m_Density;
 		massDirty = true;
 	}
 
-	b2Circle circle = b2Shape_GetCircle(shape);
-	const b2Circle desiredCircle = CreateCircle(cc2d, transform);
-	if (NEQ(circle.radius, desiredCircle.radius) ||
-		NEQ(circle.center.x, desiredCircle.center.x) ||
-		NEQ(circle.center.y, desiredCircle.center.y))
+	if (CircleGeometryChanged(*handle, cc2d, transform))
 	{
+		const b2Circle desiredCircle = CreateCircle(cc2d, transform);
 		b2Shape_SetCircle(shape, &desiredCircle);
+		handle->m_CachedOffset = cc2d.m_Offset;
+		handle->m_CachedScale = { transform.m_Scale.x, transform.m_Scale.y };
+		handle->m_CachedRadius = cc2d.m_Radius;
 		massDirty = true;
 	}
 
-	if (cc2d.m_Sensor)
-		SetBodyAsSensor(body);
-
-	b2SurfaceMaterial material = b2Shape_GetSurfaceMaterial(shape);
-	if (NEQ(material.friction, cc2d.m_Friction) || NEQ(material.restitution, cc2d.m_Restitution))
+	if (NEQ(handle->m_CachedFriction, cc2d.m_Friction) || NEQ(handle->m_CachedRestitution, cc2d.m_Restitution))
+	{
 		b2Shape_SetSurfaceMaterial(shape, CreateSurfaceMaterial(cc2d.m_Friction, cc2d.m_Restitution));
+		handle->m_CachedFriction = cc2d.m_Friction;
+		handle->m_CachedRestitution = cc2d.m_Restitution;
+	}
 
 	if (massDirty && b2Body_IsValid(body))
 		b2Body_ApplyMassFromShapes(body);
@@ -262,9 +338,19 @@ b2BodyId Physics2D::GetBodyID(const void* runtimeBody)
 	return handle ? handle->m_Id : b2_nullBodyId;
 }
 
+PhysicsShapeHandle* Physics2D::GetShapeHandle(void* runtimeShape)
+{
+	return static_cast<PhysicsShapeHandle*>(runtimeShape);
+}
+
+const PhysicsShapeHandle* Physics2D::GetShapeHandle(const void* runtimeShape)
+{
+	return static_cast<const PhysicsShapeHandle*>(runtimeShape);
+}
+
 b2ShapeId Physics2D::GetShapeID(const void* runtimeShape)
 {
-	const auto* handle = static_cast<const PhysicsShapeHandle*>(runtimeShape);
+	const auto* handle = GetShapeHandle(runtimeShape);
 	return handle ? handle->m_Id : b2_nullShapeId;
 }
 
