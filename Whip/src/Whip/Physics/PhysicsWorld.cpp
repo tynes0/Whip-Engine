@@ -27,6 +27,7 @@ void PhysicsWorld::SetSceneContext(Scene* sceneContext)
 
 void PhysicsWorld::Create(float gravityX, float gravityY)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!Verify(false))
 		return;
 
@@ -63,6 +64,7 @@ void PhysicsWorld::Create(float gravityX, float gravityY)
 
 void PhysicsWorld::Update(Timestep ts) const
 {
+	WHP_PROFILE_FUNCTION();
 	if (!Verify(true))
 		return;
 
@@ -100,6 +102,7 @@ void PhysicsWorld::Update(Timestep ts) const
 
 void PhysicsWorld::Destroy()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!Verify(true))
 		return;
 
@@ -110,6 +113,7 @@ void PhysicsWorld::Destroy()
 
 void PhysicsWorld::ResetRuntimeHandles() const
 {
+	WHP_PROFILE_FUNCTION();
 	auto view = m_SceneContext->GetAllEntitiesWith<Rigidbody2DComponent>();
 	for (auto entityHandle : view)
 	{
@@ -131,6 +135,7 @@ void PhysicsWorld::ResetRuntimeHandles() const
 
 void PhysicsWorld::SyncMovedBodyTransforms() const
 {
+	WHP_PROFILE_FUNCTION();
 	b2BodyEvents bodyEvents = b2World_GetBodyEvents(m_PhysicsWorld);
 	for (int i = 0; i < bodyEvents.moveCount; ++i)
 	{

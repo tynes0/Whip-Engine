@@ -92,6 +92,7 @@ ProjectHealthPanel::ProjectHealthPanel()
 
 void ProjectHealthPanel::OnImGuiRender()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Open)
 		return;
 
@@ -153,6 +154,7 @@ void ProjectHealthPanel::RegisterShortcuts(EditorShortcutManager& shortcutManage
 
 void ProjectHealthPanel::Scan()
 {
+	WHP_PROFILE_FUNCTION();
 	m_Issues.clear();
 	m_ScanDirty = false;
 
@@ -169,6 +171,7 @@ void ProjectHealthPanel::Scan()
 
 void ProjectHealthPanel::DrawToolbar()
 {
+	WHP_PROFILE_FUNCTION();
 	if (ImGui::Button("Rescan"))
 		Scan();
 	ImGui::SameLine();
@@ -196,6 +199,7 @@ void ProjectHealthPanel::DrawToolbar()
 
 void ProjectHealthPanel::DrawSummary() const
 {
+	WHP_PROFILE_FUNCTION();
 	int errors = 0;
 	int warnings = 0;
 	int info = 0;
@@ -223,6 +227,7 @@ void ProjectHealthPanel::DrawSummary() const
 
 void ProjectHealthPanel::DrawIssueTable()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_Issues.empty())
 	{
 		ImGui::TextColored(ImVec4(0.58f, 0.78f, 0.55f, 1.0f), "Project looks healthy.");
@@ -349,6 +354,7 @@ bool ProjectHealthPanel::ValidateAssetReference(AssetHandle handle, AssetType ex
 
 void ProjectHealthPanel::ValidateProjectConfig()
 {
+	WHP_PROFILE_FUNCTION();
 	const Ref<Project> project = Project::GetActive();
 	if (!project)
 		return;
@@ -422,6 +428,7 @@ void ProjectHealthPanel::ValidateProjectConfig()
 
 void ProjectHealthPanel::ValidateAssetRegistry()
 {
+	WHP_PROFILE_FUNCTION();
 	const Ref<Project> project = Project::GetActive();
 	if (!project || !project->GetEditorAssetManager())
 		return;
@@ -489,6 +496,7 @@ void ProjectHealthPanel::ValidateAssetRegistry()
 
 void ProjectHealthPanel::ValidateScene()
 {
+	WHP_PROFILE_FUNCTION();
 	const Ref<Scene> scene = m_SceneCallback ? m_SceneCallback() : nullptr;
 	if (!scene)
 	{
@@ -596,6 +604,7 @@ void ProjectHealthPanel::ValidateScene()
 
 void ProjectHealthPanel::ValidateAnimationAsset(AssetHandle handle, const std::filesystem::path& absolutePath)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!std::filesystem::exists(absolutePath))
 		return;
 
@@ -627,6 +636,7 @@ void ProjectHealthPanel::ValidateAnimationAsset(AssetHandle handle, const std::f
 
 void ProjectHealthPanel::ValidateAnimationControllerAsset(AssetHandle handle, const std::filesystem::path& absolutePath)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!std::filesystem::exists(absolutePath))
 		return;
 

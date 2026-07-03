@@ -70,6 +70,7 @@ namespace
 
 void ContactListener::ProcessEvents(b2WorldId world) const
 {
+	WHP_PROFILE_FUNCTION();
 	b2ContactEvents contactEvents = b2World_GetContactEvents(world);
 	for (int i = 0; i < contactEvents.beginCount; ++i)
 	{

@@ -4,14 +4,14 @@
 #include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip-Editor/Helpers/IconManager.h>
 
-#include <Whip/Core/Application.h>
+#include <Whip/Debug/Instrumentor.h>
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Utils/PlatformUtils.h>
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/AssetUtils.h>
-#include <Whip/Asset/AnimationImporter.h>
 #include <Whip/Project/Project.h>
 #include <Whip/Animation/AnimationController.h>
+#include <Whip/Math/Math.h>
 
 #include <algorithm>
 #include <cfloat>
@@ -24,7 +24,6 @@
 #include <imgui_internal.h>
 #include <misc/cpp/imgui_stdlib.h>
 
-#include "Whip/Math/Math.h"
 
 _WHIP_START
 	namespace
@@ -294,6 +293,7 @@ AnimationEditorPanel::~AnimationEditorPanel() = default;
 
 void AnimationEditorPanel::OnImGuiRender()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Open)
 	{
 		m_ShortcutContextActive = false;
@@ -345,6 +345,7 @@ void AnimationEditorPanel::OnImGuiRender()
 
 void AnimationEditorPanel::OnImGuiRenderEmbedded()
 {
+	WHP_PROFILE_FUNCTION();
 	m_Minimized = false;
 	m_Fullscreen = false;
 	m_FullscreenRequested = false;
@@ -356,6 +357,7 @@ void AnimationEditorPanel::OnImGuiRenderEmbedded()
 
 void AnimationEditorPanel::DrawEditorContent(bool showWindowControls)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 7.0f));
@@ -605,6 +607,7 @@ void AnimationEditorPanel::SetOpen(bool open)
 
 bool AnimationEditorPanel::OpenAsset(AssetHandle handle, bool openWindow)
 {
+	WHP_PROFILE_FUNCTION();
 	if (handle == 0 || !Project::GetActive() || !AssetManager::IsAssetHandleValid(handle))
 		return false;
 
@@ -1025,6 +1028,7 @@ void AnimationEditorPanel::DrawControllerSelector(float width)
 
 void AnimationEditorPanel::DrawControllerEditor(float height)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentController)
 		return;
 
@@ -1078,6 +1082,7 @@ void AnimationEditorPanel::DrawControllerEditor(float height)
 
 void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::BeginChild("##ControllerParameters", ImVec2(width, height), true);
 	ImGui::TextDisabled("Parameters");
 	ImGui::Separator();
@@ -1241,6 +1246,7 @@ void AnimationEditorPanel::DrawControllerParameters(float width, float height)
 
 void AnimationEditorPanel::DrawControllerGraph(float width, float height)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::BeginChild("##ControllerGraph", ImVec2(width, height), true);
 	auto& states = m_CurrentController->GetStates();
 	if (states.empty())
@@ -2360,6 +2366,7 @@ void AnimationEditorPanel::DrawControllerTransitionInspector(AnimationController
 
 void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTransition& transition, float height)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentController || height <= 0.0f)
 		return;
 
@@ -4055,6 +4062,7 @@ void AnimationEditorPanel::DrawTransitionConditionGraph(AnimationControllerTrans
 
 void AnimationEditorPanel::DrawControllerValidation()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentController)
 		return;
 
@@ -4163,6 +4171,7 @@ void AnimationEditorPanel::DrawControllerValidation()
 
 void AnimationEditorPanel::DrawControllerStateInspector(float width, float height)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::BeginChild("##ControllerStateInspector", ImVec2(width, height), true);
 
 	auto& states = m_CurrentController->GetStates();
@@ -4470,6 +4479,7 @@ void AnimationEditorPanel::DrawControllerStateInspector(float width, float heigh
 
 void AnimationEditorPanel::SaveCurrentController()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentController)
 		return;
 
@@ -4479,6 +4489,7 @@ void AnimationEditorPanel::SaveCurrentController()
 
 void AnimationEditorPanel::DrawTimeline(float width, float timelineHeight, float totalHeight)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentAnimation)
 		return;
 	UI::DrawTimelineWithNodes(m_CurrentAnimation, 4.0f, width, timelineHeight, totalHeight, 120.0f, &m_SelectedFrameIndex);
@@ -4486,6 +4497,7 @@ void AnimationEditorPanel::DrawTimeline(float width, float timelineHeight, float
 
 void AnimationEditorPanel::DrawFrameList(float width)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentAnimation)
 		return;
 	auto& frames = m_CurrentAnimation->GetFrames();
@@ -4545,6 +4557,7 @@ void AnimationEditorPanel::DrawImportFramesButton(float width)
 
 void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::TextDisabled("Preview");
 	ImGui::SameLine();
 	ImGui::Checkbox("Onion", &m_ShowOnionSkin);
@@ -4632,6 +4645,7 @@ void AnimationEditorPanel::DrawPreviewPane(float width, float height)
 
 void AnimationEditorPanel::DrawFrameEditor(float width)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentAnimation)
 		return;
 
@@ -4883,6 +4897,7 @@ void AnimationEditorPanel::DrawFrameEditor(float width)
 
 void AnimationEditorPanel::DrawFrameBatchTools(float width)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentAnimation)
 		return;
 
@@ -4981,6 +4996,7 @@ void AnimationEditorPanel::DrawFrameBatchTools(float width)
 
 void AnimationEditorPanel::ImportTextureFolderFrames()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentAnimation)
 		return;
 
@@ -5049,6 +5065,7 @@ void AnimationEditorPanel::ImportTextureFolderFrames()
 
 void AnimationEditorPanel::NormalizeFrameDurations(float frameDuration)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentAnimation)
 		return;
 
@@ -5103,6 +5120,7 @@ AnimationEditorPanel::AnimationEditorSnapshot AnimationEditorPanel::CaptureSnaps
 
 void AnimationEditorPanel::RestoreSnapshot(const AnimationEditorSnapshot& snapshot)
 {
+	WHP_PROFILE_FUNCTION();
 	m_EditorMode = snapshot.m_Mode;
 
 	if (snapshot.m_Clip.m_Valid)
@@ -5184,6 +5202,7 @@ void AnimationEditorPanel::RestoreSnapshot(const AnimationEditorSnapshot& snapsh
 
 void AnimationEditorPanel::PushHistory()
 {
+	WHP_PROFILE_FUNCTION();
 	m_UndoStack.push_back(CaptureSnapshot());
 	m_RedoStack.clear();
 	static constexpr size_t MaxHistoryEntries = 80;
@@ -5193,6 +5212,7 @@ void AnimationEditorPanel::PushHistory()
 
 bool AnimationEditorPanel::Undo()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_UndoStack.empty())
 		return false;
 
@@ -5205,6 +5225,7 @@ bool AnimationEditorPanel::Undo()
 
 bool AnimationEditorPanel::Redo()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_RedoStack.empty())
 		return false;
 
@@ -5265,6 +5286,7 @@ bool AnimationEditorPanel::ShouldConsumeShortcutAction(UI::EditorShortcutAction 
 
 bool AnimationEditorPanel::ExecuteShortcutAction(UI::EditorShortcutAction action)
 {
+	WHP_PROFILE_FUNCTION();
 	if (ImGui::GetIO().WantTextInput)
 		return false;
 
@@ -5317,6 +5339,7 @@ void AnimationEditorPanel::HandleShortcutInput(const UI::UISettings& settings)
 
 bool AnimationEditorPanel::CopySelection()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_EditorMode == AnimationEditorMode::Clip)
 	{
 		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex,
@@ -5374,6 +5397,7 @@ bool AnimationEditorPanel::CutSelection()
 
 bool AnimationEditorPanel::PasteSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_EditorMode == AnimationEditorMode::Clip && m_Clipboard.m_Type == AnimationEditorClipboardType::Frame)
 	{
 		if (!m_CurrentAnimation)
@@ -5421,6 +5445,7 @@ bool AnimationEditorPanel::PasteSelection()
 
 bool AnimationEditorPanel::DuplicateSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_EditorMode == AnimationEditorMode::Clip)
 	{
 		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex,
@@ -5497,6 +5522,7 @@ bool AnimationEditorPanel::DuplicateSelection()
 
 bool AnimationEditorPanel::DeleteSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_EditorMode == AnimationEditorMode::Clip)
 	{
 		if (!m_CurrentAnimation || m_SelectedFrameIndex < 0 || std::cmp_greater_equal(m_SelectedFrameIndex,
@@ -5671,6 +5697,7 @@ std::string AnimationEditorPanel::GetWindowTitle() const
 
 void AnimationEditorPanel::UpdatePreview()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_PreviewPlaying || m_PreviewPaused || !m_CurrentAnimation)
 		return;
 
@@ -5705,6 +5732,7 @@ void AnimationEditorPanel::UpdatePreview()
 
 void AnimationEditorPanel::StepPreview(int direction)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_CurrentAnimation)
 		return;
 

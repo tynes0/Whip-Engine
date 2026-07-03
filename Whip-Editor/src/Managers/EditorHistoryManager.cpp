@@ -5,6 +5,7 @@
 #include <Whip-Editor/Managers/EditorSceneManager.h>
 #include <Whip-Editor/EditorLayer.h>
 
+#include <Whip/Debug/Instrumentor.h>
 #include <Whip/Scene/SceneSerializer.h>
 
 #include <algorithm>
@@ -96,6 +97,7 @@ EditorHistoryManager::ProjectHistoryEntry EditorHistoryManager::CaptureProjectHi
 
 void EditorHistoryManager::RestoreProjectHistory(const ProjectHistoryEntry& entry)
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (!entry.m_Valid)
 		return;
@@ -151,6 +153,7 @@ void EditorHistoryManager::RestoreProjectHistory(const ProjectHistoryEntry& entr
 
 void EditorHistoryManager::CaptureSceneHistory(bool includeProjectSnapshot)
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (layer.m_SceneManager.State() != EditorSceneState::Edit || !layer.m_SceneManager.EditorScene())
 		return;
@@ -172,6 +175,7 @@ void EditorHistoryManager::CaptureSceneHistory(bool includeProjectSnapshot)
 
 void EditorHistoryManager::RestoreSceneHistory(const SceneHistoryEntry& entry)
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (!entry.m_SceneSnapshot)
 		return;
@@ -190,6 +194,7 @@ void EditorHistoryManager::RestoreSceneHistory(const SceneHistoryEntry& entry)
 
 void EditorHistoryManager::UndoScene()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (m_UndoStack.empty() || layer.m_SceneManager.State() != EditorSceneState::Edit)
 		return;
@@ -210,6 +215,7 @@ void EditorHistoryManager::UndoScene()
 
 void EditorHistoryManager::RedoScene()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (m_RedoStack.empty() || layer.m_SceneManager.State() != EditorSceneState::Edit)
 		return;
@@ -237,6 +243,7 @@ void EditorHistoryManager::ClearSceneHistory()
 
 void EditorHistoryManager::DuplicateSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (layer.m_SceneManager.State() != EditorSceneState::Edit)
 		return;
@@ -257,6 +264,7 @@ void EditorHistoryManager::DuplicateSelection()
 
 void EditorHistoryManager::DeleteSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (Application::Get().GetImGuiLayer()->GetActiveWidgetID() != 0)
 		return;
@@ -300,11 +308,13 @@ void EditorHistoryManager::SelectAll()
 
 void EditorHistoryManager::CopySelection()
 {
+	WHP_PROFILE_FUNCTION();
 	m_EntityClipboard = GetLayer().m_SceneHierarchyPanel.GetSelectedEntityIds();
 }
 
 void EditorHistoryManager::PasteSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (layer.m_SceneManager.State() != EditorSceneState::Edit || m_EntityClipboard.empty())
 		return;
@@ -331,6 +341,7 @@ void EditorHistoryManager::PasteSelection()
 
 void EditorHistoryManager::CutSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	CopySelection();
 	DeleteSelection();
 }

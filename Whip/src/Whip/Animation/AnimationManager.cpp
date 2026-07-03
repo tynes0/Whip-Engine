@@ -11,6 +11,7 @@ namespace
 
 void AnimationManager::Update(Timestep ts)
 {
+	WHP_PROFILE_FUNCTION();
 	if (HasBeenTickedThisFrame())
 		return;
 
@@ -53,16 +54,19 @@ void AnimationManager::Update(Timestep ts)
 
 void AnimationManager::AddAnimation(const Ref<Animation2D>& animation)
 {
+	WHP_PROFILE_FUNCTION();
 	m_Animations.push_back(animation);
 }
 
 void AnimationManager::RemoveAnimation(const Ref<Animation2D>& animation)
 {
+	WHP_PROFILE_FUNCTION();
 	std::erase(m_Animations, animation);
 }
 
 void AnimationManager::Clear()
 {
+	WHP_PROFILE_FUNCTION();
 	m_Animations.clear();
 }
 

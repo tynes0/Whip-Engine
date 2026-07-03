@@ -147,6 +147,7 @@ namespace detail
 
 void AudioEngine::Init()
 {
+	WHP_PROFILE_FUNCTION();
 	if (s_Data.m_Initialized)
 		return;
 
@@ -174,6 +175,7 @@ void AudioEngine::Init()
 
 void AudioEngine::Shutdown()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!s_Data.m_Initialized)
 		return;
 
@@ -204,6 +206,7 @@ void AudioEngine::Shutdown()
 
 Ref<AudioSource> AudioEngine::LoadAudioSource(const std::filesystem::path& filepath, AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	AudioFileFormat format = detail::GetFileFormat(filepath);
 	switch (format)
 	{
@@ -649,6 +652,7 @@ void AudioEngine::SetDebugLogState(bool state)
 
 AudioEngine::AudioData AudioEngine::LoadAudioDataOgg(const std::filesystem::path& filepath)
 {
+	WHP_PROFILE_FUNCTION();
 	FILE* file = fopen(filepath.string().c_str(), "rb");
 	OggVorbis_File vorbisFile;
 	if (ov_open_callbacks(file, &vorbisFile, NULL, 0, OV_CALLBACKS_NOCLOSE) < 0)
@@ -709,6 +713,7 @@ AudioEngine::AudioData AudioEngine::LoadAudioDataOgg(const std::filesystem::path
 
 AudioEngine::AudioData AudioEngine::LoadAudioDataMp3(const std::filesystem::path& filepath)
 {
+	WHP_PROFILE_FUNCTION();
 	mp3dec_file_info_t info;
 	int loadResult = mp3dec_load(&s_Data.m_Mp3Decoder, filepath.string().c_str(), &info, NULL, NULL);
 	uint32_t size = static_cast<uint32_t>(info.samples * sizeof(mp3d_sample_t));
@@ -732,6 +737,7 @@ AudioEngine::AudioData AudioEngine::LoadAudioDataMp3(const std::filesystem::path
 
 AudioEngine::AudioData AudioEngine::LoadAudioDataWav(const std::filesystem::path& filepath)
 {
+	WHP_PROFILE_FUNCTION();
 	ma_result result;
 	ma_decoder_config config = ma_decoder_config_init(ma_format_s16, 2, 44100);
 	ma_decoder decoder;
@@ -780,6 +786,7 @@ AudioEngine::AudioData AudioEngine::LoadAudioDataWav(const std::filesystem::path
 
 Ref<AudioSource> AudioEngine::LoadAudioSourceAL(AudioData& data, AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	ALuint buffer;
 	alGenBuffers(1, &buffer);
 	alBufferData(buffer, static_cast<ALenum>(data.m_AlFormat), data.m_Buffer.As<ALvoid>(), static_cast<ALsizei>(data.m_Buffer.m_Size), static_cast<ALsizei>(data.m_SampleRate));
@@ -802,6 +809,7 @@ Ref<AudioSource> AudioEngine::LoadAudioSourceAL(AudioData& data, AssetHandle han
 
 Ref<AudioSource> AudioEngine::LoadAudioSourceOgg(const std::filesystem::path& filepath, AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	AudioData data = LoadAudioDataOgg(filepath);
 	if (data.m_IsNull)
 	{
@@ -813,6 +821,7 @@ Ref<AudioSource> AudioEngine::LoadAudioSourceOgg(const std::filesystem::path& fi
 
 Ref<AudioSource> AudioEngine::LoadAudioSourceMp3(const std::filesystem::path& filepath, AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	AudioData data = LoadAudioDataMp3(filepath);
 	if (data.m_IsNull)
 	{
@@ -824,6 +833,7 @@ Ref<AudioSource> AudioEngine::LoadAudioSourceMp3(const std::filesystem::path& fi
 
 Ref<AudioSource> AudioEngine::LoadAudioSourceWav(const std::filesystem::path& filepath, AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	AudioData data = LoadAudioDataWav(filepath);
 	if (data.m_IsNull)
 	{

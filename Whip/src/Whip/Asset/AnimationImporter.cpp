@@ -7,11 +7,13 @@ _WHIP_START
 
 Ref<Animation2D> AnimationImporter::ImportAnimation(AssetHandle handle, const AssetMetadata& metadata)
 {
+	WHP_PROFILE_FUNCTION();
 	return LoadAnimation(Project::GetActiveAssetDirectory() / metadata.m_Filepath, handle);
 }
 
 Ref<Animation2D> AnimationImporter::LoadAnimation(const std::filesystem::path& path, AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	auto animation = MakeRef<Animation2D>(handle);
 	if (!animation->Deserialize(path))
 	{

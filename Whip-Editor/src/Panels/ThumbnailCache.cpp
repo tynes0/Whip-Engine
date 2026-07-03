@@ -27,6 +27,7 @@ namespace
 
 Ref<Texture2D> ThumbnailCache::GetThumbnail(const std::filesystem::path& path)
 {
+	WHP_PROFILE_FUNCTION();
 	const auto now = std::chrono::steady_clock::now();
 
 	if (auto it = m_CachedImages.find(path); it != m_CachedImages.end())
@@ -47,6 +48,7 @@ Ref<Texture2D> ThumbnailCache::GetThumbnail(const std::filesystem::path& path)
 
 void ThumbnailCache::ProcessPendingThumbnails(uint32_t maxCount)
 {
+	WHP_PROFILE_FUNCTION();
 	const auto now = std::chrono::steady_clock::now();
 	while (maxCount > 0 && !m_PendingThumbnailPaths.empty())
 	{
@@ -69,6 +71,7 @@ void ThumbnailCache::QueueThumbnail(const std::filesystem::path& path)
 
 Ref<Texture2D> ThumbnailCache::LoadOrRefreshThumbnail(const std::filesystem::path& path, std::chrono::steady_clock::time_point now)
 {
+	WHP_PROFILE_FUNCTION();
 	auto absolutePath = m_Project->GetAssetAbsolutePath(path);
 	std::error_code error;
 	std::filesystem::file_time_type lastWriteTime = std::filesystem::last_write_time(absolutePath, error);

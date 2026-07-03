@@ -553,12 +553,14 @@ ScriptInstance::ScriptInstance(const Ref<ScriptClass>& scriptClass, Entity entit
 
 void ScriptInstance::InvokeOnCreate()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_Instance && m_Methods[EntityMethodType::OnCreate])
 		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnCreate], nullptr, MakeMethodContext("OnCreate"));
 }
 
 void ScriptInstance::InvokeOnUpdate(float ts)
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_Instance && m_Methods[EntityMethodType::OnUpdate])
 	{
 		void* param = &ts;
@@ -568,12 +570,14 @@ void ScriptInstance::InvokeOnUpdate(float ts)
 
 void ScriptInstance::InvokeOnDestroy()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_Instance && m_Methods[EntityMethodType::OnDestroy])
 		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnDestroy], nullptr, MakeMethodContext("OnDestroy"));
 }
 
 void ScriptInstance::InvokeOnColliderEnter(std::string_view tag)
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_Instance && m_Methods[EntityMethodType::OnColliderEnter])
 	{
 		const std::string tagString(tag);
@@ -585,6 +589,7 @@ void ScriptInstance::InvokeOnColliderEnter(std::string_view tag)
 
 void ScriptInstance::InvokeOnColliderExit(std::string_view tag)
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_Instance && m_Methods[EntityMethodType::OnColliderExit])
 	{
 		const std::string tagString(tag);
@@ -596,6 +601,7 @@ void ScriptInstance::InvokeOnColliderExit(std::string_view tag)
 
 void ScriptInstance::InvokeOnAnimationEvent(std::string_view eventName)
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_Instance && m_Methods[EntityMethodType::OnAnimationEvent])
 	{
 		const std::string eventString(eventName);
@@ -607,6 +613,7 @@ void ScriptInstance::InvokeOnAnimationEvent(std::string_view eventName)
 
 void ScriptInstance::InvokeMethod(EntityMethodType methodType, const Payload& payload)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Instance || !m_Methods[methodType])
 		return;
 
@@ -855,6 +862,7 @@ std::string ScriptInstance::MakeMethodContext(std::string_view methodName) const
 
 bool AssemblyManager::LoadAssembly(const std::filesystem::path& filepath)
 {
+	WHP_PROFILE_FUNCTION();
 	s_ScriptEngineData->m_AppDomain = mono_domain_create_appdomain(const_cast<char*>("WhipScriptRuntime"), nullptr);
 	if (!s_ScriptEngineData->m_AppDomain)
 	{
@@ -873,6 +881,7 @@ bool AssemblyManager::LoadAssembly(const std::filesystem::path& filepath)
 
 bool AssemblyManager::LoadAppAssembly(const std::filesystem::path& filepath)
 {
+	WHP_PROFILE_FUNCTION();
 	if (filepath.extension().string() != ".dll")
 	{
 		WHP_CORE_WARN("[Script Engine] App assembly path is not a dll: {0}", filepath.string());
@@ -905,6 +914,7 @@ bool AssemblyManager::LoadAppAssembly(const std::filesystem::path& filepath)
 
 bool AssemblyManager::ReloadAssembly(bool resetAppAssemblyFilepath)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!s_ScriptEngineData || s_ScriptEngineData->m_IsShuttingDown)
 		return false;
 	if (resetAppAssemblyFilepath && !Project::GetActive())
@@ -970,6 +980,7 @@ MonoImage* AssemblyManager::GetCoreAssemblyImage()
 
 void AssemblyManager::LoadBaseScriptFields()
 {
+	WHP_PROFILE_FUNCTION();
 	for (auto& [className, entityClass] : s_ScriptEngineData->m_EntityClasses)
 	{
 		auto& entityFields = s_ScriptEngineData->m_BaseEntityScriptFields;
@@ -1033,6 +1044,7 @@ void AssemblyManager::LoadBaseScriptFields()
 
 void AssemblyManager::LoadAssemblyClasses()
 {
+	WHP_PROFILE_FUNCTION();
 	s_ScriptEngineData->m_EntityClasses.clear();
 	s_ScriptEngineData->m_BaseEntityScriptFields.clear();
 
@@ -1110,6 +1122,7 @@ void AssemblyManager::LoadAssemblyClasses()
 
 void ScriptEngine::Init()
 {
+	WHP_PROFILE_FUNCTION();
 	if (s_ScriptEngineData)
 	{
 		if (s_ScriptEngineData->m_IsShuttingDown)
@@ -1162,6 +1175,7 @@ void ScriptEngine::Init()
 
 void ScriptEngine::Shutdown()
 {
+	WHP_PROFILE_FUNCTION();
 	if (s_ScriptEngineData)
 	{
 		s_ScriptEngineData->m_IsShuttingDown = true;
@@ -1182,6 +1196,7 @@ void ScriptEngine::SetFilewatcherState(bool run)
 
 void ScriptEngine::OnRuntimeStart(Scene* sceneIn)
 {
+	WHP_PROFILE_FUNCTION();
 	s_ScriptEngineData->m_SceneContext = sceneIn;
 	s_ScriptEngineData->m_MissingInstanceWarnings.clear();
 	ScriptGlue::OnRuntimeStart();
@@ -1189,6 +1204,7 @@ void ScriptEngine::OnRuntimeStart(Scene* sceneIn)
 
 void ScriptEngine::OnRuntimeStop()
 {
+	WHP_PROFILE_FUNCTION();
 	s_ScriptEngineData->m_SceneContext = nullptr;
 	s_ScriptEngineData->m_RuntimeActiveSceneHandle = 0;
 	s_ScriptEngineData->m_RuntimeSceneTransition = {};
@@ -1199,12 +1215,14 @@ void ScriptEngine::OnRuntimeStop()
 
 void ScriptEngine::InvokeAllOnCreateMethods()
 {
+	WHP_PROFILE_FUNCTION();
 	for (auto& instance : s_ScriptEngineData->m_EntityInstances)
 		instance.second->InvokeOnCreate();
 }
 
 void ScriptEngine::InvokeAllOnDestroyMethods()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!s_ScriptEngineData)
 		return;
 
@@ -1229,6 +1247,7 @@ bool ScriptEngine::EntityClassExists(const std::string& fullClassName)
 
 void ScriptEngine::InvokeEntityMethod(EntityMethodType methodType, const Entity& entity, const Payload& payload)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!s_ScriptEngineData || !entity || !entity.GetScene() || !entity.HasComponent<ScriptComponent>())
 		return;
 
@@ -1337,6 +1356,7 @@ AssetHandle ScriptEngine::FindRuntimeSceneHandle(std::string_view sceneName)
 
 bool ScriptEngine::RequestRuntimeSceneLoad(AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!s_ScriptEngineData || handle == 0)
 		return false;
 
@@ -1358,6 +1378,7 @@ bool ScriptEngine::RequestRuntimeSceneLoad(AssetHandle handle)
 
 bool ScriptEngine::RequestRuntimeSceneLoad(std::string_view sceneName)
 {
+	WHP_PROFILE_FUNCTION();
 	const AssetHandle handle = FindRuntimeSceneHandle(sceneName);
 	if (handle == 0)
 	{
@@ -1378,6 +1399,7 @@ bool ScriptEngine::RequestRuntimeStartSceneLoad()
 
 bool ScriptEngine::RequestRuntimeSceneReload()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!s_ScriptEngineData || s_ScriptEngineData->m_RuntimeActiveSceneHandle == 0)
 		return false;
 
@@ -1456,6 +1478,7 @@ ScriptFieldMap& ScriptEngine::GetBaseScriptFieldMap(const std::string& className
 
 void ScriptEngine::CopyScriptFieldMap(Entity sourceEntity, Entity destinationEntity)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!s_ScriptEngineData || !sourceEntity || !destinationEntity)
 		return;
 
@@ -1503,6 +1526,7 @@ MonoObject* ScriptEngine::GetManagedInstance(UUID uuid)
 
 void ScriptEngine::InitMono()
 {
+	WHP_PROFILE_FUNCTION();
 	mono_set_assemblies_path("mono/lib");
 
 	if (s_ScriptEngineData->m_EnableDebugging)
@@ -1540,6 +1564,7 @@ void ScriptEngine::InitMono()
 
 void ScriptEngine::ShutdownMono()
 {
+	WHP_PROFILE_FUNCTION();
 	if (MonoDomain* rootDomain = mono_get_root_domain())
 		mono_domain_set(rootDomain, false);
 

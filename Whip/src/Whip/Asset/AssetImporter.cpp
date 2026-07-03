@@ -34,6 +34,7 @@ namespace
 
 Ref<Asset> AssetImporter::ImportAsset(AssetHandle handle, const AssetMetadata& metadata)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!s_AssetImportFunctions.contains(metadata.m_Type))
 	{
 		WHP_CORE_ERROR("[Asset Manager] No importer available for Asset type {}", frenum::to_string(metadata.m_Type));

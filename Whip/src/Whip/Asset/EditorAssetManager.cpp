@@ -61,6 +61,7 @@ namespace
 
 Ref<Asset> EditorAssetManager::GetAsset(AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!IsAssetHandleValid(handle))
 		return nullptr;
 
@@ -94,6 +95,7 @@ bool EditorAssetManager::IsAssetLoaded(AssetHandle handle) const
 
 AssetType EditorAssetManager::GetAssetType(AssetHandle handle) const
 {
+	WHP_PROFILE_FUNCTION();
 	return m_AssetRegistry.TypeOf(handle);
 }
 
@@ -109,6 +111,7 @@ void EditorAssetManager::AddRegistry(AssetHandle handle, const AssetMetadata& me
 
 AssetHandle EditorAssetManager::ImportAsset(const std::filesystem::path& filepath)
 {
+	WHP_PROFILE_FUNCTION();
 	const std::filesystem::path normalizedFilepath = NormalizeAssetPath(filepath);
 	if (normalizedFilepath.empty())
 		return 0;
@@ -149,6 +152,7 @@ AssetHandle EditorAssetManager::ImportAsset(const std::filesystem::path& filepat
 
 void EditorAssetManager::DeleteAsset(AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!IsAssetHandleValid(handle))
 		return;
 
@@ -178,6 +182,7 @@ void EditorAssetManager::UnloadAsset(AssetHandle handle)
 
 bool EditorAssetManager::ReimportAsset(AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!IsAssetHandleValid(handle))
 		return false;
 
@@ -196,6 +201,7 @@ bool EditorAssetManager::ReimportAsset(AssetHandle handle)
 
 bool EditorAssetManager::UpdateAssetMetadata(AssetHandle handle, const AssetMetadata& metadata)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!IsAssetHandleValid(handle))
 		return false;
 
@@ -213,6 +219,7 @@ bool EditorAssetManager::UpdateAssetMetadata(AssetHandle handle, const AssetMeta
 
 bool EditorAssetManager::UpdateAssetFilepath(AssetHandle handle, const std::filesystem::path& filepath)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!IsAssetHandleValid(handle))
 		return false;
 
@@ -228,6 +235,7 @@ bool EditorAssetManager::UpdateAssetFilepath(AssetHandle handle, const std::file
 
 size_t EditorAssetManager::UpdateAssetDirectoryPaths(const std::filesystem::path& oldDirectory, const std::filesystem::path& newDirectory)
 {
+	WHP_PROFILE_FUNCTION();
 	size_t updatedCount = 0;
 	const std::filesystem::path normalizedOldDirectory = oldDirectory.lexically_normal();
 	const std::filesystem::path normalizedNewDirectory = newDirectory.lexically_normal();
@@ -253,6 +261,7 @@ size_t EditorAssetManager::UpdateAssetDirectoryPaths(const std::filesystem::path
 
 size_t EditorAssetManager::DeleteAssetsUnderDirectory(const std::filesystem::path& directory)
 {
+	WHP_PROFILE_FUNCTION();
 	std::vector<AssetHandle> handles;
 	const std::filesystem::path normalizedDirectory = directory.lexically_normal();
 	m_AssetRegistry.Foreach([&](const AssetRegistry::ValueType& value)
@@ -276,6 +285,7 @@ size_t EditorAssetManager::DeleteAssetsUnderDirectory(const std::filesystem::pat
 
 AssetHandle EditorAssetManager::GetHandleFromFilepath(const std::filesystem::path& filepath) const
 {
+	WHP_PROFILE_FUNCTION();
 	const std::filesystem::path normalizedFilepath = NormalizeAssetPath(filepath);
 	if (normalizedFilepath.empty())
 		return 0;
@@ -301,11 +311,13 @@ const std::filesystem::path& EditorAssetManager::GetFilepath(AssetHandle handle)
 
 const AssetRegistry& EditorAssetManager::GetAssetRegistry() const
 {
+	WHP_PROFILE_FUNCTION();
 	return m_AssetRegistry;
 }
 
 void EditorAssetManager::SerializeAssetRegistry(bool* result)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_AssetRegistry.Serialize())
 	{
 		WHP_CORE_ERROR("[Asset Manager] Asset serializing failed!");
@@ -321,6 +333,7 @@ void EditorAssetManager::SerializeAssetRegistry(bool* result)
 
 bool EditorAssetManager::DeserializeAssetRegistry()
 {
+	WHP_PROFILE_FUNCTION();
 	return m_AssetRegistry.Deserialize();
 }
 

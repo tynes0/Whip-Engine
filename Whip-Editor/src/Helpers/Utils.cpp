@@ -20,4 +20,9 @@ bool EditorUtils::PathIsOrIsUnder(const std::filesystem::path& path, const std::
 	return true;
 }
 
+bool EditorUtils::IsControlDown()
+{
+	return Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl);
+}
+
 _WHIP_END

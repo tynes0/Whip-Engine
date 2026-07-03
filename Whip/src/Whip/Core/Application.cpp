@@ -57,36 +57,61 @@ void Application::Run()
 
 	while (m_Running)
 	{
+		WHP_PROFILE_SCOPE("Run Loop 1 Tick");
+
 		m_TickCount++;
-		ExecuteNextTickQueue();
+
+		{
+			WHP_PROFILE_SCOPE("Next Tick Queue");
+			ExecuteNextTickQueue();
+		}
+
 		if (!m_Running)
 			break;
 
 		float time = Time::GetTime();
 		Timestep ts = time - m_LastFrameTime;
 		m_LastFrameTime = time;
-		ExecuteMainThreadQueue();
+
+		{
+			WHP_PROFILE_SCOPE("Main Thread Queue");
+			ExecuteMainThreadQueue();
+		}
+
 		if (!m_Running)
 			break;
 		TimerManager::Get().Tick(ts);
 
-		if (!m_Minimized)
 		{
-			for (LayerPtr item : m_LayerStack)
+			WHP_PROFILE_SCOPE("Update Frame");
+
 			{
-				item->OnUpdate(ts);
+				WHP_PROFILE_SCOPE("Update Layers");
+				if (!m_Minimized)
+				{
+					for (LayerPtr item : m_LayerStack)
+					{
+						item->OnUpdate(ts);
+					}
+				}
+			}
+			{
+				WHP_PROFILE_SCOPE("Update ImGui");
+				m_ImGuiLayer->Begin();
+				{
+					for (LayerPtr item : m_LayerStack)
+					{
+						item->OnImGuiRender();
+					}
+				}
+				m_ImGuiLayer->End();
+			}
+			{
+				WHP_PROFILE_SCOPE("Update Window");
+				m_Window->OnUpdate();
 			}
 		}
 
-		m_ImGuiLayer->Begin();
-		{
-			for (LayerPtr item : m_LayerStack)
-			{
-				item->OnImGuiRender();
-			}
-		}
-		m_ImGuiLayer->End();
-		m_Window->OnUpdate();
 	}
 }
 

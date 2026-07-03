@@ -1641,12 +1641,14 @@ namespace
 
 void ScriptGlue::RegisterComponents()
 {
+	WHP_PROFILE_FUNCTION();
 	s_EntityHasComponentFuncs.clear();
 	RegisterComponent(AllComponentsNoIDNoTagNoScript{});
 }
 
 void ScriptGlue::RegisterFunctions()
 {
+	WHP_PROFILE_FUNCTION();
 	//NOLINTBEGIN(clang-diagnostic-microsoft-cast)
 
 	// entity
@@ -1886,10 +1888,12 @@ void ScriptGlue::RegisterFunctions()
 
 void ScriptGlue::OnRuntimeStart()
 {
+	WHP_PROFILE_FUNCTION();
 }
 
 void ScriptGlue::OnRuntimeStop()
 {
+	WHP_PROFILE_FUNCTION();
 	TimerManager::Get().GetGroupMap().Get(RuntimeTimersGroupId).Clear();
 	TimerManager::Get().GetGroupMap(ApplicationMode::Runtime).Clear();
 }

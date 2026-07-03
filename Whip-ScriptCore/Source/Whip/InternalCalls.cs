@@ -149,6 +149,8 @@ namespace Whip
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool Timer_WaitFor(ulong tag, float delayMs);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void Timer_SubmitToNextTick(TimerCallback callback);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static ulong Timer_SetTimeout(TimerCallback callback, float delayMs, object userData);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static ulong Timer_SetInterval(TimerCallback callback, float intervalMs, object userData);
@@ -467,7 +469,7 @@ namespace Whip
 		internal extern static int AudioComponent_GetADCount(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static uint AudioComponent_GetAD(ulong entityID, int index);
-		
+
 
 		#endregion
 	}

@@ -4,6 +4,7 @@
 #include <Whip-Editor/Helpers/Utils.h>
 #include <Whip-Editor/EditorLayer.h>
 
+#include <Whip/Debug/Instrumentor.h>
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/SceneImporter.h>
 #include <Whip/Scripting/ScriptEngine.h>
@@ -78,6 +79,7 @@ void EditorSceneManager::ResetToEmptyScene()
 
 void EditorSceneManager::NewScene()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (!layer.HasProjectLoaded())
 		return;
@@ -93,6 +95,7 @@ void EditorSceneManager::NewScene()
 
 void EditorSceneManager::OpenScene(AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (!layer.HasProjectLoaded())
 		return;
@@ -131,6 +134,7 @@ void EditorSceneManager::OpenScene(AssetHandle handle)
 
 void EditorSceneManager::CloseScene()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (m_State != EditorSceneState::Edit)
 		OnSceneStop();
@@ -146,6 +150,7 @@ void EditorSceneManager::CloseScene()
 
 void EditorSceneManager::SaveScene()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!GetLayer().HasProjectLoaded())
 		return;
 
@@ -160,6 +165,7 @@ void EditorSceneManager::SaveScene()
 
 void EditorSceneManager::SaveSceneAs()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (!layer.HasProjectLoaded())
 		return;
@@ -236,6 +242,7 @@ std::filesystem::path EditorSceneManager::GetRecoveryPath() const
 
 void EditorSceneManager::WriteRecoverySnapshot(const char* reason)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!GetLayer().HasProjectLoaded() || !m_EditorScene || !m_SceneDirty || m_State != EditorSceneState::Edit)
 		return;
 
@@ -258,6 +265,7 @@ void EditorSceneManager::WriteRecoverySnapshot(const char* reason)
 
 void EditorSceneManager::ProcessRuntimeSceneTransition()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_State != EditorSceneState::Play && m_State != EditorSceneState::Simulate)
 	{
 		ScriptEngine::ClearRuntimeSceneTransitionRequest();
@@ -281,6 +289,7 @@ void EditorSceneManager::ProcessRuntimeSceneTransition()
 
 bool EditorSceneManager::LoadRuntimeScene(AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (!layer.HasProjectLoaded() || handle == 0)
 		return false;
@@ -312,6 +321,7 @@ bool EditorSceneManager::LoadRuntimeScene(AssetHandle handle)
 
 bool EditorSceneManager::UnloadRuntimeScene()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (m_State != EditorSceneState::Play && m_State != EditorSceneState::Simulate)
 		return false;
@@ -352,6 +362,7 @@ void EditorSceneManager::StartActiveRuntimeSceneForTransition(AssetHandle handle
 
 void EditorSceneManager::SerializeScene(const Ref<Scene>& sceneIn, const std::filesystem::path& path)
 {
+	WHP_PROFILE_FUNCTION();
 	SceneImporter::SaveScene(sceneIn, path);
 
 	if (!GetLayer().HasProjectLoaded() || !sceneIn)
@@ -393,6 +404,7 @@ void EditorSceneManager::SerializeScene(const Ref<Scene>& sceneIn, const std::fi
 
 void EditorSceneManager::OnScenePlay()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (!layer.HasProjectLoaded())
 		return;
@@ -413,6 +425,7 @@ void EditorSceneManager::OnScenePlay()
 
 void EditorSceneManager::OnSceneSimulate()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (!layer.HasProjectLoaded())
 		return;
@@ -436,6 +449,7 @@ void EditorSceneManager::OnSceneSimulate()
 
 void EditorSceneManager::OnSceneStop()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (m_State != EditorSceneState::Play && m_State != EditorSceneState::Simulate)
 	{

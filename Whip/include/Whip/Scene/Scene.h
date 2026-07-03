@@ -13,6 +13,8 @@
 
 #include <unordered_map>
 
+#include <entt.hpp>
+
 _WHIP_START
 
 class Entity;
@@ -25,7 +27,7 @@ public:
 	Scene(AssetHandle handle = AssetHandle{});
 	~Scene();
 
-	static Ref<Scene> Copy(Ref<Scene> other);
+	static Ref<Scene> Copy(const Ref<Scene>& other);
 
 	virtual AssetType GetType() const override { return AssetType::Scene; }
 

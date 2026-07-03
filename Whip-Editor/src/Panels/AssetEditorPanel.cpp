@@ -1,6 +1,8 @@
 #include <Whip-Editor/Panels/AssetEditorPanel.h>
 
 #include <Whip-Editor/Managers/EditorShortcutManager.h>
+#include <Whip-Editor/UI/UIHelpers.h>
+
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/AssetUtils.h>
 #include <Whip/Asset/TextureSlicer.h>
@@ -8,8 +10,8 @@
 #include <Whip/Audio/AudioSource.h>
 #include <Whip/Render/Font.h>
 #include <Whip/Render/MsdfData.h>
-#include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip/Utils/PlatformUtils.h>
+#include <Whip/Debug/Instrumentor.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -571,6 +573,7 @@ AssetEditorPanel::AssetEditorPanel()
 
 void AssetEditorPanel::OpenAsset(AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	if (handle == 0 || !Project::GetActive() || !Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(handle))
 		return;
 
@@ -762,6 +765,7 @@ void AssetEditorPanel::ApplyWorkspacePreferences(const WorkspacePreferences& pre
 
 void AssetEditorPanel::OnImGuiRender()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_Documents.empty())
 	{
 		m_Open = false;
@@ -1077,6 +1081,7 @@ bool AssetEditorPanel::ZoomActiveTexture(float multiplier)
 
 void AssetEditorPanel::DrawMinimizedStrip()
 {
+	WHP_PROFILE_FUNCTION();
 	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 	constexpr float stripHeight = 42.0f;
 	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + 10.0f, viewport->WorkPos.y + viewport->WorkSize.y - stripHeight - 10.0f), ImGuiCond_Always);
@@ -1113,6 +1118,7 @@ void AssetEditorPanel::DrawMinimizedStrip()
 
 void AssetEditorPanel::DrawWorkspaceHeader()
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::TextUnformatted("Asset Workspace");
 	ImGui::SameLine();
 	ImGui::TextDisabled("%zu open", m_Documents.size());
@@ -1142,6 +1148,7 @@ void AssetEditorPanel::DrawWorkspaceHeader()
 
 void AssetEditorPanel::DrawWorkspaceTabs()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_ActiveDocument == 0 && !m_Documents.empty())
 	{
 		m_ActiveDocument = m_Documents.front().m_Handle;
@@ -1208,6 +1215,7 @@ void AssetEditorPanel::DrawWorkspaceTabs()
 
 void AssetEditorPanel::DrawDocumentContent(AssetEditorDocument& document)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!Project::GetActive() || !Project::GetActive()->GetEditorAssetManager()->IsAssetHandleValid(document.m_Handle))
 	{
 		document.m_Open = false;
@@ -1366,6 +1374,7 @@ void AssetEditorPanel::DrawMetadata(AssetHandle handle, const AssetMetadata& met
 
 bool AssetEditorPanel::EnsureTextureEditorState(TextureEditorState& state, AssetHandle handle, const Ref<Texture2D>& texture)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!texture || !texture->IsLoaded())
 		return false;
 
@@ -1385,6 +1394,7 @@ bool AssetEditorPanel::EnsureTextureEditorState(TextureEditorState& state, Asset
 
 void AssetEditorPanel::ReloadTextureEditorState(TextureEditorState& state, AssetHandle handle, const Ref<Texture2D>& texture)
 {
+	WHP_PROFILE_FUNCTION();
 	state = TextureEditorState{};
 	state.m_LoadedHandle = handle;
 
@@ -1426,6 +1436,7 @@ void AssetEditorPanel::ReloadTextureEditorState(TextureEditorState& state, Asset
 
 void AssetEditorPanel::ApplyTextureEditorState(TextureEditorState& state, const Ref<Texture2D>& texture)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!texture || !texture->IsLoaded() || state.m_Pixels.empty())
 		return;
 
@@ -1436,6 +1447,7 @@ void AssetEditorPanel::ApplyTextureEditorState(TextureEditorState& state, const 
 
 bool AssetEditorPanel::SaveTextureEditorState(TextureEditorState& state, const AssetMetadata& metadata)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!Project::GetActive())
 		return false;
 
@@ -1605,6 +1617,7 @@ bool AssetEditorPanel::WriteTexturePixel(TextureEditorState& state, int x, int y
 
 bool AssetEditorPanel::PaintTextureBrush(TextureEditorState& state, int x, int y, bool erase)
 {
+	WHP_PROFILE_FUNCTION();
 	std::array<uint8_t, 4> color = erase ? std::array<uint8_t, 4>{ 0, 0, 0, 0 } : BrushColorBytes(state.m_BrushColor);
 	const int brushSize = std::max(1, state.m_BrushSize);
 	const int minX = x - brushSize / 2;
@@ -1632,6 +1645,7 @@ bool AssetEditorPanel::PaintTextureBrush(TextureEditorState& state, int x, int y
 
 bool AssetEditorPanel::FillTextureRegion(TextureEditorState& state, int x, int y, const std::array<uint8_t, 4>& color)
 {
+	WHP_PROFILE_FUNCTION();
 	const std::array<uint8_t, 4> target = ReadTexturePixel(state, x, y);
 	if (target == color)
 		return false;
@@ -1670,6 +1684,7 @@ bool AssetEditorPanel::FillTextureRegion(TextureEditorState& state, int x, int y
 
 void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const AssetMetadata& metadata, bool compact)
 {
+	WHP_PROFILE_FUNCTION();
 	AssetHandle handle = document.m_Handle;
 	if (compact)
 	{
@@ -2034,7 +2049,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 			ImGui::BeginDisabled(state.m_SelectedSpriteIndex + 1 >= static_cast<int>(importSettings.m_Sprites.size()));
 			if (ImGui::Button("Move Sprite Down", ImVec2(-1.0f, 0.0f)))
 			{
-				std::swap(importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex)], importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex + 1)]);
+				std::swap(importSettings.m_Sprites[static_cast<size_t>(state.m_SelectedSpriteIndex)], importSettings.m_Sprites[state.m_SelectedSpriteIndex + 1]);
 				state.m_SelectedSpriteIndex += 1;
 				if (SaveAssetMetadata(handle, editedMetadata))
 					state.m_Status = "Sprite moved.";
@@ -2323,6 +2338,7 @@ void AssetEditorPanel::DrawTextureInspector(AssetEditorDocument& document, const
 
 void AssetEditorPanel::DrawAudioInspector(AssetHandle handle, bool compact) const
 {
+	WHP_PROFILE_FUNCTION();
 	const AssetMetadata& metadata = AssetManager::GetAssetMetadata(handle);
 	if (compact)
 	{
@@ -2418,6 +2434,7 @@ void AssetEditorPanel::DrawAudioInspector(AssetHandle handle, bool compact) cons
 
 void AssetEditorPanel::DrawFontInspector(AssetEditorDocument& document, const AssetMetadata& metadata, bool compact) const
 {
+	WHP_PROFILE_FUNCTION();
 	AssetHandle handle = document.m_Handle;
 	DrawMetadata(handle, metadata);
 	if (compact)
@@ -2520,6 +2537,7 @@ void AssetEditorPanel::DrawSceneInspector(AssetHandle handle, bool compact) cons
 
 void AssetEditorPanel::DrawAnimationInspector(AssetHandle handle, const AssetMetadata& metadata, bool compact)
 {
+	WHP_PROFILE_FUNCTION();
 	if (compact)
 	{
 		DrawMetadata(handle, metadata);

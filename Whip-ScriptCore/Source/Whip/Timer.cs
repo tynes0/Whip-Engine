@@ -1,10 +1,14 @@
 ﻿namespace Whip
 {
-	static public class Timer
+	public static class Timer
 	{
 		public static bool WaitFor(ulong tag, float delayMs)
 		{
 			return InternalCalls.Timer_WaitFor(tag, delayMs);
+		}
+		public static void SubmitToNextTick(TimerCallback callback)
+		{
+			InternalCalls.Timer_SubmitToNextTick(callback);
 		}
 		public static ulong SetTimeout(TimerCallback callback, float delayMs)
 		{

@@ -212,6 +212,7 @@ void ContentBrowserPanel::Init(const Ref<Project>& proj)
 
 void ContentBrowserPanel::OnImGuiRender()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Open)
 	{
 		m_Hovered = false;
@@ -309,6 +310,7 @@ void ContentBrowserPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
 
 void ContentBrowserPanel::DrawToolbar()
 {
+	WHP_PROFILE_FUNCTION();
 	if (ImGui::RadioButton("Files", m_Mode == Mode::Filesystem))
 	{
 		m_Mode = Mode::Filesystem;
@@ -379,6 +381,7 @@ void ContentBrowserPanel::DrawToolbar()
 
 void ContentBrowserPanel::DrawStatusBar()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_StatusMessage.empty())
 		return;
 
@@ -412,6 +415,7 @@ void ContentBrowserPanel::DrawTypeFilter()
 
 void ContentBrowserPanel::DrawSidebar()
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::BeginChild("##ContentBrowserSidebar", ImVec2(0.0f, 0.0f), false);
 	if (m_DirectoryTreeDirty)
 		RebuildDirectoryTree();
@@ -473,6 +477,7 @@ void ContentBrowserPanel::DrawDirectoryTree(const DirectoryNode& node)
 
 void ContentBrowserPanel::DrawBreadcrumbs()
 {
+	WHP_PROFILE_FUNCTION();
 	if (ImGui::Button("Assets##ContentBrowserBreadcrumbRoot"))
 		SetCurrentDirectory(m_BaseDirectory);
 
@@ -497,6 +502,7 @@ void ContentBrowserPanel::DrawBreadcrumbs()
 
 void ContentBrowserPanel::DrawContentGrid(const std::vector<BrowserItem>& items)
 {
+	WHP_PROFILE_FUNCTION();
 	const char* modeLabel = m_Mode == Mode::Filesystem ? "filesystem" : "imported";
 	ImGui::TextDisabled("%zu item(s) in %s view | %zu imported | %zu missing | %zu unsupported %s",
 		items.size(), modeLabel, m_CachedItemMetrics.m_Imported, m_CachedItemMetrics.m_Missing, m_CachedItemMetrics.m_Unsupported, m_ShowUnsupported ? "visible" : "hidden");
@@ -882,6 +888,7 @@ void ContentBrowserPanel::DrawItem(const BrowserItem& item)
 
 void ContentBrowserPanel::DrawFileOperationModals()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_PendingOperation == FileOperation::None)
 		return;
 
@@ -955,6 +962,7 @@ void ContentBrowserPanel::DrawFileOperationModals()
 
 void ContentBrowserPanel::DrawAutoSliceModal()
 {
+	WHP_PROFILE_FUNCTION();
 	const char* popupName = "Smart Slice Texture";
 	if (m_ShowAutoSlicePopup)
 	{
@@ -1015,6 +1023,7 @@ void ContentBrowserPanel::DrawAutoSliceModal()
 
 std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectItems() const
 {
+	WHP_PROFILE_FUNCTION();
 	std::vector<BrowserItem> items = m_Mode == Mode::Filesystem ? CollectFilesystemItems() : CollectAssetItems();
 	std::erase_if(items, [this](const BrowserItem& item)
 	{
@@ -1046,6 +1055,7 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectItems(
 
 void ContentBrowserPanel::RebuildCachedItems()
 {
+	WHP_PROFILE_FUNCTION();
 	m_CachedSearchQueryLower = ToLower(m_SearchQuery);
 	m_CachedItems = CollectItems();
 	m_CachedItemMetrics = {};
@@ -1093,6 +1103,7 @@ void ContentBrowserPanel::ValidateVisibleDirectory()
 
 void ContentBrowserPanel::RebuildDirectoryTree()
 {
+	WHP_PROFILE_FUNCTION();
 	m_DirectoryTree = BuildDirectoryNode(m_BaseDirectory);
 	m_DirectoryTreeDirty = false;
 }
@@ -1131,6 +1142,7 @@ void ContentBrowserPanel::FinalizeBrowserItem(BrowserItem& item) const
 
 void ContentBrowserPanel::AppendTextureSpriteItems(std::vector<BrowserItem>& items, const BrowserItem& parentItem, const AssetMetadata& metadata) const
 {
+	WHP_PROFILE_FUNCTION();
 	if (parentItem.m_Missing || parentItem.m_Type != AssetType::Texture2D || parentItem.m_Handle == 0)
 		return;
 
@@ -1224,6 +1236,7 @@ uint64_t ContentBrowserPanel::ComputeDirectoryFingerprint(const std::filesystem:
 
 std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectFilesystemItems() const
 {
+	WHP_PROFILE_FUNCTION();
 	std::vector<BrowserItem> items;
 	std::error_code error;
 	auto appendItem = [&](BrowserItem item)
@@ -1266,6 +1279,7 @@ std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectFilesy
 
 std::vector<ContentBrowserPanel::BrowserItem> ContentBrowserPanel::CollectAssetItems() const
 {
+	WHP_PROFILE_FUNCTION();
 	std::vector<BrowserItem> items;
 	std::set<std::filesystem::path> directoryPaths;
 	const auto& registry = m_Project->GetEditorAssetManager()->GetAssetRegistry();
@@ -1414,6 +1428,7 @@ bool ContentBrowserPanel::ImportFile(const std::filesystem::path& relativePath, 
 
 void ContentBrowserPanel::ImportCurrentDirectory(bool recursive)
 {
+	WHP_PROFILE_FUNCTION();
 	std::error_code error;
 	if (!std::filesystem::exists(m_CurrentDirectory, error))
 		return;
@@ -1474,6 +1489,7 @@ void ContentBrowserPanel::RequestAutoSliceTexture(const BrowserItem& item)
 
 bool ContentBrowserPanel::RunPendingAutoSlice()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Project || !m_Project->GetEditorAssetManager() || m_AutoSliceHandle == 0)
 	{
 		m_OperationError = "No texture selected.";
@@ -1701,6 +1717,7 @@ bool ContentBrowserPanel::RemoveSpriteSlice(const BrowserItem& item)
 
 bool ContentBrowserPanel::RemoveSelectedSpriteSlices()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Project || !m_Project->GetEditorAssetManager())
 		return false;
 
@@ -1813,6 +1830,7 @@ bool ContentBrowserPanel::RemoveMissingRegistryEntries()
 
 bool ContentBrowserPanel::CreateAnimationFromSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Project || !m_Project->GetEditorAssetManager())
 		return false;
 
@@ -2177,6 +2195,7 @@ bool ContentBrowserPanel::MovePathToDirectory(const std::filesystem::path& sourc
 
 void ContentBrowserPanel::ImportSupportedFilesUnder(const std::filesystem::path& directory, ImportSummary& summary)
 {
+	WHP_PROFILE_FUNCTION();
 	std::error_code error;
 	for (const auto& entry : std::filesystem::recursive_directory_iterator(directory, error))
 	{
@@ -2188,6 +2207,7 @@ void ContentBrowserPanel::ImportSupportedFilesUnder(const std::filesystem::path&
 
 bool ContentBrowserPanel::HandleExternalDrop(const std::vector<std::filesystem::path>& paths)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Project || paths.empty())
 		return false;
 
@@ -2203,6 +2223,7 @@ bool ContentBrowserPanel::HandleExternalDrop(const std::vector<std::filesystem::
 
 bool ContentBrowserPanel::ImportExternalPath(const std::filesystem::path& sourcePath, ImportSummary& summary)
 {
+	WHP_PROFILE_FUNCTION();
 	std::error_code error;
 	if (!std::filesystem::exists(sourcePath, error))
 	{
@@ -2597,6 +2618,7 @@ void ContentBrowserPanel::OnSettingsPopup()
 
 void ContentBrowserPanel::RefreshAssetTree()
 {
+	WHP_PROFILE_FUNCTION();
 	std::error_code error;
 	if (!std::filesystem::exists(m_BaseDirectory, error))
 		std::filesystem::create_directories(m_BaseDirectory, error);

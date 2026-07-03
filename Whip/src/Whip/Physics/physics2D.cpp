@@ -156,6 +156,7 @@ void Physics2D::SetBodyAsSensor(b2BodyId body)
 
 b2BodyId Physics2D::CreateBody(Rigidbody2DComponent& rb2d, const TransformComponent& transform, b2WorldId world, uint32_t entityID)
 {
+	WHP_PROFILE_FUNCTION();
 	DestroyBodyHandle(rb2d);
 
 	b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -173,6 +174,7 @@ b2BodyId Physics2D::CreateBody(Rigidbody2DComponent& rb2d, const TransformCompon
 
 void Physics2D::CreateBoxColliderShape(BoxCollider2DComponent& bc2d, const TransformComponent& transform, const Rigidbody2DComponent& rb2d, b2BodyId body)
 {
+	WHP_PROFILE_FUNCTION();
 	DestroyShapeHandle(bc2d.m_RuntimeFixture);
 
 	b2Polygon boxShape = CreateBoxPolygon(bc2d, transform);
@@ -194,6 +196,7 @@ void Physics2D::CreateBoxColliderShape(BoxCollider2DComponent& bc2d, const Trans
 
 void Physics2D::CreateCircleColliderShape(CircleCollider2DComponent& cc2d, const TransformComponent& transform, const Rigidbody2DComponent& rb2d, b2BodyId body)
 {
+	WHP_PROFILE_FUNCTION();
 	DestroyShapeHandle(cc2d.m_RuntimeFixture);
 
 	b2Circle circleShape = CreateCircle(cc2d, transform);
@@ -215,6 +218,7 @@ void Physics2D::CreateCircleColliderShape(CircleCollider2DComponent& cc2d, const
 
 void Physics2D::UpdateBody(b2BodyId body, const Rigidbody2DComponent& rb2d)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!b2Body_IsValid(body))
 		return;
 
@@ -224,6 +228,7 @@ void Physics2D::UpdateBody(b2BodyId body, const Rigidbody2DComponent& rb2d)
 
 void Physics2D::UpdateTransform(TransformComponent& transform, b2BodyId body)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!b2Body_IsValid(body))
 		return;
 
@@ -235,6 +240,7 @@ void Physics2D::UpdateTransform(TransformComponent& transform, b2BodyId body)
 
 void Physics2D::UpdateBoxCollider(BoxCollider2DComponent& bc2d, const TransformComponent& transform, const Rigidbody2DComponent& rb2d, b2BodyId body)
 {
+	WHP_PROFILE_FUNCTION();
 	PhysicsShapeHandle* handle = GetShapeHandle(bc2d.m_RuntimeFixture);
 	if (!handle)
 		return;
@@ -282,6 +288,7 @@ void Physics2D::UpdateBoxCollider(BoxCollider2DComponent& bc2d, const TransformC
 
 void Physics2D::UpdateCircleCollider(CircleCollider2DComponent& cc2d, const TransformComponent& transform, const Rigidbody2DComponent& rb2d, b2BodyId body)
 {
+	WHP_PROFILE_FUNCTION();
 	PhysicsShapeHandle* handle = GetShapeHandle(cc2d.m_RuntimeFixture);
 	if (!handle)
 		return;

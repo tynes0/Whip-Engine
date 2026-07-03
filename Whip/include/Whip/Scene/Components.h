@@ -4,20 +4,19 @@
 #include <Whip/Core/Core.h>
 #include <Whip/Core/UUID.h>
 #include <Whip/Utils/Utility.h>
-#include <Whip/Core/Memory.h>
 #include <Whip/Helper/UniqueNameManager.h>
-#include <Whip/Render/Texture.h>
 #include <Whip/Render/Font.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #define GLM_ENABLE_EXPERIMENTAL
+#include <entity/entity.hpp>
 #include <glm/gtx/quaternion.hpp>
 
 _WHIP_START
 
-struct IDComponent
+struct IDComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	UUID m_ID;
 
@@ -26,22 +25,22 @@ struct IDComponent
 	IDComponent& operator=(const IDComponent&) = default;
 	IDComponent(UUID uuid) : m_ID(uuid) {}
 
-	static constexpr const char* ScriptStructName = "IDComponent";
+	static constexpr std::string_view ScriptStructName = "IDComponent";
 };
 
-struct TagComponent
+struct TagComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	std::string m_Tag;
 
 	TagComponent() = default;
 	TagComponent(const TagComponent&) = default;
 	TagComponent& operator=(const TagComponent&) = default;
-	TagComponent(const std::string& tag) : m_Tag(tag) {}
+	TagComponent(std::string tag) : m_Tag(std::move(tag)) {}
 
-	static constexpr const char* ScriptStructName = "TagComponent";
+	static constexpr std::string_view ScriptStructName = "TagComponent";
 };
 
-struct HierarchyComponent
+struct HierarchyComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	UUID m_Parent = 0;
 	std::vector<UUID> m_Children;
@@ -51,10 +50,10 @@ struct HierarchyComponent
 	HierarchyComponent(const HierarchyComponent&) = default;
 	HierarchyComponent& operator=(const HierarchyComponent&) = default;
 
-	static constexpr const char* ScriptStructName = "HierarchyComponent";
+	static constexpr std::string_view ScriptStructName = "HierarchyComponent";
 };
 
-struct PrefabComponent
+struct PrefabComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	AssetHandle m_Source = 0;
 	UUID m_SourceEntity = 0;
@@ -66,10 +65,10 @@ struct PrefabComponent
 
 	bool Valid() const { return m_Source != 0; }
 
-	static constexpr const char* ScriptStructName = "PrefabComponent";
+	static constexpr std::string_view ScriptStructName = "PrefabComponent";
 };
 
-struct TransformComponent
+struct TransformComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
     glm::vec3 m_Translation = { 0.0f, 0.0f, 0.0f };
     glm::vec3 m_Rotation = { 0.0f, 0.0f, 0.0f };
@@ -86,10 +85,10 @@ struct TransformComponent
         return glm::translate(glm::mat4(1.0f), m_Translation) * rotation * glm::scale(glm::mat4(1.0f), m_Scale);
     }
 
-	static constexpr const char* ScriptStructName = "TransformComponent";
+	static constexpr std::string_view ScriptStructName = "TransformComponent";
 };
 
-struct SpriteRendererComponent
+struct SpriteRendererComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
     glm::vec4 m_Color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	AssetHandle m_Texture = 0;
@@ -104,10 +103,10 @@ struct SpriteRendererComponent
     operator glm::vec4& () { return m_Color; }
     operator const glm::vec4& () const { return m_Color; }
 
-	static constexpr const char* ScriptStructName = "SpriteRendererComponent";
+	static constexpr std::string_view ScriptStructName = "SpriteRendererComponent";
 };
 
-struct CircleRendererComponent
+struct CircleRendererComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	glm::vec4 m_Color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	float m_Thickness = 1.0f;
@@ -117,7 +116,7 @@ struct CircleRendererComponent
 	CircleRendererComponent(const CircleRendererComponent&) = default;
 	CircleRendererComponent& operator=(const CircleRendererComponent&) = default;
 
-	static constexpr const char* ScriptStructName = "CircleRendererComponent";
+	static constexpr std::string_view ScriptStructName = "CircleRendererComponent";
 };
 
 struct TextComponent
@@ -128,10 +127,10 @@ struct TextComponent
 	float m_Kerning = 0.0f;
 	float m_LineSpacing = 0.0f;
 
-	static constexpr const char* ScriptStructName = "TextComponent";
+	static constexpr std::string_view ScriptStructName = "TextComponent";
 };
 
-struct CameraComponent
+struct CameraComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
     SceneCamera m_Camera;
     bool m_Primary = true;
@@ -141,10 +140,10 @@ struct CameraComponent
     CameraComponent(const CameraComponent&) = default;
     CameraComponent& operator=(const CameraComponent&) = default;
 
-	static constexpr const char* ScriptStructName = "CameraComponent";
+	static constexpr std::string_view ScriptStructName = "CameraComponent";
 };
 
-struct ScriptComponent
+struct ScriptComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	std::string m_ClassName;
 
@@ -152,10 +151,10 @@ struct ScriptComponent
 	ScriptComponent(const ScriptComponent&) = default;
 	ScriptComponent& operator=(const ScriptComponent&) = default;
 
-	static constexpr const char* ScriptStructName = "ScriptComponent";
+	static constexpr std::string_view ScriptStructName = "ScriptComponent";
 };
 
-struct AnimatorComponent
+struct AnimatorComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	AssetHandle m_Controller = 0;
 	std::string m_InitialState;
@@ -166,49 +165,33 @@ struct AnimatorComponent
 	AnimatorComponent(const AnimatorComponent&) = default;
 	AnimatorComponent& operator=(const AnimatorComponent&) = default;
 
-	static constexpr const char* ScriptStructName = "AnimatorComponent";
+	static constexpr std::string_view ScriptStructName = "AnimatorComponent";
 };
 
-class ScriptableEntity;
-
-struct NativeScriptComponent
+struct BodyUserData
 {
-    ScriptableEntity* m_Instance = nullptr;
-
-	ScriptableEntity* (*m_InstantiateScript)() = {};
-	void (*m_DestroyScript)(NativeScriptComponent*) = {};
-
-    template <class T>
-    void Bind()
-    {
-        m_InstantiateScript = []() { return static_cast<ScriptableEntity*>(new T()); };
-        m_DestroyScript = [](NativeScriptComponent* nsc)
-        {
-            delete nsc->m_Instance;
-            nsc->m_Instance = nullptr;
-        };
-    }
-
-	static constexpr const char* ScriptStructName = "NativeScriptComponent";
+	entt::entity m_EntityID;
 };
 
-struct Rigidbody2DComponent
+struct Rigidbody2DComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
-	enum class BodyType { Static = 0, Dynamic, Kinematic };
+	enum class BodyType : uint8_t { Static = 0, Dynamic, Kinematic };
 	BodyType m_Type = BodyType::Static;
 	bool m_FixedRotation = false;
 	float m_GravityScale = 1.0f;
 
 	void* m_RuntimeBody = nullptr;
 
+	std::shared_ptr<BodyUserData> m_UserData = nullptr;
+
 	Rigidbody2DComponent() = default;
 	Rigidbody2DComponent(const Rigidbody2DComponent&) = default;
 	Rigidbody2DComponent& operator=(const Rigidbody2DComponent&) = default;
 
-	static constexpr const char* ScriptStructName = "Rigidbody2DComponent";
+	static constexpr std::string_view ScriptStructName = "Rigidbody2DComponent";
 };
 
-struct BoxCollider2DComponent
+struct BoxCollider2DComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	glm::vec2 m_Offset = { 0.0f, 0.0f };
 	glm::vec2 m_Size = { 0.5f, 0.5f };
@@ -228,10 +211,10 @@ struct BoxCollider2DComponent
 	BoxCollider2DComponent(const BoxCollider2DComponent&) = default;
 	BoxCollider2DComponent& operator=(const BoxCollider2DComponent&) = default;
 
-	static constexpr const char* ScriptStructName = "BoxCollider2DComponent";
+	static constexpr std::string_view ScriptStructName = "BoxCollider2DComponent";
 };
 
-struct CircleCollider2DComponent
+struct CircleCollider2DComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	glm::vec2 m_Offset = { 0.0f, 0.0f };
 	float m_Radius = 0.5f;
@@ -251,10 +234,10 @@ struct CircleCollider2DComponent
 	CircleCollider2DComponent(const CircleCollider2DComponent&) = default;
 	CircleCollider2DComponent& operator=(const CircleCollider2DComponent&) = default;
 
-	static constexpr const char* ScriptStructName = "CircleCollider2DComponent";
+	static constexpr std::string_view ScriptStructName = "CircleCollider2DComponent";
 };
 
-struct AudioComponent
+struct AudioComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
 	struct AudioData
 	{
@@ -284,7 +267,7 @@ struct AudioComponent
 	AudioComponent(const AudioComponent&) = default;
 	AudioComponent& operator=(const AudioComponent&) = default;
 
-	static constexpr const char* ScriptStructName = "AudioComponent";
+	static constexpr std::string_view ScriptStructName = "AudioComponent";
 };
 
 template<typename...>
@@ -295,11 +278,11 @@ using AllComponentsNoIDNoTagNoScript = ComponentGroup<TransformComponent,
 	AnimatorComponent, Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent>;
 
 using AllComponentsNoIDNoTag = ComponentGroup<TransformComponent, SpriteRendererComponent,
-	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, AnimatorComponent, NativeScriptComponent,
-	Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, HierarchyComponent, PrefabComponent>;
+	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, AnimatorComponent, Rigidbody2DComponent,
+	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, HierarchyComponent, PrefabComponent>;
 
 using AllComponents = ComponentGroup<TransformComponent, SpriteRendererComponent,
-	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, AnimatorComponent, NativeScriptComponent,
-	Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, IDComponent, TagComponent, HierarchyComponent, PrefabComponent>;
+	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, AnimatorComponent, Rigidbody2DComponent,
+	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, IDComponent, TagComponent, HierarchyComponent, PrefabComponent>;
 
 _WHIP_END

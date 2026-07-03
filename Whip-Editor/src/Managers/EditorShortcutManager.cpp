@@ -272,6 +272,7 @@ void EditorShortcutManager::Add(
 
 bool EditorShortcutManager::HandleKeyPressed(KeyPressedEvent& event, bool hasActiveWidget)
 {
+	WHP_PROFILE_FUNCTION();
 	if (event.GetRepeatCount() > 0)
 		return IsCapturingBinding();
 
@@ -299,6 +300,7 @@ bool EditorShortcutManager::HandleKeyPressed(KeyPressedEvent& event, bool hasAct
 
 bool EditorShortcutManager::HandleImGuiShortcuts(bool hasActiveWidget)
 {
+	WHP_PROFILE_FUNCTION();
 	if (IsCapturingBinding())
 		return false;
 
@@ -328,6 +330,7 @@ bool EditorShortcutManager::HandleImGuiShortcuts(bool hasActiveWidget)
 
 void EditorShortcutManager::DrawSettings()
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::TextDisabled("Context aware shortcuts. Same keys can safely exist in different panels.");
 	ImGui::Spacing();
 	ImGui::SetNextItemWidth(260.0f);
@@ -495,6 +498,7 @@ void EditorShortcutManager::ResetScopeToDefaults(EditorShortcutScope scope)
 
 void EditorShortcutManager::LoadBindings(const YAML::Node& shortcuts)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!shortcuts)
 		return;
 
@@ -526,6 +530,7 @@ void EditorShortcutManager::LoadBindings(const YAML::Node& shortcuts)
 
 void EditorShortcutManager::SaveBindings(YAML::Emitter& out) const
 {
+	WHP_PROFILE_FUNCTION();
 	out << YAML::BeginMap;
 	for (const EditorShortcut& shortcut : m_Shortcuts)
 	{
@@ -550,6 +555,7 @@ void EditorShortcutManager::SyncLegacyGlobalBindings(const UI::UISettings& setti
 
 bool EditorShortcutManager::ExecuteShortcut(std::string_view id, bool hasActiveWidget, bool ignoreTextInput, bool ignoreContext) const
 {
+	WHP_PROFILE_FUNCTION();
 	const EditorShortcut* shortcut = FindShortcut(id);
 	return shortcut && Execute(*shortcut, hasActiveWidget, ignoreTextInput, ignoreContext);
 }
@@ -679,6 +685,7 @@ bool EditorShortcutManager::IsShortcutActive(const EditorShortcut& shortcut) con
 
 bool EditorShortcutManager::HandleShortcut(KeyCode key, bool ctrl, bool shift, bool alt, bool hasActiveWidget) const
 {
+	WHP_PROFILE_FUNCTION();
 	if (IsTextInputOwnedShortcut(key, ctrl, shift, alt))
 		return false;
 
@@ -733,6 +740,7 @@ bool EditorShortcutManager::Matches(const EditorShortcut& shortcut, KeyCode key,
 
 bool EditorShortcutManager::Execute(const EditorShortcut& shortcut, bool hasActiveWidget, bool ignoreTextInput, bool ignoreContext) const
 {
+	WHP_PROFILE_FUNCTION();
 	const bool modifiedShortcut = shortcut.m_Binding.m_Ctrl || shortcut.m_Binding.m_Shift || shortcut.m_Binding.m_Alt;
 	if (!ignoreTextInput && ImGui::GetIO().WantTextInput && !shortcut.m_Options.m_AllowWhenTextInput &&
 		(!modifiedShortcut || IsTextEditingBinding(shortcut.m_Binding)))

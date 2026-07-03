@@ -1,19 +1,22 @@
 #include <Whip-Editor/Panels/SceneHierarchyPanel.h>
 
 #include <Whip-Editor/Managers/EditorShortcutManager.h>
-#include <Whip/Scene/Components.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip-Editor/UI/UIScopedStyle.h>
+#include <Whip-Editor/Helpers/ScriptFieldHelper.h>
+
+#include <Whip/Core/Input.h>
+#include <Whip/Core/KeyCodes.h>
+#include <Whip/Utils/PlatformUtils.h>
+#include <Whip/Scene/Components.h>
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Project/Project.h>
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/AssetMetadata.h>
-#include <Whip/Asset/TextureImporter.h>
 #include <Whip/Animation/AnimationController.h>
 #include <Whip/Audio/AudioSource.h>
-#include <Whip/Core/Input.h>
-#include <Whip/Core/KeyCodes.h>
-#include <Whip/Utils/PlatformUtils.h>
+#include <Whip/Math/Math.h>
+#include <Whip/Debug/Instrumentor.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -29,10 +32,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-#include <Whip-Editor/Helpers/ScriptFieldHelper.h>
-
-#include "Whip/Math/Math.h"
 
 #define BEGIN_COMPONENT_TABLE_ROW(...) do { ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text(__VA_ARGS__); ImGui::TableNextColumn(); ImGui::PushItemWidth(-1); } while(false)
 #define END_COMPONENT_TABLE_ROW() do { ImGui::PopItemWidth(); } while(false)
@@ -546,6 +545,7 @@ std::vector<UUID> SceneHierarchyPanel::GetSelectedEntityIds() const
 
 void SceneHierarchyPanel::OnImGuiRender()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Open)
 	{
 		m_Focused = false;
@@ -1044,6 +1044,7 @@ void SceneHierarchyPanel::TrackPropertyEditHistory()
 
 void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	DrawPropertySectionTitle("Multi Edit");
 	ImGui::TextDisabled("%zu entities selected", selectedEntities.size());
 
@@ -1136,6 +1137,7 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 
 void SceneHierarchyPanel::DrawMultiSharedComponents(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	const size_t selectedCount = selectedEntities.size();
 	bool drewComponent = false;
 
@@ -1187,6 +1189,7 @@ void SceneHierarchyPanel::DrawMultiSharedComponents(const std::vector<Entity>& s
 
 void SceneHierarchyPanel::DrawMultiCameraComponent(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::PushID("MultiCamera");
 	if (ImGui::TreeNodeEx("Camera", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
 	{
@@ -1329,6 +1332,7 @@ void SceneHierarchyPanel::DrawMultiCameraComponent(const std::vector<Entity>& se
 
 void SceneHierarchyPanel::DrawMultiScriptComponent(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::PushID("MultiScript");
 	if (ImGui::TreeNodeEx("Script", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
 	{
@@ -1369,6 +1373,7 @@ void SceneHierarchyPanel::DrawMultiScriptComponent(const std::vector<Entity>& se
 
 void SceneHierarchyPanel::DrawMultiSpriteRendererComponent(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::PushID("MultiSpriteRenderer");
 	if (ImGui::TreeNodeEx("Sprite Renderer", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
 	{
@@ -1450,6 +1455,7 @@ void SceneHierarchyPanel::DrawMultiSpriteRendererComponent(const std::vector<Ent
 
 void SceneHierarchyPanel::DrawMultiCircleRendererComponent(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::PushID("MultiCircleRenderer");
 	if (ImGui::TreeNodeEx("Circle Renderer", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
 	{
@@ -1498,6 +1504,7 @@ void SceneHierarchyPanel::DrawMultiCircleRendererComponent(const std::vector<Ent
 
 void SceneHierarchyPanel::DrawMultiTextComponent(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::PushID("MultiTextRenderer");
 	if (ImGui::TreeNodeEx("Text Renderer", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
 	{
@@ -1575,6 +1582,7 @@ void SceneHierarchyPanel::DrawMultiTextComponent(const std::vector<Entity>& sele
 
 void SceneHierarchyPanel::DrawMultiRigidbody2DComponent(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::PushID("MultiRigidbody2D");
 	if (ImGui::TreeNodeEx("Rigidbody 2D", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
 	{
@@ -1634,6 +1642,7 @@ void SceneHierarchyPanel::DrawMultiRigidbody2DComponent(const std::vector<Entity
 
 void SceneHierarchyPanel::DrawMultiBoxCollider2DComponent(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::PushID("MultiBoxCollider2D");
 	if (ImGui::TreeNodeEx("Box Collider 2D", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
 	{
@@ -1726,6 +1735,7 @@ void SceneHierarchyPanel::DrawMultiBoxCollider2DComponent(const std::vector<Enti
 
 void SceneHierarchyPanel::DrawMultiCircleCollider2DComponent(const std::vector<Entity>& selectedEntities)
 {
+	WHP_PROFILE_FUNCTION();
 	ImGui::PushID("MultiCircleCollider2D");
 	if (ImGui::TreeNodeEx("Circle Collider 2D", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
 	{
@@ -1818,6 +1828,7 @@ void SceneHierarchyPanel::DrawMultiCircleCollider2DComponent(const std::vector<E
 
 void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 {
+	WHP_PROFILE_FUNCTION();
 	DrawPropertySectionTitle("Entity");
 	if (entityIn.HasComponent<TagComponent>())
 	{
@@ -2592,6 +2603,7 @@ size_t SceneHierarchyPanel::CountSelectedWithComponent() const
 template<class T>
 void SceneHierarchyPanel::AddComponentToSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	for (Entity selected : GetSelectedEntities())
 		if (selected && !selected.HasComponent<T>())
 			selected.AddComponent<T>();
@@ -2600,6 +2612,7 @@ void SceneHierarchyPanel::AddComponentToSelection()
 template<class T>
 void SceneHierarchyPanel::RemoveComponentFromSelection()
 {
+	WHP_PROFILE_FUNCTION();
 	for (Entity selected : GetSelectedEntities())
 		if (selected && selected.HasComponent<T>())
 			selected.RemoveComponent<T>();

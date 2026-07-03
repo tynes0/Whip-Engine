@@ -130,12 +130,14 @@ Ref<Animation2D> Animation2D::Copy(const Ref<Animation2D>& anim)
 
 void Animation2D::SetFrames(const std::vector<AnimationFrame>& frames, bool loop)
 {
+	WHP_PROFILE_FUNCTION();
 	m_Frames = frames;
 	m_Loop = loop;
 }
 
 void Animation2D::AddFrame(const AnimationFrame& frame)
 {
+	WHP_PROFILE_FUNCTION();
 	m_Frames.push_back(frame);
 }
 
@@ -147,6 +149,7 @@ void Animation2D::RemoveFrame(size_t index)
 
 void Animation2D::BindWithEntity(Entity targetEntity)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!targetEntity.HasComponent<SpriteRendererComponent>())
 	{
 		WHP_CORE_ERROR("[Animation2D] Target entity does not have a SpriteRendererComponent!");
@@ -169,6 +172,7 @@ void Animation2D::UnbindFromEntity()
 
 void Animation2D::ApplyFrame(const AnimationFrame& frame)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_TargetEntity)
 	{
 		WHP_CORE_ERROR("[Animation2D] No entity bound!");
@@ -192,6 +196,7 @@ void Animation2D::RestoreOriginalFrame()
 
 void Animation2D::Play()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_IsPlaying)
 		return;
 
@@ -212,6 +217,7 @@ void Animation2D::Play()
 
 void Animation2D::Stop()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_IsPlaying)
 		return;
 
@@ -292,6 +298,7 @@ size_t Animation2D::GetFrameIndexAtTime(float time) const
 
 void Animation2D::Serialize(const std::filesystem::path& filepath)
 {
+	WHP_PROFILE_FUNCTION();
 	YAML::Emitter out;
 	out << YAML::BeginMap;
 	out << YAML::Key << "version" << YAML::Value << FormatVersion;
@@ -334,6 +341,7 @@ void Animation2D::Serialize(const std::filesystem::path& filepath)
 
 bool Animation2D::Deserialize(const std::filesystem::path& filepath)
 {
+	WHP_PROFILE_FUNCTION();
 	YAML::Node data;
 	try
 	{

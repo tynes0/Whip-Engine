@@ -1,15 +1,16 @@
 #include <Whip-Editor/Panels/ConsolePanel.h>
 
-#include <array>
-#include <string>
-#include <vector>
+#include <Whip-Editor/UI/UIScopedStyle.h>
+
+#include <Whip/Debug/Instrumentor.h>
 
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
 #include <FileWatch.h>
 
-#include <Whip-Editor/UI/UIScopedStyle.h>
-
+#include <array>
+#include <string>
+#include <vector>
 #include <algorithm>
 
 _WHIP_START
@@ -396,6 +397,7 @@ namespace
 
 void ConsolePanel::Initialize()
 {
+	WHP_PROFILE_FUNCTION();
 	if (EditorLog::ShouldLog())
 	{
 		std::error_code error;
@@ -411,6 +413,7 @@ void ConsolePanel::Initialize()
 
 void ConsolePanel::Shutdown()
 {
+	WHP_PROFILE_FUNCTION();
 	ConsoleState.m_Running.store(false);
 	if (ConsoleState.m_FileWatcherThread.joinable())
 		ConsoleState.m_FileWatcherThread.join();
@@ -429,6 +432,7 @@ void ConsolePanel::Shutdown()
 
 void ConsolePanel::OnImGuiRender()
 {
+	WHP_PROFILE_FUNCTION();
 	std::lock_guard lock(ConsoleState.m_Mutex);
 
 	if (!EditorLog::ShouldLog())
@@ -630,6 +634,7 @@ void ConsolePanel::Clear()
 
 void ConsolePanel::CopyVisible()
 {
+	WHP_PROFILE_FUNCTION();
 	std::lock_guard lock(ConsoleState.m_Mutex);
 	CopyVisibleToClipboardUnlocked();
 }
@@ -674,6 +679,7 @@ void ConsolePanel::ToggleAutoScroll()
 
 std::vector<std::string> ConsolePanel::GetRecentMessages(size_t maxCount)
 {
+	WHP_PROFILE_FUNCTION();
 	std::lock_guard lock(ConsoleState.m_Mutex);
 	std::vector<std::string> messages;
 	if (maxCount == 0 || ConsoleState.m_Buffer.empty())

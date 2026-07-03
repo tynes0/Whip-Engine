@@ -9,6 +9,7 @@ _WHIP_START
 
 Ref<Texture2D> TextureImporter::ImportTexture2D(AssetHandle handle, const AssetMetadata& metadata)
 {
+	WHP_PROFILE_FUNCTION();
 	Ref<Texture2D> result = LoadTexture2D(Project::GetActiveAssetDirectory() / metadata.m_Filepath, FlipDirectionNone, metadata.m_TextureSettings);
 	if (!result)
 		return nullptr;

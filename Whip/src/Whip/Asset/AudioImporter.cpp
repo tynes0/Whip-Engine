@@ -7,11 +7,13 @@ _WHIP_START
 
 Ref<AudioSource> AudioImporter::ImportAudio(AssetHandle handle, const AssetMetadata& metadata)
 {
+	WHP_PROFILE_FUNCTION();
 	return LoadAudio(Project::GetActiveAssetDirectory() / metadata.m_Filepath, handle);
 }
 
 Ref<AudioSource> AudioImporter::LoadAudio(const std::filesystem::path& path, AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	return AudioEngine::LoadAudioSource(path, handle);
 }
 

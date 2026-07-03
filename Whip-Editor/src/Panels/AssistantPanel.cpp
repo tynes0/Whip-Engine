@@ -47,6 +47,7 @@ AssistantPanel::AssistantPanel()
 
 void AssistantPanel::OnImGuiRender()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Open)
 	{
 		m_Focused = false;
@@ -351,6 +352,7 @@ bool AssistantPanel::CanAutoApplyProposal(const Assistant::ToolProposal& proposa
 
 bool AssistantPanel::ApplyProposalNow(const Assistant::ToolProposal& proposal, std::string* outMessage)
 {
+	WHP_PROFILE_FUNCTION();
 	const bool applied = m_ApplyProposalCallback && m_ApplyProposalCallback(proposal);
 	if (outMessage)
 	{
@@ -403,6 +405,7 @@ void AssistantPanel::HandleProposals(std::vector<Assistant::ToolProposal>&& prop
 
 void AssistantPanel::ApplyAllQueuedProposals()
 {
+	WHP_PROFILE_FUNCTION();
 	if (m_Proposals.empty())
 		return;
 

@@ -34,7 +34,6 @@
 // scene
 #include <Whip/Scene/Components.h>
 #include <Whip/Scene/Entity.h>
-#include <Whip/Scene/ScriptableEntity.h>
 #include <Whip/Scene/Scene.h>
 
 // -------- Whip render works ----------

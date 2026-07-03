@@ -2,6 +2,7 @@
 
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Scripting/ScriptProjectGenerator.h>
+#include <Whip/Debug/Instrumentor.h>
 
 #include <algorithm>
 #include <array>
@@ -728,6 +729,7 @@ EditorScriptManager::~EditorScriptManager()
 
 bool EditorScriptManager::WriteProjectFiles(const std::filesystem::path& projectDirectory, const std::string& projectFolderName)
 {
+	WHP_PROFILE_FUNCTION();
 	const std::filesystem::path scriptsDirectory = projectDirectory / "Assets" / "Scripts";
 	if (!RefreshScriptWorkspaceFiles(scriptsDirectory, projectFolderName))
 		return false;
@@ -744,6 +746,7 @@ bool EditorScriptManager::WriteProjectFiles(const std::filesystem::path& project
 
 bool EditorScriptManager::BuildProjectScripts()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!Project::GetActive())
 		return false;
 
@@ -828,6 +831,7 @@ bool EditorScriptManager::BuildProjectScripts()
 
 void EditorScriptManager::ReloadAssembly(bool resetAppAssemblyFilepath, bool sceneEditable)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!Project::GetActive())
 	{
 		WHP_CORE_WARN("[Script Engine] Failed to reload assembly. No Project is loaded.");
@@ -864,6 +868,7 @@ void EditorScriptManager::ReloadAssembly(bool resetAppAssemblyFilepath, bool sce
 
 void EditorScriptManager::StartSourceWatcher()
 {
+	WHP_PROFILE_FUNCTION();
 	StopSourceWatcher();
 
 	if (!Project::GetActive())
@@ -898,6 +903,7 @@ void EditorScriptManager::StartSourceWatcher()
 
 void EditorScriptManager::StopSourceWatcher()
 {
+	WHP_PROFILE_FUNCTION();
 	m_SourceWatcher.reset();
 	m_SourceWatchDirectory.clear();
 }
@@ -917,6 +923,7 @@ void EditorScriptManager::HandleSourceEvent(const std::string& path, filewatch::
 
 void EditorScriptManager::ProcessSourceChanges(bool sceneEditable)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!Project::GetActive())
 		return;
 

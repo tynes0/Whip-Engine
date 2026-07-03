@@ -3,7 +3,9 @@
 #include <Whip-Editor/Managers/EditorSceneManager.h>
 #include <Whip-Editor/Managers/EditorHistoryManager.h>
 #include <Whip-Editor/EditorLayer.h>
+#include <Whip-Editor/Helpers/Utils.h>
 
+#include <Whip/Debug/Instrumentor.h>
 #include <Whip/Asset/AssetManager.h>
 #include <Whip/Asset/AssetMetadata.h>
 #include <Whip/Asset/AssetUtils.h>
@@ -13,7 +15,6 @@
 #include <cmath>
 #include <utility>
 
-#include "Whip-Editor/Helpers/Utils.h"
 
 _WHIP_START
 	namespace
@@ -84,6 +85,7 @@ EditorAssetInteractionManager::~EditorAssetInteractionManager() = default;
 
 bool EditorAssetInteractionManager::HandleViewportAssetDrop(AssetHandle handle, int32_t textureSpriteIndex) const
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (handle == 0 || !layer.HasProjectLoaded())
 		return false;
@@ -114,6 +116,7 @@ bool EditorAssetInteractionManager::HandleViewportAssetDrop(AssetHandle handle, 
 
 bool EditorAssetInteractionManager::HandleViewportAssetDrops(const std::vector<std::pair<AssetHandle, int32_t>>& assetReferences) const
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (assetReferences.empty() || !layer.HasProjectLoaded() || !layer.m_SceneManager.EditorScene() || layer.m_SceneManager.State() != EditorSceneState::Edit)
 		return false;
@@ -162,6 +165,7 @@ bool EditorAssetInteractionManager::HandleViewportAssetDrops(const std::vector<s
 
 bool EditorAssetInteractionManager::HandleContentBrowserAssetOpen(AssetHandle handle) const
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (handle == 0 || !layer.HasProjectLoaded())
 		return false;
@@ -190,6 +194,7 @@ bool EditorAssetInteractionManager::HandleContentBrowserAssetOpen(AssetHandle ha
 
 bool EditorAssetInteractionManager::HandleContentBrowserAssetInspect(AssetHandle handle) const
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (handle == 0 || !layer.HasProjectLoaded())
 		return false;
@@ -221,6 +226,7 @@ void EditorAssetInteractionManager::SetStartScene(AssetHandle handle) const
 
 bool EditorAssetInteractionManager::CreateSpriteEntityFromTexture(AssetHandle handle, const glm::vec3& position, int32_t textureSpriteIndex, bool captureHistory) const
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (!layer.HasProjectLoaded() || !layer.m_SceneManager.EditorScene() || layer.m_SceneManager.State() != EditorSceneState::Edit)
 		return false;
@@ -267,6 +273,7 @@ bool EditorAssetInteractionManager::CreateSpriteEntityFromTexture(AssetHandle ha
 
 AssetHandle EditorAssetInteractionManager::ImportExternalAssetFile(const std::filesystem::path& sourcePath) const
 {
+	WHP_PROFILE_FUNCTION();
 	Ref<Project> activeProject = Project::GetActive();
 	if (!activeProject)
 		return 0;

@@ -8,6 +8,7 @@
 #include <Whip-Editor/Panels/ConsolePanel.h>
 #include <Whip-Editor/EditorLayer.h>
 
+#include <Whip/Debug/Instrumentor.h>
 #include <Whip/Asset/AssetMetadata.h>
 #include <Whip/Asset/SceneImporter.h>
 #include <Whip/Scripting/ScriptEngine.h>
@@ -18,7 +19,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <fstream>
 #include <optional>
 #include <string_view>
@@ -151,8 +151,8 @@ namespace
 		case ProjectTemplateKind::Empty: return "Empty";
 		case ProjectTemplateKind::Starter2D: return "2D Starter";
 		case ProjectTemplateKind::ScriptReady: return "Script Ready";
-		default: return "Unknown";
 		}
+		return "Unknown";
 	}
 
 	bool WriteTextFileChecked(const std::filesystem::path& path, std::string_view contents, std::string_view label)
@@ -401,6 +401,7 @@ const std::vector<std::filesystem::path>& EditorProjectManager::GetRecentProject
 
 void EditorProjectManager::SetupProjectLoader()
 {
+	WHP_PROFILE_FUNCTION();
 	m_ProjectLoader.SetCreateProjectCallback([this](const UI::ProjectCreateSettings& settings) { return NewProject(settings); });
 	m_ProjectLoader.SetLoadProjectCallback([this]() { return OpenProject(); });
 	m_ProjectLoader.SetOpenRecentProjectCallback([this](const std::filesystem::path& path) {
@@ -428,6 +429,7 @@ void EditorProjectManager::SetupProjectLoader()
 
 void EditorProjectManager::LoadRecentProjects()
 {
+	WHP_PROFILE_FUNCTION();
 	m_RecentProjects.clear();
 	bool shouldRewrite = false;
 
@@ -481,6 +483,7 @@ void EditorProjectManager::LoadRecentProjects()
 
 void EditorProjectManager::SaveRecentProjects() const
 {
+	WHP_PROFILE_FUNCTION();
 	std::ofstream stream(GetRecentProjectsPath(), std::ios::trunc);
 	if (!stream)
 		return;
@@ -628,6 +631,7 @@ std::filesystem::path EditorProjectManager::GetPreferencesPath()
 
 void EditorProjectManager::LoadEditorPreferences()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	LoadRecentProjects();
 
@@ -776,6 +780,7 @@ void EditorProjectManager::LoadEditorPreferences()
 
 void EditorProjectManager::SaveEditorPreferences() const
 {
+	WHP_PROFILE_FUNCTION();
 	const EditorLayer& layer = GetLayer();
 
 	YAML::Emitter out;
@@ -889,6 +894,7 @@ void EditorProjectManager::ApplyPreferencesToContentBrowser()
 
 void EditorProjectManager::SaveProject() const
 {
+	WHP_PROFILE_FUNCTION();
 	if (!Project::GetActive())
 		return;
 
@@ -897,6 +903,7 @@ void EditorProjectManager::SaveProject() const
 
 bool EditorProjectManager::NewProject(const UI::ProjectCreateSettings& settings)
 {
+	WHP_PROFILE_FUNCTION();
 	const std::string projectName = SanitizeProjectToken(settings.m_Name, "Untitled");
 	const std::string projectFolderName = SanitizePathToken(projectName, "Untitled");
 	const std::string initialSceneName = SanitizePathToken(settings.m_InitialSceneName, "Main");
@@ -1051,6 +1058,7 @@ void EditorProjectManager::MigrateProjectNativeFileExtensions() const
 
 bool EditorProjectManager::OpenProject()
 {
+	WHP_PROFILE_FUNCTION();
 	std::string filepath = FileDialogs::OpenFile("Whip Project (*.wproj)\0*.wproj\0");
 	if (filepath.empty())
 		return false;
@@ -1059,6 +1067,7 @@ bool EditorProjectManager::OpenProject()
 
 bool EditorProjectManager::OpenProject(const std::filesystem::path& path)
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	if (path.empty())
 		return false;
@@ -1152,6 +1161,7 @@ bool EditorProjectManager::OpenProject(const std::filesystem::path& path)
 
 void EditorProjectManager::ResetEditorProjectState()
 {
+	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
 	layer.m_SceneManager.WriteRecoverySnapshot("Project switch");
 	layer.m_ScriptManager.StopSourceWatcher();

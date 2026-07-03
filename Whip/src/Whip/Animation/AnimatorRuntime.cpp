@@ -112,6 +112,7 @@ namespace
 
 void AnimatorRuntime::Bind(Scene* scene, UUID entityId, const Ref<AnimationController>& controller, std::string_view initialState)
 {
+	WHP_PROFILE_FUNCTION();
 	m_Scene = scene;
 	m_EntityId = entityId;
 	m_Controller = controller;
@@ -165,6 +166,7 @@ void AnimatorRuntime::Bind(Scene* scene, UUID entityId, const Ref<AnimationContr
 
 void AnimatorRuntime::Play(std::string_view stateName)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Controller)
 		return;
 
@@ -192,6 +194,7 @@ void AnimatorRuntime::Play(std::string_view stateName)
 
 void AnimatorRuntime::Stop()
 {
+	WHP_PROFILE_FUNCTION();
 	m_Playing = false;
 	m_StateTime = 0.0f;
 	m_TransitionElapsed = 0.0f;
@@ -203,6 +206,7 @@ void AnimatorRuntime::Stop()
 
 void AnimatorRuntime::Update(Timestep ts, float speed)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Playing || !m_Controller)
 		return;
 
@@ -613,11 +617,13 @@ float AnimatorRuntime::GetStateDuration(const AnimationControllerState& state) c
 
 bool AnimatorRuntime::TryTransition(const AnimationControllerState& state, float stateDuration)
 {
+	WHP_PROFILE_FUNCTION();
 	return TryTransitionList(state.m_Name, state.m_Transitions, stateDuration, true);
 }
 
 bool AnimatorRuntime::TryTransitionList(std::string_view sourceName, const std::vector<AnimationControllerTransition>& transitions, float stateDuration, bool useExitTime)
 {
+	WHP_PROFILE_FUNCTION();
 	for (const AnimationControllerTransition& transition : transitions)
 	{
 		if (transition.m_TargetState.empty())
@@ -640,6 +646,7 @@ bool AnimatorRuntime::TryTransitionList(std::string_view sourceName, const std::
 
 bool AnimatorRuntime::ApplyTransition(std::string_view sourceName, const AnimationControllerTransition& transition)
 {
+	WHP_PROFILE_FUNCTION();
 	ConsumeTransitionTriggers(transition);
 	m_LastTransitionSourceName = std::string(sourceName);
 	m_LastTransitionTargetName = transition.m_TargetState;
@@ -679,6 +686,7 @@ bool AnimatorRuntime::IsExitTimeReady(const AnimationControllerTransition& trans
 
 bool AnimatorRuntime::ConditionsPass(const AnimationControllerTransition& transition) const
 {
+	WHP_PROFILE_FUNCTION();
 	if (!transition.m_BlueprintNodes.empty())
 		return BlueprintConditionsPass(transition);
 
@@ -768,6 +776,7 @@ bool AnimatorRuntime::ConditionPasses(const AnimationControllerCondition& condit
 
 bool AnimatorRuntime::BlueprintConditionsPass(const AnimationControllerTransition& transition) const
 {
+	WHP_PROFILE_FUNCTION();
 	const bool hasExecLinks = std::any_of(transition.m_BlueprintLinks.begin(), transition.m_BlueprintLinks.end(), [](const AnimationControllerBlueprintLink& link)
 		{
 			return IsAnimationBlueprintExecPin(link.m_OutputPin) || IsAnimationBlueprintExecPin(link.m_InputPin);
@@ -801,6 +810,7 @@ bool AnimatorRuntime::BlueprintConditionsPass(const AnimationControllerTransitio
 
 bool AnimatorRuntime::BlueprintExecPasses(const AnimationControllerTransition& transition) const
 {
+	WHP_PROFILE_FUNCTION();
 	const auto startIt = std::find_if(transition.m_BlueprintNodes.begin(), transition.m_BlueprintNodes.end(), [](const AnimationControllerBlueprintNode& node)
 		{
 			return node.m_Type == AnimationBlueprintNodeType::Start;
@@ -814,6 +824,7 @@ bool AnimatorRuntime::BlueprintExecPasses(const AnimationControllerTransition& t
 
 bool AnimatorRuntime::ExecuteBlueprintNode(const AnimationControllerTransition& transition, uint32_t nodeId, std::unordered_set<uint32_t>& visiting) const
 {
+	WHP_PROFILE_FUNCTION();
 	const AnimationControllerBlueprintNode* node = FindBlueprintNode(transition, nodeId);
 	if (!node)
 		return false;
@@ -858,6 +869,7 @@ bool AnimatorRuntime::ExecuteBlueprintNode(const AnimationControllerTransition& 
 
 bool AnimatorRuntime::ExecuteBlueprintOutput(const AnimationControllerTransition& transition, uint32_t nodeId, uint32_t outputPin, std::unordered_set<uint32_t>& visiting) const
 {
+	WHP_PROFILE_FUNCTION();
 	bool hasOutgoing = false;
 	for (const AnimationControllerBlueprintLink& link : transition.m_BlueprintLinks)
 	{
@@ -873,6 +885,7 @@ bool AnimatorRuntime::ExecuteBlueprintOutput(const AnimationControllerTransition
 
 bool AnimatorRuntime::EvaluateBlueprintNodeBool(const AnimationControllerTransition& transition, uint32_t nodeId, uint32_t outputPin, std::unordered_set<uint32_t>& visiting) const
 {
+	WHP_PROFILE_FUNCTION();
 	const AnimationControllerBlueprintNode* node = FindBlueprintNode(transition, nodeId);
 	if (!node)
 		return false;
@@ -979,6 +992,7 @@ float AnimatorRuntime::EvaluateBlueprintNodeNumber(const AnimationControllerTran
 
 bool AnimatorRuntime::EvaluateBlueprintInputBool(const AnimationControllerTransition& transition, const AnimationControllerBlueprintNode& node, uint32_t inputPin, bool fallback, std::unordered_set<uint32_t>& visiting) const
 {
+	WHP_PROFILE_FUNCTION();
 	if (const AnimationControllerBlueprintLink* link = FindBlueprintInputLink(transition, node.m_Id, inputPin))
 		return EvaluateBlueprintNodeBool(transition, link->m_OutputNode, link->m_OutputPin, visiting);
 	return fallback;
@@ -1053,6 +1067,7 @@ float AnimatorRuntime::GetBlueprintParameterNumber(std::string_view name) const
 
 void AnimatorRuntime::ConsumeTransitionTriggers(const AnimationControllerTransition& transition)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!transition.m_BlueprintNodes.empty())
 	{
 		for (const AnimationControllerBlueprintNode& node : transition.m_BlueprintNodes)
@@ -1073,6 +1088,7 @@ void AnimatorRuntime::ConsumeTransitionTriggers(const AnimationControllerTransit
 
 void AnimatorRuntime::SwitchState(std::string_view stateName)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Controller || !m_Controller->FindState(stateName))
 		return;
 
@@ -1095,6 +1111,7 @@ float AnimatorRuntime::NormalizeStateTime(const AnimationControllerState& state,
 
 void AnimatorRuntime::ApplyCurrentFrame()
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Scene || !m_Controller)
 		return;
 
@@ -1116,6 +1133,7 @@ void AnimatorRuntime::ApplyCurrentFrame()
 
 void AnimatorRuntime::ApplyStateFrame(const AnimationControllerState& state, float stateTime)
 {
+	WHP_PROFILE_FUNCTION();
 	Ref<Animation2D> clip = GetStateClip(state);
 	if (!clip)
 	{
@@ -1145,6 +1163,7 @@ void AnimatorRuntime::ApplyStateFrame(const AnimationControllerState& state, flo
 
 void AnimatorRuntime::ApplyBlendedFrame(const AnimationControllerState& sourceState, float sourceTime, const AnimationControllerState& targetState, float targetTime, float factor)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Scene)
 		return;
 
@@ -1248,6 +1267,7 @@ void AnimatorRuntime::ApplyBlendedFrame(const AnimationControllerState& sourceSt
 
 void AnimatorRuntime::QueueEvents(const AnimationControllerState& state, float startTime, float endTime)
 {
+	WHP_PROFILE_FUNCTION();
 	if (endTime <= startTime)
 		return;
 
@@ -1264,6 +1284,7 @@ void AnimatorRuntime::QueueEvents(const AnimationControllerState& state, float s
 
 void AnimatorRuntime::ApplyPropertyTracks(const Animation2D& clip, float sampleTime)
 {
+	WHP_PROFILE_FUNCTION();
 	if (!m_Scene)
 		return;
 
@@ -1299,29 +1320,29 @@ void AnimatorRuntime::WarnMissingStateClip(const AnimationControllerState& state
 	const uint64_t entityId = static_cast<uint64_t>(m_EntityId);
 	if (state.m_MotionType == AnimationMotionType::BlendTree1D)
 	{
-		WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' has no valid blend child animation clip.", entityId, state.m_Name);
+		WHP_CORE_WARN("[Animator Runtime] Entity {0} state '{1}' has no valid blend child animation clip.", entityId, state.m_Name);
 		return;
 	}
 
 	if (state.m_Clip == 0)
 	{
-		WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' has no animation clip assigned.", entityId, state.m_Name);
+		WHP_CORE_WARN("[Animator Runtime] Entity {0} state '{1}' has no animation clip assigned.", entityId, state.m_Name);
 		return;
 	}
 
 	if (!AssetManager::IsAssetHandleValid(state.m_Clip))
 	{
-		WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' references missing animation clip handle {2}.", entityId, state.m_Name, static_cast<uint64_t>(state.m_Clip));
+		WHP_CORE_WARN("[Animator Runtime] Entity {0} state '{1}' references missing animation clip handle {2}.", entityId, state.m_Name, static_cast<uint64_t>(state.m_Clip));
 		return;
 	}
 
 	if (AssetManager::GetAssetType(state.m_Clip) != AssetType::Animation)
 	{
-		WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' clip handle {2} is not an Animation asset.", entityId, state.m_Name, static_cast<uint64_t>(state.m_Clip));
+		WHP_CORE_WARN("[Animator Runtime] Entity {0} state '{1}' clip handle {2} is not an Animation asset.", entityId, state.m_Name, static_cast<uint64_t>(state.m_Clip));
 		return;
 	}
 
-	WHP_CORE_WARN("[AnimatorRuntime] Entity {0} state '{1}' animation clip {2} could not be loaded.", entityId, state.m_Name, static_cast<uint64_t>(state.m_Clip));
+	WHP_CORE_WARN("[Animator Runtime] Entity {0} state '{1}' animation clip {2} could not be loaded.", entityId, state.m_Name, static_cast<uint64_t>(state.m_Clip));
 }
 
 _WHIP_END

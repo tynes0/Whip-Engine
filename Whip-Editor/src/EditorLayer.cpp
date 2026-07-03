@@ -1,6 +1,7 @@
 #include <Whip-Editor/EditorLayer.h>
 
 #include <Whip/Core/EntryPoint.h>
+#include <Whip/Debug/Instrumentor.h>
 #include <Whip/Scene/SceneSerializer.h>
 #include <Whip-Editor/UI/UIHelpers.h>
 #include <Whip-Editor/UI/UIProjectLoader.h>
@@ -12,7 +13,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cctype>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -28,11 +28,12 @@
 #include <entt.hpp>
 #include <ImGuizmo.h>
 
-_WHIP_START
+#include "Whip-Editor/Helpers/Utils.h"
 
-namespace
+_WHIP_START
+	namespace
 {
-	enum class ShellWindowControl
+	enum class ShellWindowControl : uint8_t
 	{
 		Minimize,
 		Maximize,
@@ -211,8 +212,7 @@ namespace
 		if (!ParseAssistantFloatList(value, values, 4))
 			return false;
 
-		const float maxValue = std::max(std::max(values[0], values[1]), std::max(values[2], values[3]));
-		if (maxValue > 1.0f)
+		if (const float maxValue = (std::max)({values[0], values[1], values[2], values[3]}); maxValue > 1.0f)
 		{
 			for (float& channel : values)
 				channel /= 255.0f;
@@ -499,9 +499,9 @@ namespace
 		case AssetType::Entity:
 			return true;
 		case AssetType::None:
-		default:
 			return false;
 		}
+		return false;
 	}
 
 	void AppendAssistantComponentNames(Entity entity, std::vector<std::string>& components)
@@ -711,7 +711,12 @@ namespace
 			}
 
 			if (score > best.m_Score)
-				best = { handle, score };
+			{
+				best = {
+					.m_Handle = handle,
+					.m_Score = score
+				};
+			}
 		};
 
 		if (acceptedType != AssetType::None)
@@ -961,7 +966,12 @@ namespace
 			}
 
 			if (score > best.m_Score)
-				best = { handle, score };
+			{
+				best = {
+					.m_Handle = handle,
+					.m_Score = score
+				};
+			}
 		});
 
 		return best.m_Handle;
@@ -1129,11 +1139,6 @@ namespace
 		return haystack.find(needle) != std::string::npos;
 	}
 
-	bool IsControlDown()
-	{
-		return Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl);
-	}
-
 	int GizmoSnapIndex(int operation)
 	{
 		if (operation == ImGuizmo::OPERATION::TRANSLATE)
@@ -1186,12 +1191,12 @@ namespace
 
 		const std::filesystem::path scriptsRoot = Project::GetActiveAssetDirectory() / "Scripts";
 		const std::string shortName = ShortClassName(className);
-		const std::filesystem::path preferred = scriptsRoot / "Source" / (shortName + ".cs");
+		std::filesystem::path preferred = scriptsRoot / "Source" / (shortName + ".cs");
 		std::error_code error;
 		if (std::filesystem::exists(preferred, error) && std::filesystem::is_regular_file(preferred, error))
 			return preferred;
 
-		const std::filesystem::path rootPreferred = scriptsRoot / (shortName + ".cs");
+		std::filesystem::path rootPreferred = scriptsRoot / (shortName + ".cs");
 		error.clear();
 		if (std::filesystem::exists(rootPreferred, error) && std::filesystem::is_regular_file(rootPreferred, error))
 			return rootPreferred;
@@ -1254,7 +1259,7 @@ namespace
 		if (!Project::GetActive() || requestedPath.empty())
 			return {};
 
-		const std::filesystem::path projectRoot = Project::GetActiveProjectDirectory();
+		const std::filesystem::path& projectRoot = Project::GetActiveProjectDirectory();
 		const std::filesystem::path assetRoot = Project::GetActiveAssetDirectory();
 		const std::filesystem::path scriptsRoot = assetRoot / "Scripts";
 		std::filesystem::path candidate(requestedPath);
@@ -1274,7 +1279,7 @@ namespace
 		if (!std::filesystem::exists(candidate, error) || !std::filesystem::is_regular_file(candidate, error) || candidate.extension() != ".cs")
 			return {};
 
-		const std::filesystem::path canonicalCandidate = std::filesystem::weakly_canonical(candidate, error);
+		std::filesystem::path canonicalCandidate = std::filesystem::weakly_canonical(candidate, error);
 		if (error)
 			return {};
 
@@ -1293,6 +1298,7 @@ EditorLayer::EditorLayer()
 	m_EditorCamera(),
 	m_AssetInteractionManager(this),
 	m_EntityTemplateManager(this),
+	m_EventManager(this),
 	m_HistoryManager(this),
 	m_ProjectManager(this),
 	m_ScriptManager(this),
@@ -1482,7 +1488,7 @@ void EditorLayer::OnUpdate(Timestep ts)
 
 		if (mouseX >= 0 && mouseY >= 0 && mouseX < static_cast<int>(viewportSize.x) && mouseY < static_cast<int>(viewportSize.y))
 		{
-			int pixelData = m_Framebuffer->ReadPixel(1, mouseX, mouseY); // This is taking too much time
+			int pixelData = m_Framebuffer->ReadPixel(1, mouseX, mouseY); // Todo: This is taking too much time
 			m_HoveredEntity = pixelData == -1 ? Entity() : Entity(static_cast<entt::entity>(pixelData), m_SceneManager.ActiveScene().get());
 		}
 	}
@@ -1612,7 +1618,8 @@ void EditorLayer::OnImGuiRender()
 						AssetHandle handle = Project::GetActive()->GetEditorAssetManager()->GetHandleFromFilepath(RelativePath);
 						if (handle == 0 && Utils::TryGetAssetTypeFromFileExtension(RelativePath.extension()) != AssetType::None)
 							handle = Project::GetActive()->GetEditorAssetManager()->ImportAsset(RelativePath);
-						m_AssetInteractionManager.HandleViewportAssetDrop(handle);
+						if (!m_AssetInteractionManager.HandleViewportAssetDrop(handle))
+							WHP_EDITOR_WARN("[Viewport] Drag drop failed!");
 					}
 				}
 			}
@@ -1640,7 +1647,7 @@ void EditorLayer::OnImGuiRender()
 
 		    // Snapping
 			const int snapIndex = GizmoSnapIndex(m_GizmoType);
-		    bool snap = IsControlDown() && snapIndex != -1;
+		    bool snap = EditorUtils::IsControlDown() && snapIndex != -1;
 
 			ImGuizmo::OPERATION operation = static_cast<ImGuizmo::OPERATION>(m_GizmoType);
 			ImGuizmo::Manipulate(
@@ -1674,7 +1681,7 @@ void EditorLayer::OnImGuiRender()
 				scaleRatio.z = baseScale.z != 0.0f ? scale.z / baseScale.z : 1.0f;
 
 				std::vector<Entity> selectedEntities = m_SceneHierarchyPanel.GetSelectedEntities();
-				if (std::find(selectedEntities.begin(), selectedEntities.end(), selectedEntity) == selectedEntities.end())
+				if (std::ranges::find(selectedEntities, selectedEntity) == selectedEntities.end())
 					selectedEntities.push_back(selectedEntity);
 
 				for (Entity selected : selectedEntities)
@@ -1733,15 +1740,9 @@ void EditorLayer::OnEvent(Event& event)
 	if (m_SceneManager.State() == SceneState::Edit && !m_GizmoHovered && !m_GizmoUsing && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
 		m_EditorCamera.OnEvent(event);
     EventDispatcher dispatcher(event);
-    dispatcher.Dispatch<KeyPressedEvent>([this](auto&&... args) -> decltype(auto) { return this->OnKeyPressed(std::forward<decltype(args)>(args)...); });
-    dispatcher.Dispatch<MouseButtonPressedEvent>([this](auto&&... args) -> decltype(auto) { return this->OnMouseButtonPressed(std::forward<decltype(args)>(args)...); });
-	dispatcher.Dispatch<WindowDropEvent>([this](auto&&... args) -> decltype(auto) { return this->OnWindowDrop(std::forward<decltype(args)>(args)...); });
-}
-
-bool EditorLayer::OnKeyPressed(KeyPressedEvent& event)
-{
-	const bool hasActiveWidget = Application::Get().GetImGuiLayer()->GetActiveWidgetID() != 0;
-	return m_ShortcutManager.HandleKeyPressed(event, hasActiveWidget);
+    dispatcher.Dispatch<KeyPressedEvent>([this]<typename... T0>(T0&&... args) -> decltype(auto) { return m_EventManager.OnKeyPressed(std::forward<T0>(args)...); });
+    dispatcher.Dispatch<MouseButtonPressedEvent>([this]<typename... T0>(T0&&... args) -> decltype(auto) { return m_EventManager.OnMouseButtonPressed(std::forward<T0>(args)...); });
+	dispatcher.Dispatch<WindowDropEvent>([this]<typename... T0>(T0&&... args) -> decltype(auto) { return m_EventManager.OnWindowDrop(std::forward<T0>(args)...); });
 }
 
 void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
@@ -1755,8 +1756,8 @@ void EditorLayer::DrawEditorShellTitlebar(bool projectLoaded)
 	const ImVec2 max(min.x + size.x, min.y + size.y);
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 
-	const ImU32 titleTop = IM_COL32(21, 29, 37, 255);
-	const ImU32 titleBottom = IM_COL32(8, 12, 16, 255);
+	constexpr ImU32 titleTop = IM_COL32(21, 29, 37, 255);
+	constexpr ImU32 titleBottom = IM_COL32(8, 12, 16, 255);
 	drawList->AddRectFilledMultiColor(min, max, titleTop, titleTop, titleBottom, titleBottom);
 	drawList->AddLine(ImVec2(min.x, max.y - 1.0f), ImVec2(max.x, max.y - 1.0f), IM_COL32(46, 58, 70, 210), 1.0f);
 	drawList->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, min.y + 2.0f), IM_COL32(180, 196, 214, 210), 0.0f);
@@ -1960,10 +1961,10 @@ void EditorLayer::DrawCommandPalette()
 		ImGui::Separator();
 
 		std::string firstAvailableShortcutId;
-		bool hasVisibleCommand = false;
 
 		if (ImGui::BeginChild("##CommandPaletteResults", ImVec2(0.0f, 0.0f), false))
 		{
+			bool hasVisibleCommand = false;
 			if (ImGui::BeginTable("##CommandPaletteTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Resizable))
 			{
 				ImGui::TableSetupColumn("Command", ImGuiTableColumnFlags_WidthStretch);
@@ -2051,8 +2052,7 @@ Assistant::ContextSnapshot EditorLayer::BuildAssistantContextSnapshot() const
 		AppendAssistantSceneContext(m_SceneManager.EditorScene(), context);
 	}
 
-	Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
-	if (selected)
+	if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity(); selected)
 	{
 		context.m_HasSelection = true;
 		context.m_SelectedEntity = static_cast<uint64_t>(selected.GetUUID());
@@ -2167,25 +2167,25 @@ bool EditorLayer::ApplyAssistantProposal(const Assistant::ToolProposal& proposal
 			return true;
 		};
 		if (proposal.m_ComponentName == "Sprite Renderer" && !target.HasComponent<SpriteRendererComponent>())
-			added = addComponent.template operator()<SpriteRendererComponent>();
+			added = addComponent.operator()<SpriteRendererComponent>();
 		else if (proposal.m_ComponentName == "Circle Renderer" && !target.HasComponent<CircleRendererComponent>())
-			added = addComponent.template operator()<CircleRendererComponent>();
+			added = addComponent.operator()<CircleRendererComponent>();
 		else if (proposal.m_ComponentName == "Text Renderer" && !target.HasComponent<TextComponent>())
-			added = addComponent.template operator()<TextComponent>();
+			added = addComponent.operator()<TextComponent>();
 		else if (proposal.m_ComponentName == "Camera" && !target.HasComponent<CameraComponent>())
-			added = addComponent.template operator()<CameraComponent>();
+			added = addComponent.operator()<CameraComponent>();
 		else if (proposal.m_ComponentName == "Script" && !target.HasComponent<ScriptComponent>())
-			added = addComponent.template operator()<ScriptComponent>();
+			added = addComponent.operator()<ScriptComponent>();
 		else if (proposal.m_ComponentName == "Animator" && !target.HasComponent<AnimatorComponent>())
-			added = addComponent.template operator()<AnimatorComponent>();
+			added = addComponent.operator()<AnimatorComponent>();
 		else if (proposal.m_ComponentName == "Rigidbody2D" && !target.HasComponent<Rigidbody2DComponent>())
-			added = addComponent.template operator()<Rigidbody2DComponent>();
+			added = addComponent.operator()<Rigidbody2DComponent>();
 		else if (proposal.m_ComponentName == "BoxCollider2D" && !target.HasComponent<BoxCollider2DComponent>())
-			added = addComponent.template operator()<BoxCollider2DComponent>();
+			added = addComponent.operator()<BoxCollider2DComponent>();
 		else if (proposal.m_ComponentName == "CircleCollider2D" && !target.HasComponent<CircleCollider2DComponent>())
-			added = addComponent.template operator()<CircleCollider2DComponent>();
+			added = addComponent.operator()<CircleCollider2DComponent>();
 		else if (proposal.m_ComponentName == "Audio" && !target.HasComponent<AudioComponent>())
-			added = addComponent.template operator()<AudioComponent>();
+			added = addComponent.operator()<AudioComponent>();
 
 		if (!added)
 			return false;
@@ -2252,11 +2252,10 @@ bool EditorLayer::ApplyAssistantProposal(const Assistant::ToolProposal& proposal
 		return true;
 	}
 	case Assistant::ToolKind::EditScript:
-		return false;
 	case Assistant::ToolKind::None:
-	default:
 		return false;
 	}
+	return false;
 }
 
 bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
@@ -2347,9 +2346,10 @@ bool EditorLayer::ExecuteEditorAction(UI::EditorShortcutAction action)
 	case UI::EditorShortcutAction::GizmoScale:
 		m_GizmoType = ImGuizmo::OPERATION::SCALE;
 		return true;
-	default:
+	case UI::EditorShortcutAction::Count:
 		return false;
 	}
+	return false;
 }
 
 bool EditorLayer::IsEditorActionAvailable(UI::EditorShortcutAction action) const
@@ -2397,9 +2397,10 @@ bool EditorLayer::IsEditorActionAvailable(UI::EditorShortcutAction action) const
 	case UI::EditorShortcutAction::GizmoRotate:
 	case UI::EditorShortcutAction::GizmoScale:
 		return projectLoaded && editMode && !m_GizmoUsing;
-	default:
+	case UI::EditorShortcutAction::Count:
 		return false;
 	}
+	return false;
 }
 
 void EditorLayer::RegisterEditorShortcuts()
@@ -2440,7 +2441,12 @@ void EditorLayer::RegisterEditorShortcuts()
 		"viewport.toggle_physics_colliders",
 		"Toggle Physics Colliders",
 		"Viewport",
-		{ Key::C, true, true, false },
+		{
+			.m_Key = Key::C,
+			.m_Ctrl = true,
+			.m_Shift = true,
+			.m_Alt = false
+		},
 		[this]()
 		{
 			m_UISettings.SetShowPhysicsColliders(!m_UISettings.GetShowPhysicsColliders());
@@ -2453,7 +2459,12 @@ void EditorLayer::RegisterEditorShortcuts()
 		"viewport.toggle_grid",
 		"Toggle Viewport Grid",
 		"Viewport",
-		{ Key::G, true, false, false },
+		{
+			.m_Key = Key::G,
+			.m_Ctrl = true,
+			.m_Shift = false,
+			.m_Alt = false
+		},
 		[this]()
 		{
 			m_UISettings.SetShowEditorGrid(!m_UISettings.GetShowEditorGrid());
@@ -2501,43 +2512,6 @@ void EditorLayer::RebuildEditorPanelRegistry()
 		m_PanelManager.AddPanel(*m_ContentBrowserPanel);
 }
 
-bool EditorLayer::OnMouseButtonPressed(MouseButtonPressedEvent& event)
-{
-    if (event.GetMouseButton() == Mouse::ButtonLeft)
-    {
-        if (m_ViewportHovered && !m_GizmoHovered && !m_GizmoUsing && !Input::IsKeyDown(Key::LeftAlt) && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
-		{
-			bool append = IsControlDown();
-            m_SceneHierarchyPanel.SetSelectedEntity(m_HoveredEntity, append);
-		}
-    }
-    return false;
-}
-
-bool EditorLayer::OnWindowDrop(WindowDropEvent& event)
-{
-	if (!HasProjectLoaded())
-		return false;
-
-	if (m_ContentBrowserPanel && m_ContentBrowserPanel->IsHovered())
-		return m_ContentBrowserPanel->HandleExternalDrop(event.GetPaths());
-
-	bool handled = false;
-	for (const auto& path : event.GetPaths())
-	{
-		AssetHandle handle = m_AssetInteractionManager.ImportExternalAssetFile(path);
-		if (handle != 0)
-		{
-			handled = true;
-			if (m_ViewportHovered)
-				m_AssetInteractionManager.HandleViewportAssetDrop(handle);
-		}
-	}
-	if (m_ContentBrowserPanel)
-		m_ContentBrowserPanel->RefreshAssetTree();
-	return handled;
-}
-
 void EditorLayer::DrawEditorGrid()
 {
 	if (!m_UISettings.GetShowEditorGrid())
@@ -2562,10 +2536,10 @@ void EditorLayer::DrawEditorGrid()
 	const int minY = static_cast<int>(std::floor((center.y - visibleHeight * 0.5f) / gridStep)) - 2;
 	const int maxY = static_cast<int>(std::ceil((center.y + visibleHeight * 0.5f) / gridStep)) + 2;
 
-	const glm::vec4 gridColor{ 0.26f, 0.29f, 0.30f, 0.34f };
-	const glm::vec4 majorGridColor{ 0.37f, 0.41f, 0.41f, 0.45f };
-	const glm::vec4 xAxisColor{ 0.86f, 0.34f, 0.30f, 0.74f };
-	const glm::vec4 yAxisColor{ 0.30f, 0.66f, 0.46f, 0.74f };
+	constexpr glm::vec4 gridColor{ 0.26f, 0.29f, 0.30f, 0.34f };
+	constexpr glm::vec4 majorGridColor{ 0.37f, 0.41f, 0.41f, 0.45f };
+	constexpr glm::vec4 xAxisColor{ 0.86f, 0.34f, 0.30f, 0.74f };
+	constexpr glm::vec4 yAxisColor{ 0.30f, 0.66f, 0.46f, 0.74f };
 	const float minZ = -0.02f;
 	auto isMajorGridLine = [](float value)
 	{

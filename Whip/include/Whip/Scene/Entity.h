@@ -23,7 +23,7 @@ public:
 	template <class T, class... Args>
 	T& AddComponent(Args&&... args)
 	{
-		WHP_CORE_ASSERT(!HasComponent<T>(), "entity already has component!");
+		WHP_CORE_ASSERT(!HasComponent<T>(), "[Entity] entity already has component!");
 		T& component = m_Scene->m_Registry.emplace<T>(m_EntityHandle, std::forward<Args>(args)...);
 		m_Scene->OnComponentAdded<T>(*this, component);
 		return component;
@@ -40,14 +40,14 @@ public:
 	template <class T>
 	T& GetComponent()
 	{
-		WHP_CORE_ASSERT(HasComponent<T>(), "entity does not have component!");
+		WHP_CORE_ASSERT(HasComponent<T>(), "[Entity] entity does not have component!");
 		return m_Scene->m_Registry.get<T>(m_EntityHandle);
 	}
 
 	template <class T>
 	const T& GetComponent() const
 	{
-		WHP_CORE_ASSERT(HasComponent<T>(), "entity does not have component!");
+		WHP_CORE_ASSERT(HasComponent<T>(), "[Entity] entity does not have component!");
 		return m_Scene->m_Registry.get<T>(m_EntityHandle);
 	}
 
@@ -60,7 +60,7 @@ public:
 	template <class T>
 	void RemoveComponent() const
 	{
-		WHP_CORE_ASSERT(HasComponent<T>(), "entity does not have component!");
+		WHP_CORE_ASSERT(HasComponent<T>(), "[Entity] entity does not have component!");
 		m_Scene->m_Registry.remove<T>(m_EntityHandle);
 	}
 

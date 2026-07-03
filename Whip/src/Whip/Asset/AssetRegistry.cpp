@@ -306,6 +306,7 @@ bool RegistryConstIterator::operator!=(RegistryConstIterator it) const
 
 bool AssetRegistry::Add(AssetHandle handle, const AssetMetadata& metadata)
 {
+	WHP_PROFILE_FUNCTION();
 	AssetMetadata normalizedMetadata = metadata;
 	normalizedMetadata.m_Filepath = NormalizeRegistryPath(metadata.m_Filepath);
 	if (normalizedMetadata.m_Filepath.empty() || normalizedMetadata.m_Type == AssetType::None)
@@ -320,6 +321,7 @@ bool AssetRegistry::Add(AssetHandle handle, const AssetMetadata& metadata)
 
 bool AssetRegistry::AddOrReset(AssetHandle handle, const AssetMetadata& metadata)
 {
+	WHP_PROFILE_FUNCTION();
 	AssetMetadata normalizedMetadata = metadata;
 	normalizedMetadata.m_Filepath = NormalizeRegistryPath(metadata.m_Filepath);
 	if (normalizedMetadata.m_Filepath.empty() || normalizedMetadata.m_Type == AssetType::None)
@@ -339,6 +341,7 @@ bool AssetRegistry::AddOrReset(AssetHandle handle, const AssetMetadata& metadata
 
 bool AssetRegistry::Remove(AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	auto it = this->PrivateFind(handle);
 	if (!it.second)
 		return false;
@@ -348,6 +351,7 @@ bool AssetRegistry::Remove(AssetHandle handle)
 
 bool AssetRegistry::Remove(AssetType type, AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	auto it = this->PrivateFind(type, handle);
 	if (!it.second)
 		return false;
@@ -357,12 +361,14 @@ bool AssetRegistry::Remove(AssetType type, AssetHandle handle)
 
 void AssetRegistry::Clear()
 {
+	WHP_PROFILE_FUNCTION();
 	for (auto& reg : m_Registries)
 		reg.clear();
 }
 
 void AssetRegistry::Clear(AssetType type)
 {
+	WHP_PROFILE_FUNCTION();
 	m_Registries[*frenum::index(type)].clear();
 }
 
@@ -474,6 +480,7 @@ AssetType AssetRegistry::TypeOf(AssetHandle handle) const
 
 bool AssetRegistry::Serialize() const
 {
+	WHP_PROFILE_FUNCTION();
 	auto path = Project::GetActiveAssetRegistryPath();
 
 	YAML::Emitter out;
@@ -509,6 +516,7 @@ bool AssetRegistry::Serialize() const
 
 bool AssetRegistry::Deserialize()
 {
+	WHP_PROFILE_FUNCTION();
 	auto path = Project::GetActiveAssetRegistryPath();
 	std::error_code fileError;
 	if (!std::filesystem::exists(path, fileError) && FileExtensions::ExtensionEquals(path, FileExtensions::AssetRegistry))
@@ -573,6 +581,7 @@ bool AssetRegistry::IsNullIt(ConstIterator it)
 
 void AssetRegistry::Foreach(const std::function<void(ValueType&)>& pred)
 {
+	WHP_PROFILE_FUNCTION();
 	for (auto& reg : m_Registries)
 		for (auto& registryItem : reg)
 			pred(registryItem);
@@ -580,6 +589,7 @@ void AssetRegistry::Foreach(const std::function<void(ValueType&)>& pred)
 
 void AssetRegistry::Foreach(const std::function<void(const ValueType&)>& pred) const
 {
+	WHP_PROFILE_FUNCTION();
 	for (const auto& reg : m_Registries)
 		for (const auto& registryItem : reg)
 			pred(registryItem);
@@ -587,6 +597,7 @@ void AssetRegistry::Foreach(const std::function<void(const ValueType&)>& pred) c
 
 void AssetRegistry::Foreach(AssetType type, const std::function<void(ValueType&)>& pred)
 {
+	WHP_PROFILE_FUNCTION();
 	auto& reg = m_Registries[*frenum::index(type)];
 	for (auto& registryItem : reg)
 		pred(registryItem);
@@ -594,6 +605,7 @@ void AssetRegistry::Foreach(AssetType type, const std::function<void(ValueType&)
 
 void AssetRegistry::Foreach(AssetType type, const std::function<void(const ValueType&)>& pred) const
 {
+	WHP_PROFILE_FUNCTION();
 	const auto& reg = m_Registries[*frenum::index(type)];
 	for (const auto& registryItem : reg)
 		pred(registryItem);
@@ -601,6 +613,7 @@ void AssetRegistry::Foreach(AssetType type, const std::function<void(const Value
 
 void AssetRegistry::ForeachChecked(const std::function<uint8_t(ValueType&)>& pred)
 {
+	WHP_PROFILE_FUNCTION();
 	for (auto& reg : m_Registries)
 		for (auto& registryItem : reg)
 			if (pred(registryItem) & LoopStop)
@@ -609,6 +622,7 @@ void AssetRegistry::ForeachChecked(const std::function<uint8_t(ValueType&)>& pre
 
 void AssetRegistry::ForeachChecked(const std::function<uint8_t(const ValueType&)>& pred) const
 {
+	WHP_PROFILE_FUNCTION();
 	for (const auto& reg : m_Registries)
 		for (const auto& registryItem : reg)
 			if (pred(registryItem) & LoopStop)
@@ -617,6 +631,7 @@ void AssetRegistry::ForeachChecked(const std::function<uint8_t(const ValueType&)
 
 void AssetRegistry::ForeachChecked(AssetType type, const std::function<uint8_t(ValueType&)>& pred)
 {
+	WHP_PROFILE_FUNCTION();
 	auto& reg = m_Registries[*frenum::index(type)];
 	for (auto& registryItem : reg)
 		if (pred(registryItem) & LoopStop)
@@ -625,6 +640,7 @@ void AssetRegistry::ForeachChecked(AssetType type, const std::function<uint8_t(V
 
 void AssetRegistry::ForeachChecked(AssetType type, const std::function<uint8_t(const ValueType&)>& pred) const
 {
+	WHP_PROFILE_FUNCTION();
 	const auto& reg = m_Registries[*frenum::index(type)];
 	for (const auto& registryItem : reg)
 		if (pred(registryItem) & LoopStop)

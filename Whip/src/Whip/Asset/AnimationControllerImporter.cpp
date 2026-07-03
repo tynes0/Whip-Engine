@@ -6,11 +6,13 @@ _WHIP_START
 
 Ref<AnimationController> AnimationControllerImporter::ImportAnimationController(AssetHandle handle, const AssetMetadata& metadata)
 {
+	WHP_PROFILE_FUNCTION();
 	return LoadAnimationController(Project::GetActiveAssetDirectory() / metadata.m_Filepath, handle);
 }
 
 Ref<AnimationController> AnimationControllerImporter::LoadAnimationController(const std::filesystem::path& path, AssetHandle handle)
 {
+	WHP_PROFILE_FUNCTION();
 	Ref<AnimationController> controller = MakeRef<AnimationController>(handle);
 	if (!controller->Deserialize(path))
 	{

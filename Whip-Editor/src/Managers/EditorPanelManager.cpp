@@ -30,6 +30,7 @@ void EditorPanelManager::AddPanel(EditorPanel& panel)
 
 void EditorPanelManager::OnImGuiRender()
 {
+	WHP_PROFILE_FUNCTION();
 	for (EditorPanel* panel : m_Panels)
 		panel->OnImGuiRender();
 }
@@ -44,6 +45,7 @@ bool EditorPanelManager::ConsumeOpenDirty()
 
 void EditorPanelManager::DrawAddPanelMenu(bool projectLoaded)
 {
+	WHP_PROFILE_FUNCTION();
 	if (ImGui::BeginMenu("Add Panel"))
 	{
 		for (EditorPanel* panel : m_Panels)

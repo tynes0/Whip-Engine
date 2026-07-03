@@ -25,13 +25,12 @@
 
 _WHIP_START
 
-namespace Utils
+namespace
 {
 	template<class... Components>
-	static void CopyComponent(entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& enttMap)
+	void CopyComponent(entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& enttMap)
 	{
-		([&]()
-			{
+		([&]{
 				auto view = src.view<Components>();
 				for (auto srcEntity : view)
 				{
@@ -44,13 +43,13 @@ namespace Utils
 	}
 
 	template<class... Components>
-	static void CopyComponent(ComponentGroup<Components...>, entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& enttMap)
+	void CopyComponent(ComponentGroup<Components...>, entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& enttMap)
 	{
 		CopyComponent<Components...>(dst, src, enttMap);
 	}
 
 	template<class... Components>
-	static void CopyComponentIfExists(Entity dst, Entity src)
+	void CopyComponentIfExists(Entity dst, Entity src)
 	{
 		([&]()
 			{
@@ -60,7 +59,7 @@ namespace Utils
 	}
 
 	template<class... Components>
-	static void CopyComponentIfExists(ComponentGroup<Components...>, Entity dst, Entity src)
+	void CopyComponentIfExists(ComponentGroup<Components...>, Entity dst, Entity src)
 	{
 		CopyComponentIfExists<Components...>(dst, src);
 	}
@@ -71,9 +70,9 @@ Scene::Scene(AssetHandle handle) : Asset(handle)
 	m_PhysicsWorld.SetSceneContext(this);
 }
 
-Scene::~Scene() {}
+Scene::~Scene() = default;
 
-Ref<Scene> Scene::Copy(Ref<Scene> other)
+Ref<Scene> Scene::Copy(const Ref<Scene>& other)
 {
 	WHP_PROFILE_FUNCTION();
 	Ref<Scene> newScene = MakeRef<Scene>(other->m_Handle);
@@ -91,10 +90,10 @@ Ref<Scene> Scene::Copy(Ref<Scene> other)
 		UUID uuid = srcSceneRegistry.get<IDComponent>(e).m_ID;
 		const auto& name = srcSceneRegistry.get<TagComponent>(e).m_Tag;
 		Entity newEntity = newScene->CreateEntityWithUUID(uuid, name);
-		enttMap[uuid] = (entt::entity)newEntity;
+		enttMap[uuid] = static_cast<entt::entity>(newEntity);
 	}
 
-	Utils::CopyComponent(AllComponentsNoIDNoTag{}, dstSceneRegistry, srcSceneRegistry, enttMap);
+	CopyComponent(AllComponentsNoIDNoTag{}, dstSceneRegistry, srcSceneRegistry, enttMap);
 
 	return newScene;
 }
@@ -123,8 +122,7 @@ void Scene::DestroyEntity(Entity entityIn)
 		auto hierarchy = entityIn.GetComponent<HierarchyComponent>();
 		for (UUID childId : hierarchy.m_Children)
 		{
-			Entity child = FindEntityByUUID(childId);
-			if (child)
+			if (Entity child = FindEntityByUUID(childId); child)
 				DestroyEntity(child);
 		}
 
@@ -254,83 +252,88 @@ void Scene::OnUpdateRuntime(Timestep ts)
 	if(!m_IsPaused || m_StepFrames-- > 0)
 	{
 		{
+			WHP_PROFILE_SCOPE("Script Update");
+			// C# OnUpdate
+			auto view = m_Registry.view<ScriptComponent>();
+			for (auto e : view)
 			{
-				// C# OnUpdate
-				auto view = m_Registry.view<ScriptComponent>();
-				for (auto e : view)
-				{
-					Entity ent = { e, this };
-					float f = ts;
-					ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUpdate, ent, Payload::Ref<float>(f));
-				}
+				Entity ent = { e, this };
+				float f = ts;
+				ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUpdate, ent, Payload::Ref<float>(f));
 			}
 		}
 
 		// Physics
 		{
+			WHP_PROFILE_SCOPE("Physics Update");
 			m_PhysicsWorld.Update(ts);
 		}
 
 		// animations
 		{
+			WHP_PROFILE_SCOPE("Animators Update");
 			AnimationManager::Get().Update(ts);
 			UpdateAnimators(ts);
 		}
 	}
 
-    Camera* mainCamera = nullptr;
-    glm::mat4 cameraTransform;
-    {
-        auto group = m_Registry.group<TransformComponent>(entt::get<CameraComponent>);
-        for (auto entity : group)
-        {
-            auto [transform, cam] = group.get<TransformComponent, CameraComponent>(entity);
-            if (cam.m_Primary)
-            {
-                mainCamera = &cam.m_Camera;
-                cameraTransform = transform.GetTransform();
-                break;
-            }
-        }
-    }
-    if (mainCamera)
-    {
-		// sprites
-        Renderer2D::BeginScene(*mainCamera, cameraTransform);
-        {
-			auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
-			for (auto ent : view)
-			{
-				const auto& [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(ent);
-				Renderer2D::DrawSprite(transform.GetTransform(), sprite, (int)ent);
-			}
-        }
-
-		// circles
+	{
+		WHP_PROFILE_SCOPE("Renderer Update");
+		Camera* mainCamera = nullptr;
+		glm::mat4 cameraTransform;
 		{
-			auto view = m_Registry.view<TransformComponent, CircleRendererComponent>();
-			for (auto ent : view)
+			auto group = m_Registry.group<TransformComponent>(entt::get<CameraComponent>);
+			for (auto entity : group)
 			{
-				const auto& [transform, circle] = view.get<TransformComponent, CircleRendererComponent>(ent);
-
-				Renderer2D::DrawCircle(transform.GetTransform(), circle.m_Color, circle.m_Thickness, circle.m_Fade, (int)ent);
+				auto [transform, cam] = group.get<TransformComponent, CameraComponent>(entity);
+				if (cam.m_Primary)
+				{
+					mainCamera = &cam.m_Camera;
+					cameraTransform = transform.GetTransform();
+					break;
+				}
 			}
 		}
-
-
-		// texts
+		if (mainCamera)
 		{
-			auto view = m_Registry.view<TransformComponent, TextComponent>();
-			for (auto entity : view)
+			// sprites
+			Renderer2D::BeginScene(*mainCamera, cameraTransform);
 			{
-				const auto& [transform, text] = view.get<TransformComponent, TextComponent>(entity);
-
-				Renderer2D::DrawString(text.m_TextString, transform.GetTransform(), text, (int)entity);
+				auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
+				for (auto ent : view)
+				{
+					const auto& [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(ent);
+					Renderer2D::DrawSprite(transform.GetTransform(), sprite, static_cast<int>(ent));
+				}
 			}
-		}
 
-        Renderer2D::EndScene();
-    }
+			// circles
+			{
+				auto view = m_Registry.view<TransformComponent, CircleRendererComponent>();
+				for (auto ent : view)
+				{
+					const auto& [transform, circle] = view.get<TransformComponent, CircleRendererComponent>(ent);
+
+					Renderer2D::DrawCircle(transform.GetTransform(), circle.m_Color, circle.m_Thickness, circle.m_Fade, static_cast<int>(ent));
+				}
+			}
+
+
+			// texts
+			{
+				auto view = m_Registry.view<TransformComponent, TextComponent>();
+				for (auto entity : view)
+				{
+					const auto& [transform, text] = view.get<TransformComponent, TextComponent>(entity);
+
+					Renderer2D::DrawString(text.m_TextString, transform.GetTransform(), text, static_cast<int>(entity));
+				}
+			}
+
+			Renderer2D::EndScene();
+		}
+	}
+
 }
 
 void Scene::OnUpdateSimulation(Timestep ts, EditorCamera& cam)
@@ -383,7 +386,7 @@ Entity Scene::DuplicateEntity(Entity entityIn)
 	std::string name = entityIn.GetName();
 	Entity newEntity = CreateEntity(name);
 
-	Utils::CopyComponentIfExists(AllComponentsNoIDNoTag{}, newEntity, entityIn);
+	CopyComponentIfExists(AllComponentsNoIDNoTag{}, newEntity, entityIn);
 	if (newEntity.HasComponent<HierarchyComponent>())
 		newEntity.GetComponent<HierarchyComponent>() = {};
 	if (entityIn.HasComponent<ScriptComponent>())
@@ -401,7 +404,7 @@ Entity Scene::InstantiateEntityTemplate(Entity sourceEntity, AssetHandle sourceH
 	std::function<Entity(Entity, bool)> instantiateTree = [&](Entity source, bool root) -> Entity
 	{
 		Entity newEntity = CreateEntity(source.GetName());
-		Utils::CopyComponentIfExists(AllComponentsNoIDNoTag{}, newEntity, source);
+		CopyComponentIfExists(AllComponentsNoIDNoTag{}, newEntity, source);
 
 		HierarchyComponent sourceHierarchy{};
 		if (source.HasComponent<HierarchyComponent>())
@@ -522,6 +525,7 @@ void Scene::ClearAnimatorRuntimes()
 
 void Scene::UpdateAnimators(Timestep ts)
 {
+	WHP_PROFILE_FUNCTION();
 	auto view = m_Registry.view<AnimatorComponent>();
 	for (auto e : view)
 	{
@@ -567,7 +571,7 @@ void Scene::RenderScene(EditorCamera& cam)
 		{
 			const auto& [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
 
-			Renderer2D::DrawSprite(transform.GetTransform(), sprite, (int)entity);
+			Renderer2D::DrawSprite(transform.GetTransform(), sprite, static_cast<int>(entity));
 		}
 	}
 
@@ -578,7 +582,7 @@ void Scene::RenderScene(EditorCamera& cam)
 		{
 			const auto& [transform, circle] = view.get<TransformComponent, CircleRendererComponent>(entity);
 
-			Renderer2D::DrawCircle(transform.GetTransform(), circle.m_Color, circle.m_Thickness, circle.m_Fade, (int)entity);
+			Renderer2D::DrawCircle(transform.GetTransform(), circle.m_Color, circle.m_Thickness, circle.m_Fade, static_cast<int>(entity));
 		}
 	}
 
@@ -589,7 +593,7 @@ void Scene::RenderScene(EditorCamera& cam)
 		{
 			const auto& [transform, text] = view.get<TransformComponent, TextComponent>(entity);
 
-			Renderer2D::DrawString(text.m_TextString, transform.GetTransform(), text, (int)entity);
+			Renderer2D::DrawString(text.m_TextString, transform.GetTransform(), text, static_cast<int>(entity));
 		}
 	}
 
