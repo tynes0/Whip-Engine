@@ -32,8 +32,15 @@ namespace
 		Ref<SubTexture2D> m_SubTexture;
 	};
 
+	struct TexturePixelDataCacheEntry
+	{
+		RendererId m_SourceRendererId = 0;
+		RawBuffer m_Data;
+	};
+
 	memory::UnorderedMap<uint64_t, SpriteTextureCacheEntry> s_IsolatedSpriteTextureCache;
 	memory::UnorderedMap<uint64_t, Ref<SubTexture2D>> s_FrameSubTextureCache;
+	memory::UnorderedMap<AssetHandle, TexturePixelDataCacheEntry> s_TexturePixelDataCache;
 
 	uint64_t MakeSpriteTextureCacheKey(AssetHandle textureHandle, int32_t spriteIndex)
 	{
@@ -135,7 +142,34 @@ namespace
 		return MakeRefTagged<SubTexture2D>(memory::MemoryTag::Renderer, texture, glm::vec2(minX, minY), glm::vec2(maxX, maxY));
 	}
 
-	Ref<SubTexture2D> CreateIsolatedSubTextureFromSpriteRect(const Ref<Texture2D>& texture, const TextureSpriteRect& sprite)
+	const RawBuffer* GetCachedTexturePixels(const Ref<Texture2D>& texture, AssetHandle textureHandle)
+	{
+		if (!texture || texture->GetSpecification().m_Format != ImageFormat::Rgba8 || texture->GetWidth() == 0 || texture->GetHeight() == 0)
+			return nullptr;
+
+		const uint64_t expectedSize = static_cast<uint64_t>(texture->GetWidth()) * texture->GetHeight() * 4;
+		auto it = s_TexturePixelDataCache.try_emplace(textureHandle).first;
+		TexturePixelDataCacheEntry& entry = it->second;
+		if (entry.m_SourceRendererId != texture->GetRendererId() || !entry.m_Data || entry.m_Data.m_Size != expectedSize)
+		{
+			entry.m_Data.Release();
+			entry.m_Data = texture->GetData();
+			entry.m_SourceRendererId = texture->GetRendererId();
+		}
+
+		if (!entry.m_Data || entry.m_Data.m_Size != expectedSize)
+			return nullptr;
+		return &entry.m_Data;
+	}
+
+	void ReleaseTexturePixelDataCache()
+	{
+		for (auto& [handle, entry] : s_TexturePixelDataCache)
+			entry.m_Data.Release();
+		s_TexturePixelDataCache.clear();
+	}
+
+	Ref<SubTexture2D> CreateIsolatedSubTextureFromSpriteRect(const Ref<Texture2D>& texture, AssetHandle textureHandle, const TextureSpriteRect& sprite)
 	{
 		if (texture->GetSpecification().m_Format != ImageFormat::Rgba8)
 			return nullptr;
@@ -150,13 +184,9 @@ namespace
 		if (cropWidth == 0 || cropHeight == 0)
 			return nullptr;
 
-		RawBuffer sourceData = texture->GetData();
-		const uint64_t expectedSize = static_cast<uint64_t>(textureWidth) * textureHeight * 4;
-		if (!sourceData || sourceData.m_Size != expectedSize)
-		{
-			sourceData.Release();
+		const RawBuffer* sourceData = GetCachedTexturePixels(texture, textureHandle);
+		if (!sourceData)
 			return nullptr;
-		}
 
 		memory::Vector<uint8_t> foreground = memory::MakeFrameVectorWithSize<uint8_t>(static_cast<size_t>(cropWidth) * cropHeight);
 		for (uint32_t y = 0; y < cropHeight; ++y)
@@ -164,7 +194,7 @@ namespace
 			for (uint32_t x = 0; x < cropWidth; ++x)
 			{
 				const size_t sourceIndex = PixelIndexTopLeft(textureWidth, textureHeight, sprite.m_X + x, sprite.m_Y + y);
-				foreground[static_cast<size_t>(y) * cropWidth + x] = sourceData.m_Data[sourceIndex + 3] > 8 ? 1 : 0;
+				foreground[static_cast<size_t>(y) * cropWidth + x] = sourceData->m_Data[sourceIndex + 3] > 8 ? 1 : 0;
 			}
 		}
 
@@ -218,10 +248,7 @@ namespace
 		}
 
 		if (bestComponentPixels.empty())
-		{
-			sourceData.Release();
 			return nullptr;
-		}
 
 		for (size_t pixelIndex : bestComponentPixels)
 			selected[pixelIndex] = 1;
@@ -237,13 +264,12 @@ namespace
 
 				const size_t sourceIndex = PixelIndexTopLeft(textureWidth, textureHeight, sprite.m_X + x, sprite.m_Y + y);
 				const size_t targetIndex = PixelIndexTopLeft(cropWidth, cropHeight, x, y);
-				cropPixels[targetIndex + 0] = sourceData.m_Data[sourceIndex + 0];
-				cropPixels[targetIndex + 1] = sourceData.m_Data[sourceIndex + 1];
-				cropPixels[targetIndex + 2] = sourceData.m_Data[sourceIndex + 2];
-				cropPixels[targetIndex + 3] = sourceData.m_Data[sourceIndex + 3];
+				cropPixels[targetIndex + 0] = sourceData->m_Data[sourceIndex + 0];
+				cropPixels[targetIndex + 1] = sourceData->m_Data[sourceIndex + 1];
+				cropPixels[targetIndex + 2] = sourceData->m_Data[sourceIndex + 2];
+				cropPixels[targetIndex + 3] = sourceData->m_Data[sourceIndex + 3];
 			}
 		}
-		sourceData.Release();
 
 		ExtrudeTransparentRgb(cropPixels, cropWidth, cropHeight, 2);
 
@@ -298,7 +324,7 @@ namespace
 
 		if (metadata.m_TextureSettings.m_SpriteMode == TextureSpriteMode::Multiple)
 		{
-			if (Ref<SubTexture2D> isolatedSubTexture = CreateIsolatedSubTextureFromSpriteRect(texture, sprite))
+			if (Ref<SubTexture2D> isolatedSubTexture = CreateIsolatedSubTextureFromSpriteRect(texture, textureHandle, sprite))
 			{
 				s_IsolatedSpriteTextureCache[cacheKey] = { sourceRendererId, sprite, spriteMode, isolatedSubTexture };
 				s_FrameSubTextureCache[cacheKey] = isolatedSubTexture;
@@ -570,6 +596,7 @@ void Renderer2D::Shutdown()
 
 	s_IsolatedSpriteTextureCache.clear();
 	s_FrameSubTextureCache.clear();
+	ReleaseTexturePixelDataCache();
 	s_Data.m_TextureAssetCache.clear();
 
 	ReleaseVertexBuffer(s_Data.m_QuadVertexBufferBase);
