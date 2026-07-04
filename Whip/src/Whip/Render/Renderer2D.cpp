@@ -27,10 +27,13 @@ namespace
 	struct SpriteTextureCacheEntry
 	{
 		RendererId m_SourceRendererId = 0;
+		TextureSpriteRect m_Rect;
+		TextureSpriteMode m_Mode = TextureSpriteMode::Single;
 		Ref<SubTexture2D> m_SubTexture;
 	};
 
 	memory::UnorderedMap<uint64_t, SpriteTextureCacheEntry> s_IsolatedSpriteTextureCache;
+	memory::UnorderedMap<uint64_t, Ref<SubTexture2D>> s_FrameSubTextureCache;
 
 	uint64_t MakeSpriteTextureCacheKey(AssetHandle textureHandle, int32_t spriteIndex)
 	{
@@ -48,6 +51,15 @@ namespace
 	size_t PixelIndexTopLeft(uint32_t width, uint32_t height, uint32_t x, uint32_t topLeftY)
 	{
 		return PixelIndexBottomLeft(width, x, height - 1U - topLeftY);
+	}
+
+	bool SameSpriteRect(const TextureSpriteRect& left, const TextureSpriteRect& right)
+	{
+		return left.m_X == right.m_X &&
+			left.m_Y == right.m_Y &&
+			left.m_Width == right.m_Width &&
+			left.m_Height == right.m_Height &&
+			left.m_Name == right.m_Name;
 	}
 
 	void ExtrudeTransparentRgb(memory::Vector<uint8_t>& rgbaPixels, uint32_t width, uint32_t height, uint32_t passes)
@@ -252,7 +264,14 @@ namespace
 
 	Ref<SubTexture2D> CreateSubTextureFromSpriteIndex(const Ref<Texture2D>& texture, AssetHandle textureHandle, int32_t spriteIndex)
 	{
-		if (!texture || spriteIndex < 0 || !AssetManager::IsAssetHandleValid(textureHandle))
+		if (!texture || spriteIndex < 0)
+			return nullptr;
+
+		const uint64_t cacheKey = MakeSpriteTextureCacheKey(textureHandle, spriteIndex);
+		if (auto frameIt = s_FrameSubTextureCache.find(cacheKey); frameIt != s_FrameSubTextureCache.end())
+			return frameIt->second;
+
+		if (!AssetManager::IsAssetHandleValid(textureHandle))
 			return nullptr;
 
 		const AssetMetadata& metadata = AssetManager::GetAssetMetadata(textureHandle);
@@ -264,22 +283,36 @@ namespace
 		if (sprite.m_Width == 0 || sprite.m_Height == 0 || texture->GetWidth() == 0 || texture->GetHeight() == 0)
 			return nullptr;
 
+		const RendererId sourceRendererId = texture->GetRendererId();
+		const TextureSpriteMode spriteMode = metadata.m_TextureSettings.m_SpriteMode;
+		auto it = s_IsolatedSpriteTextureCache.find(cacheKey);
+		if (it != s_IsolatedSpriteTextureCache.end() &&
+			it->second.m_SourceRendererId == sourceRendererId &&
+			it->second.m_Mode == spriteMode &&
+			SameSpriteRect(it->second.m_Rect, sprite) &&
+			it->second.m_SubTexture)
+		{
+			s_FrameSubTextureCache[cacheKey] = it->second.m_SubTexture;
+			return it->second.m_SubTexture;
+		}
+
 		if (metadata.m_TextureSettings.m_SpriteMode == TextureSpriteMode::Multiple)
 		{
-			const uint64_t cacheKey = MakeSpriteTextureCacheKey(textureHandle, spriteIndex);
-			const RendererId sourceRendererId = texture->GetRendererId();
-			auto it = s_IsolatedSpriteTextureCache.find(cacheKey);
-			if (it != s_IsolatedSpriteTextureCache.end() && it->second.m_SourceRendererId == sourceRendererId && it->second.m_SubTexture)
-				return it->second.m_SubTexture;
-
 			if (Ref<SubTexture2D> isolatedSubTexture = CreateIsolatedSubTextureFromSpriteRect(texture, sprite))
 			{
-				s_IsolatedSpriteTextureCache[cacheKey] = { sourceRendererId, isolatedSubTexture };
+				s_IsolatedSpriteTextureCache[cacheKey] = { sourceRendererId, sprite, spriteMode, isolatedSubTexture };
+				s_FrameSubTextureCache[cacheKey] = isolatedSubTexture;
 				return isolatedSubTexture;
 			}
 		}
 
-		return CreateUvSubTextureFromSpriteRect(texture, sprite);
+		Ref<SubTexture2D> uvSubTexture = CreateUvSubTextureFromSpriteRect(texture, sprite);
+		if (uvSubTexture)
+		{
+			s_IsolatedSpriteTextureCache[cacheKey] = { sourceRendererId, sprite, spriteMode, uvSubTexture };
+			s_FrameSubTextureCache[cacheKey] = uvSubTexture;
+		}
+		return uvSubTexture;
 	}
 }
 
@@ -363,6 +396,7 @@ struct Renderer2DData
 	uint32_t m_TextureSlotIndex = 1; // 0 = white Texture
 
 	Ref<Texture2D> m_FontAtlasTexture;
+	memory::UnorderedMap<AssetHandle, Ref<Texture2D>> m_TextureAssetCache;
 
 	glm::vec4 m_QuadVertexPositions[4] = {};
 
@@ -380,6 +414,23 @@ struct Renderer2DData
 namespace
 {
 	Renderer2DData s_Data;
+
+	Ref<Texture2D> GetFrameCachedTexture(AssetHandle handle)
+	{
+		if (handle == 0)
+			return nullptr;
+
+		if (auto it = s_Data.m_TextureAssetCache.find(handle); it != s_Data.m_TextureAssetCache.end())
+			return it->second;
+
+		if (!AssetManager::IsAssetHandleValid(handle))
+			return nullptr;
+
+		Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(handle);
+		if (texture)
+			s_Data.m_TextureAssetCache[handle] = texture;
+		return texture;
+	}
 
 	template <typename T>
 	void ReleaseVertexBuffer(T*& buffer)
@@ -518,6 +569,8 @@ void Renderer2D::Shutdown()
 	WHP_PROFILE_FUNCTION();
 
 	s_IsolatedSpriteTextureCache.clear();
+	s_FrameSubTextureCache.clear();
+	s_Data.m_TextureAssetCache.clear();
 
 	ReleaseVertexBuffer(s_Data.m_QuadVertexBufferBase);
 	ReleaseVertexBuffer(s_Data.m_CircleVertexBufferBase);
@@ -566,6 +619,8 @@ void Renderer2D::BeginScene(const OrthographicCamera& camera)
 	s_Data.m_QuadShader->Bind();
 	s_Data.m_QuadShader->SetMat4("u_view_projection", camera.GetViewProjectionMatrix());
 
+	s_Data.m_TextureAssetCache.clear();
+	s_FrameSubTextureCache.clear();
 	StartBatch();
 }
 
@@ -576,6 +631,8 @@ void Renderer2D::BeginScene(const Camera& cam, const glm::mat4& transform)
 	s_Data.m_CameraBuffer.m_ViewProjection = cam.GetProjection() * glm::inverse(transform);
 	s_Data.m_CameraUniformBuffer->SetData(&s_Data.m_CameraBuffer, sizeof(Renderer2DData::CameraData));
 
+	s_Data.m_TextureAssetCache.clear();
+	s_FrameSubTextureCache.clear();
 	StartBatch();
 }
 
@@ -586,6 +643,8 @@ void Renderer2D::BeginScene(const EditorCamera& cam)
 	s_Data.m_CameraBuffer.m_ViewProjection = cam.GetViewProjection();
 	s_Data.m_CameraUniformBuffer->SetData(&s_Data.m_CameraBuffer, sizeof(Renderer2DData::CameraData));
 
+	s_Data.m_TextureAssetCache.clear();
+	s_FrameSubTextureCache.clear();
 	StartBatch();
 }
 
@@ -646,7 +705,7 @@ void Renderer2D::Flush()
 
 void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color, int entityId)
 {
-	WHP_PROFILE_FUNCTION();
+	WHP_PROFILE_HOT_FUNCTION();
 
 	if (s_Data.m_QuadIndexCount >= Renderer2DData::MaxIndices)
 		NextBatch();
@@ -664,7 +723,7 @@ void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color, in
 
 void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<Texture2D>& tex, float tilingFactor, const glm::vec4& tintColor, int entityId)
 {
-	WHP_PROFILE_FUNCTION();
+	WHP_PROFILE_HOT_FUNCTION();
 	WHP_CORE_VERIFY(tex)
 
 	if (s_Data.m_QuadIndexCount >= Renderer2DData::MaxIndices)
@@ -703,14 +762,14 @@ _WHP_PRAGMA_WARNING(pop)
 
 void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<SubTexture2D>& subTexture, float tilingFactor, const glm::vec4& tintColor, int entityId)
 {
-	WHP_PROFILE_FUNCTION();
+	WHP_PROFILE_HOT_FUNCTION();
 
 	if (s_Data.m_QuadIndexCount >= Renderer2DData::MaxIndices)
 		NextBatch();
 
 	constexpr size_t QuadVertexCount = 4u;
 	const glm::vec2* textureCoords = subTexture->GetTextureCoords();
-	auto tex = subTexture->GetTexture();
+	const Ref<Texture2D>& tex = subTexture->GetTexture();
 
 	float textureIndex = 0.0f;
 
@@ -811,7 +870,7 @@ void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& siz
 
 void Renderer2D::DrawCircle(const glm::mat4& transform, const glm::vec4& color, float thickness, float fade, int entityId)
 {
-	WHP_PROFILE_FUNCTION();
+	WHP_PROFILE_HOT_FUNCTION();
 
 	for (auto quadVertexPosition : s_Data.m_QuadVertexPositions)
 	{
@@ -873,7 +932,7 @@ void Renderer2D::DrawSprite(const glm::mat4& transform, const SpriteRendererComp
 {
 	if (src.m_Texture)
 	{
-		Ref<Texture2D> texture = AssetManager::GetAsset<Texture2D>(src.m_Texture);
+		Ref<Texture2D> texture = GetFrameCachedTexture(src.m_Texture);
 		if (Ref<SubTexture2D> subTexture = CreateSubTextureFromSpriteIndex(texture, src.m_Texture, src.m_TextureSpriteIndex))
 			DrawQuad(transform, subTexture, src.m_TilingFactor, src.m_Color, entityId);
 		else if (texture)
@@ -889,7 +948,7 @@ void Renderer2D::DrawSprite(const glm::mat4& transform, const SpriteRendererComp
 
 void Renderer2D::DrawString(const std::string& text, Ref<Font> font, const glm::mat4& transform, const TextParams& params, int entityId)
 {
-	WHP_PROFILE_FUNCTION();
+	WHP_PROFILE_HOT_FUNCTION();
 	if (!font)
 	{
 		WHP_CORE_ERROR("[Renderer2D] Null Font!");

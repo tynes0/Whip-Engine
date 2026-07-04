@@ -335,7 +335,7 @@ public:
 	static void ClearRuntimeSceneTransitionRequest();
 	static Ref<ScriptInstance> GetEntityScriptInstance(UUID entityId);
 	static Ref<ScriptClass> GetEntityClass(const std::string& className);
-	static std::unordered_map<std::string, Ref<ScriptClass>> GetEntityClasses();
+	static const std::unordered_map<std::string, Ref<ScriptClass>>& GetEntityClasses();
 	static ScriptFieldMap& GetScriptFieldMap(Entity entityIn);
 	static ScriptFieldMap& GetBaseScriptFieldMap(const std::string& className);
 	static void CopyScriptFieldMap(Entity sourceEntity, Entity destinationEntity);

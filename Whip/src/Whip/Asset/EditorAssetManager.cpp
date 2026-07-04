@@ -61,7 +61,7 @@ namespace
 
 Ref<Asset> EditorAssetManager::GetAsset(AssetHandle handle)
 {
-	WHP_PROFILE_FUNCTION();
+	WHP_PROFILE_HOT_FUNCTION();
 	if (!IsAssetHandleValid(handle))
 		return nullptr;
 
@@ -95,7 +95,7 @@ bool EditorAssetManager::IsAssetLoaded(AssetHandle handle) const
 
 AssetType EditorAssetManager::GetAssetType(AssetHandle handle) const
 {
-	WHP_PROFILE_FUNCTION();
+	WHP_PROFILE_HOT_FUNCTION();
 	return m_AssetRegistry.TypeOf(handle);
 }
 

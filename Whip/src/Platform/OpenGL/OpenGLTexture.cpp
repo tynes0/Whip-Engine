@@ -135,7 +135,7 @@ RawBuffer OpenGLTexture2D::GetData() const
 
 void OpenGLTexture2D::Bind(uint32_t slot) const
 {
-	WHP_PROFILE_FUNCTION();
+	WHP_PROFILE_HOT_FUNCTION();
 
 	glBindTextureUnit(slot, m_RendererID);
 }

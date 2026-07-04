@@ -106,11 +106,11 @@ namespace UI
 
 		void DrawAssetSelector(AssetType type, const std::function<void(AssetHandle)>& callback, float width, const std::function<void(AssetHandle, int32_t)>& assetReferenceCallback)
 		{
-			const std::vector<AssetSelectEntry> entries = GetAssetSelectEntries(type, assetReferenceCallback && type == AssetType::Texture2D);
 			ImGui::SetNextItemWidth(width);
 			if (!ImGui::BeginCombo("##AssetSelectCombo", "Select"))
 				return;
 
+			const std::vector<AssetSelectEntry> entries = GetAssetSelectEntries(type, assetReferenceCallback && type == AssetType::Texture2D);
 			if (entries.empty())
 			{
 				ImGui::TextDisabled("No imported assets.");

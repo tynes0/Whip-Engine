@@ -1456,10 +1456,11 @@ Ref<ScriptClass> ScriptEngine::GetEntityClass(const std::string& className)
 	return s_ScriptEngineData->m_EntityClasses.at(className);
 }
 
-std::unordered_map<std::string, Ref<ScriptClass>> ScriptEngine::GetEntityClasses()
+const std::unordered_map<std::string, Ref<ScriptClass>>& ScriptEngine::GetEntityClasses()
 {
+	static const std::unordered_map<std::string, Ref<ScriptClass>> EmptyEntityClasses;
 	if (!s_ScriptEngineData)
-		return {};
+		return EmptyEntityClasses;
 	return s_ScriptEngineData->m_EntityClasses;
 }
 

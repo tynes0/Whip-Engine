@@ -624,11 +624,15 @@ void SceneHierarchyPanel::OnImGuiRender()
 		}
 
 		ImGui::BeginChild("##PropertiesScroll", ImVec2(0.0f, 0.0f), false);
-		std::vector<Entity> selectedEntities = GetSelectedEntities();
-		if (selectedEntities.size() > 1)
+		if (m_SelectionContexts.size() > 1)
+		{
+			std::vector<Entity> selectedEntities = GetSelectedEntities();
 			DrawMultiEditComponents(selectedEntities);
+		}
 		else
+		{
 			DrawComponents(m_SelectionContext);
+		}
 		TrackPropertyEditHistory();
 		ImGui::EndChild();
 	}
@@ -1349,7 +1353,7 @@ void SceneHierarchyPanel::DrawMultiScriptComponent(const std::vector<Entity>& se
 		const char* label = classMixed ? "Mixed" : (className.empty() ? "None" : className.c_str());
 		if (ImGui::BeginCombo("Class", label))
 		{
-			auto entityClasses = ScriptEngine::GetEntityClasses();
+			const auto& entityClasses = ScriptEngine::GetEntityClasses();
 			for (const auto& [name, ScriptClass] : entityClasses)
 			{
 				bool isSelected = !classMixed && className == name;
@@ -2010,7 +2014,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 	DrawComponent<ScriptComponent>("Script", entityIn, m_SceneChangeCallback, [entityIn, sceneIn = m_Context](auto& component) mutable
 		{
 			bool scriptClassExists = ScriptEngine::EntityClassExists(component.m_ClassName);
-			auto entityClasses = ScriptEngine::GetEntityClasses();
+			const auto& entityClasses = ScriptEngine::GetEntityClasses();
 			if (ImGui::BeginTable("ScriptTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable))
 			{
 				{

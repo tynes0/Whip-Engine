@@ -11,12 +11,12 @@ SubTexture2D::SubTexture2D(const Ref<Texture2D>& texture, const glm::vec2& min, 
 	m_TextureCoords[3] = { min.x, max.y };
 }
 
-const Ref<Texture2D> SubTexture2D::GetTexture()
+const Ref<Texture2D>& SubTexture2D::GetTexture() const
 {
 	return m_Texture;
 }
 
-const glm::vec2* SubTexture2D::GetTextureCoords()
+const glm::vec2* SubTexture2D::GetTextureCoords() const
 {
 	return m_TextureCoords;
 }
