@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Whip/Core/Memory.h>
+
 #include "RenderAPI.h"
 
 _WHIP_START
@@ -12,6 +14,12 @@ public:
 	static void Init()
 	{
 		s_RenderAPI->Init();
+	}
+
+	static void Shutdown()
+	{
+		DeleteRaw(s_RenderAPI);
+		s_RenderAPI = nullptr;
 	}
 
 	static void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)

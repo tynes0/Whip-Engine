@@ -39,7 +39,7 @@ _WHIP_START
 namespace
 {
 	constexpr const char* RuntimeTimersGroupId = "0177f1a8-04e5-4340-a771-52fc1aac9440";
-	std::unordered_map<MonoType*, std::function<bool(Entity)>> s_EntityHasComponentFuncs;
+	memory::UnorderedMap<MonoType*, std::function<bool(Entity)>> s_EntityHasComponentFuncs;
 	Logger s_Logger;
 
 	namespace detail

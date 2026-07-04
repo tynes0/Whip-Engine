@@ -5,12 +5,11 @@
 #include <algorithm>
 #include <format>
 #include <string>
-#include <unordered_set>
 
 _WHIP_START
 	namespace
 {
-	std::map<std::filesystem::path, AssetType> s_AssetExtensionsMap =
+	memory::Map<std::filesystem::path, AssetType> s_AssetExtensionsMap =
 	{
 		{ FileExtensions::Scene, AssetType::Scene },
 		{ FileExtensions::SceneLegacy, AssetType::Scene },
@@ -61,7 +60,7 @@ AssetType Utils::GetAssetTypeFromFileExtension(const std::filesystem::path& exte
 bool Utils::NormalizeTextureSprites(TextureImportSettings& settings, uint32_t textureWidth, uint32_t textureHeight, std::string_view fallbackName)
 {
 	bool changed = false;
-	std::unordered_set<std::string> usedNames;
+	memory::UnorderedSet<std::string> usedNames;
 	for (size_t index = 0; index < settings.m_Sprites.size(); ++index)
 	{
 		TextureSpriteRect& sprite = settings.m_Sprites[index];

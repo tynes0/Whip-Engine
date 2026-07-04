@@ -30,7 +30,7 @@ namespace
 		Ref<SubTexture2D> m_SubTexture;
 	};
 
-	std::unordered_map<uint64_t, SpriteTextureCacheEntry> s_IsolatedSpriteTextureCache;
+	memory::UnorderedMap<uint64_t, SpriteTextureCacheEntry> s_IsolatedSpriteTextureCache;
 
 	uint64_t MakeSpriteTextureCacheKey(AssetHandle textureHandle, int32_t spriteIndex)
 	{
@@ -50,12 +50,12 @@ namespace
 		return PixelIndexBottomLeft(width, x, height - 1U - topLeftY);
 	}
 
-	void ExtrudeTransparentRgb(std::vector<uint8_t>& rgbaPixels, uint32_t width, uint32_t height, uint32_t passes)
+	void ExtrudeTransparentRgb(memory::Vector<uint8_t>& rgbaPixels, uint32_t width, uint32_t height, uint32_t passes)
 	{
 		if (passes == 0 || width == 0 || height == 0 || rgbaPixels.size() != static_cast<size_t>(width) * height * 4)
 			return;
 
-		std::vector<uint8_t> filled(static_cast<size_t>(width) * height, 0);
+		memory::Vector<uint8_t> filled(static_cast<size_t>(width) * height, 0);
 		for (uint32_t y = 0; y < height; ++y)
 			for (uint32_t x = 0; x < width; ++x)
 				filled[static_cast<size_t>(y) * width + x] = rgbaPixels[PixelIndexBottomLeft(width, x, y) + 3] > 0 ? 1 : 0;
@@ -67,8 +67,8 @@ namespace
 
 		for (uint32_t pass = 0; pass < passes; ++pass)
 		{
-			std::vector<uint8_t> nextFilled = filled;
-			std::vector<uint8_t> nextPixels = rgbaPixels;
+			memory::Vector<uint8_t> nextFilled = filled;
+			memory::Vector<uint8_t> nextPixels = rgbaPixels;
 			bool wrote = false;
 
 			for (uint32_t y = 0; y < height; ++y)
@@ -120,7 +120,7 @@ namespace
 		const float maxX = std::clamp((static_cast<float>(sprite.m_X + sprite.m_Width) - insetX) / textureWidth, 0.0f, 1.0f);
 		const float minY = std::clamp(1.0f - (static_cast<float>(sprite.m_Y + sprite.m_Height) - insetY) / textureHeight, 0.0f, 1.0f);
 		const float maxY = std::clamp(1.0f - (static_cast<float>(sprite.m_Y) + insetY) / textureHeight, 0.0f, 1.0f);
-		return std::make_shared<SubTexture2D>(texture, glm::vec2(minX, minY), glm::vec2(maxX, maxY));
+		return MakeRefTagged<SubTexture2D>(memory::MemoryTag::Renderer, texture, glm::vec2(minX, minY), glm::vec2(maxX, maxY));
 	}
 
 	Ref<SubTexture2D> CreateIsolatedSubTextureFromSpriteRect(const Ref<Texture2D>& texture, const TextureSpriteRect& sprite)
@@ -146,7 +146,7 @@ namespace
 			return nullptr;
 		}
 
-		std::vector<uint8_t> foreground(static_cast<size_t>(cropWidth) * cropHeight, 0);
+		memory::Vector<uint8_t> foreground(static_cast<size_t>(cropWidth) * cropHeight, 0);
 		for (uint32_t y = 0; y < cropHeight; ++y)
 		{
 			for (uint32_t x = 0; x < cropWidth; ++x)
@@ -156,11 +156,11 @@ namespace
 			}
 		}
 
-		std::vector<uint8_t> visited(foreground.size(), 0);
-		std::vector<uint8_t> selected(foreground.size(), 0);
-		std::deque<std::pair<uint32_t, uint32_t>> queue;
-		std::vector<size_t> componentPixels;
-		std::vector<size_t> bestComponentPixels;
+		memory::Vector<uint8_t> visited(foreground.size(), 0);
+		memory::Vector<uint8_t> selected(foreground.size(), 0);
+		memory::Deque<std::pair<uint32_t, uint32_t>> queue;
+		memory::Vector<size_t> componentPixels;
+		memory::Vector<size_t> bestComponentPixels;
 		static constexpr int32_t Directions4[4][2] =
 		{
 			{ 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }
@@ -214,7 +214,7 @@ namespace
 		for (size_t pixelIndex : bestComponentPixels)
 			selected[pixelIndex] = 1;
 
-		std::vector<uint8_t> cropPixels(static_cast<size_t>(cropWidth) * cropHeight * 4, 0);
+		memory::Vector<uint8_t> cropPixels(static_cast<size_t>(cropWidth) * cropHeight * 4, 0);
 		for (uint32_t y = 0; y < cropHeight; ++y)
 		{
 			for (uint32_t x = 0; x < cropWidth; ++x)
@@ -247,7 +247,7 @@ namespace
 		if (!isolatedTexture || !isolatedTexture->IsLoaded())
 			return nullptr;
 
-		return std::make_shared<SubTexture2D>(isolatedTexture, glm::vec2(0.0f), glm::vec2(1.0f));
+		return MakeRefTagged<SubTexture2D>(memory::MemoryTag::Renderer, isolatedTexture, glm::vec2(0.0f), glm::vec2(1.0f));
 	}
 
 	Ref<SubTexture2D> CreateSubTextureFromSpriteIndex(const Ref<Texture2D>& texture, AssetHandle textureHandle, int32_t spriteIndex)
@@ -384,8 +384,15 @@ namespace
 	template <typename T>
 	void ReleaseVertexBuffer(T*& buffer)
 	{
-		delete[] buffer;
+		if (buffer)
+			memory::DeleteArray(memory::GetAllocator(memory::MemoryTag::Renderer), buffer);
 		buffer = nullptr;
+	}
+
+	template <typename T>
+	T* AllocateVertexBuffer(size_t count)
+	{
+		return memory::NewArray<T>(memory::GetAllocator(memory::MemoryTag::Renderer), count, memory::MemoryTag::Renderer, WHIP_MEMORY_LOCATION);
 	}
 
 	void SetAndIncrementQuadVertexBufferPtr(const glm::vec3& position, const glm::vec4& color, glm::vec2 textureCoord, float textureIndex, float tilingFactor, int entityId)
@@ -416,9 +423,9 @@ void Renderer2D::Init()
 		});
 	s_Data.m_QuadVertexArray->AddVertexBuffer(s_Data.m_QuadVertexBuffer);
 
-	s_Data.m_QuadVertexBufferBase = new QuadVertex[s_Data.MaxVertices];
+	s_Data.m_QuadVertexBufferBase = AllocateVertexBuffer<QuadVertex>(s_Data.MaxVertices);
 
-	uint32_t* quadIndices = new uint32_t[s_Data.MaxIndices];
+	uint32_t* quadIndices = AllocateVertexBuffer<uint32_t>(s_Data.MaxIndices);
 
 	uint32_t offset = 0;
 
@@ -441,7 +448,7 @@ void Renderer2D::Init()
 
 	Ref<IndexBuffer> quadIndexBuffer = IndexBuffer::Create(quadIndices, s_Data.MaxIndices);
 	s_Data.m_QuadVertexArray->SetIndexBuffer(quadIndexBuffer);
-	delete[] quadIndices;
+	ReleaseVertexBuffer(quadIndices);
 
 	// Circles
 	s_Data.m_CircleVertexArray = VertexArray::Create();
@@ -457,7 +464,7 @@ void Renderer2D::Init()
 		});
 	s_Data.m_CircleVertexArray->AddVertexBuffer(s_Data.m_CircleVertexBuffer);
 	s_Data.m_CircleVertexArray->SetIndexBuffer(quadIndexBuffer);
-	s_Data.m_CircleVertexBufferBase = new CircleVertex[s_Data.MaxVertices];
+	s_Data.m_CircleVertexBufferBase = AllocateVertexBuffer<CircleVertex>(s_Data.MaxVertices);
 
 	// lines
 	s_Data.m_LineVertexArray = VertexArray::Create();
@@ -469,7 +476,7 @@ void Renderer2D::Init()
 		{ ShaderDataType::Int,    "a_entityID" }
 		});
 	s_Data.m_LineVertexArray->AddVertexBuffer(s_Data.m_LineVertexBuffer);
-	s_Data.m_LineVertexBufferBase = new LineVertex[s_Data.MaxVertices];
+	s_Data.m_LineVertexBufferBase = AllocateVertexBuffer<LineVertex>(s_Data.MaxVertices);
 
 	// texts
 	s_Data.m_TextVertexArray = VertexArray::Create();
@@ -483,7 +490,7 @@ void Renderer2D::Init()
 		});
 	s_Data.m_TextVertexArray->AddVertexBuffer(s_Data.m_TextVertexBuffer);
 	s_Data.m_TextVertexArray->SetIndexBuffer(quadIndexBuffer);
-	s_Data.m_TextVertexBufferBase = new TextVertex[s_Data.MaxVertices];
+	s_Data.m_TextVertexBufferBase = AllocateVertexBuffer<TextVertex>(s_Data.MaxVertices);
 
 	s_Data.m_WhiteTexture = Texture2D::Create(TextureSpecification{});
 	uint32_t whiteTextureData = 0xffffffff;

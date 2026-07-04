@@ -9,7 +9,7 @@ _WHIP_START
  
 GraphicContext* GraphicContext::Create(GLFWwindow* windowHandle)
 {
-	return new OpenGLContext(windowHandle);
+	return MakeRawTagged<OpenGLContext>(memory::MemoryTag::Renderer, windowHandle);
 }
 
 OpenGLContext::OpenGLContext(GLFWwindow* windowHandle) : m_WindowHandle(windowHandle)

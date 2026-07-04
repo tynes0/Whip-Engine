@@ -2,10 +2,13 @@
 
 #include <Whip/Core/Core.h>
 #include <Whip/Core/Log.h>
+#include <Whip/Core/Memory/AllocatorRegistry.h>
+#include <Whip/Core/Memory/Construct.h>
 
 #include <cstdint>
 #include <cstring>
 #include <type_traits>
+#include <utility>
 
 _WHIP_START
 
@@ -14,12 +17,55 @@ struct RawBuffer
 {
 	uint8_t* m_Data = nullptr;
 	uint64_t m_Size = 0;
+	bool m_OwnsData = false;
+	memory::Allocator* m_Allocator = &memory::GetAllocator(memory::MemoryTag::Core);
 
 	RawBuffer() = default;
 	RawBuffer(uint64_t sizeIn) { Allocate(sizeIn); }
 	RawBuffer(const void* dataIn, uint64_t sizeIn) : m_Data(const_cast<uint8_t*>(static_cast<const uint8_t*>(dataIn))), m_Size(sizeIn) {}
-	RawBuffer(const RawBuffer&) = default;
-	RawBuffer& operator=(const RawBuffer&) = default;
+	RawBuffer(const RawBuffer& other)
+		: m_Data(other.m_Data), m_Size(other.m_Size), m_OwnsData(false), m_Allocator(other.m_Allocator)
+	{
+	}
+
+	RawBuffer(RawBuffer&& other) noexcept
+		: m_Data(other.m_Data), m_Size(other.m_Size), m_OwnsData(other.m_OwnsData), m_Allocator(other.m_Allocator)
+	{
+		other.m_Data = nullptr;
+		other.m_Size = 0;
+		other.m_OwnsData = false;
+	}
+
+	RawBuffer& operator=(const RawBuffer& other)
+	{
+		if (this == &other)
+			return *this;
+
+		Release();
+		m_Data = other.m_Data;
+		m_Size = other.m_Size;
+		m_OwnsData = false;
+		m_Allocator = other.m_Allocator;
+		return *this;
+	}
+
+	RawBuffer& operator=(RawBuffer&& other) noexcept
+	{
+		if (this == &other)
+			return *this;
+
+		Release();
+		m_Data = other.m_Data;
+		m_Size = other.m_Size;
+		m_OwnsData = other.m_OwnsData;
+		m_Allocator = other.m_Allocator;
+
+		other.m_Data = nullptr;
+		other.m_Size = 0;
+		other.m_OwnsData = false;
+		return *this;
+	}
+
 	RawBuffer(nullptr_t) {}
 	RawBuffer& operator=(nullptr_t) { Release(); return *this; }
 
@@ -32,23 +78,27 @@ struct RawBuffer
 
 	void Allocate(uint64_t sizeIn)
 	{
-		if (sizeIn == m_Size)
+		if (m_OwnsData && sizeIn == m_Size)
 			return;
 
 		Release();
 
-		m_Data = new uint8_t[sizeIn];
+		m_Allocator = &memory::GetAllocator(memory::MemoryTag::Core);
+		m_Data = memory::NewArray<uint8_t>(*m_Allocator, static_cast<memory::Size>(sizeIn), memory::MemoryTag::Core, WHIP_MEMORY_LOCATION);
 		WHP_CORE_ASSERT(m_Data, "Memory allocation failed!");
 		m_Size = sizeIn;
+		m_OwnsData = true;
 	}
 
 	void Release()
 	{
 		if (m_Data)
 		{
-			delete[] m_Data;
+			if (m_OwnsData)
+				memory::DeleteArray(*m_Allocator, m_Data);
 			m_Data = nullptr;
 			m_Size = 0;
+			m_OwnsData = false;
 		}
 	}
 
@@ -57,6 +107,7 @@ struct RawBuffer
 		uint8_t* buffer = m_Data;
 		m_Data = nullptr;
 		m_Size = 0;
+		m_OwnsData = false;
 		return buffer;
 	}
 
@@ -88,7 +139,7 @@ struct RawBuffer
 
 struct ScopedBuffer
 {
-	ScopedBuffer(RawBuffer buffer) : m_Buffer(buffer) {}
+	ScopedBuffer(RawBuffer buffer) : m_Buffer(std::move(buffer)) {}
 	ScopedBuffer(uint64_t size) : m_Buffer(size) {}
 	~ScopedBuffer() { m_Buffer.Release(); }
 

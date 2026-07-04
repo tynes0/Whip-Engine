@@ -8,6 +8,8 @@
 
 namespace whip::memory
 {
+    [[nodiscard]] Allocator& GetDefaultAllocator();
+
     /**
      * @brief STL-compatible allocator adapter backed by a WhipMemory Allocator.
      *
@@ -31,7 +33,10 @@ namespace whip::memory
         using propagate_on_container_move_assignment = std::true_type;
         using is_always_equal = std::false_type;
 
-        StlAllocator() noexcept = default;
+        StlAllocator() noexcept
+            : m_Allocator(&GetDefaultAllocator())
+        {
+        }
 
         explicit StlAllocator(Allocator& AllocatorRef, MemoryTag Tag = MemoryTag::Unknown) noexcept
             : m_Allocator(&AllocatorRef), m_Tag(Tag)

@@ -51,7 +51,8 @@ namespace Utils
 	}
 }
 
-Font::Font(const std::filesystem::path& filepath, AssetHandle handle) : Asset(handle), m_Data(new MsdfData())
+Font::Font(const std::filesystem::path& filepath, AssetHandle handle)
+	: Asset(handle), m_Data(MakeRawTagged<MsdfData>(memory::MemoryTag::Renderer))
 {
 	msdfgen::FreetypeHandle* ft = msdfgen::initializeFreetype();
 	WHP_CORE_ASSERT(ft);
@@ -134,7 +135,7 @@ Font::Font(const std::filesystem::path& filepath, AssetHandle handle) : Asset(ha
 
 Font::~Font()
 {
-	delete m_Data;
+	DeleteRaw(m_Data);
 }
 
 Ref<Font> Font::GetDefault()

@@ -1,5 +1,6 @@
 #include <Whip-Editor/EditorLayer.h>
 
+#include <Whip/Core/Memory.h>
 #include <Whip/Utils/PlatformUtils.h>
 
 _WHIP_START
@@ -9,7 +10,7 @@ class WhipEditor : public Application
 public:
 	WhipEditor(const ApplicationSpecification& spec) : Application(spec)
 	{
-		PushLayer(new EditorLayer());
+		PushLayer(MakeRawTagged<EditorLayer>(memory::MemoryTag::Editor));
 	}
 };
 
@@ -21,7 +22,7 @@ Application* CreateApplication(ApplicationCommandLineArgs args)
 	spec.m_Properties.m_CustomTitlebar = true;
 	spec.m_WorkingDirectory = Utils::GetExecutableDirectory().string();
 	spec.m_CommandLineArgs = args;
-	return new WhipEditor(spec);
+	return MakeRawTagged<WhipEditor>(memory::MemoryTag::Editor, spec);
 }
 
 _WHIP_END

@@ -6,6 +6,7 @@
 #include <type_traits>
 
 #include "Core.h"
+#include "Memory.h"
 
 _WHIP_START
 
@@ -40,13 +41,13 @@ public:
 
     template<typename T, typename... Args>
     static Payload Make(Args&&... args) {
-        T* value = new T(std::forward<Args>(args)...);
+        T* value = MakeRawTagged<T>(memory::MemoryTag::Core, std::forward<Args>(args)...);
 
         return Payload(
             value,
             typeid(T),
             [](void* ptr) {
-                delete static_cast<T*>(ptr);
+                DeleteRaw(static_cast<T*>(ptr));
             }
         );
     }

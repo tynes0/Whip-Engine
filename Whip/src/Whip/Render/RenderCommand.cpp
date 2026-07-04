@@ -5,6 +5,6 @@
 
 _WHIP_START
 
-RenderAPI* RenderCommand::s_RenderAPI = new OpenGLRenderAPI();
+RenderAPI* RenderCommand::s_RenderAPI = MakeRawTagged<OpenGLRenderAPI>(memory::MemoryTag::Renderer);
 
 _WHIP_END

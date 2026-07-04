@@ -3,7 +3,10 @@
 
 _WHIP_START
 
-LayerStack::LayerStack() {}
+LayerStack::LayerStack()
+	: m_Layers(memory::StlAllocator<Layer*>(memory::GetAllocator(memory::MemoryTag::Core), memory::MemoryTag::Core))
+{
+}
 
 LayerStack::~LayerStack()
 {
@@ -43,7 +46,7 @@ void LayerStack::PopOverlay(LayerPtr overlay)
 void LayerStack::Clear()
 {
 	for (LayerPtr item : m_Layers)
-		delete item;
+		DeleteRaw(item);
 
 	m_Layers.clear();
 	m_LayerInsertIndex = 0;

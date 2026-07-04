@@ -6,6 +6,7 @@
 
 #include <Whip/Core/UUID.h>
 #include <Whip/Core/KeyCodes.h>
+#include <Whip/Core/Memory.h>
 #include <Whip/Core/MouseButtonCodes.h>
 #include <Whip/Project/Project.h>
 #include <Whip/Scripting/ScriptEngine.h>
@@ -274,7 +275,7 @@ namespace Utils
 		}
 
 		const size_t size = dataNode ? dataNode.size() : 0;
-		auto values = std::make_unique<T[]>(size);
+		auto values = MakeScopeArrayTagged<T>(memory::MemoryTag::Scene, size);
 		for (size_t i = 0; i < size; ++i)
 			values[i] = dataNode[i].as<T>();
 

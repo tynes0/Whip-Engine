@@ -1,6 +1,7 @@
 #include <Whip-Editor/Helpers/ScriptFieldHelper.h>
 
 #include <Whip/Core/KeyCodes.h>
+#include <Whip/Core/Memory.h>
 #include <Whip/Core/MouseButtonCodes.h>
 #include <Whip/Project/Project.h>
 #include <Whip-Editor/UI/UIHelpers.h>
@@ -731,12 +732,12 @@ namespace
 	}
 
 	template <typename T>
-	std::unique_ptr<T[]> CopyArrayValues(T* source, size_t size)
+	Scope<T[]> CopyArrayValues(T* source, size_t size)
 	{
 		if (size == 0)
 			return nullptr;
 
-		auto values = std::make_unique<T[]>(size);
+		auto values = MakeScopeArrayTagged<T>(memory::MemoryTag::Editor, size);
 		if (source)
 		{
 			for (size_t i = 0; i < size; ++i)
@@ -746,12 +747,12 @@ namespace
 	}
 
 	template <typename T>
-	std::unique_ptr<T[]> ResizeArrayValues(T* source, size_t oldSize, size_t newSize)
+	Scope<T[]> ResizeArrayValues(T* source, size_t oldSize, size_t newSize)
 	{
 		if (newSize == 0)
 			return nullptr;
 
-		auto values = std::make_unique<T[]>(newSize);
+		auto values = MakeScopeArrayTagged<T>(memory::MemoryTag::Editor, newSize);
 		const size_t copySize = oldSize < newSize ? oldSize : newSize;
 		if (source)
 		{
@@ -762,12 +763,12 @@ namespace
 	}
 
 	template <typename T>
-	std::unique_ptr<T[]> RemoveArrayValue(T* source, size_t size, size_t removeIndex)
+	Scope<T[]> RemoveArrayValue(T* source, size_t size, size_t removeIndex)
 	{
 		if (size <= 1)
 			return nullptr;
 
-		auto values = std::make_unique<T[]>(size - 1);
+		auto values = MakeScopeArrayTagged<T>(memory::MemoryTag::Editor, size - 1);
 		size_t targetIndex = 0;
 		for (size_t i = 0; i < size; ++i)
 		{

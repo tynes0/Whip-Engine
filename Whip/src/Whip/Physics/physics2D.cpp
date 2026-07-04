@@ -165,10 +165,12 @@ b2BodyId Physics2D::CreateBody(Rigidbody2DComponent& rb2d, const TransformCompon
 	bodyDef.rotation = b2MakeRot(transform.m_Rotation.z);
 	bodyDef.fixedRotation = rb2d.m_FixedRotation;
 	bodyDef.gravityScale = rb2d.m_GravityScale;
-	rb2d.m_UserData = std::make_shared<BodyUserData>(static_cast<entt::entity>(entityID));
+	rb2d.m_UserData = MakeRefTagged<BodyUserData>(memory::MemoryTag::Physics, static_cast<entt::entity>(entityID));
 	bodyDef.userData = rb2d.m_UserData.get();
 	b2BodyId body = b2CreateBody(world, &bodyDef);
-	rb2d.m_RuntimeBody = new PhysicsBodyHandle{ body };
+	auto* handle = MakeRawTagged<PhysicsBodyHandle>(memory::MemoryTag::Physics);
+	handle->m_Id = body;
+	rb2d.m_RuntimeBody = handle;
 	return body;
 }
 
@@ -189,7 +191,8 @@ void Physics2D::CreateBoxColliderShape(BoxCollider2DComponent& bc2d, const Trans
 	b2Body_SetGravityScale(body, !bc2d.m_Sensor ? rb2d.m_GravityScale : 0.0f);
 	if (bc2d.m_Sensor)
 		SetBodyAsSensor(body);
-	auto* handle = new PhysicsShapeHandle{ b2CreatePolygonShape(body, &shapeDef, &boxShape) };
+	auto* handle = MakeRawTagged<PhysicsShapeHandle>(memory::MemoryTag::Physics);
+	handle->m_Id = b2CreatePolygonShape(body, &shapeDef, &boxShape);
 	CacheBoxShape(*handle, bc2d, transform);
 	bc2d.m_RuntimeFixture = handle;
 }
@@ -211,7 +214,8 @@ void Physics2D::CreateCircleColliderShape(CircleCollider2DComponent& cc2d, const
 	b2Body_SetGravityScale(body, !cc2d.m_Sensor ? rb2d.m_GravityScale : 0.0f);
 	if (cc2d.m_Sensor)
 		SetBodyAsSensor(body);
-	auto* handle = new PhysicsShapeHandle{ b2CreateCircleShape(body, &shapeDef, &circleShape) };
+	auto* handle = MakeRawTagged<PhysicsShapeHandle>(memory::MemoryTag::Physics);
+	handle->m_Id = b2CreateCircleShape(body, &shapeDef, &circleShape);
 	CacheCircleShape(*handle, cc2d, transform);
 	cc2d.m_RuntimeFixture = handle;
 }
@@ -369,13 +373,13 @@ bool Physics2D::IsShape(const void* runtimeShape, b2ShapeId shape)
 
 void Physics2D::DestroyBodyHandle(Rigidbody2DComponent& rb2d)
 {
-	delete static_cast<PhysicsBodyHandle*>(rb2d.m_RuntimeBody);
+	DeleteRaw(static_cast<PhysicsBodyHandle*>(rb2d.m_RuntimeBody));
 	rb2d.m_RuntimeBody = nullptr;
 }
 
 void Physics2D::DestroyShapeHandle(void*& runtimeShape)
 {
-	delete static_cast<PhysicsShapeHandle*>(runtimeShape);
+	DeleteRaw(static_cast<PhysicsShapeHandle*>(runtimeShape));
 	runtimeShape = nullptr;
 }
 

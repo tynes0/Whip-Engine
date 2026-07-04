@@ -80,12 +80,12 @@ Ref<Project> Project::Load(const std::filesystem::path& path)
 		}
 
 		WHP_CORE_INFO("[Project] Loading editor Asset registry.");
-		std::shared_ptr<EditorAssetManager> editorAssetManager = std::make_shared<EditorAssetManager>();
+		std::shared_ptr<EditorAssetManager> editorAssetManager = MakeRefTagged<EditorAssetManager>(memory::MemoryTag::Asset);
 		editorAssetManager->DeserializeAssetRegistry();
 		s_ActiveProject->m_EditorAssetManager = editorAssetManager;
 		WHP_CORE_INFO("[Project] Editor Asset registry loaded.");
 
-		std::shared_ptr<RuntimeAssetManager> runtimeAssetManager = std::make_shared<RuntimeAssetManager>();
+		std::shared_ptr<RuntimeAssetManager> runtimeAssetManager = MakeRefTagged<RuntimeAssetManager>(memory::MemoryTag::Asset);
 		runtimeAssetManager->SetEditorAssetManager(editorAssetManager);
 		s_ActiveProject->m_RuntimeAssetManager = runtimeAssetManager;
 

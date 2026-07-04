@@ -20,6 +20,7 @@ void Renderer::Shutdown()
 	WHP_PROFILE_FUNCTION();
 
 	Renderer2D::Shutdown();
+	RenderCommand::Shutdown();
 }
 
 void Renderer::OnWindowResize(uint32_t width, uint32_t height)

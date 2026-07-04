@@ -1135,7 +1135,7 @@ void ScriptEngine::Init()
 		return;
 	}
 
-	s_ScriptEngineData = new ScriptEngineData();
+	s_ScriptEngineData = MakeRawTagged<ScriptEngineData>(memory::MemoryTag::Scripting);
 	ConfigureScriptDebugger(*s_ScriptEngineData);
 
 	ScriptInstance::s_FieldValueBuffer.Allocate(InitialBufferSize);
@@ -1182,7 +1182,7 @@ void ScriptEngine::Shutdown()
 		s_ScriptEngineData->m_AppAssemblyWatcher.reset();
 		s_ScriptEngineData->m_EntityInstances.clear();
 		ShutdownMono();
-		delete s_ScriptEngineData;
+		DeleteRaw(s_ScriptEngineData);
 		s_ScriptEngineData = nullptr;
 	}
 

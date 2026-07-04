@@ -28,6 +28,7 @@
 #include <unordered_set>
 
 #include <Whip/Core/Log.h>
+#include <Whip/Core/Memory.h>
 #include <Whip/Helper/Buffer.h>
 #include <Whip/Debug/Instrumentor.h>
 

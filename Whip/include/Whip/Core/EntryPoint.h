@@ -26,7 +26,7 @@ inline int main(int argc, char** argv)
 	WHP_PROFILE_END_SESSION();
 
 	WHP_PROFILE_BEGIN_SESSION("Shutdown", "WhipProfile-Shutdown.json");
-	delete app;
+	whip::DeleteRaw(app);
 	WHP_PROFILE_END_SESSION();
 }
 

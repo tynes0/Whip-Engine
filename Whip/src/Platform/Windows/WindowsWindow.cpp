@@ -31,7 +31,7 @@ namespace
 	constexpr int CustomTitlebarControlWidth = 46 * 3;
 	constexpr int CustomResizeBorder = 8;
 
-	std::unordered_map<HWND, WNDPROC> s_PreviousWindowProcedures;
+	memory::UnorderedMap<HWND, WNDPROC> s_PreviousWindowProcedures;
 
 	LRESULT CALLBACK CustomTitlebarWindowProc(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam)
 	{
@@ -124,7 +124,7 @@ namespace
 
 WHP_NODISCARD Window* Window::Create(const WindowProps& props)
 {
-	return new WindowsWindow(props);
+	return MakeRawTagged<WindowsWindow>(memory::MemoryTag::Core, props);
 }
 
 #endif // WHP_PLATFORM_WINDOWS
@@ -305,6 +305,9 @@ void WindowsWindow::Shutdown()
 	if (m_Data.m_Properties.m_CustomTitlebar)
 		UninstallCustomTitlebarHook(m_Window);
 #endif
+
+	DeleteRaw(m_Context);
+	m_Context = nullptr;
 
 	glfwDestroyWindow(m_Window);
 	m_Window = nullptr;

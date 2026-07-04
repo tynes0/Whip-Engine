@@ -3,11 +3,11 @@
 #include "Window.h"
 #include "Log.h"
 #include "Memory.h"
+#include <Whip/Core/Memory/AllocatorRegistry.h>
 #include <Whip/Events/ApplicationEvent.h>
 #include <Whip/Core/LayerStack.h>
 #include <Whip/ImGui/ImGuiLayer.h>
 
-#include <vector>
 #include <functional>
 #include <thread>
 #include <mutex>
@@ -83,8 +83,8 @@ private:
 	uint64_t m_TickCount = 0;
 	std::thread::id m_MainThreadId;
 
-	std::vector<std::function<void()>> m_MainThreadQueue;
-	std::vector<std::function<void()>> m_NextTickQueue;
+	memory::Vector<std::function<void()>> m_MainThreadQueue;
+	memory::Vector<std::function<void()>> m_NextTickQueue;
 	std::mutex m_MainThreadQueueMutex;
 
 	friend int ::main(int argc, char** argv);

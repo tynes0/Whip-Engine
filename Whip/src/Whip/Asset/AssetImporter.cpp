@@ -8,7 +8,6 @@
 #include "Whip/Asset/AnimationControllerImporter.h"
 #include "Whip/Asset/EntityTemplateImporter.h"
 
-#include <map>
 #include <functional>
 
 _WHIP_START
@@ -18,7 +17,7 @@ namespace
 {
 	using AssetImportFunction = std::function<Ref<Asset>(AssetHandle, const AssetMetadata&)>;
 
-	std::map<AssetType, AssetImportFunction> s_AssetImportFunctions =
+	memory::Map<AssetType, AssetImportFunction> s_AssetImportFunctions =
 	{
 			{ AssetType::Texture2D, TextureImporter::ImportTexture2D },
 			{ AssetType::Scene, SceneImporter::ImportScene },

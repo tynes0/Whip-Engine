@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <string>
 #include <filesystem>
-#include <unordered_map>
 
 #define AL_ALEXT_PROTOTYPES
 _WHP_PRAGMA_WARNING(push)
@@ -59,8 +58,8 @@ struct GlobalAudioData
 	RawBuffer m_AudioScratchBuffer;
 	uint32_t m_AudioScratchBufferSize = 10 * 1024 * 1024; // 10mb initially
 
-	std::unordered_map<ALuint, EffectData> m_EffectDatas;
-	std::unordered_map<ALuint, FilterData> m_FilterDatas;
+	memory::UnorderedMap<ALuint, EffectData> m_EffectDatas;
+	memory::UnorderedMap<ALuint, FilterData> m_FilterDatas;
 
 	bool m_DebugLog = true;
 	bool m_Initialized = false;

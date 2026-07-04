@@ -13,7 +13,10 @@ _WHIP_START
 Application* Application::s_Instance = nullptr;
 
 Application::Application(ApplicationSpecification spec)
-	:m_Specification(std::move(spec)), m_MainThreadId(std::this_thread::get_id())
+	: m_Specification(std::move(spec)),
+	m_MainThreadId(std::this_thread::get_id()),
+	m_MainThreadQueue(memory::StlAllocator<std::function<void()>>(memory::GetAllocator(memory::MemoryTag::Core), memory::MemoryTag::Core)),
+	m_NextTickQueue(memory::StlAllocator<std::function<void()>>(memory::GetAllocator(memory::MemoryTag::Core), memory::MemoryTag::Core))
 {
 	WHP_PROFILE_FUNCTION();
 
@@ -30,7 +33,7 @@ Application::Application(ApplicationSpecification spec)
 	Renderer::Init();
 	AudioEngine::Init();
 
-	m_ImGuiLayer = new ImGuiLayer();
+	m_ImGuiLayer = MakeRawTagged<ImGuiLayer>(memory::MemoryTag::Editor);
 	PushOverlay(m_ImGuiLayer);
 }
 
