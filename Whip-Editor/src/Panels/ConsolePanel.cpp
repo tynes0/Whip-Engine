@@ -21,12 +21,16 @@ struct ConsoleEntry
 	std::string m_Timestamp;
 	std::string m_Category;
 	std::string m_Message;
+	std::string m_CategorySearch;
+	std::string m_SingleLineMessage;
+	std::string m_RowClipboard;
 	std::string m_SearchBlob;
 };
 
 struct ConsoleData
 {
 	std::vector<ConsoleEntry> m_Buffer;
+	std::vector<size_t> m_VisibleRows;
 	std::thread m_FileWatcherThread;
 	std::mutex m_Mutex;
 	std::uintmax_t m_LastStreamIndex = 0;
@@ -180,22 +184,23 @@ namespace
 			}
 		}
 
+		entry.m_CategorySearch = ToLower(entry.m_Category);
+		entry.m_SingleLineMessage = SingleLineText(entry.m_Message);
+		entry.m_RowClipboard = "[" + entry.m_Timestamp + "] " + LevelName(entry.m_Level) + " " + entry.m_Category + ": " + entry.m_Message + "\n";
 		entry.m_SearchBlob = ToLower(entry.m_Timestamp + " " + entry.m_Category + " " + entry.m_Message + " " + LevelName(entry.m_Level));
 		return entry;
 	}
 
-	bool EntryVisible(const ConsoleEntry& entry)
+	bool EntryVisible(const ConsoleEntry& entry, std::string_view textFilter, std::string_view categoryFilter)
 	{
 		const size_t index = LevelIndex(entry.m_Level);
 		if (index >= ConsoleState.m_LevelFilter.size() || !ConsoleState.m_LevelFilter[index])
 			return false;
 
-		const std::string textFilter = ToLower(ConsoleState.m_TextFilter);
 		if (!textFilter.empty() && entry.m_SearchBlob.find(textFilter) == std::string::npos)
 			return false;
 
-		const std::string categoryFilter = ToLower(ConsoleState.m_CategoryFilter);
-		if (!categoryFilter.empty() && ToLower(entry.m_Category).find(categoryFilter) == std::string::npos)
+		if (!categoryFilter.empty() && entry.m_CategorySearch.find(categoryFilter) == std::string::npos)
 			return false;
 
 		return true;
@@ -229,15 +234,17 @@ namespace
 
 	std::string FormatEntryForClipboard(const ConsoleEntry& entry)
 	{
-		return "[" + entry.m_Timestamp + "] " + LevelName(entry.m_Level) + " " + entry.m_Category + ": " + entry.m_Message + "\n";
+		return entry.m_RowClipboard;
 	}
 
 	void CopyVisibleToClipboardUnlocked()
 	{
+		const std::string textFilter = ToLower(ConsoleState.m_TextFilter);
+		const std::string categoryFilter = ToLower(ConsoleState.m_CategoryFilter);
 		std::string clipboard;
 		for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
-			if (EntryVisible(entry))
-				clipboard += FormatEntryForClipboard(entry);
+			if (EntryVisible(entry, textFilter, categoryFilter))
+				clipboard += entry.m_RowClipboard;
 		ImGui::SetClipboardText(clipboard.c_str());
 	}
 
@@ -551,7 +558,17 @@ void ConsolePanel::OnImGuiRender()
 	if (ImGui::SmallButton("Copy visible"))
 		CopyVisibleToClipboardUnlocked();
 
-	const size_t visibleCount = std::ranges::count_if(ConsoleState.m_Buffer, [](const ConsoleEntry& entry) { return EntryVisible(entry); });
+	const std::string textFilter = ToLower(ConsoleState.m_TextFilter);
+	const std::string categoryFilter = ToLower(ConsoleState.m_CategoryFilter);
+	ConsoleState.m_VisibleRows.clear();
+	ConsoleState.m_VisibleRows.reserve(ConsoleState.m_Buffer.size());
+	for (size_t rowIndex = 0; rowIndex < ConsoleState.m_Buffer.size(); ++rowIndex)
+	{
+		if (EntryVisible(ConsoleState.m_Buffer[rowIndex], textFilter, categoryFilter))
+			ConsoleState.m_VisibleRows.emplace_back(rowIndex);
+	}
+
+	const size_t visibleCount = ConsoleState.m_VisibleRows.size();
 	const bool consoleContentChanged = ConsoleState.m_Buffer.size() != ConsoleState.m_LastRenderedBufferSize || visibleCount != ConsoleState.m_LastRenderedVisibleCount;
 	const bool shouldScrollToBottom = ConsoleState.m_AutoScroll && (ConsoleState.m_RequestScrollToBottom || consoleContentChanged);
 	SameLineIfFits(ImGui::CalcTextSize("000 visible").x);
@@ -578,17 +595,11 @@ void ConsolePanel::OnImGuiRender()
 		ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthFixed, 1180.0f);
 		ImGui::TableHeadersRow();
 
-		size_t rowIndex = 0;
-		size_t visibleRowIndex = 0;
-		for (const ConsoleEntry& entry : ConsoleState.m_Buffer)
+		for (size_t visibleRowIndex = 0; visibleRowIndex < ConsoleState.m_VisibleRows.size(); ++visibleRowIndex)
 		{
-			if (!EntryVisible(entry))
-			{
-				++rowIndex;
-				continue;
-			}
-
-			const std::string rowClipboard = FormatEntryForClipboard(entry);
+			const size_t rowIndex = ConsoleState.m_VisibleRows[visibleRowIndex];
+			const ConsoleEntry& entry = ConsoleState.m_Buffer[rowIndex];
+			const std::string& rowClipboard = entry.m_RowClipboard;
 			ImGui::TableNextRow();
 			ImGui::PushID(static_cast<int>(rowIndex));
 			ImGui::TableNextColumn();
@@ -600,12 +611,9 @@ void ConsolePanel::OnImGuiRender()
 			ImGui::TableNextColumn();
 			DrawSelectableConsoleCell("category", entry.m_Category, entry.m_Category, rowClipboard);
 			ImGui::TableNextColumn();
-			const std::string message = SingleLineText(entry.m_Message);
-			DrawSelectableConsoleCell("message", message, entry.m_Message, rowClipboard);
+			DrawSelectableConsoleCell("message", entry.m_SingleLineMessage, entry.m_Message, rowClipboard);
 			ImGui::PopID();
-			++visibleRowIndex;
-			++rowIndex;
-			if (shouldScrollToBottom && visibleRowIndex == visibleCount)
+			if (shouldScrollToBottom && visibleRowIndex + 1 == visibleCount)
 				ImGui::SetScrollHereY(1.0f);
 		}
 		ImGui::EndTable();
@@ -690,7 +698,7 @@ std::vector<std::string> ConsolePanel::GetRecentMessages(size_t maxCount)
 	for (size_t i = start; i < ConsoleState.m_Buffer.size(); ++i)
 	{
 		const ConsoleEntry& entry = ConsoleState.m_Buffer[i];
-		messages.push_back("[" + entry.m_Timestamp + "] " + LevelName(entry.m_Level) + " " + entry.m_Category + ": " + SingleLineText(entry.m_Message));
+		messages.push_back("[" + entry.m_Timestamp + "] " + LevelName(entry.m_Level) + " " + entry.m_Category + ": " + entry.m_SingleLineMessage);
 	}
 	return messages;
 }

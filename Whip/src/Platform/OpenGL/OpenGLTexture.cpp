@@ -101,6 +101,7 @@ OpenGLTexture2D::OpenGLTexture2D(const TextureSpecification& specification, RawB
 
 OpenGLTexture2D::~OpenGLTexture2D()
 {
+	m_LocalData.Release();
 	glDeleteTextures(1, &m_RendererID);
 }
 
@@ -114,6 +115,7 @@ void OpenGLTexture2D::SetData(RawBuffer data)
 	glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Specification.m_Width, m_Specification.m_Height, m_DataFormat, GL_UNSIGNED_BYTE, data.m_Data);
 	if (m_Specification.m_GenerateMips)
 		glGenerateTextureMipmap(m_RendererID);
+	m_LocalData = RawBuffer::Copy(data);
 	m_IsLoaded = true;
 }
 
@@ -123,6 +125,9 @@ RawBuffer OpenGLTexture2D::GetData() const
 
 	uint32_t bytesPerPixel = (m_DataFormat == GL_RGBA) ? 4 : 3;
 	uint64_t totalSize = uint64_t(m_Specification.m_Width * m_Specification.m_Height * bytesPerPixel);
+
+	if (m_LocalData && m_LocalData.m_Size == totalSize)
+		return RawBuffer::Copy(m_LocalData);
 
 	RawBuffer buffer(totalSize);
 

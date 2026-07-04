@@ -30,6 +30,7 @@ private:
 	bool m_IsLoaded = false;
 	RendererId m_RendererID = 0;
 	GLenum m_InternalFormat, m_DataFormat;
+	RawBuffer m_LocalData;
 };
 
 _WHIP_END

@@ -1476,23 +1476,6 @@ void EditorLayer::OnUpdate(Timestep ts)
 		}
 	}
 
-	{
-		WHP_PROFILE_SCOPE("Mouse position track");
-		auto [mx, my] = ImGui::GetMousePos();
-		mx -= m_ViewportBounds[0].x;
-		my -= m_ViewportBounds[0].y;
-		glm::vec2 viewportSize = m_ViewportBounds[1] - m_ViewportBounds[0];
-		my = viewportSize.y - my;
-		int mouseX = static_cast<int>(mx);
-		int mouseY = static_cast<int>(my);
-
-		if (mouseX >= 0 && mouseY >= 0 && mouseX < static_cast<int>(viewportSize.x) && mouseY < static_cast<int>(viewportSize.y))
-		{
-			int pixelData = m_Framebuffer->ReadPixel(1, mouseX, mouseY); // Todo: This is taking too much time
-			m_HoveredEntity = pixelData == -1 ? Entity() : Entity(static_cast<entt::entity>(pixelData), m_SceneManager.ActiveScene().get());
-		}
-	}
-
 	OnOverlayRender();
 
     m_Framebuffer->Unbind();
