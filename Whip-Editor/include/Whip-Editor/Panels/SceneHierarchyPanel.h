@@ -49,6 +49,9 @@ public:
 	bool RevertSelectedTemplateShortcut();
 	bool UnpackSelectedTemplateShortcut();
 private:
+	void MarkHierarchyDirty();
+	void RebuildHierarchyCache();
+	bool CanUseFlatHierarchyClipper() const;
 	void DrawEntityNode(Entity entityIn);
 	void DrawComponents(Entity entityIn);
 	void DrawMultiEditComponents(const std::vector<Entity>& selectedEntities);
@@ -85,6 +88,7 @@ private:
 	Ref<Scene> m_Context;
 	Entity m_SelectionContext;
 	std::vector<UUID> m_SelectionContexts;
+	std::vector<Entity> m_RootEntityCache;
 	std::function<void()> m_SceneChangeCallback;
 	std::function<void(Entity)> m_SaveEntityTemplateCallback;
 	std::function<void(Entity)> m_ApplyEntityTemplateCallback;
@@ -92,6 +96,9 @@ private:
 	std::function<void(Entity)> m_UnpackEntityTemplateCallback;
 	bool m_PropertyEditHistoryActive = false;
 	bool m_Focused = false;
+	bool m_HierarchyCacheDirty = true;
+	bool m_CanClipFlatHierarchy = true;
+	size_t m_CachedEntityCount = 0;
 };
 
 _WHIP_END

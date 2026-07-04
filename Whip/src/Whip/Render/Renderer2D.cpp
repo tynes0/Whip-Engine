@@ -775,7 +775,10 @@ void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<SubTexture2D>& s
 
 	for (uint32_t i = 1; i < s_Data.m_TextureSlotIndex; ++i)
 		if (DREF(s_Data.m_TextureSlots[i].get()) == DREF(tex.get()))
+		{
 			textureIndex = static_cast<float>(i);
+			break;
+		}
 
 	if (textureIndex == 0.0f)
 	{
