@@ -10,7 +10,8 @@ namespace whip::memory
     ArenaAllocator::ArenaAllocator(Size DefaultChunkSize, Allocator* BackingAllocator, const char* Name)
         : m_DefaultChunkSize(DefaultChunkSize),
           m_BackingAllocator(BackingAllocator ? BackingAllocator : &SystemAllocator::Get()),
-          m_Name(Name)
+          m_Name(Name),
+          m_Chunks(StlAllocator<Chunk>(*m_BackingAllocator, MemoryTag::Core))
     {
     }
 

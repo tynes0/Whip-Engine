@@ -2,6 +2,8 @@
 #include "Whip/Physics/Physics2D.h"
 #include "Whip/Math/Math.h"
 
+#include "Whip/Core/Memory/TypedPool.h"
+
 #define NEQ(left, right) (!Math::EqualF((left), (right), Physics2D::COLLIDER_EPSILON))
 
 _WHIP_START
@@ -16,6 +18,18 @@ enum CollisionCategory : uint8_t
 
 namespace
 {
+	memory::TypedPool<PhysicsBodyHandle>& GetPhysicsBodyHandlePool()
+	{
+		static memory::TypedPool<PhysicsBodyHandle> Pool(8192, &memory::GetAllocator(memory::MemoryTag::Physics), memory::MemoryTag::Physics, "PhysicsBodyHandlePool");
+		return Pool;
+	}
+
+	memory::TypedPool<PhysicsShapeHandle>& GetPhysicsShapeHandlePool()
+	{
+		static memory::TypedPool<PhysicsShapeHandle> Pool(32768, &memory::GetAllocator(memory::MemoryTag::Physics), memory::MemoryTag::Physics, "PhysicsShapeHandlePool");
+		return Pool;
+	}
+
 	b2SurfaceMaterial CreateSurfaceMaterial(float friction, float restitution)
 	{
 		b2SurfaceMaterial material = b2DefaultSurfaceMaterial();
@@ -168,7 +182,7 @@ b2BodyId Physics2D::CreateBody(Rigidbody2DComponent& rb2d, const TransformCompon
 	rb2d.m_UserData = MakeRefTagged<BodyUserData>(memory::MemoryTag::Physics, static_cast<entt::entity>(entityID));
 	bodyDef.userData = rb2d.m_UserData.get();
 	b2BodyId body = b2CreateBody(world, &bodyDef);
-	auto* handle = MakeRawTagged<PhysicsBodyHandle>(memory::MemoryTag::Physics);
+	auto* handle = GetPhysicsBodyHandlePool().New();
 	handle->m_Id = body;
 	rb2d.m_RuntimeBody = handle;
 	return body;
@@ -191,7 +205,7 @@ void Physics2D::CreateBoxColliderShape(BoxCollider2DComponent& bc2d, const Trans
 	b2Body_SetGravityScale(body, !bc2d.m_Sensor ? rb2d.m_GravityScale : 0.0f);
 	if (bc2d.m_Sensor)
 		SetBodyAsSensor(body);
-	auto* handle = MakeRawTagged<PhysicsShapeHandle>(memory::MemoryTag::Physics);
+	auto* handle = GetPhysicsShapeHandlePool().New();
 	handle->m_Id = b2CreatePolygonShape(body, &shapeDef, &boxShape);
 	CacheBoxShape(*handle, bc2d, transform);
 	bc2d.m_RuntimeFixture = handle;
@@ -214,7 +228,7 @@ void Physics2D::CreateCircleColliderShape(CircleCollider2DComponent& cc2d, const
 	b2Body_SetGravityScale(body, !cc2d.m_Sensor ? rb2d.m_GravityScale : 0.0f);
 	if (cc2d.m_Sensor)
 		SetBodyAsSensor(body);
-	auto* handle = MakeRawTagged<PhysicsShapeHandle>(memory::MemoryTag::Physics);
+	auto* handle = GetPhysicsShapeHandlePool().New();
 	handle->m_Id = b2CreateCircleShape(body, &shapeDef, &circleShape);
 	CacheCircleShape(*handle, cc2d, transform);
 	cc2d.m_RuntimeFixture = handle;
@@ -373,13 +387,13 @@ bool Physics2D::IsShape(const void* runtimeShape, b2ShapeId shape)
 
 void Physics2D::DestroyBodyHandle(Rigidbody2DComponent& rb2d)
 {
-	DeleteRaw(static_cast<PhysicsBodyHandle*>(rb2d.m_RuntimeBody));
+	GetPhysicsBodyHandlePool().Delete(static_cast<PhysicsBodyHandle*>(rb2d.m_RuntimeBody));
 	rb2d.m_RuntimeBody = nullptr;
 }
 
 void Physics2D::DestroyShapeHandle(void*& runtimeShape)
 {
-	DeleteRaw(static_cast<PhysicsShapeHandle*>(runtimeShape));
+	GetPhysicsShapeHandlePool().Delete(static_cast<PhysicsShapeHandle*>(runtimeShape));
 	runtimeShape = nullptr;
 }
 

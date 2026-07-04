@@ -2,6 +2,7 @@
 
 #include "Allocator.h"
 #include "MemoryUtils.h"
+#include "StlAllocator.h"
 
 #include <vector>
 
@@ -57,7 +58,7 @@ namespace whip::memory
         Size m_DefaultChunkSize = 0;
         Allocator* m_BackingAllocator = nullptr;
         const char* m_Name = "ArenaAllocator";
-        std::vector<Chunk> m_Chunks;
+        std::vector<Chunk, StlAllocator<Chunk>> m_Chunks;
         MemoryStats m_Stats{};
     };
 }

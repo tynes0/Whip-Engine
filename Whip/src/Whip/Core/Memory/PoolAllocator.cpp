@@ -170,6 +170,20 @@ namespace whip::memory
         return m_FreeBlockCount;
     }
 
+    bool PoolAllocator::Contains(const void* Pointer) const
+    {
+        if (!Pointer || !m_Start || m_BlockSize == 0 || m_BlockCount == 0)
+            return false;
+
+        const auto Address = reinterpret_cast<std::uintptr_t>(Pointer);
+        const auto Start = reinterpret_cast<std::uintptr_t>(m_Start);
+        const auto End = Start + m_BlockSize * m_BlockCount;
+        if (Address < Start || Address >= End)
+            return false;
+
+        return ((Address - Start) % m_BlockSize) == 0;
+    }
+
     void PoolAllocator::BuildFreeList()
     {
         m_FreeList = nullptr;

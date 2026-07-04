@@ -55,7 +55,7 @@ namespace
 		if (passes == 0 || width == 0 || height == 0 || rgbaPixels.size() != static_cast<size_t>(width) * height * 4)
 			return;
 
-		memory::Vector<uint8_t> filled(static_cast<size_t>(width) * height, 0);
+		memory::Vector<uint8_t> filled = memory::MakeFrameVectorWithSize<uint8_t>(static_cast<size_t>(width) * height);
 		for (uint32_t y = 0; y < height; ++y)
 			for (uint32_t x = 0; x < width; ++x)
 				filled[static_cast<size_t>(y) * width + x] = rgbaPixels[PixelIndexBottomLeft(width, x, y) + 3] > 0 ? 1 : 0;
@@ -146,7 +146,7 @@ namespace
 			return nullptr;
 		}
 
-		memory::Vector<uint8_t> foreground(static_cast<size_t>(cropWidth) * cropHeight, 0);
+		memory::Vector<uint8_t> foreground = memory::MakeFrameVectorWithSize<uint8_t>(static_cast<size_t>(cropWidth) * cropHeight);
 		for (uint32_t y = 0; y < cropHeight; ++y)
 		{
 			for (uint32_t x = 0; x < cropWidth; ++x)
@@ -156,11 +156,11 @@ namespace
 			}
 		}
 
-		memory::Vector<uint8_t> visited(foreground.size(), 0);
-		memory::Vector<uint8_t> selected(foreground.size(), 0);
-		memory::Deque<std::pair<uint32_t, uint32_t>> queue;
-		memory::Vector<size_t> componentPixels;
-		memory::Vector<size_t> bestComponentPixels;
+		memory::Vector<uint8_t> visited = memory::MakeFrameVectorWithSize<uint8_t>(foreground.size());
+		memory::Vector<uint8_t> selected = memory::MakeFrameVectorWithSize<uint8_t>(foreground.size());
+		memory::Deque<std::pair<uint32_t, uint32_t>> queue = memory::MakeFrameDeque<std::pair<uint32_t, uint32_t>>();
+		memory::Vector<size_t> componentPixels = memory::MakeFrameVector<size_t>();
+		memory::Vector<size_t> bestComponentPixels = memory::MakeFrameVector<size_t>();
 		static constexpr int32_t Directions4[4][2] =
 		{
 			{ 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }
@@ -214,7 +214,7 @@ namespace
 		for (size_t pixelIndex : bestComponentPixels)
 			selected[pixelIndex] = 1;
 
-		memory::Vector<uint8_t> cropPixels(static_cast<size_t>(cropWidth) * cropHeight * 4, 0);
+		memory::Vector<uint8_t> cropPixels = memory::MakeFrameVectorWithSize<uint8_t>(static_cast<size_t>(cropWidth) * cropHeight * 4);
 		for (uint32_t y = 0; y < cropHeight; ++y)
 		{
 			for (uint32_t x = 0; x < cropWidth; ++x)

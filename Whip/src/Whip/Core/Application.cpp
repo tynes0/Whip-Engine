@@ -61,6 +61,8 @@ void Application::Run()
 	while (m_Running)
 	{
 		WHP_PROFILE_SCOPE("Run Loop 1 Tick");
+		memory::ResetFrameAllocator();
+		memory::ResetScratchArenaAllocator();
 
 		m_TickCount++;
 
@@ -116,6 +118,9 @@ void Application::Run()
 		}
 
 	}
+
+	memory::ResetFrameAllocator();
+	memory::ResetScratchArenaAllocator();
 }
 
 void Application::Close()

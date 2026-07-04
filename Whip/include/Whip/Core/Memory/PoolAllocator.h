@@ -42,6 +42,7 @@ namespace whip::memory
         [[nodiscard]] Size GetBlockSize() const;
         [[nodiscard]] Size GetBlockCount() const;
         [[nodiscard]] Size GetFreeBlockCount() const;
+        [[nodiscard]] bool Contains(const void* Pointer) const;
 
     protected:
         [[nodiscard]] void* AllocateImpl(Size SizeInBytes, Size Alignment, MemoryTag Tag, SourceLocation Location) override;

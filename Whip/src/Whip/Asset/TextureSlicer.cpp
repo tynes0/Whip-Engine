@@ -1,6 +1,7 @@
 #include <Whip/Asset/TextureSlicer.h>
 
 #include <Whip/Asset/AssetManager.h>
+#include <Whip/Core/Memory/AllocatorRegistry.h>
 
 #include <algorithm>
 #include <array>
@@ -11,6 +12,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -83,14 +85,14 @@ namespace TextureSlicer
 			return MinDistanceToBackgroundColors(color, backgroundColors) <= tolerance;
 		}
 
-		int32_t EstimateBackgroundTolerance(const PixelBuffer& buffer, const std::array<Color, 4>& backgroundColors, int32_t requestedTolerance)
+		int32_t EstimateBackgroundTolerance(const PixelBuffer& buffer, const std::array<Color, 4>& backgroundColors, int32_t requestedTolerance, memory::Allocator& scratchAllocator)
 		{
 			const int32_t width = static_cast<int32_t>(buffer.m_Width);
 			const int32_t height = static_cast<int32_t>(buffer.m_Height);
 			if (width <= 0 || height <= 0)
 				return requestedTolerance;
 
-			std::vector<int32_t> borderDistances;
+			memory::Vector<int32_t> borderDistances = memory::MakeVector<int32_t>(scratchAllocator, memory::MemoryTag::Temporary);
 			borderDistances.reserve(static_cast<size_t>(width) * 2 + static_cast<size_t>(height) * 2);
 			for (int32_t x = 0; x < width; ++x)
 			{
@@ -120,12 +122,13 @@ namespace TextureSlicer
 			return std::clamp(std::max(requestedTolerance, robustBorderTolerance + 8), 0, 96);
 		}
 
-		void RemoveForegroundSpeckles(std::vector<uint8_t>& mask, int32_t width, int32_t height)
+		void RemoveForegroundSpeckles(std::vector<uint8_t>& mask, int32_t width, int32_t height, memory::Allocator& scratchAllocator)
 		{
 			if (width <= 0 || height <= 0 || mask.size() != static_cast<size_t>(width) * height)
 				return;
 
-			std::vector<uint8_t> cleaned = mask;
+			memory::Vector<uint8_t> cleaned = memory::MakeVector<uint8_t>(scratchAllocator, memory::MemoryTag::Temporary);
+			cleaned.assign(mask.begin(), mask.end());
 			for (int32_t y = 0; y < height; ++y)
 			{
 				for (int32_t x = 0; x < width; ++x)
@@ -153,7 +156,7 @@ namespace TextureSlicer
 						cleaned[index] = 0;
 				}
 			}
-			mask.swap(cleaned);
+			std::copy(cleaned.begin(), cleaned.end(), mask.begin());
 		}
 
 		bool BoundsOverlapWithGap(const Bounds& left, const Bounds& right, int32_t gap)
@@ -188,7 +191,7 @@ namespace TextureSlicer
 			target.m_Pixels += source.m_Pixels;
 		}
 
-		void WriteBigEndianU32(std::vector<uint8_t>& buffer, uint32_t value)
+		void WriteBigEndianU32(memory::Vector<uint8_t>& buffer, uint32_t value)
 		{
 			buffer.push_back(static_cast<uint8_t>((value >> 24) & 0xFF));
 			buffer.push_back(static_cast<uint8_t>((value >> 16) & 0xFF));
@@ -218,7 +221,7 @@ namespace TextureSlicer
 			return crc ^ 0xFFFFFFFFU;
 		}
 
-		uint32_t Adler32(const std::vector<uint8_t>& data)
+		uint32_t Adler32(std::span<const uint8_t> data)
 		{
 			constexpr uint32_t mod = 65521;
 			uint32_t a = 1;
@@ -231,7 +234,7 @@ namespace TextureSlicer
 			return (b << 16U) | a;
 		}
 
-		void WritePngChunk(std::vector<uint8_t>& png, const char type[4], const std::vector<uint8_t>& data)
+		void WritePngChunk(memory::Vector<uint8_t>& png, const char type[4], std::span<const uint8_t> data)
 		{
 			WriteBigEndianU32(png, static_cast<uint32_t>(data.size()));
 			const size_t crcStart = png.size();
@@ -241,12 +244,12 @@ namespace TextureSlicer
 			WriteBigEndianU32(png, crc);
 		}
 
-		void ExtrudeTransparentRgb(std::vector<uint8_t>& rgbaPixels, uint32_t width, uint32_t height, uint32_t extrudePixels)
+		void ExtrudeTransparentRgb(memory::Vector<uint8_t>& rgbaPixels, uint32_t width, uint32_t height, uint32_t extrudePixels, memory::Allocator& scratchAllocator)
 		{
 			if (extrudePixels == 0 || width == 0 || height == 0 || rgbaPixels.size() != static_cast<size_t>(width) * height * 4)
 				return;
 
-			std::vector<uint8_t> filled(static_cast<size_t>(width) * height, 0);
+			memory::Vector<uint8_t> filled = memory::MakeVectorWithSize<uint8_t>(scratchAllocator, static_cast<size_t>(width) * height, memory::MemoryTag::Temporary);
 			for (uint32_t y = 0; y < height; ++y)
 			{
 				for (uint32_t x = 0; x < width; ++x)
@@ -263,8 +266,8 @@ namespace TextureSlicer
 
 			for (uint32_t pass = 0; pass < extrudePixels; ++pass)
 			{
-				std::vector<uint8_t> nextFilled = filled;
-				std::vector<uint8_t> nextPixels = rgbaPixels;
+				memory::Vector<uint8_t> nextFilled = filled;
+				memory::Vector<uint8_t> nextPixels = rgbaPixels;
 				bool wrote = false;
 				for (uint32_t y = 0; y < height; ++y)
 				{
@@ -305,7 +308,7 @@ namespace TextureSlicer
 			}
 		}
 
-		bool WritePngRgbaTopLeft(const std::filesystem::path& path, const std::vector<uint8_t>& rgbaPixels, uint32_t width, uint32_t height, std::string& error)
+		bool WritePngRgbaTopLeft(const std::filesystem::path& path, std::span<const uint8_t> rgbaPixels, uint32_t width, uint32_t height, std::string& error, memory::Allocator& scratchAllocator)
 		{
 			if (width == 0 || height == 0 || rgbaPixels.size() != static_cast<size_t>(width) * height * 4)
 			{
@@ -313,7 +316,7 @@ namespace TextureSlicer
 				return false;
 			}
 
-			std::vector<uint8_t> scanlines;
+			memory::Vector<uint8_t> scanlines = memory::MakeVector<uint8_t>(scratchAllocator, memory::MemoryTag::Temporary);
 			scanlines.reserve(static_cast<size_t>(height) * (static_cast<size_t>(width) * 4 + 1));
 			for (uint32_t y = 0; y < height; ++y)
 			{
@@ -322,7 +325,7 @@ namespace TextureSlicer
 				scanlines.insert(scanlines.end(), rgbaPixels.begin() + static_cast<std::ptrdiff_t>(rowStart), rgbaPixels.begin() + static_cast<std::ptrdiff_t>(rowStart + static_cast<size_t>(width) * 4));
 			}
 
-			std::vector<uint8_t> zlib;
+			memory::Vector<uint8_t> zlib = memory::MakeVector<uint8_t>(scratchAllocator, memory::MemoryTag::Temporary);
 			zlib.reserve(scanlines.size() + scanlines.size() / 65535 * 5 + 16);
 			zlib.push_back(0x78);
 			zlib.push_back(0x01);
@@ -342,10 +345,11 @@ namespace TextureSlicer
 				offset += blockSize;
 			}
 
-			WriteBigEndianU32(zlib, Adler32(scanlines));
+			WriteBigEndianU32(zlib, Adler32(std::span<const uint8_t>(scanlines.data(), scanlines.size())));
 
-			std::vector<uint8_t> png = { 137, 80, 78, 71, 13, 10, 26, 10 };
-			std::vector<uint8_t> ihdr;
+			memory::Vector<uint8_t> png = memory::MakeVector<uint8_t>(scratchAllocator, memory::MemoryTag::Temporary);
+			png.insert(png.end(), { 137, 80, 78, 71, 13, 10, 26, 10 });
+			memory::Vector<uint8_t> ihdr = memory::MakeVector<uint8_t>(scratchAllocator, memory::MemoryTag::Temporary);
 			ihdr.reserve(13);
 			WriteBigEndianU32(ihdr, width);
 			WriteBigEndianU32(ihdr, height);
@@ -354,9 +358,9 @@ namespace TextureSlicer
 			ihdr.push_back(0);
 			ihdr.push_back(0);
 			ihdr.push_back(0);
-			WritePngChunk(png, "IHDR", ihdr);
-			WritePngChunk(png, "IDAT", zlib);
-			WritePngChunk(png, "IEND", {});
+			WritePngChunk(png, "IHDR", std::span<const uint8_t>(ihdr.data(), ihdr.size()));
+			WritePngChunk(png, "IDAT", std::span<const uint8_t>(zlib.data(), zlib.size()));
+			WritePngChunk(png, "IEND", std::span<const uint8_t>());
 
 			std::ofstream output(path, std::ios::binary | std::ios::trunc);
 			if (!output)
@@ -436,7 +440,8 @@ namespace TextureSlicer
 		const int32_t width = static_cast<int32_t>(buffer.m_Width);
 		const int32_t height = static_cast<int32_t>(buffer.m_Height);
 		const size_t pixelCount = static_cast<size_t>(width) * height;
-		std::vector<uint8_t> candidateBackground(pixelCount, 0);
+		memory::ArenaAllocator scratchArena(memory::Megabytes(8), &memory::GetAllocator(memory::MemoryTag::Asset), "TextureSlicerDetectArena");
+		memory::Vector<uint8_t> candidateBackground = memory::MakeVectorWithSize<uint8_t>(scratchArena, pixelCount, memory::MemoryTag::Temporary);
 		result.m_ForegroundMask.assign(pixelCount, 0);
 
 		bool hasTransparentPixels = false;
@@ -476,7 +481,7 @@ namespace TextureSlicer
 				ReadPixelTopLeft(buffer, 0, height - 1),
 				ReadPixelTopLeft(buffer, width - 1, height - 1)
 			};
-			result.m_EffectiveBackgroundTolerance = EstimateBackgroundTolerance(buffer, backgroundColors, options.m_BackgroundTolerance);
+			result.m_EffectiveBackgroundTolerance = EstimateBackgroundTolerance(buffer, backgroundColors, options.m_BackgroundTolerance, scratchArena);
 
 			for (int32_t y = 0; y < height; ++y)
 			{
@@ -490,11 +495,11 @@ namespace TextureSlicer
 			for (size_t i = 0; i < pixelCount; ++i)
 				result.m_ForegroundMask[i] = candidateBackground[i] ? 0 : 1;
 		}
-		RemoveForegroundSpeckles(result.m_ForegroundMask, width, height);
+		RemoveForegroundSpeckles(result.m_ForegroundMask, width, height, scratchArena);
 
-		std::vector<uint8_t> visited(pixelCount, 0);
-		std::vector<Bounds> components;
-		std::deque<std::pair<int32_t, int32_t>> queue;
+		memory::Vector<uint8_t> visited = memory::MakeVectorWithSize<uint8_t>(scratchArena, pixelCount, memory::MemoryTag::Temporary);
+		memory::Vector<Bounds> components = memory::MakeVector<Bounds>(scratchArena, memory::MemoryTag::Temporary);
+		memory::Deque<std::pair<int32_t, int32_t>> queue = memory::MakeDeque<std::pair<int32_t, int32_t>>(scratchArena, memory::MemoryTag::Temporary);
 		static constexpr int32_t Directions4[4][2] =
 		{
 			{ 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }
@@ -623,11 +628,12 @@ namespace TextureSlicer
 			return false;
 		}
 
+		memory::ArenaAllocator scratchArena(memory::Megabytes(2), &memory::GetAllocator(memory::MemoryTag::Asset), "TextureSlicerExportArena");
 		for (size_t spriteIndex = 0; spriteIndex < result.m_Sprites.size(); ++spriteIndex)
 		{
+			scratchArena.Reset();
 			const TextureSpriteRect& sprite = result.m_Sprites[spriteIndex];
-			std::vector<uint8_t> crop;
-			crop.resize(static_cast<size_t>(sprite.m_Width) * sprite.m_Height * 4, 0);
+			memory::Vector<uint8_t> crop = memory::MakeVectorWithSize<uint8_t>(scratchArena, static_cast<size_t>(sprite.m_Width) * sprite.m_Height * 4, memory::MemoryTag::Temporary);
 			for (uint32_t y = 0; y < sprite.m_Height; ++y)
 			{
 				for (uint32_t x = 0; x < sprite.m_Width; ++x)
@@ -647,12 +653,12 @@ namespace TextureSlicer
 				}
 			}
 
-			ExtrudeTransparentRgb(crop, sprite.m_Width, sprite.m_Height, extrudePixels);
+			ExtrudeTransparentRgb(crop, sprite.m_Width, sprite.m_Height, extrudePixels, scratchArena);
 
 			char filenameBuffer[160]{};
 			std::snprintf(filenameBuffer, sizeof(filenameBuffer), "%s_%03zu.png", namePrefix.c_str(), spriteIndex);
 			const std::filesystem::path outputPath = outputDirectory / filenameBuffer;
-			if (!WritePngRgbaTopLeft(outputPath, crop, sprite.m_Width, sprite.m_Height, error))
+			if (!WritePngRgbaTopLeft(outputPath, std::span<const uint8_t>(crop.data(), crop.size()), sprite.m_Width, sprite.m_Height, error, scratchArena))
 				return false;
 			exportedPaths.push_back(outputPath);
 		}

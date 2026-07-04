@@ -28,9 +28,20 @@ namespace whip::memory
         return Allocator;
     }
 
+    ArenaAllocator& GetScratchArenaAllocator()
+    {
+        static ArenaAllocator Allocator(Megabytes(8), &GetDefaultAllocator(), "WhipScratchArenaAllocator");
+        return Allocator;
+    }
+
     void ResetFrameAllocator()
     {
         GetFrameAllocator().Reset();
+    }
+
+    void ResetScratchArenaAllocator()
+    {
+        GetScratchArenaAllocator().Reset();
     }
 
     MemoryStats GetDefaultAllocatorStats()
