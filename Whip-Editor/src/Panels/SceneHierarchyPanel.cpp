@@ -503,11 +503,8 @@ void SceneHierarchyPanel::RebuildHierarchyCache()
 	for (auto entityID : group)
 	{
 		Entity entity{ entityID, m_Context.get() };
-		if (!entity.HasComponent<HierarchyComponent>())
-		{
-			m_RootEntityCache.emplace_back(entity);
+		if (!entity.HasComponent<TagComponent>() || !entity.HasComponent<HierarchyComponent>())
 			continue;
-		}
 
 		auto& hierarchy = entity.GetComponent<HierarchyComponent>();
 		if (hierarchy.m_Parent != 0 && !m_Context->FindEntityByUUID(hierarchy.m_Parent))
@@ -526,6 +523,39 @@ void SceneHierarchyPanel::RebuildHierarchyCache()
 bool SceneHierarchyPanel::CanUseFlatHierarchyClipper() const
 {
 	return m_CanClipFlatHierarchy;
+}
+
+bool SceneHierarchyPanel::IsEntityAlive(Entity entityIn) const
+{
+	return m_Context &&
+		entityIn &&
+		entityIn.GetScene() == m_Context.get() &&
+		m_Context->m_Registry.valid(static_cast<entt::entity>(entityIn));
+}
+
+void SceneHierarchyPanel::ValidateSelection()
+{
+	if (!m_Context)
+	{
+		ClearSelection();
+		return;
+	}
+
+	std::erase_if(m_SelectionContexts, [this](UUID entityId)
+		{
+			return !m_Context->FindEntityByUUID(entityId);
+		});
+
+	if (m_SelectionContexts.empty())
+	{
+		m_SelectionContext = {};
+		return;
+	}
+
+	const bool primaryValid = IsEntityAlive(m_SelectionContext);
+	const bool primaryStillSelected = primaryValid && std::ranges::find(m_SelectionContexts, m_SelectionContext.GetUUID()) != m_SelectionContexts.end();
+	if (!primaryStillSelected)
+		m_SelectionContext = m_Context->FindEntityByUUID(m_SelectionContexts.back());
 }
 
 void SceneHierarchyPanel::SetSceneChangeCallback(std::function<void()> callback)
@@ -610,6 +640,7 @@ void SceneHierarchyPanel::OnImGuiRender()
 
 	if (m_Context)
 	{
+		ValidateSelection();
 		const auto group = m_Context->m_Registry.group<>(entt::get<IDComponent>);
 		if (m_HierarchyCacheDirty || m_CachedEntityCount != group.size())
 			RebuildHierarchyCache();
@@ -726,7 +757,7 @@ std::vector<Entity> SceneHierarchyPanel::GetSelectedEntities() const
 
 void SceneHierarchyPanel::SetSelectedEntity(Entity entityIn, bool append)
 {
-	if (!entityIn)
+	if (!IsEntityAlive(entityIn))
 	{
 		if (!append)
 			ClearSelection();
@@ -877,28 +908,32 @@ bool SceneHierarchyPanel::UnpackSelectedTemplateShortcut()
 
 void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 {
-	if (entityIn.HasComponent<TagComponent>())
+	if (!IsEntityAlive(entityIn) || !entityIn.HasComponent<TagComponent>() || !entityIn.HasComponent<HierarchyComponent>())
 	{
-		auto& tag = entityIn.GetComponent<TagComponent>().m_Tag;
-		auto& hierarchy = entityIn.GetComponent<HierarchyComponent>();
+		MarkHierarchyDirty();
+		return;
+	}
 
-		ImGui::PushID(static_cast<int>(static_cast<uint32_t>(entityIn)));
-		ImGuiTreeNodeFlags flags = (IsSelected(entityIn) ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow;
-		flags |= ImGuiTreeNodeFlags_SpanAvailWidth;
-		if (hierarchy.m_Children.empty())
-			flags |= ImGuiTreeNodeFlags_Leaf;
+	auto& tag = entityIn.GetComponent<TagComponent>().m_Tag;
+	auto& hierarchy = entityIn.GetComponent<HierarchyComponent>();
 
-		std::string groupLabel;
-		const char* label = tag.c_str();
-		if (hierarchy.m_IsGroup)
-		{
-			groupLabel = "[Group] " + tag;
-			label = groupLabel.c_str();
-		}
-		bool opened = ImGui::TreeNodeEx("##EntityNode", flags, "%s", label);
+	ImGui::PushID(static_cast<int>(static_cast<uint32_t>(entityIn)));
+	ImGuiTreeNodeFlags flags = (IsSelected(entityIn) ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow;
+	flags |= ImGuiTreeNodeFlags_SpanAvailWidth;
+	if (hierarchy.m_Children.empty())
+		flags |= ImGuiTreeNodeFlags_Leaf;
 
-		if (ImGui::IsItemClicked())
-			SetSelectedEntity(entityIn, Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl));
+	std::string groupLabel;
+	const char* label = tag.c_str();
+	if (hierarchy.m_IsGroup)
+	{
+		groupLabel = "[Group] " + tag;
+		label = groupLabel.c_str();
+	}
+	bool opened = ImGui::TreeNodeEx("##EntityNode", flags, "%s", label);
+
+	if (ImGui::IsItemClicked())
+		SetSelectedEntity(entityIn, Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl));
 
 		if (ImGui::BeginDragDropSource())
 		{
@@ -989,12 +1024,11 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 			DestroyEntityWithSelection(entityIn);
 		}
 		ImGui::PopID();
-	}
 }
 
 void SceneHierarchyPanel::SetEntityParent(Entity child, Entity parent)
 {
-	if (!child || child == parent || !child.HasComponent<HierarchyComponent>())
+	if (!IsEntityAlive(child) || child == parent || !child.HasComponent<HierarchyComponent>() || (parent && !IsEntityAlive(parent)))
 		return;
 
 	auto& childHierarchy = child.GetComponent<HierarchyComponent>();

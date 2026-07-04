@@ -52,6 +52,8 @@ private:
 	void MarkHierarchyDirty();
 	void RebuildHierarchyCache();
 	bool CanUseFlatHierarchyClipper() const;
+	bool IsEntityAlive(Entity entityIn) const;
+	void ValidateSelection();
 	void DrawEntityNode(Entity entityIn);
 	void DrawComponents(Entity entityIn);
 	void DrawMultiEditComponents(const std::vector<Entity>& selectedEntities);
