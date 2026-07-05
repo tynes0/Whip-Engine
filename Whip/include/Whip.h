@@ -15,6 +15,7 @@
 
 // Whip Application
 #include <Whip/Core/Application.h>
+#include <Whip/Core/AsyncJobSystem.h>
 
 // Math
 #include <Whip/Math/Math.h>

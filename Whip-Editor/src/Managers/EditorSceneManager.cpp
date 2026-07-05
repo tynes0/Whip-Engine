@@ -132,6 +132,27 @@ void EditorSceneManager::OpenScene(AssetHandle handle)
 	MarkClean();
 }
 
+void EditorSceneManager::OpenLoadedScene(AssetHandle handle, std::filesystem::path scenePath, Ref<Scene> scene)
+{
+	WHP_PROFILE_FUNCTION();
+	EditorLayer& layer = GetLayer();
+	if (!Project::GetActive() || !scene)
+		return;
+
+	if (m_State != EditorSceneState::Edit)
+		OnSceneStop();
+
+	scene->m_Handle = handle;
+	scene->OnViewportResize(static_cast<uint32_t>(layer.m_ViewportSize.x), static_cast<uint32_t>(layer.m_ViewportSize.y));
+	m_EditorScene = std::move(scene);
+	m_ActiveScene = m_EditorScene;
+	m_EditorScenePath = std::move(scenePath);
+	layer.m_SceneHierarchyPanel.SetContext(m_EditorScene);
+	layer.m_SceneHierarchyPanel.SetSelectedEntity({});
+	layer.m_HistoryManager.ClearSceneHistory();
+	MarkClean();
+}
+
 void EditorSceneManager::CloseScene()
 {
 	WHP_PROFILE_FUNCTION();

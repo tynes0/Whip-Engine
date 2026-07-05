@@ -40,28 +40,28 @@ class Project
 public:
 	const std::filesystem::path& GetProjectDirectory()
 	{
-		return s_ActiveProject->m_ProjectDirectory;
+		return m_ProjectDirectory;
 	}
 
 	const std::filesystem::path& GetProjectPath()
 	{
-		return s_ActiveProject->m_ProjectPath;
+		return m_ProjectPath;
 	}
 
 	void SetProjectPath(const std::filesystem::path& path)
 	{
-		s_ActiveProject->m_ProjectPath = path;
-		s_ActiveProject->m_ProjectDirectory = path.parent_path();
+		m_ProjectPath = path;
+		m_ProjectDirectory = path.parent_path();
 	}
 
 	std::filesystem::path GetAssetDirectory()
 	{
-		return GetProjectDirectory() / s_ActiveProject->m_Config.m_AssetDirectory;
+		return GetProjectDirectory() / m_Config.m_AssetDirectory;
 	}
 
 	std::filesystem::path GetAssetRegistryPath()
 	{
-		return GetAssetDirectory() / s_ActiveProject->m_Config.m_AssetRegistryPath;
+		return GetAssetDirectory() / m_Config.m_AssetRegistryPath;
 	}
 
 	std::filesystem::path GetAssetFileSystemPath(const std::filesystem::path& path)
@@ -118,6 +118,7 @@ public:
 	std::shared_ptr<EditorAssetManager> GetEditorAssetManager() const { return std::static_pointer_cast<EditorAssetManager>(m_EditorAssetManager); }
 
 	static Ref<Project> NewProject();
+	static Ref<Project> LoadDetached(const std::filesystem::path& path);
 	static Ref<Project> Load(const std::filesystem::path& path);
 	static bool SaveActive();
 	static bool SaveActive(const std::filesystem::path& path);

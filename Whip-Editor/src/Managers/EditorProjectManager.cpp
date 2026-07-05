@@ -11,16 +11,20 @@
 #include <Whip/Debug/Instrumentor.h>
 #include <Whip/Asset/AssetMetadata.h>
 #include <Whip/Asset/SceneImporter.h>
+#include <Whip/Project/ProjectSerializer.h>
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Utils/FileExtensions.h>
 #include <Whip/Utils/PlatformUtils.h>
 
+#include <imgui.h>
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <fstream>
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -342,6 +346,15 @@ namespace
 		return FindFirstAvailableSceneHandle(project);
 	}
 
+	bool SaveProjectFile(const Ref<Project>& project)
+	{
+		if (!project)
+			return false;
+
+		ProjectSerializer serializer(project);
+		return serializer.Serialize(project->GetProjectPath());
+	}
+
 	bool RepairLoadedProjectScaffold(const Ref<Project>& project)
 	{
 		if (!project)
@@ -368,12 +381,87 @@ namespace
 		}
 
 		if (changed)
-			Project::SaveActive();
+			SaveProjectFile(project);
 
 		EnsureProjectScaffoldDirectories(projectDirectory);
 		WriteProjectLocalGitIgnore(projectDirectory);
 		EnsureAssetRegistryFileExists(project);
 		return changed;
+	}
+
+	void MigrateProjectNativeFileExtensionsForProject(const Ref<Project>& project)
+	{
+		if (!project || !project->GetEditorAssetManager())
+			return;
+
+		std::vector<std::pair<AssetHandle, std::filesystem::path>> scenePaths;
+		const auto& scenes = project->GetEditorAssetManager()->GetAssetRegistry().GetFiltered(AssetType::Scene);
+		scenePaths.reserve(scenes.size());
+		for (const auto& [handle, metadata] : scenes)
+		{
+			if (FileExtensions::IsLegacySceneExtension(metadata.m_Filepath))
+				scenePaths.emplace_back(handle, metadata.m_Filepath);
+		}
+
+		size_t migratedCount = 0;
+		const std::filesystem::path assetDirectory = project->GetAssetDirectory();
+		for (const auto& [handle, legacyRelativePath] : scenePaths)
+		{
+			std::filesystem::path modernRelativePath = legacyRelativePath;
+			modernRelativePath.replace_extension(FileExtensions::Scene);
+
+			const std::filesystem::path legacyPath = assetDirectory / legacyRelativePath;
+			const std::filesystem::path modernPath = assetDirectory / modernRelativePath;
+
+			std::error_code error;
+			const bool modernExists = std::filesystem::exists(modernPath, error);
+			error.clear();
+			const bool legacyExists = std::filesystem::exists(legacyPath, error);
+			if (!modernExists && legacyExists)
+			{
+				error.clear();
+				std::filesystem::rename(legacyPath, modernPath, error);
+				if (error)
+				{
+					WHP_EDITOR_WARN(std::string("[Project] Could not migrate scene extension '") +
+						legacyPath.string() + "' -> '" + modernPath.string() + "': " + error.message());
+					continue;
+				}
+			}
+			else if (!modernExists)
+			{
+				continue;
+			}
+
+			if (project->GetEditorAssetManager()->UpdateAssetFilepath(handle, modernRelativePath, project->GetAssetRegistryPath()))
+				++migratedCount;
+		}
+
+		if (migratedCount > 0)
+			WHP_EDITOR_INFO(std::string("[Project] Migrated ") + std::to_string(migratedCount) + " scene file extension(s) to .wscene.");
+	}
+
+	const char* AsyncJobStatusText(Async::JobStatus status)
+	{
+		switch (status)
+		{
+		case Async::JobStatus::Pending: return "Queued";
+		case Async::JobStatus::Running: return "Running";
+		case Async::JobStatus::Succeeded: return "Complete";
+		case Async::JobStatus::Failed: return "Failed";
+		case Async::JobStatus::Cancelled: return "Cancelled";
+		}
+		return "Unknown";
+	}
+
+	std::string CompactProgressPath(const std::filesystem::path& path, size_t maxCharacters)
+	{
+		std::string value = path.string();
+		if (value.size() <= maxCharacters || maxCharacters < 12)
+			return value;
+
+		const size_t tailCount = maxCharacters - 4;
+		return std::string("...\\") + value.substr(value.size() - tailCount);
 	}
 }
 
@@ -1005,55 +1093,7 @@ void EditorProjectManager::FinishProjectSettings()
 
 void EditorProjectManager::MigrateProjectNativeFileExtensions() const
 {
-	Ref<Project> activeProject = Project::GetActive();
-	if (!activeProject || !activeProject->GetEditorAssetManager())
-		return;
-
-	std::vector<std::pair<AssetHandle, std::filesystem::path>> scenePaths;
-	const auto& scenes = activeProject->GetEditorAssetManager()->GetAssetRegistry().GetFiltered(AssetType::Scene);
-	scenePaths.reserve(scenes.size());
-	for (const auto& [handle, metadata] : scenes)
-	{
-		if (FileExtensions::IsLegacySceneExtension(metadata.m_Filepath))
-			scenePaths.emplace_back(handle, metadata.m_Filepath);
-	}
-
-	size_t migratedCount = 0;
-	const std::filesystem::path assetDirectory = Project::GetActiveAssetDirectory();
-	for (const auto& [handle, legacyRelativePath] : scenePaths)
-	{
-		std::filesystem::path modernRelativePath = legacyRelativePath;
-		modernRelativePath.replace_extension(FileExtensions::Scene);
-
-		const std::filesystem::path legacyPath = assetDirectory / legacyRelativePath;
-		const std::filesystem::path modernPath = assetDirectory / modernRelativePath;
-
-		std::error_code error;
-		const bool modernExists = std::filesystem::exists(modernPath, error);
-		error.clear();
-		const bool legacyExists = std::filesystem::exists(legacyPath, error);
-		if (!modernExists && legacyExists)
-		{
-			error.clear();
-			std::filesystem::rename(legacyPath, modernPath, error);
-			if (error)
-			{
-				WHP_EDITOR_WARN(std::string("[Project] Could not migrate scene extension '") +
-					legacyPath.string() + "' -> '" + modernPath.string() + "': " + error.message());
-				continue;
-			}
-		}
-		else if (!modernExists)
-		{
-			continue;
-		}
-
-		if (activeProject->GetEditorAssetManager()->UpdateAssetFilepath(handle, modernRelativePath))
-			++migratedCount;
-	}
-
-	if (migratedCount > 0)
-		WHP_EDITOR_INFO(std::string("[Project] Migrated ") + std::to_string(migratedCount) + " scene file extension(s) to .wscene.");
+	MigrateProjectNativeFileExtensionsForProject(Project::GetActive());
 }
 
 bool EditorProjectManager::OpenProject()
@@ -1071,6 +1111,12 @@ bool EditorProjectManager::OpenProject(const std::filesystem::path& path)
 	EditorLayer& layer = GetLayer();
 	if (path.empty())
 		return false;
+
+	if (IsProjectOperationRunning())
+	{
+		m_ProjectLoader.SetStatus("Project operation already running.");
+		return false;
+	}
 
 	std::filesystem::path projectPath = NormalizeProjectListPath(path);
 	std::error_code error;
@@ -1097,22 +1143,49 @@ bool EditorProjectManager::OpenProject(const std::filesystem::path& path)
 		ResetEditorProjectState();
 	}
 
-	if (Project::Load(projectPath))
+	return BeginOpenProjectAsync(projectPath);
+}
+
+bool EditorProjectManager::BeginOpenProjectAsync(const std::filesystem::path& projectPath)
+{
+	WHP_PROFILE_FUNCTION();
+	if (IsProjectOperationRunning())
+		return false;
+
+	m_ProjectOpenResult = std::make_shared<ProjectOpenResult>();
+	m_ProjectOpenResult->m_ProjectPath = projectPath;
+	m_ProjectOpenStartedAt = std::chrono::steady_clock::now();
+	m_ProjectOpenStage = ProjectOpenStage::PreparingProject;
+	m_ProjectLoader.SetBusy(true);
+	m_ProjectLoader.SetLoaded(false);
+	m_ProjectLoader.SetStatus("Opening project...");
+
+	const std::shared_ptr<ProjectOpenResult> result = m_ProjectOpenResult;
+	m_ProjectOpenJob = Async::JobSystem::Get().Submit("Open Project", [projectPath, result](Async::JobContext& context)
 	{
-		WHP_EDITOR_INFO("[Project] Project file loaded.");
-		RepairLoadedProjectScaffold(Project::GetActive());
-		WHP_EDITOR_INFO("[Project] Project scaffold verified.");
-		MigrateProjectNativeFileExtensions();
-		WHP_EDITOR_INFO("[Project] Native file extension migration complete.");
-		const bool scriptBuildSucceeded = layer.m_ScriptManager.BuildProjectScripts();
+		context.SetProgress(0.05f, "Reading project file");
+		Ref<Project> project = Project::LoadDetached(projectPath);
+		if (!project)
+			throw std::runtime_error("Project file could not be loaded.");
+
+		context.SetProgress(0.18f, "Verifying project scaffold");
+		RepairLoadedProjectScaffold(project);
+
+		context.SetProgress(0.28f, "Migrating project metadata");
+		MigrateProjectNativeFileExtensionsForProject(project);
+
+		context.SetProgress(0.38f, "Building C# scripts");
+		const bool scriptBuildSucceeded = EditorScriptManager::BuildProjectScriptsForProject(project,
+			[&context](const std::string& message, bool, bool)
+			{
+				context.SetMessage(message);
+			});
 		if (!scriptBuildSucceeded)
 			WHP_EDITOR_WARN("[Script Build] Project opened, but script build failed.");
-		WHP_EDITOR_INFO("[Project] Script build step complete.");
-		ScriptEngine::Init();
-		WHP_EDITOR_INFO("[Project] Script engine initialized.");
-		layer.m_ScriptManager.StartSourceWatcher();
-		const AssetHandle configuredStartScene = Project::GetActive()->GetConfig().m_StartScene;
-		const AssetHandle startScene = ResolveStartSceneHandle(Project::GetActive());
+
+		context.SetProgress(0.78f, "Resolving start scene");
+		const AssetHandle configuredStartScene = project->GetConfig().m_StartScene;
+		const AssetHandle startScene = ResolveStartSceneHandle(project);
 		if (startScene != configuredStartScene)
 		{
 			if (configuredStartScene != 0 && startScene != 0)
@@ -1120,43 +1193,282 @@ bool EditorProjectManager::OpenProject(const std::filesystem::path& path)
 			else if (configuredStartScene != 0)
 				WHP_EDITOR_WARN("[Project] Configured start scene is invalid. Resetting Project start scene.");
 
-			Project::GetActive()->GetConfig().m_StartScene = startScene;
-			Project::SaveActive();
+			project->GetConfig().m_StartScene = startScene;
+			SaveProjectFile(project);
 		}
 
-		if (startScene)
-		{
-			layer.m_SceneManager.OpenScene(startScene);
-			if (!layer.m_SceneManager.EditorScene())
-			{
-				WHP_EDITOR_WARN("[Project] Start scene could not be opened. Opening an empty scene.");
-				layer.m_SceneManager.NewScene();
-			}
-		}
-		else
-		{
-			if (configuredStartScene != 0)
-			{
-				Project::GetActive()->GetConfig().m_StartScene = 0;
-				Project::SaveActive();
-			}
-			layer.m_SceneManager.NewScene();
-		}
-		layer.m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
-		layer.m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetOpen(handle); });
-		layer.m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetInspect(handle); });
-		ApplyPreferencesToContentBrowser();
-		layer.RegisterEditorShortcuts();
-		AddRecentProject(projectPath);
-		m_ProjectLoader.SetLoaded(true);
-		m_ProjectLoader.SetStatus(scriptBuildSucceeded ? "Project opened." : "Project opened, script build failed.");
-		WHP_EDITOR_INFO("[Project] Project open complete.");
-		return true;
+		result->m_Project = project;
+		result->m_ConfiguredStartScene = configuredStartScene;
+		result->m_StartScene = startScene;
+		result->m_ScriptBuildSucceeded = scriptBuildSucceeded;
+		context.SetProgress(1.0f, "Project prepared");
+	});
+	return true;
+}
+
+void EditorProjectManager::UpdateAsyncOperations()
+{
+	WHP_PROFILE_FUNCTION();
+	if (!IsProjectOperationRunning() || !m_ProjectOpenJob.IsDone())
+		return;
+
+	switch (m_ProjectOpenStage)
+	{
+	case ProjectOpenStage::PreparingProject:
+		CompletePreparedProjectOpen();
+		break;
+	case ProjectOpenStage::LoadingScene:
+		CompleteStartSceneLoad();
+		break;
+	case ProjectOpenStage::Idle:
+		break;
 	}
-	ResetEditorProjectState();
-	WHP_EDITOR_WARN(std::string("[Project] Project load failed: ") + projectPath.string());
-	m_ProjectLoader.SetStatus("Project could not be opened.");
-	return false;
+}
+
+void EditorProjectManager::CompletePreparedProjectOpen()
+{
+	WHP_PROFILE_FUNCTION();
+	if (!m_ProjectOpenResult)
+	{
+		FinishProjectOpen(false, "Project could not be opened.");
+		return;
+	}
+
+	const Async::JobProgressSnapshot snapshot = m_ProjectOpenJob.Snapshot();
+	if (snapshot.m_Status == Async::JobStatus::Failed || !m_ProjectOpenResult->m_Project)
+	{
+		const std::string error = !snapshot.m_Error.empty() ? snapshot.m_Error : "Project preparation failed.";
+		WHP_EDITOR_WARN(std::string("[Project] Project load failed: ") + error);
+		m_ProjectOpenResult->m_Error = error;
+		FinishProjectOpen(false, "Project could not be opened.");
+		return;
+	}
+
+	if (snapshot.m_Status == Async::JobStatus::Cancelled)
+	{
+		FinishProjectOpen(false, "Project open cancelled.");
+		return;
+	}
+
+	Project::SetActive(m_ProjectOpenResult->m_Project);
+	WHP_EDITOR_INFO("[Project] Project file loaded.");
+	WHP_EDITOR_INFO("[Project] Project scaffold verified.");
+	WHP_EDITOR_INFO("[Project] Native file extension migration complete.");
+	WHP_EDITOR_INFO("[Project] Script build step complete.");
+	ScriptEngine::Init();
+	WHP_EDITOR_INFO("[Project] Script engine initialized.");
+
+	if (m_ProjectOpenResult->m_StartScene != 0)
+	{
+		BeginStartSceneLoadAsync();
+		return;
+	}
+
+	if (m_ProjectOpenResult->m_ConfiguredStartScene != 0)
+	{
+		Project::GetActive()->GetConfig().m_StartScene = 0;
+		Project::SaveActive();
+	}
+	GetLayer().m_SceneManager.NewScene();
+	FinishProjectOpen(true, m_ProjectOpenResult->m_ScriptBuildSucceeded ? "Project opened." : "Project opened, script build failed.");
+}
+
+void EditorProjectManager::BeginStartSceneLoadAsync()
+{
+	WHP_PROFILE_FUNCTION();
+	if (!m_ProjectOpenResult || !m_ProjectOpenResult->m_Project || m_ProjectOpenResult->m_StartScene == 0)
+	{
+		FinishProjectOpen(false, "Start scene could not be loaded.");
+		return;
+	}
+
+	m_ProjectOpenStage = ProjectOpenStage::LoadingScene;
+	m_ProjectLoader.SetStatus("Loading start scene...");
+
+	const std::shared_ptr<ProjectOpenResult> result = m_ProjectOpenResult;
+	m_ProjectOpenJob = Async::JobSystem::Get().Submit("Load Start Scene", [result](Async::JobContext& context)
+	{
+		context.SetProgress(0.10f, "Resolving start scene asset");
+		const Ref<Project>& project = result->m_Project;
+		if (!project || !project->GetEditorAssetManager())
+			throw std::runtime_error("Project asset manager is not available.");
+
+		const AssetHandle handle = result->m_StartScene;
+		if (!project->GetEditorAssetManager()->IsAssetHandleValid(handle))
+			throw std::runtime_error("Start scene handle is not registered.");
+
+		const std::filesystem::path scenePath = project->GetEditorAssetManager()->GetFilepath(handle);
+		const std::filesystem::path absoluteScenePath = project->GetAssetDirectory() / scenePath;
+		if (!std::filesystem::exists(absoluteScenePath))
+			throw std::runtime_error("Start scene file is missing: " + scenePath.string());
+
+		context.SetProgress(0.36f, "Deserializing scene");
+		Ref<Scene> scene = SceneImporter::LoadScene(absoluteScenePath, handle);
+		if (!scene)
+			throw std::runtime_error("Start scene could not be deserialized.");
+
+		result->m_LoadedScene = scene;
+		result->m_LoadedScenePath = scenePath;
+		context.SetProgress(1.0f, "Scene loaded");
+	});
+}
+
+void EditorProjectManager::CompleteStartSceneLoad()
+{
+	WHP_PROFILE_FUNCTION();
+	if (!m_ProjectOpenResult)
+	{
+		FinishProjectOpen(false, "Start scene could not be loaded.");
+		return;
+	}
+
+	const Async::JobProgressSnapshot snapshot = m_ProjectOpenJob.Snapshot();
+	if (snapshot.m_Status == Async::JobStatus::Failed || !m_ProjectOpenResult->m_LoadedScene)
+	{
+		const std::string error = !snapshot.m_Error.empty() ? snapshot.m_Error : "Start scene load failed.";
+		WHP_EDITOR_WARN(std::string("[Project] Start scene could not be opened. Opening an empty scene. ") + error);
+		GetLayer().m_SceneManager.NewScene();
+		FinishProjectOpen(true, m_ProjectOpenResult->m_ScriptBuildSucceeded ? "Project opened, scene load failed." : "Project opened, script build and scene load failed.");
+		return;
+	}
+
+	if (snapshot.m_Status == Async::JobStatus::Cancelled)
+	{
+		GetLayer().m_SceneManager.NewScene();
+		FinishProjectOpen(true, "Project opened, scene load cancelled.");
+		return;
+	}
+
+	if (Ref<EditorAssetManager> editorAssetManager = Project::GetActive() ? Project::GetActive()->GetEditorAssetManager() : nullptr)
+		editorAssetManager->SetLoadedAsset(m_ProjectOpenResult->m_StartScene, Scene::Copy(m_ProjectOpenResult->m_LoadedScene));
+
+	GetLayer().m_SceneManager.OpenLoadedScene(
+		m_ProjectOpenResult->m_StartScene,
+		m_ProjectOpenResult->m_LoadedScenePath,
+		m_ProjectOpenResult->m_LoadedScene);
+	FinishProjectOpen(true, m_ProjectOpenResult->m_ScriptBuildSucceeded ? "Project opened." : "Project opened, script build failed.");
+}
+
+void EditorProjectManager::ConfigureLoadedProjectPanels()
+{
+	WHP_PROFILE_FUNCTION();
+	EditorLayer& layer = GetLayer();
+	if (!Project::GetActive())
+		return;
+
+	layer.m_ContentBrowserPanel = MakeScope<ContentBrowserPanel>(Project::GetActive());
+	layer.m_ContentBrowserPanel->SetAssetOpenCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetOpen(handle); });
+	layer.m_ContentBrowserPanel->SetAssetInspectCallback([this](AssetHandle handle) { return GetLayer().m_AssetInteractionManager.HandleContentBrowserAssetInspect(handle); });
+	ApplyPreferencesToContentBrowser();
+	layer.RegisterEditorShortcuts();
+}
+
+void EditorProjectManager::FinishProjectOpen(bool success, std::string status)
+{
+	WHP_PROFILE_FUNCTION();
+	if (success && Project::GetActive())
+	{
+		ConfigureLoadedProjectPanels();
+		GetLayer().m_ScriptManager.StartSourceWatcher();
+		AddRecentProject(Project::GetActive()->GetProjectPath());
+		m_ProjectLoader.SetLoaded(true);
+		WHP_EDITOR_INFO("[Project] Project open complete.");
+	}
+	else if (!success)
+	{
+		ResetEditorProjectState();
+	}
+
+	m_ProjectOpenJob = Async::JobHandle();
+	m_ProjectOpenResult.reset();
+	m_ProjectOpenStage = ProjectOpenStage::Idle;
+	m_ProjectLoader.SetBusy(false);
+	m_ProjectLoader.SetStatus(std::move(status));
+}
+
+void EditorProjectManager::CancelAsyncOperations(bool waitForCompletion)
+{
+	if (!m_ProjectOpenJob.IsValid())
+		return;
+
+	m_ProjectOpenJob.Cancel();
+	if (waitForCompletion)
+		m_ProjectOpenJob.Wait();
+	m_ProjectOpenJob = Async::JobHandle();
+	m_ProjectOpenResult.reset();
+	m_ProjectOpenStage = ProjectOpenStage::Idle;
+	m_ProjectLoader.SetBusy(false);
+}
+
+bool EditorProjectManager::IsProjectOperationRunning() const
+{
+	return m_ProjectOpenStage != ProjectOpenStage::Idle && m_ProjectOpenJob.IsValid();
+}
+
+void EditorProjectManager::DrawAsyncProgressOverlay()
+{
+	if (!IsProjectOperationRunning())
+		return;
+
+	const Async::JobProgressSnapshot snapshot = m_ProjectOpenJob.Snapshot();
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImVec2 overlaySize(520.0f, 174.0f);
+	ImGui::SetNextWindowPos(
+		ImVec2(viewport->WorkPos.x + (viewport->WorkSize.x - overlaySize.x) * 0.5f, viewport->WorkPos.y + viewport->WorkSize.y - overlaySize.y - 42.0f),
+		ImGuiCond_Always);
+	ImGui::SetNextWindowSize(overlaySize, ImGuiCond_Always);
+
+	const ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 7.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(18.0f, 16.0f));
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.035f, 0.050f, 0.060f, 0.97f));
+	ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.24f, 0.43f, 0.52f, 0.95f));
+	ImGui::Begin("##ProjectAsyncProgressOverlay", nullptr, flags);
+
+	const ImVec2 windowPos = ImGui::GetWindowPos();
+	const ImVec2 windowSize = ImGui::GetWindowSize();
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	drawList->AddRect(windowPos, ImVec2(windowPos.x + windowSize.x, windowPos.y + windowSize.y), IM_COL32(77, 132, 156, 220), 7.0f, 0, 1.2f);
+	drawList->AddRectFilled(windowPos, ImVec2(windowPos.x + 4.0f, windowPos.y + windowSize.y), IM_COL32(95, 169, 202, 230), 7.0f, ImDrawFlags_RoundCornersLeft);
+
+	const char* stageText = m_ProjectOpenStage == ProjectOpenStage::PreparingProject ? "Project Workspace" : "Start Scene";
+	ImGui::TextUnformatted(stageText);
+	ImGui::SameLine();
+	ImGui::TextDisabled("%s", AsyncJobStatusText(snapshot.m_Status));
+
+	if (m_ProjectOpenResult)
+		ImGui::TextDisabled("%s", CompactProgressPath(m_ProjectOpenResult->m_ProjectPath, 68).c_str());
+	else
+		ImGui::TextDisabled("Preparing workspace");
+
+	const std::string message = !snapshot.m_Message.empty() ? snapshot.m_Message : "Working...";
+	ImGui::Spacing();
+	ImGui::TextWrapped("%s", message.c_str());
+
+	ImGui::Spacing();
+	const float progress = std::clamp(snapshot.m_Progress, 0.0f, 1.0f);
+	ImGui::ProgressBar(progress, ImVec2(-1.0f, 11.0f), "");
+	ImGui::SameLine(0.0f, 10.0f);
+	ImGui::TextDisabled("%d%%", static_cast<int>(std::round(progress * 100.0f)));
+
+	if (!snapshot.m_Error.empty())
+		ImGui::TextColored(ImVec4(0.95f, 0.48f, 0.36f, 1.0f), "%s", snapshot.m_Error.c_str());
+
+	ImGui::SetCursorPosY(windowSize.y - 38.0f);
+	ImGui::BeginDisabled(snapshot.m_Status == Async::JobStatus::Cancelled);
+	if (ImGui::Button("Cancel", ImVec2(96.0f, 26.0f)))
+	{
+		m_ProjectOpenJob.Cancel();
+		m_ProjectLoader.SetStatus("Cancelling project open...");
+	}
+	ImGui::EndDisabled();
+
+	ImGui::End();
+	ImGui::PopStyleColor(2);
+	ImGui::PopStyleVar(2);
 }
 
 void EditorProjectManager::ResetEditorProjectState()

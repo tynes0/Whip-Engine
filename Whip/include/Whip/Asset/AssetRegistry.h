@@ -90,7 +90,9 @@ public:
 	AssetType TypeOf(AssetHandle handle) const;
 
 	bool Serialize() const;
+	bool Serialize(const std::filesystem::path& path) const;
 	bool Deserialize();
+	bool Deserialize(const std::filesystem::path& path);
 
 	static bool IsNullIt(Iterator it);
 	static bool IsNullIt(ConstIterator it);

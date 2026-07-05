@@ -1,6 +1,7 @@
 #include <WhipPch.h>
 #include <Whip/Core/Application.h>
 
+#include <Whip/Core/AsyncJobSystem.h>
 #include <Whip/Render/Renderer.h>
 #include <Whip/Utils/PlatformUtils.h>
 #include <Whip/Scripting/ScriptEngine.h>
@@ -46,6 +47,7 @@ Application::~Application()
 		item->OnDetach();
 	m_LayerStack.Clear();
 
+	Async::JobSystem::Get().Shutdown();
 	ScriptEngine::Shutdown();
 	Project::SetActive(nullptr);
 	Renderer::Shutdown();

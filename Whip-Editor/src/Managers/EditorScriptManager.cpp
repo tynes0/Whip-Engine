@@ -750,15 +750,33 @@ bool EditorScriptManager::BuildProjectScripts()
 	if (!Project::GetActive())
 		return false;
 
-	const ProjectConfig& config = Project::GetActive()->GetConfig();
+	return BuildProjectScriptsForProject(Project::GetActive(), [this](const std::string& message, bool warning, bool failure)
+	{
+		SetStatus(message, warning, failure);
+	});
+}
+
+bool EditorScriptManager::BuildProjectScriptsForProject(const Ref<Project>& project, const ScriptBuildStatusCallback& statusCallback)
+{
+	WHP_PROFILE_FUNCTION();
+	if (!project)
+		return false;
+
+	auto setStatus = [&statusCallback](const std::string& message, bool warning = false, bool failure = false)
+	{
+		if (statusCallback)
+			statusCallback(message, warning, failure);
+	};
+
+	const ProjectConfig& config = project->GetConfig();
 	if (config.m_ScriptModulePath.empty())
 	{
 		WHP_EDITOR_INFO("[Script Build] Project has no script module configured.");
-		SetStatus("No script module", true);
+		setStatus("No script module", true);
 		return true;
 	}
 
-	const std::filesystem::path scriptsDirectory = Project::GetActiveAssetDirectory() / "Scripts";
+	const std::filesystem::path scriptsDirectory = project->GetAssetDirectory() / "Scripts";
 	const std::string scriptWorkspaceName = GetScriptWorkspaceName(config);
 	WriteScriptDebuggerContract(scriptsDirectory, config, scriptWorkspaceName);
 	const std::filesystem::path preferredProjectFile = scriptsDirectory / (scriptWorkspaceName + ".csproj");
@@ -802,7 +820,7 @@ bool EditorScriptManager::BuildProjectScripts()
 	if (scriptProjectFile.empty())
 	{
 		WHP_EDITOR_WARN(std::string("[Script Build] No C# Project file found under ") + scriptsDirectory.string() + ". Reloading the existing assembly if it exists.");
-		SetStatus("No C# Project found", true);
+		setStatus("No C# Project found", true);
 		return true;
 	}
 
@@ -810,22 +828,22 @@ bool EditorScriptManager::BuildProjectScripts()
 	if (buildCommand.command.empty())
 	{
 		WHP_EDITOR_WARN("[Script Build] Could not find MSBuild.exe or dotnet. Set WHIP_MSBUILD_PATH or add MSBuild/dotnet to PATH. Reloading the existing assembly if it exists.");
-		SetStatus("MSBuild/dotnet not found", true, true);
+		setStatus("MSBuild/dotnet not found", true, true);
 		return true;
 	}
 
 	WHP_EDITOR_INFO(std::string("[Script Build] Building ") + scriptProjectFile.string() + " with " + buildCommand.toolName);
-	SetStatus("Building scripts...");
+	setStatus("Building scripts...");
 	const int result = RunCommandAndLogOutput(buildCommand.command);
 	if (result != 0)
 	{
 		WHP_EDITOR_ERROR(std::string("[Script Build] Build failed with exit code ") + std::to_string(result) + ".");
-		SetStatus("Script build failed", false, true);
+		setStatus("Script build failed", false, true);
 		return false;
 	}
 
 	WHP_EDITOR_INFO("[Script Build] Build succeeded.");
-	SetStatus("Scripts built");
+	setStatus("Scripts built");
 	return true;
 }
 

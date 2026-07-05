@@ -1370,7 +1370,7 @@ void EditorLayer::OnAttach()
 		auto projectFilePath = commandLineArgs[1];
 		WHP_EDITOR_INFO(std::string("[Project] Opening project from command line: ") + projectFilePath);
 		if (m_ProjectManager.OpenProject(projectFilePath))
-			m_ProjectManager.GetLoader().SetLoaded(true);
+			m_ProjectManager.GetLoader().SetLoaded(Project::GetActive() != nullptr);
 	}
 	// camera
     m_EditorCamera = EditorCamera(30.0f, 1.778f, 0.1f, 1000.0f);
@@ -1405,6 +1405,7 @@ void EditorLayer::OnAttach()
 void EditorLayer::OnDetach()
 {
 	WHP_PROFILE_FUNCTION();
+	m_ProjectManager.CancelAsyncOperations(true);
 	m_SceneManager.WriteRecoverySnapshot("Editor shutdown");
 	m_ScriptManager.StopSourceWatcher();
 	if (m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate)
@@ -1418,6 +1419,7 @@ void EditorLayer::OnUpdate(Timestep ts)
 {
 	WHP_PROFILE_FUNCTION();
 	m_Ts = ts;
+	m_ProjectManager.UpdateAsyncOperations();
 	m_ScriptManager.ProcessSourceChanges(m_SceneManager.State() == SceneState::Edit);
 	if (m_SceneManager.IsSceneDirty() && m_SceneManager.State() == SceneState::Edit)
 	{
@@ -1510,6 +1512,7 @@ void EditorLayer::OnImGuiRender()
 		ImGui::Begin("Whip Hub Host", nullptr, hubHostFlags);
 		DrawEditorShellTitlebar(false);
 		m_ProjectManager.GetLoader().Run();
+		m_ProjectManager.DrawAsyncProgressOverlay();
 		ImGui::End();
 		ImGui::PopStyleColor();
 		ImGui::PopStyleVar(3);
@@ -1714,6 +1717,7 @@ void EditorLayer::OnImGuiRender()
 		|| (m_ContentBrowserPanel && m_ContentBrowserPanel->ConsumePreferencesDirty()))
 		m_ProjectManager.SaveEditorPreferences();
 	m_PopupHandler.OnImGuiRender();
+	m_ProjectManager.DrawAsyncProgressOverlay();
 
 }
 _WHP_PRAGMA_WARNING(pop)

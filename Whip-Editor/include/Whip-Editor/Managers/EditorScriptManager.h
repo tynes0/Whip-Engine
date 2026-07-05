@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <functional>
 #include <mutex>
 #include <string>
 
@@ -37,6 +38,8 @@ public:
 	void SetStatus(const std::string& message, bool warning = false, bool failure = false);
 	const Status& GetStatus() const;
 
+	using ScriptBuildStatusCallback = std::function<void(const std::string& message, bool warning, bool failure)>;
+	static bool BuildProjectScriptsForProject(const Ref<Project>& project, const ScriptBuildStatusCallback& statusCallback = {});
 	static bool WriteProjectFiles(const std::filesystem::path& projectDirectory, const std::string& projectFolderName);
 
 private:

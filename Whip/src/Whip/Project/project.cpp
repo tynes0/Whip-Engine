@@ -59,7 +59,7 @@ Ref<Project> Project::NewProject()
 	return s_ActiveProject;
 }
 
-Ref<Project> Project::Load(const std::filesystem::path& path)
+Ref<Project> Project::LoadDetached(const std::filesystem::path& path)
 {
 	WHP_CORE_INFO("[Project] Load begin: {0}", path.string());
 	Ref<Project> result = MakeRef<Project>();
@@ -70,7 +70,6 @@ Ref<Project> Project::Load(const std::filesystem::path& path)
 		WHP_CORE_INFO("[Project] Project file deserialized.");
 		result->m_ProjectPath = path;
 		result->m_ProjectDirectory = path.parent_path();
-		s_ActiveProject = result;
 
 		WHP_CORE_INFO("[Project] Migrating Asset registry extension if needed.");
 		if (MigrateAssetRegistryExtension(result))
@@ -81,20 +80,30 @@ Ref<Project> Project::Load(const std::filesystem::path& path)
 
 		WHP_CORE_INFO("[Project] Loading editor Asset registry.");
 		std::shared_ptr<EditorAssetManager> editorAssetManager = MakeRefTagged<EditorAssetManager>(memory::MemoryTag::Asset);
-		editorAssetManager->DeserializeAssetRegistry();
-		s_ActiveProject->m_EditorAssetManager = editorAssetManager;
+		editorAssetManager->DeserializeAssetRegistry(result->GetAssetRegistryPath());
+		result->m_EditorAssetManager = editorAssetManager;
 		WHP_CORE_INFO("[Project] Editor Asset registry loaded.");
 
 		std::shared_ptr<RuntimeAssetManager> runtimeAssetManager = MakeRefTagged<RuntimeAssetManager>(memory::MemoryTag::Asset);
 		runtimeAssetManager->SetEditorAssetManager(editorAssetManager);
-		s_ActiveProject->m_RuntimeAssetManager = runtimeAssetManager;
+		result->m_RuntimeAssetManager = runtimeAssetManager;
 
-		s_ActiveProject->m_Loaded = true;
+		result->m_Loaded = true;
 		WHP_CORE_INFO("[Project] Load complete.");
-		return s_ActiveProject;
+		return result;
 	}
 	WHP_CORE_WARN("[Project] Load failed during Project file deserialization: {0}", path.string());
 	return nullptr;
+}
+
+Ref<Project> Project::Load(const std::filesystem::path& path)
+{
+	Ref<Project> project = LoadDetached(path);
+	if (!project)
+		return nullptr;
+
+	s_ActiveProject = project;
+	return s_ActiveProject;
 }
 
 bool Project::SaveActive()

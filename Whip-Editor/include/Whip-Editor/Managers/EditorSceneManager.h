@@ -42,6 +42,7 @@ public:
 
 	void NewScene();
 	void OpenScene(AssetHandle handle);
+	void OpenLoadedScene(AssetHandle handle, std::filesystem::path scenePath, Ref<Scene> scene);
 	void CloseScene();
 	void SaveScene();
 	void SaveSceneAs();

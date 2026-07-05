@@ -481,8 +481,12 @@ AssetType AssetRegistry::TypeOf(AssetHandle handle) const
 bool AssetRegistry::Serialize() const
 {
 	WHP_PROFILE_FUNCTION();
-	auto path = Project::GetActiveAssetRegistryPath();
+	return Serialize(Project::GetActiveAssetRegistryPath());
+}
 
+bool AssetRegistry::Serialize(const std::filesystem::path& path) const
+{
+	WHP_PROFILE_FUNCTION();
 	YAML::Emitter out;
 	{
 		out << YAML::BeginMap; // Root
@@ -517,7 +521,13 @@ bool AssetRegistry::Serialize() const
 bool AssetRegistry::Deserialize()
 {
 	WHP_PROFILE_FUNCTION();
-	auto path = Project::GetActiveAssetRegistryPath();
+	return Deserialize(Project::GetActiveAssetRegistryPath());
+}
+
+bool AssetRegistry::Deserialize(const std::filesystem::path& registryPath)
+{
+	WHP_PROFILE_FUNCTION();
+	auto path = registryPath;
 	std::error_code fileError;
 	if (!std::filesystem::exists(path, fileError) && FileExtensions::ExtensionEquals(path, FileExtensions::AssetRegistry))
 	{

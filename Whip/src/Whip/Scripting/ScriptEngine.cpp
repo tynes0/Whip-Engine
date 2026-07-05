@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
-#include <cstdlib>
+#include <ranges>
 #include <unordered_set>
 #include <vector>
 
@@ -255,51 +255,45 @@ namespace
 		}
 	}
 
-}
+	struct ScriptEngineData
+	{
+		MonoDomain* m_RootDomain = nullptr;
+		MonoDomain* m_AppDomain = nullptr;
 
-struct ScriptEngineData
-{
-	MonoDomain* m_RootDomain = nullptr;
-	MonoDomain* m_AppDomain = nullptr;
+		MonoAssembly* m_CoreAssembly = nullptr;
+		MonoImage* m_CoreAssemblyImage = nullptr;
 
-	MonoAssembly* m_CoreAssembly = nullptr;
-	MonoImage* m_CoreAssemblyImage = nullptr;
+		MonoAssembly* m_AppAssembly = nullptr;
+		MonoImage* m_AppAssemblyImage = nullptr;
 
-	MonoAssembly* m_AppAssembly = nullptr;
-	MonoImage* m_AppAssemblyImage = nullptr;
+		std::filesystem::path m_CoreAssemblyFilepath;
+		std::filesystem::path m_AppAssemblyFilepath;
+		std::filesystem::path m_AppAssemblyRuntimeFilepath;
 
-	std::filesystem::path m_CoreAssemblyFilepath;
-	std::filesystem::path m_AppAssemblyFilepath;
-	std::filesystem::path m_AppAssemblyRuntimeFilepath;
+		ScriptClass m_EntityClass;
 
-	ScriptClass m_EntityClass;
+		std::unordered_map<std::string, Ref<ScriptClass>> m_EntityClasses;
+		std::unordered_map<UUID, Ref<ScriptInstance>> m_EntityInstances;
+		std::unordered_map<UUID, ScriptFieldMap> m_EntityScriptFields;
+		std::unordered_map<std::string, ScriptFieldMap> m_BaseEntityScriptFields;
+		std::unordered_set<uint64_t> m_MissingInstanceWarnings;
 
-	std::unordered_map<std::string, Ref<ScriptClass>> m_EntityClasses;
-	std::unordered_map<UUID, Ref<ScriptInstance>> m_EntityInstances;
-	std::unordered_map<UUID, ScriptFieldMap> m_EntityScriptFields;
-	std::unordered_map<std::string, ScriptFieldMap> m_BaseEntityScriptFields;
-	std::unordered_set<uint64_t> m_MissingInstanceWarnings;
+		Scope<filewatch::FileWatch<std::string>> m_AppAssemblyWatcher;
+		int m_DebuggerPort = 2550;
+		bool m_DebuggerSuspendOnStart = false;
+		bool m_AssemblyReloadingPending = false;
+		bool m_IsShuttingDown = false;
+		bool m_EnableDebugging = false;
 
-	Scope<filewatch::FileWatch<std::string>> m_AppAssemblyWatcher;
-	bool m_AssemblyReloadingPending = false;
-	bool m_ShouldReloadAssembly = false;
-	bool m_IsShuttingDown = false;
+		std::string m_DebuggerHost = "127.0.0.1";
+		std::string m_DebuggerLogFile = "MonoDebugger.log";
 
-	bool m_EnableDebugging = false;
-	std::string m_DebuggerHost = "127.0.0.1";
-	int m_DebuggerPort = 2550;
-	bool m_DebuggerSuspendOnStart = false;
-	std::string m_DebuggerLogFile = "MonoDebugger.log";
+		// Runtime
+		Scene* m_SceneContext = nullptr;
+		AssetHandle m_RuntimeActiveSceneHandle = 0;
+		RuntimeSceneTransitionRequest m_RuntimeSceneTransition;
+	};
 
-	// Runtime
-	Scene* m_SceneContext = nullptr;
-	AssetHandle m_RuntimeActiveSceneHandle = 0;
-	RuntimeSceneTransitionRequest m_RuntimeSceneTransition;
-};
-
-
-namespace
-{
 	ScriptEngineData* s_ScriptEngineData = nullptr;
 
 	bool ParseBooleanOverride(std::string_view value, bool fallback)
@@ -395,7 +389,7 @@ namespace
 		MonoObject* entityObject = s_ScriptEngineData->m_EntityClass.Instantiate();
 		MonoMethod* constructor = s_ScriptEngineData->m_EntityClass.GetMethod(".ctor", 1);
 		void* param = &entityId;
-		s_ScriptEngineData->m_EntityClass.InvokeMethod(entityObject, constructor, &param);
+		ScriptClass::InvokeMethod(entityObject, constructor, &param);
 		return entityObject;
 	}
 
@@ -547,7 +541,7 @@ ScriptInstance::ScriptInstance(const Ref<ScriptClass>& scriptClass, Entity entit
 	// Call Entity Constructor
 	{
 		void* param = &m_EntityId;
-		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::Constructor], &param, MakeMethodContext("Entity.ctor"));
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::Constructor], &param, MakeMethodContext("Entity.ctor"));
 	}
 }
 
@@ -555,7 +549,7 @@ void ScriptInstance::InvokeOnCreate()
 {
 	WHP_PROFILE_FUNCTION();
 	if (m_Instance && m_Methods[EntityMethodType::OnCreate])
-		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnCreate], nullptr, MakeMethodContext("OnCreate"));
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnCreate], nullptr, MakeMethodContext("OnCreate"));
 }
 
 void ScriptInstance::InvokeOnUpdate(float ts)
@@ -564,7 +558,7 @@ void ScriptInstance::InvokeOnUpdate(float ts)
 	if (m_Instance && m_Methods[EntityMethodType::OnUpdate])
 	{
 		void* param = &ts;
-		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUpdate], &param, MakeMethodContext("OnUpdate"));
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUpdate], &param, MakeMethodContext("OnUpdate"));
 	}
 }
 
@@ -572,7 +566,7 @@ void ScriptInstance::InvokeOnDestroy()
 {
 	WHP_PROFILE_FUNCTION();
 	if (m_Instance && m_Methods[EntityMethodType::OnDestroy])
-		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnDestroy], nullptr, MakeMethodContext("OnDestroy"));
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnDestroy], nullptr, MakeMethodContext("OnDestroy"));
 }
 
 void ScriptInstance::InvokeOnColliderEnter(std::string_view tag)
@@ -583,7 +577,7 @@ void ScriptInstance::InvokeOnColliderEnter(std::string_view tag)
 		const std::string tagString(tag);
 		MonoString* monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, tagString.c_str());
 		void* param = monoString;
-		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnColliderEnter], &param, MakeMethodContext("OnColliderEnter"));
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnColliderEnter], &param, MakeMethodContext("OnColliderEnter"));
 	}
 }
 
@@ -595,7 +589,7 @@ void ScriptInstance::InvokeOnColliderExit(std::string_view tag)
 		const std::string tagString(tag);
 		MonoString* monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, tagString.c_str());
 		void* param = monoString;
-		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnColliderExit], &param, MakeMethodContext("OnColliderExit"));
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnColliderExit], &param, MakeMethodContext("OnColliderExit"));
 	}
 }
 
@@ -607,7 +601,7 @@ void ScriptInstance::InvokeOnAnimationEvent(std::string_view eventName)
 		const std::string eventString(eventName);
 		MonoString* monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, eventString.c_str());
 		void* param = monoString;
-		m_ScriptClass->InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnAnimationEvent], &param, MakeMethodContext("OnAnimationEvent"));
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnAnimationEvent], &param, MakeMethodContext("OnAnimationEvent"));
 	}
 }
 
@@ -630,7 +624,7 @@ void ScriptInstance::InvokeMethod(EntityMethodType methodType, const Payload& pa
 		param = monoString;
 	}
 
-	m_ScriptClass->InvokeMethod(m_Instance, m_Methods[methodType], param ? &param : nullptr, MakeMethodContext(frenum::to_string_view(methodType)));
+	ScriptClass::InvokeMethod(m_Instance, m_Methods[methodType], param ? &param : nullptr, MakeMethodContext(frenum::to_string_view(methodType)));
 }
 
 Ref<ScriptClass> ScriptInstance::GetScriptClass()
@@ -1058,14 +1052,14 @@ void AssemblyManager::LoadAssemblyClasses()
 		mono_metadata_decode_row(typeDefinitionsTable, i, cols, MONO_TYPEDEF_SIZE);
 
 		const char* nameSpace = mono_metadata_string_heap(s_ScriptEngineData->m_AppAssemblyImage, cols[MONO_TYPEDEF_NAMESPACE]);
-		const char* className = mono_metadata_string_heap(s_ScriptEngineData->m_AppAssemblyImage, cols[MONO_TYPEDEF_NAME]);
+		const char* name = mono_metadata_string_heap(s_ScriptEngineData->m_AppAssemblyImage, cols[MONO_TYPEDEF_NAME]);
 		std::string fullName;
-		if (std::strlen(nameSpace) != 0)
-			fullName = nps::formatter::format("{0}.{1}", nameSpace, className);
+		if (::strlen(nameSpace) != 0)
+			fullName = nps::formatter::format("{0}.{1}", nameSpace, name);
 		else
-			fullName = className;
+			fullName = name;
 
-		MonoClass* monoClass = mono_class_from_name(s_ScriptEngineData->m_AppAssemblyImage, nameSpace, className);
+		MonoClass* monoClass = mono_class_from_name(s_ScriptEngineData->m_AppAssemblyImage, nameSpace, name);
 
 		if (monoClass == nullptr)
 			continue; // probably class in class
@@ -1077,11 +1071,11 @@ void AssemblyManager::LoadAssemblyClasses()
 		if (!isEntity)
 			continue;
 
-		Ref<ScriptClass> scriptClass = MakeRef<ScriptClass>(nameSpace, className);
+		Ref<ScriptClass> scriptClass = MakeRef<ScriptClass>(nameSpace, name);
 		s_ScriptEngineData->m_EntityClasses[fullName] = scriptClass;
 
 		int fieldCount = mono_class_num_fields(monoClass);
-		WHP_CORE_WARN("[Script Engine] {0} has {1} field(s)", className, fieldCount);
+		WHP_CORE_WARN("[Script Engine] {0} has {1} field(s)", name, fieldCount);
 		void* fieldIterator = nullptr;
 		while (MonoClassField* field = mono_class_get_fields(monoClass, &fieldIterator))
 		{
@@ -1216,8 +1210,8 @@ void ScriptEngine::OnRuntimeStop()
 void ScriptEngine::InvokeAllOnCreateMethods()
 {
 	WHP_PROFILE_FUNCTION();
-	for (auto& instance : s_ScriptEngineData->m_EntityInstances)
-		instance.second->InvokeOnCreate();
+	for (auto& val : s_ScriptEngineData->m_EntityInstances | std::views::values)
+		val->InvokeOnCreate();
 }
 
 void ScriptEngine::InvokeAllOnDestroyMethods()
@@ -1228,7 +1222,7 @@ void ScriptEngine::InvokeAllOnDestroyMethods()
 
 	std::vector<Ref<ScriptInstance>> instances;
 	instances.reserve(s_ScriptEngineData->m_EntityInstances.size());
-	for (auto& [entityId, instance] : s_ScriptEngineData->m_EntityInstances)
+	for (auto& instance : s_ScriptEngineData->m_EntityInstances | std::views::values)
 		instances.push_back(instance);
 
 	for (const Ref<ScriptInstance>& instance : instances)

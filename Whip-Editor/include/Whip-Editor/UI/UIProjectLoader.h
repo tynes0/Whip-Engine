@@ -82,15 +82,22 @@ namespace UI
 			m_Loaded = loaded;
 		}
 
+		void SetBusy(bool busy)
+		{
+			m_Busy = busy;
+		}
+
 		void SetStatus(std::string status)
 		{
 			m_Status = std::move(status);
 		}
 
 		bool Loaded() const { return m_Loaded; }
+		bool Busy() const { return m_Busy; }
 		void Reset()
 		{
 			m_Loaded = false;
+			m_Busy = false;
 			m_Status.clear();
 		}
 
@@ -169,12 +176,12 @@ namespace UI
 			ImGui::TextDisabled("Open an existing project or scaffold a new one.");
 			ImGui::Spacing();
 
-			ImGui::BeginDisabled(!m_LoadProjectCallback);
+			ImGui::BeginDisabled(!m_LoadProjectCallback || m_Busy);
 			if (DrawHubActionButton("Open Project", "Browse for a .whipproj file", true))
 				Application::Get().SubmitToNextTick([this]() { OnProjectAction(m_LoadProjectCallback); });
 			ImGui::EndDisabled();
 
-			ImGui::BeginDisabled(!m_CreateProjectCallback);
+			ImGui::BeginDisabled(!m_CreateProjectCallback || m_Busy);
 			if (DrawHubActionButton("New Project", "Choose template, scene, and C# workspace", false))
 				OpenNewProjectWizard();
 			ImGui::EndDisabled();
@@ -244,7 +251,7 @@ namespace UI
 					const bool rowHovered = ImGui::IsItemHovered();
 					if (rowHovered)
 						drawList->AddRect(rowPos, rowEnd, IM_COL32(91, 147, 180, 220), 4.0f, 0, 1.2f);
-					if (rowHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && m_OpenRecentProjectCallback)
+					if (rowHovered && !m_Busy && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && m_OpenRecentProjectCallback)
 						Application::Get().SubmitToNextTick([this, projectPath]() { OnProjectAction([this, projectPath]() { return m_OpenRecentProjectCallback(projectPath); }); });
 
 					ImGui::SetCursorScreenPos(ImVec2(rowPos.x + 18.0f, rowPos.y + 12.0f));
@@ -258,12 +265,12 @@ namespace UI
 					ImGui::TextColored(stateColor, "%s", stateText);
 
 					ImGui::SetCursorScreenPos(ImVec2(rowEnd.x - 156.0f, rowPos.y + 19.0f));
-					ImGui::BeginDisabled(!m_OpenRecentProjectCallback);
+					ImGui::BeginDisabled(!m_OpenRecentProjectCallback || m_Busy);
 					if (ImGui::Button("Open", ImVec2(68.0f, 30.0f)))
 						Application::Get().SubmitToNextTick([this, projectPath]() { OnProjectAction([this, projectPath]() { return m_OpenRecentProjectCallback(projectPath); }); });
 					ImGui::EndDisabled();
 					ImGui::SameLine();
-					ImGui::BeginDisabled(!m_ForgetRecentProjectCallback && !m_DeleteRecentProjectCallback);
+					ImGui::BeginDisabled((!m_ForgetRecentProjectCallback && !m_DeleteRecentProjectCallback) || m_Busy);
 					if (ImGui::Button("Manage", ImVec2(76.0f, 30.0f)))
 						RequestRecentProjectDelete(projectPath);
 					ImGui::EndDisabled();
@@ -564,7 +571,7 @@ namespace UI
 						m_Status.clear();
 						if (m_CreateProjectCallback && m_CreateProjectCallback(settings))
 						{
-							m_Loaded = settings.m_OpenAfterCreate;
+							m_Loaded = Project::GetActive() != nullptr;
 							if (!settings.m_OpenAfterCreate)
 								m_Status = "Project created.";
 							m_NewProjectModalOpen = false;
@@ -683,12 +690,12 @@ namespace UI
 
 		void OnProjectAction(const Callback& action)
 		{
-			if (!action)
+			if (!action || m_Busy)
 				return;
 
 			m_Status.clear();
 			if (action())
-				m_Loaded = true;
+				m_Loaded = Project::GetActive() != nullptr;
 		}
 
 		bool OnProjectManagementAction(const ProjectCallback& action, const std::filesystem::path& path, const char* successStatus)
@@ -712,6 +719,7 @@ namespace UI
 		ProjectCallback m_DeleteRecentProjectCallback;
 		std::vector<std::filesystem::path> m_RecentProjects;
 		std::string m_Status;
+		bool m_Busy = false;
 		bool m_NewProjectModalOpen = false;
 		bool m_NewProjectPopupRequested = false;
 		int m_NewProjectPopupRequestFrame = -1;

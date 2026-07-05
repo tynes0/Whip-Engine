@@ -233,6 +233,22 @@ bool EditorAssetManager::UpdateAssetFilepath(AssetHandle handle, const std::file
 	return result;
 }
 
+bool EditorAssetManager::UpdateAssetFilepath(AssetHandle handle, const std::filesystem::path& filepath, const std::filesystem::path& registryPath)
+{
+	WHP_PROFILE_FUNCTION();
+	if (!IsAssetHandleValid(handle))
+		return false;
+
+	const std::filesystem::path normalizedFilepath = NormalizeAssetPath(filepath);
+	if (normalizedFilepath.empty())
+		return false;
+
+	m_AssetRegistry.Get(handle).m_Filepath = normalizedFilepath;
+	bool result = false;
+	SerializeAssetRegistry(registryPath, &result);
+	return result;
+}
+
 size_t EditorAssetManager::UpdateAssetDirectoryPaths(const std::filesystem::path& oldDirectory, const std::filesystem::path& newDirectory)
 {
 	WHP_PROFILE_FUNCTION();
@@ -318,7 +334,13 @@ const AssetRegistry& EditorAssetManager::GetAssetRegistry() const
 void EditorAssetManager::SerializeAssetRegistry(bool* result)
 {
 	WHP_PROFILE_FUNCTION();
-	if (!m_AssetRegistry.Serialize())
+	SerializeAssetRegistry(Project::GetActiveAssetRegistryPath(), result);
+}
+
+void EditorAssetManager::SerializeAssetRegistry(const std::filesystem::path& registryPath, bool* result)
+{
+	WHP_PROFILE_FUNCTION();
+	if (!m_AssetRegistry.Serialize(registryPath))
 	{
 		WHP_CORE_ERROR("[Asset Manager] Asset serializing failed!");
 		if (result)
@@ -334,7 +356,13 @@ void EditorAssetManager::SerializeAssetRegistry(bool* result)
 bool EditorAssetManager::DeserializeAssetRegistry()
 {
 	WHP_PROFILE_FUNCTION();
-	return m_AssetRegistry.Deserialize();
+	return DeserializeAssetRegistry(Project::GetActiveAssetRegistryPath());
+}
+
+bool EditorAssetManager::DeserializeAssetRegistry(const std::filesystem::path& registryPath)
+{
+	WHP_PROFILE_FUNCTION();
+	return m_AssetRegistry.Deserialize(registryPath);
 }
 
 _WHIP_END
