@@ -52,6 +52,7 @@ void WhipPlayerLayer::OnDetach()
 
 void WhipPlayerLayer::OnUpdate(whip::Timestep timestep)
 {
+	whip::Input::SetRuntimeInputEnabled(m_SceneLoaded);
 	if (!m_SceneLoaded || !m_RuntimeScene || !m_Framebuffer)
 		return;
 
@@ -90,6 +91,10 @@ void WhipPlayerLayer::OnImGuiRender()
 
 	const ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
 	m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
+	const ImVec2 viewportMin = ImGui::GetCursorScreenPos();
+	const ImVec2 viewportMax = ImVec2(viewportMin.x + viewportPanelSize.x, viewportMin.y + viewportPanelSize.y);
+	whip::Input::SetViewportState(true, true, { viewportMin.x, viewportMin.y }, { viewportMax.x, viewportMax.y });
+	whip::Input::SetRuntimeInputEnabled(m_SceneLoaded);
 
 	if (!m_FatalErrorTitle.empty())
 	{

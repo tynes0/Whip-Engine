@@ -35,6 +35,7 @@ struct ApplicationSpecification
 	WindowProps m_Properties;
 	std::string m_WorkingDirectory;
 	ApplicationCommandLineArgs m_CommandLineArgs;
+	ApplicationMode m_Mode = ApplicationMode::Runtime;
 };
 
 class Application
@@ -55,6 +56,7 @@ public:
 	WHP_NODISCARD ImGuiLayer* GetImGuiLayer();
 	WHP_NODISCARD const ImGuiLayer* GetImGuiLayer() const;
 	WHP_NODISCARD ApplicationSpecification GetSpecification() const;
+	WHP_NODISCARD ApplicationMode GetMode() const;
 	WHP_NODISCARD uint64_t GetTickCount() const;
 	WHP_NODISCARD std::thread::id GetMainThreadId() const;
 	WHP_NODISCARD bool IsMainThread() const;

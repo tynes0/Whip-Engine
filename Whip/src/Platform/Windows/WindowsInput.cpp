@@ -6,135 +6,268 @@
 
 _WHIP_START
 
-struct InputData
+namespace
 {
-	static constexpr size_t MaxKeys = 512;
-	static constexpr size_t MaxButtons = 8;
-	std::bitset<MaxKeys> m_PreviousKeyStates;
-	std::bitset<MaxButtons> m_PreviousMouseButtonStates;
-};
+	struct InputData
+	{
+		static constexpr size_t MaxKeys = 512;
+		static constexpr size_t MaxButtons = 8;
 
-static InputData s_InputData;
+		std::bitset<MaxKeys> m_PreviousKeyStates;
+		std::bitset<MaxKeys> m_CurrentKeyStates;
+		std::bitset<MaxButtons> m_PreviousMouseButtonStates;
+		std::bitset<MaxButtons> m_CurrentMouseButtonStates;
+
+		glm::vec2 m_PreviousMousePosition{ 0.0f };
+		glm::vec2 m_CurrentMousePosition{ 0.0f };
+		glm::vec2 m_MouseDelta{ 0.0f };
+		glm::vec2 m_ViewportMin{ 0.0f };
+		glm::vec2 m_ViewportMax{ 0.0f };
+
+		float m_ScrollDeltaX = 0.0f;
+		float m_ScrollDeltaY = 0.0f;
+		bool m_MouseSampled = false;
+		bool m_ViewportHovered = true;
+		bool m_ViewportFocused = true;
+		bool m_RuntimeInputEnabled = true;
+	};
+
+	static InputData s_InputData;
+
+	GLFWwindow* GetGLFWWindow()
+	{
+		return static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+	}
+
+	bool IsValidKey(int keyCode)
+	{
+		return keyCode >= 0 && static_cast<size_t>(keyCode) < InputData::MaxKeys;
+	}
+
+	bool IsValidButton(int button)
+	{
+		return button >= 0 && static_cast<size_t>(button) < InputData::MaxButtons;
+	}
+}
+
+void Input::BeginFrame()
+{
+	GLFWwindow* window = GetGLFWWindow();
+	if (!window)
+		return;
+
+	s_InputData.m_PreviousKeyStates = s_InputData.m_CurrentKeyStates;
+	for (size_t key = 0; key < InputData::MaxKeys; ++key)
+	{
+		const int state = glfwGetKey(window, static_cast<int>(key));
+		s_InputData.m_CurrentKeyStates[key] = state == GLFW_PRESS || state == GLFW_REPEAT;
+	}
+
+	s_InputData.m_PreviousMouseButtonStates = s_InputData.m_CurrentMouseButtonStates;
+	for (size_t button = 0; button < InputData::MaxButtons; ++button)
+	{
+		const int state = glfwGetMouseButton(window, static_cast<int>(button));
+		s_InputData.m_CurrentMouseButtonStates[button] = state == GLFW_PRESS;
+	}
+
+	double posX = 0.0;
+	double posY = 0.0;
+	glfwGetCursorPos(window, &posX, &posY);
+	const glm::vec2 position{ static_cast<float>(posX), static_cast<float>(posY) };
+	if (!s_InputData.m_MouseSampled)
+	{
+		s_InputData.m_PreviousMousePosition = position;
+		s_InputData.m_MouseSampled = true;
+	}
+	else
+	{
+		s_InputData.m_PreviousMousePosition = s_InputData.m_CurrentMousePosition;
+	}
+
+	s_InputData.m_CurrentMousePosition = position;
+	s_InputData.m_MouseDelta = s_InputData.m_CurrentMousePosition - s_InputData.m_PreviousMousePosition;
+	s_InputData.m_ScrollDeltaX = Application::Get().GetWindow().GetScrollDeltaX();
+	s_InputData.m_ScrollDeltaY = Application::Get().GetWindow().GetScrollDeltaY();
+}
 
 WHP_NODISCARD bool Input::IsKeyPressed(int keyCode)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-	int state = glfwGetKey(window, keyCode);
-	bool isPressed = (state == GLFW_PRESS);
-
-	// Return true only on the first frame the key is pressed
-	if (isPressed && !s_InputData.m_PreviousKeyStates[keyCode])
-	{
-		s_InputData.m_PreviousKeyStates[keyCode] = true;
-		return true;
-	}
-
-	// Keep the current key state while suppressing repeated pressed checks
-	s_InputData.m_PreviousKeyStates[keyCode] = isPressed;
-	return false;
+	if (!IsValidKey(keyCode))
+		return false;
+	return s_InputData.m_CurrentKeyStates[keyCode] && !s_InputData.m_PreviousKeyStates[keyCode];
 }
 
 WHP_NODISCARD bool Input::IsKeyReleased(int keyCode)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-	int state = glfwGetKey(window, keyCode);
-	bool isReleased = (state == GLFW_RELEASE);
-
-	// Return true only on the first frame the key is released
-	if (isReleased && s_InputData.m_PreviousKeyStates[keyCode])
-	{
-		s_InputData.m_PreviousKeyStates[keyCode] = false;
-		return true;
-	}
-
-	// Keep the current key state while suppressing repeated released checks
-	s_InputData.m_PreviousKeyStates[keyCode] = !isReleased;
-	return false;
+	if (!IsValidKey(keyCode))
+		return false;
+	return !s_InputData.m_CurrentKeyStates[keyCode] && s_InputData.m_PreviousKeyStates[keyCode];
 }
-
 
 WHP_NODISCARD bool Input::IsKeyDown(int keyCode)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-	int state = glfwGetKey(window, keyCode);
-	bool isPressed = (state == GLFW_PRESS);
-	return isPressed;
+	if (!IsValidKey(keyCode))
+		return false;
+	return s_InputData.m_CurrentKeyStates[keyCode];
 }
 
 bool Input::IsKeyUp(int keyCode)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-	int state = glfwGetKey(window, keyCode);
-	bool isReleased = (state == GLFW_RELEASE);
-	return isReleased;
+	if (!IsValidKey(keyCode))
+		return true;
+	return !s_InputData.m_CurrentKeyStates[keyCode];
 }
 
 WHP_NODISCARD bool Input::IsMouseButtonPressed(int button)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-	int state = glfwGetMouseButton(window, button);
-	bool isPressed = (state == GLFW_PRESS);
-	if (isPressed && !s_InputData.m_PreviousMouseButtonStates[button])
-	{
-		s_InputData.m_PreviousMouseButtonStates[button] = true;
-		return true;
-	}
-	return false;
+	if (!IsValidButton(button))
+		return false;
+	return s_InputData.m_CurrentMouseButtonStates[button] && !s_InputData.m_PreviousMouseButtonStates[button];
 }
 
 WHP_NODISCARD bool Input::IsMouseButtonReleased(int button)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-	int state = glfwGetMouseButton(window, button);
-	bool isReleased = (state == GLFW_RELEASE);
-	if (isReleased && s_InputData.m_PreviousMouseButtonStates[button])
-	{
-		s_InputData.m_PreviousMouseButtonStates[button] = false;
-		return true;
-	}
-	return false;
+	if (!IsValidButton(button))
+		return false;
+	return !s_InputData.m_CurrentMouseButtonStates[button] && s_InputData.m_PreviousMouseButtonStates[button];
 }
 
 WHP_NODISCARD bool Input::IsMouseButtonDown(int button)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-	int state = glfwGetMouseButton(window, button);
-	bool isPressed = (state == GLFW_PRESS);
-	return isPressed;
+	if (!IsValidButton(button))
+		return false;
+	return s_InputData.m_CurrentMouseButtonStates[button];
 }
 
 WHP_NODISCARD bool Input::IsMouseButtonUp(int button)
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-	int state = glfwGetMouseButton(window, button);
-	bool isReleased = (state == GLFW_RELEASE);
-	return isReleased;
+	if (!IsValidButton(button))
+		return true;
+	return !s_InputData.m_CurrentMouseButtonStates[button];
 }
 
 WHP_NODISCARD float Input::GetMouseX()
 {
-	auto posX = GetMousePosition().first;
-	return posX;
+	return s_InputData.m_CurrentMousePosition.x;
 }
 
 WHP_NODISCARD float Input::GetMouseY()
 {
-	auto posY = GetMousePosition().second;
-	return posY;
+	return s_InputData.m_CurrentMousePosition.y;
 }
 
 WHP_NODISCARD std::pair<float, float> Input::GetMousePosition()
 {
-	auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-	double posX, posY;
-	glfwGetCursorPos(window, &posX, &posY);
-	return { (float)posX, (float)posY };
+	return { s_InputData.m_CurrentMousePosition.x, s_InputData.m_CurrentMousePosition.y };
+}
+
+WHP_NODISCARD glm::vec2 Input::GetMouseDelta()
+{
+	return s_InputData.m_MouseDelta;
+}
+
+WHP_NODISCARD float Input::GetMouseDeltaX()
+{
+	return s_InputData.m_MouseDelta.x;
+}
+
+WHP_NODISCARD float Input::GetMouseDeltaY()
+{
+	return s_InputData.m_MouseDelta.y;
+}
+
+WHP_NODISCARD glm::vec2 Input::GetMouseViewportPosition()
+{
+	return s_InputData.m_CurrentMousePosition - s_InputData.m_ViewportMin;
+}
+
+WHP_NODISCARD bool Input::IsMouseInsideViewport()
+{
+	const glm::vec2& mouse = s_InputData.m_CurrentMousePosition;
+	return mouse.x >= s_InputData.m_ViewportMin.x &&
+		mouse.y >= s_InputData.m_ViewportMin.y &&
+		mouse.x <= s_InputData.m_ViewportMax.x &&
+		mouse.y <= s_InputData.m_ViewportMax.y;
 }
 
 WHP_NODISCARD float Input::GetScrollDelta()
 {
-	return Application::Get().GetWindow().GetScrollDelta();
+	return s_InputData.m_ScrollDeltaY;
 }
 
+WHP_NODISCARD float Input::GetScrollDeltaX()
+{
+	return s_InputData.m_ScrollDeltaX;
+}
+
+WHP_NODISCARD float Input::GetScrollDeltaY()
+{
+	return s_InputData.m_ScrollDeltaY;
+}
+
+void Input::SetViewportState(bool hovered, bool focused, const glm::vec2& min, const glm::vec2& max)
+{
+	s_InputData.m_ViewportHovered = hovered;
+	s_InputData.m_ViewportFocused = focused;
+	s_InputData.m_ViewportMin = min;
+	s_InputData.m_ViewportMax = max;
+}
+
+WHP_NODISCARD bool Input::IsViewportHovered()
+{
+	return s_InputData.m_ViewportHovered;
+}
+
+WHP_NODISCARD bool Input::IsViewportFocused()
+{
+	return s_InputData.m_ViewportFocused;
+}
+
+void Input::SetRuntimeInputEnabled(bool enabled)
+{
+	s_InputData.m_RuntimeInputEnabled = enabled;
+}
+
+WHP_NODISCARD bool Input::IsRuntimeInputEnabled()
+{
+	return s_InputData.m_RuntimeInputEnabled;
+}
+
+WHP_NODISCARD bool Input::IsRuntimeInputActive()
+{
+	if (Application::Get().GetMode() == ApplicationMode::Runtime)
+		return s_InputData.m_RuntimeInputEnabled;
+	return s_InputData.m_RuntimeInputEnabled && s_InputData.m_ViewportHovered && s_InputData.m_ViewportFocused;
+}
+
+void Input::SetCursorMode(CursorMode mode)
+{
+	Application::Get().GetWindow().SetCursorMode(mode);
+}
+
+WHP_NODISCARD CursorMode Input::GetCursorMode()
+{
+	return Application::Get().GetWindow().GetCursorMode();
+}
+
+void Input::SetCursorVisible(bool visible)
+{
+	SetCursorMode(visible ? CursorMode::Normal : CursorMode::Hidden);
+}
+
+WHP_NODISCARD bool Input::IsCursorVisible()
+{
+	return GetCursorMode() == CursorMode::Normal;
+}
+
+void Input::SetCursorShape(CursorShape shape)
+{
+	Application::Get().GetWindow().SetCursorShape(shape);
+}
+
+WHP_NODISCARD CursorShape Input::GetCursorShape()
+{
+	return Application::Get().GetWindow().GetCursorShape();
+}
 
 _WHIP_END

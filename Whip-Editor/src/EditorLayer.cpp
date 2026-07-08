@@ -1407,6 +1407,7 @@ void EditorLayer::OnAttach()
 void EditorLayer::OnDetach()
 {
 	WHP_PROFILE_FUNCTION();
+	Input::SetRuntimeInputEnabled(false);
 	m_ProjectManager.CancelAsyncOperations(true);
 	m_ExportManager.CancelExport(true);
 	m_SceneManager.WriteRecoverySnapshot("Editor shutdown");
@@ -1422,6 +1423,10 @@ void EditorLayer::OnUpdate(Timestep ts)
 {
 	WHP_PROFILE_FUNCTION();
 	m_Ts = ts;
+	Input::SetRuntimeInputEnabled((m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate) &&
+		m_ViewportHovered &&
+		m_ViewportFocused &&
+		!m_GizmoUsing);
 	m_ProjectManager.UpdateAsyncOperations();
 	m_ExportManager.UpdateAsyncOperations();
 	m_ScriptManager.ProcessSourceChanges(m_SceneManager.State() == SceneState::Edit);
@@ -1570,6 +1575,7 @@ void EditorLayer::OnImGuiRender()
 		m_ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
 		m_ViewportFocused = ImGui::IsWindowFocused();
 		m_ViewportHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+		Input::SetViewportState(m_ViewportHovered, m_ViewportFocused, m_ViewportBounds[0], m_ViewportBounds[1]);
 		Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered || m_GizmoHovered || m_GizmoUsing);
 		ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
 		m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };

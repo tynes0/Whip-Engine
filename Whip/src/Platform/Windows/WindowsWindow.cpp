@@ -24,7 +24,43 @@ _WHIP_START
 namespace
 {
 	uint32_t s_GLFWWindowCount = 0;
-	float s_ScrollDelta = 0.0f;
+	float s_ScrollDeltaX = 0.0f;
+	float s_ScrollDeltaY = 0.0f;
+
+	int ToGLFWCursorMode(CursorMode mode)
+	{
+		switch (mode)
+		{
+		case CursorMode::Hidden: return GLFW_CURSOR_HIDDEN;
+		case CursorMode::Locked: return GLFW_CURSOR_DISABLED;
+#ifdef GLFW_CURSOR_CAPTURED
+		case CursorMode::Confined: return GLFW_CURSOR_CAPTURED;
+#else
+		case CursorMode::Confined: return GLFW_CURSOR_NORMAL;
+#endif
+		case CursorMode::Normal:
+		default: return GLFW_CURSOR_NORMAL;
+		}
+	}
+
+	int ToGLFWCursorShape(CursorShape shape)
+	{
+		switch (shape)
+		{
+		case CursorShape::IBeam: return GLFW_IBEAM_CURSOR;
+		case CursorShape::Crosshair: return GLFW_CROSSHAIR_CURSOR;
+		case CursorShape::Hand: return GLFW_HAND_CURSOR;
+		case CursorShape::ResizeHorizontal: return GLFW_HRESIZE_CURSOR;
+		case CursorShape::ResizeVertical: return GLFW_VRESIZE_CURSOR;
+#ifdef GLFW_NOT_ALLOWED_CURSOR
+		case CursorShape::NotAllowed: return GLFW_NOT_ALLOWED_CURSOR;
+#else
+		case CursorShape::NotAllowed: return GLFW_ARROW_CURSOR;
+#endif
+		case CursorShape::Arrow:
+		default: return GLFW_ARROW_CURSOR;
+		}
+	}
 
 #ifdef WHP_PLATFORM_WINDOWS
 	constexpr int CustomTitlebarHitTestHeight = 30;
@@ -270,7 +306,8 @@ void WindowsWindow::Init(const WindowProps& props)
 			WindowData& data = DREF(WindowData*)glfwGetWindowUserPointer(window);
 			MouseScrolledEvent event(static_cast<float>(offsetX), static_cast<float>(offsetY));
 			data.m_EventCallback(event);
-			s_ScrollDelta = static_cast<float>(offsetY);
+			s_ScrollDeltaX = static_cast<float>(offsetX);
+			s_ScrollDeltaY = static_cast<float>(offsetY);
 		});
 	glfwSetCursorPosCallback(m_Window, [](GLFWwindow* window, double posX, double posY)->void
 		{
@@ -292,6 +329,8 @@ void WindowsWindow::Init(const WindowProps& props)
 		});
 
 	WHP_CORE_INFO("[Application] Created Window {0} ({1}, {2})", props.m_Title, props.m_Width, props.m_Height);
+	CreateStandardCursors();
+	SetCursorShape(CursorShape::Arrow);
 }
 
 void WindowsWindow::Shutdown()
@@ -306,6 +345,7 @@ void WindowsWindow::Shutdown()
 		UninstallCustomTitlebarHook(m_Window);
 #endif
 
+	DestroyStandardCursors();
 	DeleteRaw(m_Context);
 	m_Context = nullptr;
 
@@ -322,14 +362,25 @@ void WindowsWindow::Shutdown()
 void WindowsWindow::OnUpdate()
 {
 	WHP_PROFILE_FUNCTION();
-	s_ScrollDelta = 0;
+	s_ScrollDeltaX = 0.0f;
+	s_ScrollDeltaY = 0.0f;
 	glfwPollEvents();
 	m_Context->SwapBuffers();
 }
 
 WHP_NODISCARD float WindowsWindow::GetScrollDelta() const
 {
-	return s_ScrollDelta;
+	return s_ScrollDeltaY;
+}
+
+WHP_NODISCARD float WindowsWindow::GetScrollDeltaX() const
+{
+	return s_ScrollDeltaX;
+}
+
+WHP_NODISCARD float WindowsWindow::GetScrollDeltaY() const
+{
+	return s_ScrollDeltaY;
 }
 
 std::pair<int, int> WindowsWindow::GetPosition() const
@@ -403,6 +454,61 @@ void WindowsWindow::SetVsync(bool enabled)
 bool WindowsWindow::IsVsync() const
 {
 	return m_Data.m_Vsync;
+}
+
+void WindowsWindow::SetCursorMode(CursorMode mode)
+{
+	m_CursorMode = mode;
+	glfwSetInputMode(m_Window, GLFW_CURSOR, ToGLFWCursorMode(mode));
+
+#ifdef GLFW_RAW_MOUSE_MOTION
+	if (mode == CursorMode::Locked && glfwRawMouseMotionSupported())
+		glfwSetInputMode(m_Window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+	else
+		glfwSetInputMode(m_Window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+#endif
+}
+
+CursorMode WindowsWindow::GetCursorMode() const
+{
+	return m_CursorMode;
+}
+
+void WindowsWindow::SetCursorShape(CursorShape shape)
+{
+	if (shape == CursorShape::Count)
+		shape = CursorShape::Arrow;
+
+	m_CursorShape = shape;
+	GLFWcursor* cursor = m_StandardCursors[static_cast<size_t>(shape)];
+	glfwSetCursor(m_Window, cursor);
+}
+
+CursorShape WindowsWindow::GetCursorShape() const
+{
+	return m_CursorShape;
+}
+
+void WindowsWindow::CreateStandardCursors()
+{
+	for (size_t i = 0; i < m_StandardCursors.size(); ++i)
+	{
+		const CursorShape shape = static_cast<CursorShape>(i);
+		if (shape == CursorShape::Count)
+			continue;
+		m_StandardCursors[i] = glfwCreateStandardCursor(ToGLFWCursorShape(shape));
+	}
+}
+
+void WindowsWindow::DestroyStandardCursors()
+{
+	for (GLFWcursor*& cursor : m_StandardCursors)
+	{
+		if (!cursor)
+			continue;
+		glfwDestroyCursor(cursor);
+		cursor = nullptr;
+	}
 }
 
 _WHIP_END

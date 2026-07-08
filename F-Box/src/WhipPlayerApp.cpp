@@ -88,5 +88,6 @@ whip::Application* whip::CreateApplication(whip::ApplicationCommandLineArgs args
 	spec.m_Properties.m_Fullscreen = config.m_Fullscreen;
 	spec.m_WorkingDirectory = Utils::GetExecutableDirectory().string();
 	spec.m_CommandLineArgs = args;
+	spec.m_Mode = ApplicationMode::Runtime;
 	return whip::MakeRawTagged<WhipPlayer>(whip::memory::MemoryTag::Core, spec);
 }

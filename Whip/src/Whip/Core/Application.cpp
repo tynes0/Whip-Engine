@@ -2,6 +2,7 @@
 #include <Whip/Core/Application.h>
 
 #include <Whip/Core/AsyncJobSystem.h>
+#include <Whip/Core/Input.h>
 #include <Whip/Render/Renderer.h>
 #include <Whip/Utils/PlatformUtils.h>
 #include <Whip/Scripting/ScriptEngine.h>
@@ -67,6 +68,7 @@ void Application::Run()
 		memory::ResetScratchArenaAllocator();
 
 		m_TickCount++;
+		Input::BeginFrame();
 
 		{
 			WHP_PROFILE_SCOPE("Next Tick Queue");
@@ -202,6 +204,11 @@ const ImGuiLayer* Application::GetImGuiLayer() const
 ApplicationSpecification Application::GetSpecification() const
 {
 	return m_Specification;
+}
+
+ApplicationMode Application::GetMode() const
+{
+	return m_Specification.m_Mode;
 }
 
 uint64_t Application::GetTickCount() const

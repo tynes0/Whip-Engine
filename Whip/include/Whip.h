@@ -28,6 +28,7 @@
 #include <Whip/Core/Input.h>
 #include <Whip/Core/KeyCodes.h>
 #include <Whip/Core/MouseButtonCodes.h>
+#include <Whip/Core/CursorCodes.h>
 
 //project
 #include <Whip/Project/Project.h>

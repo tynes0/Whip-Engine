@@ -2,6 +2,7 @@
 
 #include <sstream>
 
+#include <Whip/Core/CursorCodes.h>
 #include <Whip/Events/Event.h>
 
 
@@ -29,6 +30,8 @@ public:
 	WHP_NODISCARD virtual uint32_t GetWidth() const = 0;
 	WHP_NODISCARD virtual uint32_t GetHeight() const = 0;
 	WHP_NODISCARD virtual float GetScrollDelta() const = 0;
+	WHP_NODISCARD virtual float GetScrollDeltaX() const = 0;
+	WHP_NODISCARD virtual float GetScrollDeltaY() const = 0;
 
 	WHP_NODISCARD virtual std::pair<int, int> GetPosition() const = 0;
 	virtual void SetPosition(int x, int y) = 0;
@@ -42,6 +45,10 @@ public:
 	virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
 	virtual void SetVsync(bool enabled) = 0;
 	WHP_NODISCARD virtual bool IsVsync() const = 0;
+	virtual void SetCursorMode(CursorMode mode) = 0;
+	WHP_NODISCARD virtual CursorMode GetCursorMode() const = 0;
+	virtual void SetCursorShape(CursorShape shape) = 0;
+	WHP_NODISCARD virtual CursorShape GetCursorShape() const = 0;
 
 	WHP_NODISCARD virtual void* GetNativeWindow() const = 0;
 

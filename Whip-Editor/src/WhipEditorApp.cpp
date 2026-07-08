@@ -22,6 +22,7 @@ Application* CreateApplication(ApplicationCommandLineArgs args)
 	spec.m_Properties.m_CustomTitlebar = true;
 	spec.m_WorkingDirectory = Utils::GetExecutableDirectory().string();
 	spec.m_CommandLineArgs = args;
+	spec.m_Mode = ApplicationMode::Editor;
 	return MakeRawTagged<WhipEditor>(memory::MemoryTag::Editor, spec);
 }
 
