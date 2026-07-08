@@ -1,7 +1,9 @@
 #include "WhipPlayerLayer.h"
 
 #include <Whip/Asset/AssetManager.h>
+#include <Whip/Project/PlayerConfig.h>
 #include <Whip/Scripting/ScriptEngine.h>
+#include <Whip/Utils/PlatformUtils.h>
 
 #include <imgui.h>
 
@@ -105,6 +107,7 @@ void WhipPlayerLayer::OnEvent(whip::Event& eventIn)
 std::filesystem::path WhipPlayerLayer::ResolveProjectPath() const
 {
 	const whip::ApplicationCommandLineArgs args = whip::Application::Get().GetSpecification().m_CommandLineArgs;
+	const std::filesystem::path executableDirectory = whip::Utils::GetExecutableDirectory();
 	for (int i = 1; i < args.m_Count; ++i)
 	{
 		std::string_view arg = args[i];
@@ -114,6 +117,11 @@ std::filesystem::path WhipPlayerLayer::ResolveProjectPath() const
 		if (!arg.starts_with("--"))
 			return args[i];
 	}
+
+	whip::PlayerConfig config;
+	whip::PlayerConfigSerializer serializer(config);
+	if (serializer.Deserialize(whip::PlayerConfigSerializer::GetDefaultConfigPath(executableDirectory)))
+		return config.m_ProjectPath.is_absolute() ? config.m_ProjectPath : executableDirectory / config.m_ProjectPath;
 
 	return {};
 }

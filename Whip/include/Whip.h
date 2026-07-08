@@ -31,6 +31,7 @@
 
 //project
 #include <Whip/Project/Project.h>
+#include <Whip/Project/PlayerConfig.h>
 
 // scene
 #include <Whip/Scene/Components.h>

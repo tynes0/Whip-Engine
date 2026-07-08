@@ -8,6 +8,7 @@
 #include <Whip-Editor/Managers/EditorHistoryManager.h>
 #include <Whip-Editor/Managers/EditorScriptManager.h>
 #include <Whip-Editor/Managers/EditorProjectManager.h>
+#include <Whip-Editor/Managers/EditorExportManager.h>
 #include <Whip-Editor/Managers/EditorSceneManager.h>
 #include <Whip-Editor/Managers/EditorPanelManager.h>
 #include <Whip-Editor/Managers/EditorEntityTemplateManager.h>
@@ -19,6 +20,7 @@
 #include <Whip-Editor/Panels/AnimationEditorPanel.h>
 #include <Whip-Editor/Panels/AssetEditorPanel.h>
 #include <Whip-Editor/Panels/AssistantPanel.h>
+#include <Whip-Editor/Panels/ExportPanel.h>
 #include <Whip-Editor/Panels/ProjectHealthPanel.h>
 
 #include <Whip-Editor/UI/UIProject.h>
@@ -46,6 +48,7 @@ private:
 	friend class EditorHistoryManager;
 	friend class EditorPanelManager;
 	friend class EditorProjectManager;
+	friend class EditorExportManager;
 	friend class EditorSceneManager;
 	friend class EditorScriptManager;
 	friend class EditorShortcutManager;
@@ -88,6 +91,7 @@ private:
 	EditorEventManager m_EventManager;
 	EditorHistoryManager m_HistoryManager;
 	EditorProjectManager m_ProjectManager;
+	EditorExportManager m_ExportManager;
 	EditorScriptManager m_ScriptManager;
 	EditorSceneManager m_SceneManager;
 	EditorPanelManager m_PanelManager;
@@ -119,6 +123,7 @@ private:
 	AnimationEditorPanel m_AnimationEditorPanel;
 	AssetEditorPanel m_AssetEditorPanel;
 	AssistantPanel m_AssistantPanel;
+	ExportPanel m_ExportPanel;
 	ProjectHealthPanel m_ProjectHealthPanel;
 	Scope<ContentBrowserPanel> m_ContentBrowserPanel;
 };

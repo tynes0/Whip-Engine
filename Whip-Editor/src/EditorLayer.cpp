@@ -1301,6 +1301,7 @@ EditorLayer::EditorLayer()
 	m_EventManager(this),
 	m_HistoryManager(this),
 	m_ProjectManager(this),
+	m_ExportManager(this),
 	m_ScriptManager(this),
 	m_SceneManager(this),
 	m_PanelManager(this),
@@ -1323,6 +1324,7 @@ void EditorLayer::OnAttach()
 	m_AssistantPanel.SetSettingsCallback([this]() -> const Assistant::Settings& { return m_UISettings.GetAssistantSettings(); });
 	m_AssistantPanel.SetContextCallback([this]() { return BuildAssistantContextSnapshot(); });
 	m_AssistantPanel.SetApplyProposalCallback([this](const Assistant::ToolProposal& proposal) { return ApplyAssistantProposal(proposal); });
+	m_ExportPanel.SetExportManager(&m_ExportManager);
 	m_ProjectHealthPanel.SetSceneCallback([this]() { return m_SceneManager.ActiveScene(); });
 	m_ProjectHealthPanel.SetSelectEntityCallback([this](UUID entityId)
 	{
@@ -1406,6 +1408,7 @@ void EditorLayer::OnDetach()
 {
 	WHP_PROFILE_FUNCTION();
 	m_ProjectManager.CancelAsyncOperations(true);
+	m_ExportManager.CancelExport(true);
 	m_SceneManager.WriteRecoverySnapshot("Editor shutdown");
 	m_ScriptManager.StopSourceWatcher();
 	if (m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate)
@@ -1420,6 +1423,7 @@ void EditorLayer::OnUpdate(Timestep ts)
 	WHP_PROFILE_FUNCTION();
 	m_Ts = ts;
 	m_ProjectManager.UpdateAsyncOperations();
+	m_ExportManager.UpdateAsyncOperations();
 	m_ScriptManager.ProcessSourceChanges(m_SceneManager.State() == SceneState::Edit);
 	if (m_SceneManager.IsSceneDirty() && m_SceneManager.State() == SceneState::Edit)
 	{
@@ -1718,6 +1722,7 @@ void EditorLayer::OnImGuiRender()
 		m_ProjectManager.SaveEditorPreferences();
 	m_PopupHandler.OnImGuiRender();
 	m_ProjectManager.DrawAsyncProgressOverlay();
+	m_ExportManager.DrawAsyncProgressOverlay();
 
 }
 _WHP_PRAGMA_WARNING(pop)
@@ -1856,6 +1861,11 @@ void EditorLayer::DrawEditorMenuBar(bool projectLoaded)
 			ImGui::Separator();
 			drawMenuAction(UI::EditorShortcutAction::OpenProject);
 			drawMenuAction(UI::EditorShortcutAction::SaveProject);
+			ImGui::Separator();
+			ImGui::BeginDisabled(!projectLoaded);
+			if (ImGui::MenuItem("Build & Export"))
+				m_ExportPanel.Open();
+			ImGui::EndDisabled();
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("AI"))
@@ -2422,6 +2432,7 @@ void EditorLayer::RegisterEditorShortcuts()
 	m_AnimationEditorPanel.RegisterShortcuts(m_ShortcutManager);
 	m_AssetEditorPanel.RegisterShortcuts(m_ShortcutManager);
 	m_AssistantPanel.RegisterShortcuts(m_ShortcutManager);
+	m_ExportPanel.RegisterShortcuts(m_ShortcutManager);
 	m_ProjectHealthPanel.RegisterShortcuts(m_ShortcutManager);
 	m_ShortcutManager.Add(
 		EditorShortcutScope::Viewport,
@@ -2492,6 +2503,7 @@ void EditorLayer::RebuildEditorPanelRegistry()
 	m_PanelManager.AddPanel(m_AnimationEditorPanel);
 	m_PanelManager.AddPanel(m_AssetEditorPanel);
 	m_PanelManager.AddPanel(m_AssistantPanel);
+	m_PanelManager.AddPanel(m_ExportPanel);
 	m_PanelManager.AddPanel(m_ProjectHealthPanel);
 	if (m_ConsolePanelAdapter)
 		m_PanelManager.AddPanel(*m_ConsolePanelAdapter);

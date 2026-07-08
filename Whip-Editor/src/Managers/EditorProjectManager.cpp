@@ -814,6 +814,7 @@ void EditorProjectManager::LoadEditorPreferences()
 		layer.m_UIStatistics.SetOpen(panels["statistics"].as<bool>(layer.m_UIStatistics.IsOpen()));
 		ConsolePanel::SetOpen(panels["console"].as<bool>(ConsolePanel::IsOpen()));
 		layer.m_AssistantPanel.SetOpen(panels["assistant"].as<bool>(layer.m_AssistantPanel.IsOpen()));
+		layer.m_ExportPanel.SetOpen(panels["export"].as<bool>(layer.m_ExportPanel.IsOpen()));
 		layer.m_ProjectHealthPanel.SetOpen(panels["project_health"].as<bool>(layer.m_ProjectHealthPanel.IsOpen()));
 
 		if (YAML::Node animationWorkspace = panels["animation_workspace"])
@@ -861,6 +862,7 @@ void EditorProjectManager::LoadEditorPreferences()
 	layer.m_AssetEditorPanel.ConsumeLayoutDirty();
 	layer.m_UIStatistics.ConsumeOpenDirty();
 	layer.m_AssistantPanel.ConsumeOpenDirty();
+	layer.m_ExportPanel.ConsumeOpenDirty();
 	layer.m_ProjectHealthPanel.ConsumeOpenDirty();
 	ConsolePanel::ConsumeOpenDirty();
 	m_ProjectLoader.SetRecentProjects(m_RecentProjects);
@@ -929,6 +931,7 @@ void EditorProjectManager::SaveEditorPreferences() const
 	out << YAML::Key << "statistics" << YAML::Value << layer.m_UIStatistics.IsOpen();
 	out << YAML::Key << "console" << YAML::Value << ConsolePanel::IsOpen();
 	out << YAML::Key << "assistant" << YAML::Value << layer.m_AssistantPanel.IsOpen();
+	out << YAML::Key << "export" << YAML::Value << layer.m_ExportPanel.IsOpen();
 	out << YAML::Key << "project_health" << YAML::Value << layer.m_ProjectHealthPanel.IsOpen();
 	{
 		const AnimationEditorPanel::WorkspacePreferences preferences = layer.m_AnimationEditorPanel.GetWorkspacePreferences();
