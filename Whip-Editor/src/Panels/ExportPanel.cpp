@@ -67,7 +67,9 @@ void ExportPanel::OnImGuiRender()
 
 	bool open = m_Open;
 	ImGui::SetNextWindowSize(ImVec2(860.0f, 620.0f), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Build & Export", &open))
+	ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
+	const ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse;
+	if (!ImGui::Begin("Build & Export", &open, windowFlags))
 	{
 		SetOpen(open);
 		ImGui::End();
@@ -165,17 +167,21 @@ void ExportPanel::DrawMetadata()
 	if (ImGui::BeginTable("##ExportProductMetadata", 2, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_PadOuterX))
 	{
 		ImGui::TableNextColumn();
+		ImGui::TextDisabled("Name");
 		ImGui::SetNextItemWidth(-1.0f);
-		if (ImGui::InputText("Name", &m_Settings.m_ProductName))
+		if (ImGui::InputText("##ExportProductName", &m_Settings.m_ProductName))
 			m_KeepProductNameInSync = false;
+		ImGui::Spacing();
+		ImGui::TextDisabled("Version");
 		ImGui::SetNextItemWidth(-1.0f);
-		ImGui::InputText("Version", &m_Settings.m_ProductVersion);
+		ImGui::InputText("##ExportProductVersion", &m_Settings.m_ProductVersion);
 
 		ImGui::TableNextColumn();
+		ImGui::TextDisabled("Company");
 		ImGui::SetNextItemWidth(-1.0f);
-		ImGui::InputText("Company", &m_Settings.m_CompanyName);
-		ImGui::TextUnformatted("Icon");
-		ImGui::SameLine();
+		ImGui::InputText("##ExportProductCompany", &m_Settings.m_CompanyName);
+		ImGui::Spacing();
+		ImGui::TextDisabled("Icon");
 		ImGui::SetNextItemWidth(-132.0f);
 		std::string iconPath = m_Settings.m_ProductIconPath.empty() ? std::string("None") : m_Settings.m_ProductIconPath.string();
 		ImGui::InputText("##ExportProductIcon", &iconPath, ImGuiInputTextFlags_ReadOnly);
@@ -196,8 +202,7 @@ void ExportPanel::DrawMetadata()
 void ExportPanel::DrawPathRow()
 {
 	ImGui::SeparatorText("Output");
-	ImGui::TextUnformatted("Output");
-	ImGui::SameLine();
+	ImGui::TextDisabled("Folder");
 	ImGui::SetNextItemWidth(-96.0f);
 	std::string outputRoot = PathLabel(m_Settings.m_OutputRoot);
 	ImGui::InputText("##ExportOutputRoot", &outputRoot, ImGuiInputTextFlags_ReadOnly);
@@ -214,8 +219,9 @@ void ExportPanel::DrawConfigurationRow()
 {
 	ImGui::SeparatorText("Build");
 	const char* currentName = EditorExportManager::GetConfigurationName(m_Settings.m_Configuration);
+	ImGui::TextDisabled("Configuration");
 	ImGui::SetNextItemWidth(180.0f);
-	if (!ImGui::BeginCombo("Configuration", currentName))
+	if (!ImGui::BeginCombo("##ExportConfiguration", currentName))
 		return;
 
 	for (EditorExportConfiguration configuration : { EditorExportConfiguration::Debug, EditorExportConfiguration::Release })
