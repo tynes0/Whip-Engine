@@ -123,9 +123,9 @@ public:
 	static bool SaveActive();
 	static bool SaveActive(const std::filesystem::path& path);
 
-	static void RunState(bool running) { s_ActiveProject->m_Running = running; }
-	static bool Running() { return s_ActiveProject->m_Running; }
-	static bool Loaded() { return s_ActiveProject->m_Loaded; }
+	static void RunState(bool running) { if (s_ActiveProject) s_ActiveProject->m_Running = running; }
+	static bool Running() { return s_ActiveProject && s_ActiveProject->m_Running; }
+	static bool Loaded() { return s_ActiveProject && s_ActiveProject->m_Loaded; }
 private:
 	bool m_Loaded = false;
 	bool m_Running = false;

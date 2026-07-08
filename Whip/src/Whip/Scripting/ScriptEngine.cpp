@@ -1227,8 +1227,13 @@ void ScriptEngine::InvokeAllOnDestroyMethods()
 
 	for (const Ref<ScriptInstance>& instance : instances)
 	{
-		if (instance)
-			instance->InvokeOnDestroy();
+		if (!instance)
+			continue;
+
+		if (s_ScriptEngineData->m_SceneContext && !s_ScriptEngineData->m_SceneContext->FindEntityByUUID(instance->m_EntityId))
+			continue;
+
+		instance->InvokeOnDestroy();
 	}
 }
 

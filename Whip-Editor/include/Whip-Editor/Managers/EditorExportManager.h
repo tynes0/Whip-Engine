@@ -12,10 +12,17 @@
 
 _WHIP_START
 
+enum class EditorExportConfiguration : uint8_t
+{
+	Debug = 0,
+	Release
+};
+
 struct EditorExportSettings
 {
 	std::string m_ProductName;
 	std::filesystem::path m_OutputRoot;
+	EditorExportConfiguration m_Configuration = EditorExportConfiguration::Debug;
 	bool m_CleanOutputDirectory = true;
 	bool m_BuildScripts = true;
 	bool m_RunAfterExport = false;
@@ -29,6 +36,7 @@ struct EditorExportResult
 	std::filesystem::path m_ProjectPath;
 	std::filesystem::path m_ManifestPath;
 	std::vector<std::string> m_Warnings;
+	EditorExportConfiguration m_Configuration = EditorExportConfiguration::Debug;
 	bool m_ScriptBuildSucceeded = true;
 };
 
@@ -47,6 +55,9 @@ public:
 	bool HasLastExport() const;
 	bool OpenLastOutputFolder() const;
 	bool RunLastExport() const;
+
+	static const char* GetConfigurationName(EditorExportConfiguration configuration);
+	static const char* GetBuildPresetName(EditorExportConfiguration configuration);
 
 	EditorExportSettings MakeDefaultSettings() const;
 	const EditorExportResult& GetLastResult() const;

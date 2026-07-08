@@ -72,6 +72,7 @@ void ExportPanel::OnImGuiRender()
 	ImGui::SetNextItemWidth(-1.0f);
 	if (ImGui::InputText("Product", &m_Settings.m_ProductName))
 		m_KeepProductNameInSync = false;
+	DrawConfigurationRow();
 	DrawPathRow();
 	DrawOptions();
 	ImGui::EndDisabled();
@@ -156,6 +157,27 @@ void ExportPanel::DrawPathRow()
 	}
 }
 
+void ExportPanel::DrawConfigurationRow()
+{
+	const char* currentName = EditorExportManager::GetConfigurationName(m_Settings.m_Configuration);
+	ImGui::SetNextItemWidth(180.0f);
+	if (!ImGui::BeginCombo("Configuration", currentName))
+		return;
+
+	for (EditorExportConfiguration configuration : { EditorExportConfiguration::Debug, EditorExportConfiguration::Release })
+	{
+		const bool selected = m_Settings.m_Configuration == configuration;
+		if (ImGui::Selectable(EditorExportManager::GetConfigurationName(configuration), selected))
+			m_Settings.m_Configuration = configuration;
+		if (selected)
+			ImGui::SetItemDefaultFocus();
+	}
+
+	ImGui::EndCombo();
+	ImGui::SameLine();
+	ImGui::TextDisabled("Preset: %s", EditorExportManager::GetBuildPresetName(m_Settings.m_Configuration));
+}
+
 void ExportPanel::DrawOptions()
 {
 	if (ImGui::BeginTable("##ExportOptions", 2, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_PadOuterX))
@@ -177,7 +199,8 @@ void ExportPanel::DrawActions()
 
 	const bool running = m_ExportManager->IsExportRunning();
 	ImGui::BeginDisabled(running);
-	if (ImGui::Button("Export Windows Build", ImVec2(180.0f, 30.0f)))
+	const std::string exportLabel = std::string("Export ") + EditorExportManager::GetConfigurationName(m_Settings.m_Configuration) + " Build";
+	if (ImGui::Button(exportLabel.c_str(), ImVec2(180.0f, 30.0f)))
 		m_ExportManager->BeginExport(m_Settings);
 	ImGui::EndDisabled();
 	ImGui::SameLine();
@@ -211,6 +234,7 @@ void ExportPanel::DrawLastBuild()
 	const EditorExportResult& result = m_ExportManager->GetLastResult();
 	ImGui::Spacing();
 	ImGui::SeparatorText("Last Build");
+	ImGui::TextDisabled("Configuration: %s", EditorExportManager::GetConfigurationName(result.m_Configuration));
 	ImGui::TextWrapped("%s", result.m_OutputDirectory.string().c_str());
 	if (!result.m_Warnings.empty())
 	{

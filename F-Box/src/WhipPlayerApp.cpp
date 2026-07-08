@@ -68,7 +68,7 @@ public:
 	explicit WhipPlayer(const whip::ApplicationSpecification& specification)
 		: whip::Application(specification)
 	{
-		PushLayer(new WhipPlayerLayer());
+		PushLayer(whip::MakeRawTagged<WhipPlayerLayer>(whip::memory::MemoryTag::Core));
 	}
 };
 
@@ -82,5 +82,5 @@ whip::Application* whip::CreateApplication(whip::ApplicationCommandLineArgs args
 	spec.m_Properties.m_Fullscreen = config.m_Fullscreen;
 	spec.m_WorkingDirectory = Utils::GetExecutableDirectory().string();
 	spec.m_CommandLineArgs = args;
-	return new WhipPlayer(spec);
+	return whip::MakeRawTagged<WhipPlayer>(whip::memory::MemoryTag::Core, spec);
 }

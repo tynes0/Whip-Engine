@@ -54,6 +54,8 @@ public:
 	template <class T>
 	bool HasComponent() const
 	{
+		if (!IsValid())
+			return false;
 		return m_Scene->m_Registry.any_of<T>(m_EntityHandle);
 	}
 
@@ -64,16 +66,17 @@ public:
 		m_Scene->m_Registry.remove<T>(m_EntityHandle);
 	}
 
-	operator bool() const { return m_EntityHandle != entt::null; }
+	bool IsValid() const { return m_Scene && m_EntityHandle != entt::null && m_Scene->m_Registry.valid(m_EntityHandle); }
+	operator bool() const { return IsValid(); }
 	operator uint32_t () const { return static_cast<uint32_t>(m_EntityHandle); }
 	operator entt::entity() const { return m_EntityHandle; }
 	std::string HandleAsString() const { return std::to_string(static_cast<uint32_t>(m_EntityHandle)); }
 
-	UUID GetUUID() const { return GetComponent<IDComponent>().m_ID; }
+	UUID GetUUID() const { return HasComponent<IDComponent>() ? GetComponent<IDComponent>().m_ID : UUID{0}; }
 	Scene* GetScene() const { return m_Scene; }
 	std::string GetName()
 	{
-		if (m_EntityHandle == entt::null)
+		if (!HasComponent<TagComponent>())
 			return std::string{"Empty"};
 		return GetComponent<TagComponent>().m_Tag;
 	}

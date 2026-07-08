@@ -205,10 +205,11 @@ void Scene::OnRuntimeStart()
 void Scene::OnRuntimeStop()
 {
 	WHP_PROFILE_FUNCTION();
-	if (m_IsRunning)
-		ScriptEngine::InvokeAllOnDestroyMethods();
+	if (!m_IsRunning)
+		return;
 
 	m_IsRunning = false;
+	ScriptEngine::InvokeAllOnDestroyMethods();
 	m_PhysicsWorld.Destroy();
 	ScriptEngine::OnRuntimeStop();
 	OnAudiosStop();
@@ -236,10 +237,11 @@ void Scene::OnSimulationStart()
 void Scene::OnSimulationStop()
 {
 	WHP_PROFILE_FUNCTION();
-	if (m_IsRunning)
-		ScriptEngine::InvokeAllOnDestroyMethods();
+	if (!m_IsRunning)
+		return;
 
 	m_IsRunning = false;
+	ScriptEngine::InvokeAllOnDestroyMethods();
 	m_PhysicsWorld.Destroy();
 	ScriptEngine::OnRuntimeStop();
 	OnAudiosStop();

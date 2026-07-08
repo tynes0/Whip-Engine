@@ -18,6 +18,7 @@ public:
 
 private:
 	void RefreshDefaultsIfNeeded();
+	void DrawConfigurationRow();
 	void DrawPathRow();
 	void DrawOptions();
 	void DrawActions();

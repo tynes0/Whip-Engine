@@ -20,6 +20,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <vector>
 
 #include <imgui.h>
 
@@ -96,16 +97,29 @@ namespace
 		return true;
 	}
 
-	std::filesystem::path ResolvePlayerRuntimeDirectory()
+	std::string GetRuntimeOutputFolderName(EditorExportConfiguration configuration)
+	{
+		return std::string(EditorExportManager::GetConfigurationName(configuration)) + "-windows-x86_64";
+	}
+
+	std::filesystem::path ResolvePlayerRuntimeDirectory(EditorExportConfiguration configuration)
 	{
 		const std::filesystem::path executableDirectory = Utils::GetExecutableDirectory();
-		const std::array<std::filesystem::path, 4> candidates =
+		const std::filesystem::path currentPath = std::filesystem::current_path();
+		const std::string outputFolderName = GetRuntimeOutputFolderName(configuration);
+
+		std::vector<std::filesystem::path> candidates;
+		if (!executableDirectory.empty())
 		{
-			executableDirectory.parent_path() / "Whip-Player",
-			executableDirectory / "Whip-Player",
-			std::filesystem::current_path() / "Whip-Player",
-			std::filesystem::current_path()
-		};
+			const std::filesystem::path configOutputRoot = executableDirectory.parent_path();
+			const std::filesystem::path binRoot = configOutputRoot.parent_path();
+			candidates.emplace_back(binRoot / outputFolderName / "Whip-Player");
+			candidates.emplace_back(configOutputRoot / "Whip-Player");
+			candidates.emplace_back(executableDirectory / "Whip-Player");
+		}
+		candidates.emplace_back(currentPath / "bin" / outputFolderName / "Whip-Player");
+		candidates.emplace_back(currentPath / "Whip-Player");
+		candidates.emplace_back(currentPath);
 
 		std::error_code error;
 		for (const std::filesystem::path& candidate : candidates)
@@ -264,6 +278,8 @@ namespace
 		stream << "WhipExport:\n";
 		stream << "  product: " << settings.m_ProductName << "\n";
 		stream << "  platform: Windows-x86_64\n";
+		stream << "  configuration: " << EditorExportManager::GetConfigurationName(settings.m_Configuration) << "\n";
+		stream << "  native_build_preset: " << EditorExportManager::GetBuildPresetName(settings.m_Configuration) << "\n";
 		stream << "  project_source: " << project.GetProjectPath().generic_string() << "\n";
 		stream << "  exported_project: " << result.m_ProjectPath.filename().generic_string() << "\n";
 		stream << "  executable: " << result.m_ExecutablePath.filename().generic_string() << "\n";
@@ -369,6 +385,7 @@ namespace
 		result.m_ExecutablePath = input.m_ProductExecutablePath;
 		result.m_ProjectPath = input.m_ProjectOutputPath;
 		result.m_ManifestPath = input.m_OutputDirectory / "WhipExport.yaml";
+		result.m_Configuration = input.m_Settings.m_Configuration;
 		WriteExportManifest(result.m_ManifestPath, input.m_Settings, result, *input.m_Project, input.m_RuntimeSourceDirectory);
 
 		context.SetProgress(1.0f, "Export complete");
@@ -381,6 +398,32 @@ EditorExportManager::EditorExportManager(EditorLayer* boundedLayer)
 }
 
 EditorExportManager::~EditorExportManager() = default;
+
+const char* EditorExportManager::GetConfigurationName(EditorExportConfiguration configuration)
+{
+	switch (configuration)
+	{
+	case EditorExportConfiguration::Debug:
+		return "Debug";
+	case EditorExportConfiguration::Release:
+		return "Release";
+	default:
+		return "Debug";
+	}
+}
+
+const char* EditorExportManager::GetBuildPresetName(EditorExportConfiguration configuration)
+{
+	switch (configuration)
+	{
+	case EditorExportConfiguration::Debug:
+		return "vs2022-debug";
+	case EditorExportConfiguration::Release:
+		return "vs2022-release";
+	default:
+		return "vs2022-debug";
+	}
+}
 
 EditorExportSettings EditorExportManager::MakeDefaultSettings() const
 {
@@ -413,11 +456,16 @@ bool EditorExportManager::BeginExport(EditorExportSettings settings)
 	const std::string productName = SanitizePathToken(settings.m_ProductName, "WhipGame");
 	settings.m_ProductName = productName;
 
-	const std::filesystem::path runtimeSourceDirectory = ResolvePlayerRuntimeDirectory();
+	const std::filesystem::path runtimeSourceDirectory = ResolvePlayerRuntimeDirectory(settings.m_Configuration);
 	if (runtimeSourceDirectory.empty())
 	{
-		m_Status = "Whip-Player build output was not found. Build the Whip-Player target first.";
-		WHP_EDITOR_ERROR("[Export] Whip-Player build output was not found.");
+		std::ostringstream message;
+		message << EditorExportManager::GetConfigurationName(settings.m_Configuration)
+			<< " Whip-Player build output was not found. Run: cmake --build --preset "
+			<< EditorExportManager::GetBuildPresetName(settings.m_Configuration)
+			<< " --target Whip-Player";
+		m_Status = message.str();
+		WHP_EDITOR_ERROR("[Export] {0}", m_Status);
 		return false;
 	}
 
