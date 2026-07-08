@@ -31,6 +31,46 @@ namespace
 {
 	constexpr const char* PlayerExecutableName = "Whip-Player.exe";
 	constexpr const char* PlayerConfigFilename = "WhipPlayer.yaml";
+	constexpr const char* ExportManifestFilename = "WhipExport.yaml";
+	constexpr const char* ExportMetadataFilename = "WhipProduct.yaml";
+	constexpr const char* BuildLogFilename = "BuildLog.txt";
+
+	class BuildLogWriter
+	{
+	public:
+		explicit BuildLogWriter(std::filesystem::path filepath)
+			: m_Filepath(std::move(filepath))
+		{
+			if (!m_Filepath.parent_path().empty())
+			{
+				std::error_code error;
+				std::filesystem::create_directories(m_Filepath.parent_path(), error);
+			}
+
+			m_Stream.open(m_Filepath, std::ios::binary | std::ios::trunc);
+		}
+
+		void Write(std::string_view line)
+		{
+			if (!m_Stream)
+				return;
+
+			m_Stream << line << '\n';
+			m_Stream.flush();
+		}
+
+		void Section(std::string_view title)
+		{
+			Write("");
+			Write("== " + std::string(title) + " ==");
+		}
+
+		const std::filesystem::path& GetFilepath() const { return m_Filepath; }
+
+	private:
+		std::filesystem::path m_Filepath;
+		std::ofstream m_Stream;
+	};
 
 	std::string TrimCopy(std::string value)
 	{
@@ -59,6 +99,18 @@ namespace
 			if (character == ' ')
 				character = '_';
 		return value;
+	}
+
+	std::string PowerShellSingleQuote(std::string value)
+	{
+		size_t pos = 0;
+		while ((pos = value.find('\'', pos)) != std::string::npos)
+		{
+			value.insert(pos, "'");
+			pos += 2;
+		}
+
+		return "'" + value + "'";
 	}
 
 	std::filesystem::path NormalizeAbsolutePath(const std::filesystem::path& path)
@@ -206,6 +258,21 @@ namespace
 		return EditorProcess::FindExecutableInPath("cmake");
 	}
 
+	std::filesystem::path FindPowerShellExecutable()
+	{
+		if (std::filesystem::path powershellPath = EditorProcess::PathFromEnvironment("WHIP_POWERSHELL_PATH"); !powershellPath.empty())
+		{
+			std::error_code error;
+			if (std::filesystem::exists(powershellPath, error))
+				return powershellPath;
+			WHP_EDITOR_WARN("[Export] WHIP_POWERSHELL_PATH is set but does not exist: {0}", powershellPath.string());
+		}
+
+		if (std::filesystem::path powershellPath = EditorProcess::FindExecutableInPath("powershell.exe"); !powershellPath.empty())
+			return powershellPath;
+		return EditorProcess::FindExecutableInPath("pwsh.exe");
+	}
+
 	std::string MakeNativePlayerBuildCommand(EditorExportConfiguration configuration, std::filesystem::path* outCMakePath = nullptr)
 	{
 		std::filesystem::path cmake = FindCMakeExecutable();
@@ -234,6 +301,16 @@ namespace
 			value == "scripts/.vs" ||
 			value.starts_with("scripts/.idea/") ||
 			value == "scripts/.idea";
+	}
+
+	bool ShouldSkipRuntimePath(const std::filesystem::path& relativePath, EditorExportConfiguration configuration)
+	{
+		if (configuration != EditorExportConfiguration::Release)
+			return false;
+
+		std::string extension = relativePath.extension().generic_string();
+		std::ranges::transform(extension, extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		return extension == ".pdb" || extension == ".ilk" || extension == ".exp" || extension == ".lib";
 	}
 
 	size_t CountFiles(
@@ -366,6 +443,8 @@ namespace
 
 		stream << "WhipExport:\n";
 		stream << "  product: " << settings.m_ProductName << "\n";
+		stream << "  version: " << settings.m_ProductVersion << "\n";
+		stream << "  company: " << settings.m_CompanyName << "\n";
 		stream << "  platform: Windows-x86_64\n";
 		stream << "  configuration: " << EditorExportManager::GetConfigurationName(settings.m_Configuration) << "\n";
 		stream << "  native_build_preset: " << EditorExportManager::GetBuildPresetName(settings.m_Configuration) << "\n";
@@ -374,8 +453,40 @@ namespace
 		stream << "  executable: " << result.m_ExecutablePath.filename().generic_string() << "\n";
 		stream << "  runtime_source: " << runtimeSourceDirectory.generic_string() << "\n";
 		stream << "  start_scene: " << static_cast<uint64_t>(project.GetConfig().m_StartScene) << "\n";
+		stream << "  build_log: " << result.m_BuildLogPath.filename().generic_string() << "\n";
+		stream << "  package: " << result.m_PackagePath.generic_string() << "\n";
+		stream << "  validation_errors: " << result.m_ValidationErrors << "\n";
+		stream << "  validation_warnings: " << result.m_ValidationWarnings << "\n";
 		stream << "  native_built: " << (result.m_NativeBuildSucceeded ? "true" : "false") << "\n";
 		stream << "  scripts_built: " << (result.m_ScriptBuildSucceeded ? "true" : "false") << "\n";
+		stream << "  package_created: " << (result.m_PackageCreated ? "true" : "false") << "\n";
+		if (!result.m_Warnings.empty())
+		{
+			stream << "  warnings:\n";
+			for (const std::string& warning : result.m_Warnings)
+				stream << "    - " << warning << "\n";
+		}
+	}
+
+	void WriteProductMetadata(
+		const std::filesystem::path& metadataPath,
+		const EditorExportSettings& settings,
+		const EditorExportResult& result)
+	{
+		std::ofstream stream(metadataPath, std::ios::binary | std::ios::trunc);
+		if (!stream)
+			throw std::runtime_error("Could not write product metadata: " + metadataPath.string());
+
+		stream << "WhipProduct:\n";
+		stream << "  name: " << settings.m_ProductName << "\n";
+		stream << "  version: " << settings.m_ProductVersion << "\n";
+		stream << "  company: " << settings.m_CompanyName << "\n";
+		stream << "  executable: " << result.m_ExecutablePath.filename().generic_string() << "\n";
+		stream << "  configuration: " << EditorExportManager::GetConfigurationName(settings.m_Configuration) << "\n";
+		stream << "  platform: Windows-x86_64\n";
+		stream << "  build_log: " << result.m_BuildLogPath.filename().generic_string() << "\n";
+		if (!result.m_PackagePath.empty())
+			stream << "  package: " << result.m_PackagePath.filename().generic_string() << "\n";
 	}
 
 	struct ExportJobInput
@@ -390,16 +501,23 @@ namespace
 		std::filesystem::path m_ProjectOutputPath;
 		std::filesystem::path m_PlayerConfigPath;
 		std::filesystem::path m_ProductExecutablePath;
+		std::filesystem::path m_ProductIconOutputPath;
+		std::filesystem::path m_BuildLogPath;
+		std::filesystem::path m_PackagePath;
+		int m_ValidationErrors = 0;
+		int m_ValidationWarnings = 0;
 	};
 
-	void RunNativePlayerBuild(const ExportJobInput& input, EditorExportResult& result, Async::JobContext& context)
+	void RunNativePlayerBuild(const ExportJobInput& input, EditorExportResult& result, Async::JobContext& context, BuildLogWriter& buildLog)
 	{
 		if (!input.m_Settings.m_BuildNativePlayer)
 		{
 			result.m_NativeBuildSucceeded = false;
+			buildLog.Write("Native build skipped.");
 			return;
 		}
 
+		buildLog.Section("Native Player Build");
 		context.SetProgress(0.04f, std::string("Building native ") + EditorExportManager::GetConfigurationName(input.m_Settings.m_Configuration) + " player");
 		std::filesystem::path cmakePath;
 		const std::string command = MakeNativePlayerBuildCommand(input.m_Settings.m_Configuration, &cmakePath);
@@ -409,11 +527,13 @@ namespace
 			throw std::runtime_error("Whip engine source root was not found. Native player build cannot run.");
 
 		WHP_EDITOR_INFO("[Export] Native build command: {0}", command);
+		buildLog.Write("Command: " + command);
 		EditorProcess::RunOptions options;
 		options.m_WorkingDirectory = input.m_EngineSourceRoot;
 		options.m_LogPrefix = "[Native Build] ";
-		options.m_OnOutput = [&context](std::string_view line)
+		options.m_OnOutput = [&context, &buildLog](std::string_view line)
 		{
+			buildLog.Write(line);
 			context.SetMessage(std::string(line));
 		};
 		options.m_IsCancellationRequested = [&context]()
@@ -439,19 +559,7 @@ namespace
 		if (!input.m_Project)
 			throw std::runtime_error("No project is loaded.");
 
-		result.m_Warnings.insert(result.m_Warnings.end(), input.m_PreflightWarnings.begin(), input.m_PreflightWarnings.end());
-
-		RunNativePlayerBuild(input, result, context);
-		if (context.IsCancellationRequested())
-			return;
-
-		std::filesystem::path runtimeSourceDirectory = input.m_RuntimeSourceDirectory;
-		if (runtimeSourceDirectory.empty())
-			runtimeSourceDirectory = ResolvePlayerRuntimeDirectory(input.m_Settings.m_Configuration);
-		if (runtimeSourceDirectory.empty())
-			throw std::runtime_error(std::string(EditorExportManager::GetConfigurationName(input.m_Settings.m_Configuration)) + " Whip-Player runtime was not found after native build.");
-
-		context.SetProgress(0.24f, "Preparing output directory");
+		context.SetProgress(0.02f, "Preparing output directory");
 		if (input.m_Settings.m_CleanOutputDirectory && std::filesystem::exists(input.m_OutputDirectory, error))
 		{
 			error.clear();
@@ -464,23 +572,71 @@ namespace
 		if (error)
 			throw std::runtime_error("Could not create output directory: " + input.m_OutputDirectory.string() + " (" + error.message() + ")");
 
+		BuildLogWriter buildLog(input.m_BuildLogPath);
+		buildLog.Write("Whip Windows Export");
+		buildLog.Write("Product: " + input.m_Settings.m_ProductName);
+		buildLog.Write("Version: " + input.m_Settings.m_ProductVersion);
+		buildLog.Write("Company: " + input.m_Settings.m_CompanyName);
+		buildLog.Write("Configuration: " + std::string(EditorExportManager::GetConfigurationName(input.m_Settings.m_Configuration)));
+		buildLog.Write("Output: " + input.m_OutputDirectory.string());
+
+		result.m_BuildLogPath = input.m_BuildLogPath;
+		result.m_PackagePath = input.m_PackagePath;
+		result.m_ValidationErrors = input.m_ValidationErrors;
+		result.m_ValidationWarnings = input.m_ValidationWarnings;
+		result.m_Warnings.insert(result.m_Warnings.end(), input.m_PreflightWarnings.begin(), input.m_PreflightWarnings.end());
+		for (const std::string& warning : result.m_Warnings)
+			buildLog.Write("Warning: " + warning);
+
+		RunNativePlayerBuild(input, result, context, buildLog);
+		if (context.IsCancellationRequested())
+			return;
+
+		std::filesystem::path runtimeSourceDirectory = input.m_RuntimeSourceDirectory;
+		if (runtimeSourceDirectory.empty())
+			runtimeSourceDirectory = ResolvePlayerRuntimeDirectory(input.m_Settings.m_Configuration);
+		if (runtimeSourceDirectory.empty())
+			throw std::runtime_error(std::string(EditorExportManager::GetConfigurationName(input.m_Settings.m_Configuration)) + " Whip-Player runtime was not found after native build.");
+
+		buildLog.Section("Output Directory");
+		context.SetProgress(0.24f, "Output directory ready");
+		buildLog.Write("Output directory ready: " + input.m_OutputDirectory.string());
+
 		if (input.m_Settings.m_BuildScripts)
 		{
+			buildLog.Section("Script Build");
 			context.SetProgress(0.30f, "Building scripts");
 			result.m_ScriptBuildSucceeded = EditorScriptManager::BuildProjectScriptsForProject(input.m_Project,
-				[&context](const std::string& message, bool, bool)
+				[&context, &buildLog](const std::string& message, bool, bool)
 				{
+					buildLog.Write(message);
 					context.SetMessage(message);
 				});
 			if (!result.m_ScriptBuildSucceeded)
 				result.m_Warnings.emplace_back("Script build failed. Existing script binaries were packaged.");
 		}
+		else
+		{
+			buildLog.Write("Script build skipped.");
+		}
 
 		if (context.IsCancellationRequested())
 			return;
 
-		CopyDirectoryContents(runtimeSourceDirectory, input.m_OutputDirectory, context, 0.38f, 0.56f, "Copying Whip Player runtime");
+		buildLog.Section("Runtime Copy");
+		CopyDirectoryContents(
+			runtimeSourceDirectory,
+			input.m_OutputDirectory,
+			context,
+			0.38f,
+			0.56f,
+			"Copying Whip Player runtime",
+			[configuration = input.m_Settings.m_Configuration](const std::filesystem::path& relativePath)
+			{
+				return ShouldSkipRuntimePath(relativePath, configuration);
+			});
 
+		buildLog.Section("Project Copy");
 		context.SetProgress(0.58f, "Preparing exported project");
 		std::filesystem::create_directories(input.m_ProjectOutputDirectory, error);
 		if (error)
@@ -501,10 +657,36 @@ namespace
 			ShouldSkipProjectAssetPath);
 
 		context.SetProgress(0.90f, "Writing player config");
+		if (!input.m_Settings.m_ProductIconPath.empty())
+		{
+			error.clear();
+			if (std::filesystem::exists(input.m_Settings.m_ProductIconPath, error))
+			{
+				std::filesystem::copy_file(input.m_Settings.m_ProductIconPath, input.m_ProductIconOutputPath, std::filesystem::copy_options::overwrite_existing, error);
+				if (error)
+					result.m_Warnings.emplace_back("Product icon could not be copied: " + error.message());
+			}
+			else
+			{
+				result.m_Warnings.emplace_back("Product icon file was not found: " + input.m_Settings.m_ProductIconPath.string());
+			}
+		}
+
 		PlayerConfig playerConfig;
 		playerConfig.m_ProjectPath = std::filesystem::relative(input.m_ProjectOutputPath, input.m_OutputDirectory, error);
 		if (error)
 			playerConfig.m_ProjectPath = input.m_ProjectOutputPath.filename();
+		playerConfig.m_ProductName = input.m_Settings.m_ProductName;
+		playerConfig.m_ProductVersion = input.m_Settings.m_ProductVersion;
+		playerConfig.m_CompanyName = input.m_Settings.m_CompanyName;
+		if (!input.m_ProductIconOutputPath.empty() && std::filesystem::exists(input.m_ProductIconOutputPath, error))
+		{
+			error.clear();
+			playerConfig.m_ProductIconPath = std::filesystem::relative(input.m_ProductIconOutputPath, input.m_OutputDirectory, error);
+			if (error)
+				playerConfig.m_ProductIconPath = input.m_ProductIconOutputPath.filename();
+		}
+		playerConfig.m_LogFilePath = "log/client.log";
 		playerConfig.m_WindowTitle = input.m_Settings.m_ProductName;
 		PlayerConfigSerializer playerConfigSerializer(playerConfig);
 		if (!playerConfigSerializer.Serialize(input.m_PlayerConfigPath))
@@ -529,9 +711,78 @@ namespace
 		result.m_OutputDirectory = input.m_OutputDirectory;
 		result.m_ExecutablePath = input.m_ProductExecutablePath;
 		result.m_ProjectPath = input.m_ProjectOutputPath;
-		result.m_ManifestPath = input.m_OutputDirectory / "WhipExport.yaml";
+		result.m_ManifestPath = input.m_OutputDirectory / ExportManifestFilename;
 		result.m_Configuration = input.m_Settings.m_Configuration;
+		result.m_PackageCreated = input.m_Settings.m_PackageZip;
 		WriteExportManifest(result.m_ManifestPath, input.m_Settings, result, *input.m_Project, runtimeSourceDirectory);
+		WriteProductMetadata(input.m_OutputDirectory / ExportMetadataFilename, input.m_Settings, result);
+
+		if (input.m_Settings.m_PackageZip)
+		{
+			buildLog.Section("Package");
+			context.SetProgress(0.97f, "Creating zip package");
+			const std::filesystem::path powershell = FindPowerShellExecutable();
+			if (powershell.empty())
+			{
+				result.m_Warnings.emplace_back("PowerShell was not found. Zip package was skipped.");
+				result.m_PackageCreated = false;
+				result.m_PackagePath.clear();
+				buildLog.Write("Package skipped: PowerShell was not found.");
+			}
+			else
+			{
+				error.clear();
+				if (std::filesystem::exists(input.m_PackagePath, error))
+					std::filesystem::remove(input.m_PackagePath, error);
+
+				const std::string script =
+					"$items = Get-ChildItem -LiteralPath " + PowerShellSingleQuote(input.m_OutputDirectory.string()) +
+					" -Force; if ($items.Count -eq 0) { exit 1 }; $items | Compress-Archive -DestinationPath " +
+					PowerShellSingleQuote(input.m_PackagePath.string()) + " -Force";
+				const std::string command = EditorProcess::QuoteCommandPath(powershell) + " -NoProfile -ExecutionPolicy Bypass -Command \"" + script + "\"";
+				buildLog.Write("Command: " + command);
+
+				EditorProcess::RunOptions options;
+				options.m_WorkingDirectory = input.m_OutputDirectory;
+				options.m_LogPrefix = "[Package] ";
+				options.m_OnOutput = [&context, &buildLog](std::string_view line)
+				{
+					buildLog.Write(line);
+					context.SetMessage(std::string(line));
+				};
+				options.m_IsCancellationRequested = [&context]()
+				{
+					return context.IsCancellationRequested();
+				};
+
+				const EditorProcess::RunResult packageResult = EditorProcess::RunCommand(command, options);
+				if (packageResult.m_Cancelled || context.IsCancellationRequested())
+					return;
+				if (!packageResult.m_Started || packageResult.m_ExitCode != 0 || !std::filesystem::exists(input.m_PackagePath, error))
+				{
+					result.m_Warnings.emplace_back("Zip package could not be created.");
+					result.m_PackageCreated = false;
+					result.m_PackagePath.clear();
+					buildLog.Write("Package failed.");
+				}
+				else
+				{
+					result.m_PackageCreated = true;
+					buildLog.Write("Package: " + input.m_PackagePath.string());
+				}
+			}
+		}
+		else
+		{
+			result.m_PackagePath.clear();
+			buildLog.Write("Zip package skipped.");
+		}
+
+		for (const std::string& warning : result.m_Warnings)
+			buildLog.Write("Warning: " + warning);
+
+		WriteExportManifest(result.m_ManifestPath, input.m_Settings, result, *input.m_Project, runtimeSourceDirectory);
+		WriteProductMetadata(input.m_OutputDirectory / ExportMetadataFilename, input.m_Settings, result);
 
 		context.SetProgress(1.0f, "Export complete");
 	}
@@ -576,6 +827,7 @@ EditorExportSettings EditorExportManager::MakeDefaultSettings() const
 	if (Ref<Project> project = Project::GetActive())
 	{
 		settings.m_ProductName = SanitizePathToken(project->GetConfig().m_Name, project->GetProjectPath().stem().string());
+		settings.m_CompanyName = "Whip";
 		settings.m_OutputRoot = project->GetProjectDirectory() / "Builds" / "Windows";
 	}
 	else
@@ -643,6 +895,14 @@ bool EditorExportManager::BeginExport(EditorExportSettings settings)
 	const std::filesystem::path projectOutputDirectory = outputDirectory / "Project";
 	const std::filesystem::path projectOutputPath = projectOutputDirectory / (productName + FileExtensions::Project);
 	const std::filesystem::path productExecutablePath = outputDirectory / (productName + ".exe");
+	const std::filesystem::path packagePath = NormalizeAbsolutePath(settings.m_OutputRoot / (productName + "-" + EditorExportManager::GetConfigurationName(settings.m_Configuration) + "-windows-x86_64.zip"));
+	const std::filesystem::path buildLogPath = outputDirectory / BuildLogFilename;
+	std::filesystem::path productIconOutputPath;
+	if (!settings.m_ProductIconPath.empty())
+	{
+		const std::filesystem::path iconExtension = settings.m_ProductIconPath.extension().empty() ? ".ico" : settings.m_ProductIconPath.extension();
+		productIconOutputPath = outputDirectory / ("ProductIcon" + iconExtension.string());
+	}
 
 	if (PathsEqual(outputDirectory, project->GetProjectDirectory()) || IsPathInside(outputDirectory, project->GetAssetDirectory()))
 	{
@@ -670,6 +930,17 @@ bool EditorExportManager::BeginExport(EditorExportSettings settings)
 	input.m_ProjectOutputPath = projectOutputPath;
 	input.m_PlayerConfigPath = outputDirectory / PlayerConfigFilename;
 	input.m_ProductExecutablePath = productExecutablePath;
+	input.m_ProductIconOutputPath = productIconOutputPath;
+	input.m_BuildLogPath = buildLogPath;
+	input.m_PackagePath = packagePath;
+	input.m_ValidationErrors = static_cast<int>(std::ranges::count_if(m_PreflightWarnings, [](const std::string& warning)
+	{
+		return warning.starts_with("Validation error:");
+	}));
+	input.m_ValidationWarnings = static_cast<int>(std::ranges::count_if(m_PreflightWarnings, [](const std::string& warning)
+	{
+		return warning.starts_with("Validation warning:");
+	}));
 
 	m_ActiveSettings = settings;
 	m_PendingResult = result;
@@ -743,6 +1014,32 @@ bool EditorExportManager::PrepareForExport(EditorExportSettings& settings)
 		m_Status = "Asset registry file is missing after save.";
 		WHP_EDITOR_ERROR("[Export] {0}: {1}", m_Status, project->GetAssetRegistryPath().string());
 		return false;
+	}
+
+	if (settings.m_RunProjectHealthCheck)
+	{
+		const ProjectHealthPanel::ExportScanSummary health = layer.m_ProjectHealthPanel.ScanForExport();
+		for (const std::string& message : health.m_ErrorMessages)
+			m_PreflightWarnings.emplace_back("Validation error: " + message);
+		for (const std::string& message : health.m_WarningMessages)
+			m_PreflightWarnings.emplace_back("Validation warning: " + message);
+
+		if (health.m_Errors > 0)
+		{
+			std::ostringstream message;
+			message << "Project Health found " << health.m_Errors << " error(s)";
+			if (settings.m_BlockOnValidationErrors)
+			{
+				m_Status = message.str() + ". Fix them or disable the export health gate.";
+				WHP_EDITOR_ERROR("[Export] {0}", m_Status);
+				return false;
+			}
+
+			m_PreflightWarnings.emplace_back(message.str() + ", but export health gate is non-blocking.");
+		}
+
+		if (health.m_Warnings > 0)
+			m_PreflightWarnings.emplace_back("Project Health found " + std::to_string(health.m_Warnings) + " warning(s).");
 	}
 
 	if (project->GetConfig().m_ScriptModulePath.empty())
@@ -849,6 +1146,58 @@ bool EditorExportManager::OpenLastOutputFolder() const
 bool EditorExportManager::RunLastExport() const
 {
 	return HasLastExport() && Utils::OpenExternalPath(m_LastResult.m_ExecutablePath);
+}
+
+bool EditorExportManager::OpenLastBuildLog() const
+{
+	return HasLastExport() && !m_LastResult.m_BuildLogPath.empty() && Utils::OpenExternalPath(m_LastResult.m_BuildLogPath);
+}
+
+bool EditorExportManager::OpenLastPackage() const
+{
+	return HasLastExport() && !m_LastResult.m_PackagePath.empty() && Utils::OpenExternalPath(m_LastResult.m_PackagePath);
+}
+
+bool EditorExportManager::CleanLastExportOutput()
+{
+	if (IsExportRunning() || !HasLastExport())
+		return false;
+
+	std::error_code error;
+	const std::filesystem::path outputDirectory = NormalizeAbsolutePath(m_LastResult.m_OutputDirectory);
+	if (outputDirectory.empty() ||
+		!std::filesystem::exists(outputDirectory / ExportManifestFilename, error) ||
+		!std::filesystem::exists(outputDirectory / PlayerConfigFilename, error))
+	{
+		m_Status = "Last export folder does not look like a Whip export.";
+		WHP_EDITOR_WARN("[Export] {0}", m_Status);
+		return false;
+	}
+
+	std::filesystem::remove_all(outputDirectory, error);
+	if (error)
+	{
+		m_Status = "Could not clean last export: " + error.message();
+		WHP_EDITOR_ERROR("[Export] {0}", m_Status);
+		return false;
+	}
+
+	error.clear();
+	if (!m_LastResult.m_PackagePath.empty() && std::filesystem::exists(m_LastResult.m_PackagePath, error))
+		std::filesystem::remove(m_LastResult.m_PackagePath, error);
+
+	m_LastResult = {};
+	m_Status = "Last export cleaned.";
+	return true;
+}
+
+bool EditorExportManager::RebuildLastExport()
+{
+	if (IsExportRunning())
+		return false;
+	if (m_ActiveSettings.m_ProductName.empty() && m_ActiveSettings.m_OutputRoot.empty())
+		return false;
+	return BeginExport(m_ActiveSettings);
 }
 
 const EditorExportResult& EditorExportManager::GetLastResult() const

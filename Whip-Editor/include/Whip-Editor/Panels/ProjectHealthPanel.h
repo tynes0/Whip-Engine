@@ -22,6 +22,15 @@ public:
 	using SceneCallback = std::function<Ref<Scene>()>;
 	using SelectEntityCallback = std::function<void(UUID)>;
 
+	struct ExportScanSummary
+	{
+		int m_Errors = 0;
+		int m_Warnings = 0;
+		int m_Info = 0;
+		std::vector<std::string> m_ErrorMessages;
+		std::vector<std::string> m_WarningMessages;
+	};
+
 	ProjectHealthPanel();
 
 	void OnImGuiRender() override;
@@ -30,6 +39,7 @@ public:
 	void SetSceneCallback(SceneCallback callback) { m_SceneCallback = std::move(callback); }
 	void SetSelectEntityCallback(SelectEntityCallback callback) { m_SelectEntityCallback = std::move(callback); }
 	void MarkDirty() { m_ScanDirty = true; }
+	ExportScanSummary ScanForExport();
 
 private:
 	enum class IssueSeverity : uint8_t

@@ -7,6 +7,7 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <string_view>
 
@@ -17,6 +18,10 @@ WhipPlayerLayer::WhipPlayerLayer()
 
 void WhipPlayerLayer::OnAttach()
 {
+	const std::filesystem::path executableDirectory = whip::Utils::GetExecutableDirectory();
+	m_ConfigPath = whip::PlayerConfigSerializer::GetDefaultConfigPath(executableDirectory);
+	m_LogFilePath = std::filesystem::current_path() / "log" / "client.log";
+
 	whip::FramebufferSpecification framebufferSpec{};
 	framebufferSpec.m_Attachments = { whip::FramebufferTextureFormat::Rgba8, whip::FramebufferTextureFormat::Depth };
 	framebufferSpec.m_Width = static_cast<uint32_t>(m_ViewportSize.x);
@@ -26,13 +31,12 @@ void WhipPlayerLayer::OnAttach()
 	const std::filesystem::path projectPath = ResolveProjectPath();
 	if (projectPath.empty())
 	{
-		WHP_CORE_ERROR("[Whip Player] No project path was provided. Usage: Whip-Player <Project.wproj> or Whip-Player --project <Project.wproj>");
-		whip::Application::Get().Close();
+		SetFatalError("No Project Configured", "Whip Player could not find a project path. Pass a .wproj path, use --project, or place WhipPlayer.yaml next to the executable.");
 		return;
 	}
 
 	if (!LoadProject(projectPath) || !LoadStartScene())
-		whip::Application::Get().Close();
+		return;
 }
 
 void WhipPlayerLayer::OnDetach()
@@ -87,7 +91,24 @@ void WhipPlayerLayer::OnImGuiRender()
 	const ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
 	m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
 
-	if (m_Framebuffer)
+	if (!m_FatalErrorTitle.empty())
+	{
+		ImGui::SetCursorPos(ImVec2(42.0f, 42.0f));
+		ImGui::BeginGroup();
+		ImGui::TextColored(ImVec4(0.95f, 0.42f, 0.34f, 1.0f), "%s", m_FatalErrorTitle.c_str());
+		ImGui::Spacing();
+		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + std::max(320.0f, viewportPanelSize.x - 84.0f));
+		ImGui::TextWrapped("%s", m_FatalErrorDetail.c_str());
+		ImGui::PopTextWrapPos();
+		ImGui::Spacing();
+		ImGui::TextDisabled("Config: %s", m_ConfigPath.empty() ? "-" : m_ConfigPath.string().c_str());
+		ImGui::TextDisabled("Log: %s", m_LogFilePath.empty() ? "-" : m_LogFilePath.string().c_str());
+		ImGui::Spacing();
+		if (ImGui::Button("Close", ImVec2(120.0f, 30.0f)))
+			whip::Application::Get().Close();
+		ImGui::EndGroup();
+	}
+	else if (m_Framebuffer)
 	{
 		ImGui::Image(
 			static_cast<ImTextureID>(static_cast<uint64_t>(m_Framebuffer->GetColorAttachmentRendererId())),
@@ -126,17 +147,24 @@ std::filesystem::path WhipPlayerLayer::ResolveProjectPath() const
 	return {};
 }
 
+void WhipPlayerLayer::SetFatalError(std::string title, std::string detail)
+{
+	m_FatalErrorTitle = std::move(title);
+	m_FatalErrorDetail = std::move(detail);
+	WHP_CORE_ERROR("[Whip Player] {0}: {1}", m_FatalErrorTitle, m_FatalErrorDetail);
+}
+
 bool WhipPlayerLayer::LoadProject(const std::filesystem::path& projectPath)
 {
 	if (projectPath.empty() || !std::filesystem::exists(projectPath))
 	{
-		WHP_CORE_ERROR("[Whip Player] Project file does not exist: {0}", projectPath.string());
+		SetFatalError("Project File Missing", "Project file does not exist: " + projectPath.string());
 		return false;
 	}
 
 	if (!whip::Project::Load(projectPath))
 	{
-		WHP_CORE_ERROR("[Whip Player] Failed to load project: {0}", projectPath.string());
+		SetFatalError("Project Load Failed", "Whip could not load the project file: " + projectPath.string());
 		return false;
 	}
 
@@ -154,7 +182,7 @@ bool WhipPlayerLayer::LoadStartScene()
 	const whip::AssetHandle startSceneHandle = whip::Project::GetActive()->GetConfig().m_StartScene;
 	if (!startSceneHandle)
 	{
-		WHP_CORE_ERROR("[Whip Player] No start scene specified in project.");
+		SetFatalError("Start Scene Missing", "The project has no start scene configured.");
 		return false;
 	}
 
@@ -170,14 +198,14 @@ bool WhipPlayerLayer::LoadRuntimeScene(whip::AssetHandle sceneHandle)
 	if (!activeProject->GetRuntimeAssetManager()->IsAssetHandleValid(sceneHandle) ||
 		activeProject->GetRuntimeAssetManager()->GetAssetType(sceneHandle) != whip::AssetType::Scene)
 	{
-		WHP_CORE_ERROR("[Whip Player] Runtime scene load failed. Invalid scene handle: {0}", static_cast<uint64_t>(sceneHandle));
+		SetFatalError("Scene Handle Invalid", "Runtime scene load failed. Invalid scene handle: " + std::to_string(static_cast<uint64_t>(sceneHandle)));
 		return false;
 	}
 
 	whip::Ref<whip::Scene> sourceScene = whip::AssetManager::GetAsset<whip::Scene>(sceneHandle);
 	if (!sourceScene)
 	{
-		WHP_CORE_ERROR("[Whip Player] Runtime scene load failed. Scene asset could not be loaded.");
+		SetFatalError("Scene Load Failed", "Runtime scene asset could not be loaded.");
 		return false;
 	}
 

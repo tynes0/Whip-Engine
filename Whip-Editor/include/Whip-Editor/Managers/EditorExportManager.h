@@ -21,11 +21,17 @@ enum class EditorExportConfiguration : uint8_t
 struct EditorExportSettings
 {
 	std::string m_ProductName;
+	std::string m_ProductVersion = "0.1.0";
+	std::string m_CompanyName = "Whip";
+	std::filesystem::path m_ProductIconPath;
 	std::filesystem::path m_OutputRoot;
 	EditorExportConfiguration m_Configuration = EditorExportConfiguration::Debug;
 	bool m_BuildNativePlayer = true;
 	bool m_CleanOutputDirectory = true;
 	bool m_BuildScripts = true;
+	bool m_RunProjectHealthCheck = true;
+	bool m_BlockOnValidationErrors = true;
+	bool m_PackageZip = true;
 	bool m_RunAfterExport = false;
 	bool m_OpenFolderAfterExport = false;
 };
@@ -36,10 +42,15 @@ struct EditorExportResult
 	std::filesystem::path m_ExecutablePath;
 	std::filesystem::path m_ProjectPath;
 	std::filesystem::path m_ManifestPath;
+	std::filesystem::path m_BuildLogPath;
+	std::filesystem::path m_PackagePath;
 	std::vector<std::string> m_Warnings;
 	EditorExportConfiguration m_Configuration = EditorExportConfiguration::Debug;
+	int m_ValidationErrors = 0;
+	int m_ValidationWarnings = 0;
 	bool m_NativeBuildSucceeded = true;
 	bool m_ScriptBuildSucceeded = true;
+	bool m_PackageCreated = false;
 };
 
 class EditorExportManager : public EditorManagerBase // NOLINT(cppcoreguidelines-special-member-functions)
@@ -57,6 +68,10 @@ public:
 	bool HasLastExport() const;
 	bool OpenLastOutputFolder() const;
 	bool RunLastExport() const;
+	bool OpenLastBuildLog() const;
+	bool OpenLastPackage() const;
+	bool CleanLastExportOutput();
+	bool RebuildLastExport();
 
 	static const char* GetConfigurationName(EditorExportConfiguration configuration);
 	static const char* GetBuildPresetName(EditorExportConfiguration configuration);

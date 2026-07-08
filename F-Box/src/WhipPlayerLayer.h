@@ -16,6 +16,7 @@ public:
 
 private:
 	std::filesystem::path ResolveProjectPath() const;
+	void SetFatalError(std::string title, std::string detail);
 	bool LoadProject(const std::filesystem::path& projectPath);
 	bool LoadStartScene();
 	bool LoadRuntimeScene(whip::AssetHandle sceneHandle);
@@ -28,5 +29,9 @@ private:
 	whip::Ref<whip::Framebuffer> m_Framebuffer;
 	glm::vec2 m_ViewportSize = { 1280.0f, 720.0f };
 	whip::AssetHandle m_ActiveSceneHandle = 0;
+	std::string m_FatalErrorTitle;
+	std::string m_FatalErrorDetail;
+	std::filesystem::path m_ConfigPath;
+	std::filesystem::path m_LogFilePath;
 	bool m_SceneLoaded = false;
 };

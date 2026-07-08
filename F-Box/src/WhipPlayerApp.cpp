@@ -54,8 +54,14 @@ namespace
 			config.m_ProjectPath = std::move(commandLineProject);
 		if (config.m_ProjectPath.is_relative() && !config.m_ProjectPath.empty())
 			config.m_ProjectPath = executableDirectory / config.m_ProjectPath;
+		if (config.m_ProductIconPath.is_relative() && !config.m_ProductIconPath.empty())
+			config.m_ProductIconPath = executableDirectory / config.m_ProductIconPath;
+		if (config.m_LogFilePath.is_relative() && !config.m_LogFilePath.empty())
+			config.m_LogFilePath = executableDirectory / config.m_LogFilePath;
+		if (config.m_ProductName.empty() && !config.m_ProjectPath.empty())
+			config.m_ProductName = config.m_ProjectPath.stem().string();
 		if (config.m_WindowTitle.empty())
-			config.m_WindowTitle = !config.m_ProjectPath.empty() ? "Whip Player / " + config.m_ProjectPath.stem().string() : "Whip Player";
+			config.m_WindowTitle = !config.m_ProductName.empty() ? config.m_ProductName : "Whip Player";
 		if (HasCommandLineFlag(args, "--fullscreen"))
 			config.m_Fullscreen = true;
 		return config;

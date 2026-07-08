@@ -11,6 +11,11 @@ _WHIP_START
 struct PlayerConfig
 {
 	std::filesystem::path m_ProjectPath;
+	std::filesystem::path m_ProductIconPath;
+	std::filesystem::path m_LogFilePath;
+	std::string m_ProductName;
+	std::string m_ProductVersion = "0.1.0";
+	std::string m_CompanyName;
 	std::string m_WindowTitle = "Whip Player";
 	uint32_t m_WindowWidth = 1280;
 	uint32_t m_WindowHeight = 720;

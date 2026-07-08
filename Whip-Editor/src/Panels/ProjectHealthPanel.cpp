@@ -169,6 +169,43 @@ void ProjectHealthPanel::Scan()
 	ValidateScene();
 }
 
+ProjectHealthPanel::ExportScanSummary ProjectHealthPanel::ScanForExport()
+{
+	WHP_PROFILE_FUNCTION();
+	Scan();
+
+	ExportScanSummary summary;
+	for (const HealthIssue& issue : m_Issues)
+	{
+		std::string message = issue.m_Category + ": " + issue.m_Title;
+		if (!issue.m_Detail.empty())
+			message += " - " + issue.m_Detail;
+		if (!issue.m_Location.empty())
+			message += " (" + issue.m_Location + ")";
+
+		switch (issue.m_Severity)
+		{
+		case IssueSeverity::Error:
+			++summary.m_Errors;
+			if (summary.m_ErrorMessages.size() < 8)
+				summary.m_ErrorMessages.push_back(std::move(message));
+			break;
+		case IssueSeverity::Warning:
+			++summary.m_Warnings;
+			if (summary.m_WarningMessages.size() < 8)
+				summary.m_WarningMessages.push_back(std::move(message));
+			break;
+		case IssueSeverity::Info:
+			++summary.m_Info;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return summary;
+}
+
 void ProjectHealthPanel::DrawToolbar()
 {
 	WHP_PROFILE_FUNCTION();

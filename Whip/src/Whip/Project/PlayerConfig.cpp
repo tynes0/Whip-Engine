@@ -65,6 +65,11 @@ bool PlayerConfigSerializer::Serialize(const std::filesystem::path& filepath) co
 	out << YAML::BeginMap;
 	out << YAML::Key << "WhipPlayer" << YAML::Value << YAML::BeginMap;
 	out << YAML::Key << "project" << YAML::Value << m_Config.m_ProjectPath.generic_string();
+	out << YAML::Key << "product" << YAML::Value << m_Config.m_ProductName;
+	out << YAML::Key << "version" << YAML::Value << m_Config.m_ProductVersion;
+	out << YAML::Key << "company" << YAML::Value << m_Config.m_CompanyName;
+	out << YAML::Key << "icon" << YAML::Value << m_Config.m_ProductIconPath.generic_string();
+	out << YAML::Key << "log_file" << YAML::Value << m_Config.m_LogFilePath.generic_string();
 	out << YAML::Key << "title" << YAML::Value << m_Config.m_WindowTitle;
 	out << YAML::Key << "width" << YAML::Value << m_Config.m_WindowWidth;
 	out << YAML::Key << "height" << YAML::Value << m_Config.m_WindowHeight;
@@ -111,6 +116,16 @@ bool PlayerConfigSerializer::Deserialize(const std::filesystem::path& filepath) 
 
 	if (YAML::Node value = ReadValue(playerNode, "project", "Project"); HasNode(value))
 		m_Config.m_ProjectPath = value.as<std::string>("");
+	if (YAML::Node value = ReadValue(playerNode, "product", "Product"); HasNode(value))
+		m_Config.m_ProductName = value.as<std::string>(m_Config.m_ProductName);
+	if (YAML::Node value = ReadValue(playerNode, "version", "Version"); HasNode(value))
+		m_Config.m_ProductVersion = value.as<std::string>(m_Config.m_ProductVersion);
+	if (YAML::Node value = ReadValue(playerNode, "company", "Company"); HasNode(value))
+		m_Config.m_CompanyName = value.as<std::string>(m_Config.m_CompanyName);
+	if (YAML::Node value = ReadValue(playerNode, "icon", "Icon"); HasNode(value))
+		m_Config.m_ProductIconPath = value.as<std::string>("");
+	if (YAML::Node value = ReadValue(playerNode, "log_file", "LogFile"); HasNode(value))
+		m_Config.m_LogFilePath = value.as<std::string>("");
 	if (YAML::Node value = ReadValue(playerNode, "title", "Title"); HasNode(value))
 		m_Config.m_WindowTitle = value.as<std::string>(m_Config.m_WindowTitle);
 	if (YAML::Node value = ReadValue(playerNode, "width", "Width"); HasNode(value))
