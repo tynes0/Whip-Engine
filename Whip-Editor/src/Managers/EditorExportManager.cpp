@@ -3,6 +3,7 @@
 #include <Whip-Editor/Managers/EditorExportManager.h>
 
 #include <Whip-Editor/EditorLayer.h>
+#include <Whip-Editor/Helpers/EditorProcessUtils.h>
 #include <Whip-Editor/Managers/EditorSceneManager.h>
 #include <Whip-Editor/Managers/EditorScriptManager.h>
 
@@ -97,9 +98,64 @@ namespace
 		return true;
 	}
 
+	bool IsEngineSourceRoot(const std::filesystem::path& candidate)
+	{
+		if (candidate.empty())
+			return false;
+
+		std::error_code error;
+		return std::filesystem::exists(candidate / "CMakePresets.json", error) &&
+			std::filesystem::exists(candidate / "CMakeLists.txt", error) &&
+			std::filesystem::exists(candidate / "F-Box" / "CMakeLists.txt", error) &&
+			std::filesystem::exists(candidate / "Whip" / "CMakeLists.txt", error);
+	}
+
+	std::filesystem::path FindEngineSourceRoot()
+	{
+		std::vector<std::filesystem::path> probes;
+		const std::filesystem::path executableDirectory = Utils::GetExecutableDirectory();
+		const std::filesystem::path currentPath = std::filesystem::current_path();
+
+		if (!executableDirectory.empty())
+		{
+			probes.push_back(executableDirectory);
+			probes.push_back(executableDirectory.parent_path());
+			probes.push_back(executableDirectory.parent_path().parent_path());
+			probes.push_back(executableDirectory.parent_path().parent_path().parent_path());
+		}
+
+		probes.push_back(currentPath);
+		probes.push_back(currentPath.parent_path());
+		probes.push_back(currentPath.parent_path().parent_path());
+
+		if (Ref<Project> project = Project::GetActive())
+		{
+			std::filesystem::path probe = project->GetProjectDirectory();
+			for (int i = 0; i < 6 && !probe.empty(); ++i)
+			{
+				probes.push_back(probe);
+				probe = probe.parent_path();
+			}
+		}
+
+		for (const std::filesystem::path& probe : probes)
+		{
+			const std::filesystem::path normalizedProbe = NormalizeAbsolutePath(probe);
+			if (IsEngineSourceRoot(normalizedProbe))
+				return normalizedProbe;
+		}
+
+		return {};
+	}
+
 	std::string GetRuntimeOutputFolderName(EditorExportConfiguration configuration)
 	{
 		return std::string(EditorExportManager::GetConfigurationName(configuration)) + "-windows-x86_64";
+	}
+
+	std::filesystem::path GetExpectedPlayerRuntimeDirectory(const std::filesystem::path& engineSourceRoot, EditorExportConfiguration configuration)
+	{
+		return NormalizeAbsolutePath(engineSourceRoot / "bin" / GetRuntimeOutputFolderName(configuration) / "Whip-Player");
 	}
 
 	std::filesystem::path ResolvePlayerRuntimeDirectory(EditorExportConfiguration configuration)
@@ -120,6 +176,8 @@ namespace
 		candidates.emplace_back(currentPath / "bin" / outputFolderName / "Whip-Player");
 		candidates.emplace_back(currentPath / "Whip-Player");
 		candidates.emplace_back(currentPath);
+		if (const std::filesystem::path engineSourceRoot = FindEngineSourceRoot(); !engineSourceRoot.empty())
+			candidates.emplace_back(GetExpectedPlayerRuntimeDirectory(engineSourceRoot, configuration));
 
 		std::error_code error;
 		for (const std::filesystem::path& candidate : candidates)
@@ -131,6 +189,37 @@ namespace
 		}
 
 		return {};
+	}
+
+	std::filesystem::path FindCMakeExecutable()
+	{
+		if (std::filesystem::path cmakePath = EditorProcess::PathFromEnvironment("WHIP_CMAKE_PATH"); !cmakePath.empty())
+		{
+			std::error_code error;
+			if (std::filesystem::exists(cmakePath, error))
+				return cmakePath;
+			WHP_EDITOR_WARN("[Export] WHIP_CMAKE_PATH is set but does not exist: {0}", cmakePath.string());
+		}
+
+		if (std::filesystem::path cmakePath = EditorProcess::FindExecutableInPath("cmake.exe"); !cmakePath.empty())
+			return cmakePath;
+		return EditorProcess::FindExecutableInPath("cmake");
+	}
+
+	std::string MakeNativePlayerBuildCommand(EditorExportConfiguration configuration, std::filesystem::path* outCMakePath = nullptr)
+	{
+		std::filesystem::path cmake = FindCMakeExecutable();
+		if (outCMakePath)
+			*outCMakePath = cmake;
+		if (cmake.empty())
+			return {};
+
+		std::ostringstream command;
+		command << EditorProcess::QuoteCommandPath(cmake)
+			<< " --build --preset "
+			<< EditorExportManager::GetBuildPresetName(configuration)
+			<< " --target Whip-Player";
+		return command.str();
 	}
 
 	bool ShouldSkipProjectAssetPath(const std::filesystem::path& relativePath)
@@ -285,6 +374,7 @@ namespace
 		stream << "  executable: " << result.m_ExecutablePath.filename().generic_string() << "\n";
 		stream << "  runtime_source: " << runtimeSourceDirectory.generic_string() << "\n";
 		stream << "  start_scene: " << static_cast<uint64_t>(project.GetConfig().m_StartScene) << "\n";
+		stream << "  native_built: " << (result.m_NativeBuildSucceeded ? "true" : "false") << "\n";
 		stream << "  scripts_built: " << (result.m_ScriptBuildSucceeded ? "true" : "false") << "\n";
 	}
 
@@ -292,6 +382,8 @@ namespace
 	{
 		Ref<Project> m_Project;
 		EditorExportSettings m_Settings;
+		std::vector<std::string> m_PreflightWarnings;
+		std::filesystem::path m_EngineSourceRoot;
 		std::filesystem::path m_RuntimeSourceDirectory;
 		std::filesystem::path m_OutputDirectory;
 		std::filesystem::path m_ProjectOutputDirectory;
@@ -300,13 +392,66 @@ namespace
 		std::filesystem::path m_ProductExecutablePath;
 	};
 
+	void RunNativePlayerBuild(const ExportJobInput& input, EditorExportResult& result, Async::JobContext& context)
+	{
+		if (!input.m_Settings.m_BuildNativePlayer)
+		{
+			result.m_NativeBuildSucceeded = false;
+			return;
+		}
+
+		context.SetProgress(0.04f, std::string("Building native ") + EditorExportManager::GetConfigurationName(input.m_Settings.m_Configuration) + " player");
+		std::filesystem::path cmakePath;
+		const std::string command = MakeNativePlayerBuildCommand(input.m_Settings.m_Configuration, &cmakePath);
+		if (command.empty())
+			throw std::runtime_error("CMake executable was not found. Install CMake or set WHIP_CMAKE_PATH.");
+		if (input.m_EngineSourceRoot.empty())
+			throw std::runtime_error("Whip engine source root was not found. Native player build cannot run.");
+
+		WHP_EDITOR_INFO("[Export] Native build command: {0}", command);
+		EditorProcess::RunOptions options;
+		options.m_WorkingDirectory = input.m_EngineSourceRoot;
+		options.m_LogPrefix = "[Native Build] ";
+		options.m_OnOutput = [&context](std::string_view line)
+		{
+			context.SetMessage(std::string(line));
+		};
+		options.m_IsCancellationRequested = [&context]()
+		{
+			return context.IsCancellationRequested();
+		};
+
+		const EditorProcess::RunResult buildResult = EditorProcess::RunCommand(command, options);
+		if (buildResult.m_Cancelled || context.IsCancellationRequested())
+			return;
+		if (!buildResult.m_Started)
+			throw std::runtime_error("Native Whip-Player build process could not be started.");
+		if (buildResult.m_ExitCode != 0)
+			throw std::runtime_error("Native Whip-Player build failed with exit code " + std::to_string(buildResult.m_ExitCode) + ".");
+
+		result.m_NativeBuildSucceeded = true;
+		context.SetProgress(0.22f, "Native Whip-Player build complete");
+	}
+
 	void RunExportJob(const ExportJobInput& input, EditorExportResult& result, Async::JobContext& context)
 	{
 		std::error_code error;
 		if (!input.m_Project)
 			throw std::runtime_error("No project is loaded.");
 
-		context.SetProgress(0.03f, "Preparing output directory");
+		result.m_Warnings.insert(result.m_Warnings.end(), input.m_PreflightWarnings.begin(), input.m_PreflightWarnings.end());
+
+		RunNativePlayerBuild(input, result, context);
+		if (context.IsCancellationRequested())
+			return;
+
+		std::filesystem::path runtimeSourceDirectory = input.m_RuntimeSourceDirectory;
+		if (runtimeSourceDirectory.empty())
+			runtimeSourceDirectory = ResolvePlayerRuntimeDirectory(input.m_Settings.m_Configuration);
+		if (runtimeSourceDirectory.empty())
+			throw std::runtime_error(std::string(EditorExportManager::GetConfigurationName(input.m_Settings.m_Configuration)) + " Whip-Player runtime was not found after native build.");
+
+		context.SetProgress(0.24f, "Preparing output directory");
 		if (input.m_Settings.m_CleanOutputDirectory && std::filesystem::exists(input.m_OutputDirectory, error))
 		{
 			error.clear();
@@ -321,7 +466,7 @@ namespace
 
 		if (input.m_Settings.m_BuildScripts)
 		{
-			context.SetProgress(0.08f, "Building scripts");
+			context.SetProgress(0.30f, "Building scripts");
 			result.m_ScriptBuildSucceeded = EditorScriptManager::BuildProjectScriptsForProject(input.m_Project,
 				[&context](const std::string& message, bool, bool)
 				{
@@ -334,9 +479,9 @@ namespace
 		if (context.IsCancellationRequested())
 			return;
 
-		CopyDirectoryContents(input.m_RuntimeSourceDirectory, input.m_OutputDirectory, context, 0.18f, 0.48f, "Copying Whip Player runtime");
+		CopyDirectoryContents(runtimeSourceDirectory, input.m_OutputDirectory, context, 0.38f, 0.56f, "Copying Whip Player runtime");
 
-		context.SetProgress(0.50f, "Preparing exported project");
+		context.SetProgress(0.58f, "Preparing exported project");
 		std::filesystem::create_directories(input.m_ProjectOutputDirectory, error);
 		if (error)
 			throw std::runtime_error("Could not create exported project directory: " + input.m_ProjectOutputDirectory.string() + " (" + error.message() + ")");
@@ -350,12 +495,12 @@ namespace
 			input.m_Project->GetAssetDirectory(),
 			input.m_ProjectOutputDirectory / input.m_Project->GetConfig().m_AssetDirectory,
 			context,
-			0.54f,
-			0.86f,
+			0.62f,
+			0.88f,
 			"Copying project assets",
 			ShouldSkipProjectAssetPath);
 
-		context.SetProgress(0.88f, "Writing player config");
+		context.SetProgress(0.90f, "Writing player config");
 		PlayerConfig playerConfig;
 		playerConfig.m_ProjectPath = std::filesystem::relative(input.m_ProjectOutputPath, input.m_OutputDirectory, error);
 		if (error)
@@ -386,7 +531,7 @@ namespace
 		result.m_ProjectPath = input.m_ProjectOutputPath;
 		result.m_ManifestPath = input.m_OutputDirectory / "WhipExport.yaml";
 		result.m_Configuration = input.m_Settings.m_Configuration;
-		WriteExportManifest(result.m_ManifestPath, input.m_Settings, result, *input.m_Project, input.m_RuntimeSourceDirectory);
+		WriteExportManifest(result.m_ManifestPath, input.m_Settings, result, *input.m_Project, runtimeSourceDirectory);
 
 		context.SetProgress(1.0f, "Export complete");
 	}
@@ -456,17 +601,41 @@ bool EditorExportManager::BeginExport(EditorExportSettings settings)
 	const std::string productName = SanitizePathToken(settings.m_ProductName, "WhipGame");
 	settings.m_ProductName = productName;
 
-	const std::filesystem::path runtimeSourceDirectory = ResolvePlayerRuntimeDirectory(settings.m_Configuration);
-	if (runtimeSourceDirectory.empty())
+	std::filesystem::path engineSourceRoot;
+	std::filesystem::path runtimeSourceDirectory;
+	if (settings.m_BuildNativePlayer)
 	{
-		std::ostringstream message;
-		message << EditorExportManager::GetConfigurationName(settings.m_Configuration)
-			<< " Whip-Player build output was not found. Run: cmake --build --preset "
-			<< EditorExportManager::GetBuildPresetName(settings.m_Configuration)
-			<< " --target Whip-Player";
-		m_Status = message.str();
-		WHP_EDITOR_ERROR("[Export] {0}", m_Status);
-		return false;
+		engineSourceRoot = FindEngineSourceRoot();
+		if (engineSourceRoot.empty())
+		{
+			m_Status = "Whip engine source root was not found.";
+			WHP_EDITOR_ERROR("[Export] {0}", m_Status);
+			return false;
+		}
+
+		if (MakeNativePlayerBuildCommand(settings.m_Configuration).empty())
+		{
+			m_Status = "CMake executable was not found. Install CMake or set WHIP_CMAKE_PATH.";
+			WHP_EDITOR_ERROR("[Export] {0}", m_Status);
+			return false;
+		}
+
+		runtimeSourceDirectory = GetExpectedPlayerRuntimeDirectory(engineSourceRoot, settings.m_Configuration);
+	}
+	else
+	{
+		runtimeSourceDirectory = ResolvePlayerRuntimeDirectory(settings.m_Configuration);
+		if (runtimeSourceDirectory.empty())
+		{
+			std::ostringstream message;
+			message << EditorExportManager::GetConfigurationName(settings.m_Configuration)
+				<< " Whip-Player build output was not found. Enable native build or run: cmake --build --preset "
+				<< EditorExportManager::GetBuildPresetName(settings.m_Configuration)
+				<< " --target Whip-Player";
+			m_Status = message.str();
+			WHP_EDITOR_ERROR("[Export] {0}", m_Status);
+			return false;
+		}
 	}
 
 	Ref<Project> project = Project::GetActive();
@@ -493,6 +662,8 @@ bool EditorExportManager::BeginExport(EditorExportSettings settings)
 	ExportJobInput input;
 	input.m_Project = project;
 	input.m_Settings = settings;
+	input.m_PreflightWarnings = m_PreflightWarnings;
+	input.m_EngineSourceRoot = engineSourceRoot;
 	input.m_RuntimeSourceDirectory = runtimeSourceDirectory;
 	input.m_OutputDirectory = outputDirectory;
 	input.m_ProjectOutputDirectory = projectOutputDirectory;
@@ -515,6 +686,7 @@ bool EditorExportManager::PrepareForExport(EditorExportSettings& settings)
 {
 	WHP_PROFILE_FUNCTION();
 	EditorLayer& layer = GetLayer();
+	m_PreflightWarnings.clear();
 	if (!Project::GetActive() || !Project::Loaded())
 	{
 		m_Status = "No project is loaded.";
@@ -543,6 +715,14 @@ bool EditorExportManager::PrepareForExport(EditorExportSettings& settings)
 	}
 
 	Ref<Project> project = Project::GetActive();
+	std::error_code error;
+	if (!std::filesystem::exists(project->GetAssetDirectory(), error))
+	{
+		m_Status = "Project asset directory is missing.";
+		WHP_EDITOR_ERROR("[Export] {0}: {1}", m_Status, project->GetAssetDirectory().string());
+		return false;
+	}
+
 	if (!project->GetEditorAssetManager())
 	{
 		m_Status = "Asset registry is not available.";
@@ -557,12 +737,32 @@ bool EditorExportManager::PrepareForExport(EditorExportSettings& settings)
 		return false;
 	}
 
+	error.clear();
+	if (!std::filesystem::exists(project->GetAssetRegistryPath(), error))
+	{
+		m_Status = "Asset registry file is missing after save.";
+		WHP_EDITOR_ERROR("[Export] {0}: {1}", m_Status, project->GetAssetRegistryPath().string());
+		return false;
+	}
+
+	if (project->GetConfig().m_ScriptModulePath.empty())
+		m_PreflightWarnings.emplace_back("Script module path is not configured. Export will continue, but runtime scripts may be unavailable.");
+
 	const AssetHandle startScene = project->GetConfig().m_StartScene;
 	if (startScene == 0 || !project->GetEditorAssetManager()->IsAssetHandleValid(startScene) ||
 		project->GetEditorAssetManager()->GetAssetType(startScene) != AssetType::Scene)
 	{
 		m_Status = "Set a valid start scene before exporting.";
 		WHP_EDITOR_WARN("[Export] Project has no valid start scene.");
+		return false;
+	}
+
+	const AssetMetadata& startSceneMetadata = project->GetEditorAssetManager()->GetMetadata(startScene);
+	error.clear();
+	if (!std::filesystem::exists(project->GetAssetDirectory() / startSceneMetadata.m_Filepath, error))
+	{
+		m_Status = "Start scene asset file is missing.";
+		WHP_EDITOR_ERROR("[Export] {0}: {1}", m_Status, startSceneMetadata.m_Filepath.generic_string());
 		return false;
 	}
 

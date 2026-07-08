@@ -183,6 +183,7 @@ void ExportPanel::DrawOptions()
 	if (ImGui::BeginTable("##ExportOptions", 2, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_PadOuterX))
 	{
 		ImGui::TableNextColumn();
+		ImGui::Checkbox("Build native player", &m_Settings.m_BuildNativePlayer);
 		ImGui::Checkbox("Clean output folder", &m_Settings.m_CleanOutputDirectory);
 		ImGui::Checkbox("Build scripts before export", &m_Settings.m_BuildScripts);
 		ImGui::TableNextColumn();
@@ -235,6 +236,8 @@ void ExportPanel::DrawLastBuild()
 	ImGui::Spacing();
 	ImGui::SeparatorText("Last Build");
 	ImGui::TextDisabled("Configuration: %s", EditorExportManager::GetConfigurationName(result.m_Configuration));
+	ImGui::SameLine();
+	ImGui::TextDisabled("| Native: %s", result.m_NativeBuildSucceeded ? "built" : "skipped");
 	ImGui::TextWrapped("%s", result.m_OutputDirectory.string().c_str());
 	if (!result.m_Warnings.empty())
 	{

@@ -23,6 +23,7 @@ struct EditorExportSettings
 	std::string m_ProductName;
 	std::filesystem::path m_OutputRoot;
 	EditorExportConfiguration m_Configuration = EditorExportConfiguration::Debug;
+	bool m_BuildNativePlayer = true;
 	bool m_CleanOutputDirectory = true;
 	bool m_BuildScripts = true;
 	bool m_RunAfterExport = false;
@@ -37,6 +38,7 @@ struct EditorExportResult
 	std::filesystem::path m_ManifestPath;
 	std::vector<std::string> m_Warnings;
 	EditorExportConfiguration m_Configuration = EditorExportConfiguration::Debug;
+	bool m_NativeBuildSucceeded = true;
 	bool m_ScriptBuildSucceeded = true;
 };
 
@@ -72,6 +74,7 @@ private:
 	std::shared_ptr<EditorExportResult> m_PendingResult;
 	EditorExportResult m_LastResult;
 	EditorExportSettings m_ActiveSettings;
+	std::vector<std::string> m_PreflightWarnings;
 	std::string m_Status = "Ready to export.";
 	std::chrono::steady_clock::time_point m_ExportStartedAt{};
 };
