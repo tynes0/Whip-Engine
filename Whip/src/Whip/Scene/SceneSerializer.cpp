@@ -591,6 +591,24 @@ namespace Utils
 			out << YAML::EndMap; // ui_button_component
 		}
 
+		if (entityIn.HasComponent<UIStackLayoutComponent>())
+		{
+			out << YAML::Key << "ui_stack_layout_component";
+			out << YAML::BeginMap; // ui_stack_layout_component
+
+			auto& layout = entityIn.GetComponent<UIStackLayoutComponent>();
+			out << YAML::Key << "axis" << YAML::Value << static_cast<int>(layout.m_Axis);
+			out << YAML::Key << "alignment" << YAML::Value << static_cast<int>(layout.m_Alignment);
+			out << YAML::Key << "padding" << YAML::Value << layout.m_Padding;
+			out << YAML::Key << "spacing" << YAML::Value << layout.m_Spacing;
+			out << YAML::Key << "child_size" << YAML::Value << layout.m_ChildSize;
+			out << YAML::Key << "control_child_width" << YAML::Value << layout.m_ControlChildWidth;
+			out << YAML::Key << "control_child_height" << YAML::Value << layout.m_ControlChildHeight;
+			out << YAML::Key << "reverse" << YAML::Value << layout.m_Reverse;
+
+			out << YAML::EndMap; // ui_stack_layout_component
+		}
+
 		if (entityIn.HasComponent<Rigidbody2DComponent>())
 		{
 			out << YAML::Key << "rigidbody2D_component";
@@ -1054,6 +1072,20 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				button.m_FontSize = uiButtonComponent["font_size"].as<float>(button.m_FontSize);
 				button.m_Interactable = uiButtonComponent["interactable"].as<bool>(button.m_Interactable);
 				button.m_RaycastTarget = uiButtonComponent["raycast_target"].as<bool>(button.m_RaycastTarget);
+			}
+
+			auto uiStackLayoutComponent = entityNode["ui_stack_layout_component"];
+			if (uiStackLayoutComponent)
+			{
+				auto& layout = deserializedEntity.AddComponent<UIStackLayoutComponent>();
+				layout.m_Axis = static_cast<UIStackLayoutComponent::Axis>(uiStackLayoutComponent["axis"].as<int>(static_cast<int>(layout.m_Axis)));
+				layout.m_Alignment = static_cast<UIStackLayoutComponent::Alignment>(uiStackLayoutComponent["alignment"].as<int>(static_cast<int>(layout.m_Alignment)));
+				layout.m_Padding = uiStackLayoutComponent["padding"].as<glm::vec4>(layout.m_Padding);
+				layout.m_Spacing = uiStackLayoutComponent["spacing"].as<float>(layout.m_Spacing);
+				layout.m_ChildSize = uiStackLayoutComponent["child_size"].as<glm::vec2>(layout.m_ChildSize);
+				layout.m_ControlChildWidth = uiStackLayoutComponent["control_child_width"].as<bool>(layout.m_ControlChildWidth);
+				layout.m_ControlChildHeight = uiStackLayoutComponent["control_child_height"].as<bool>(layout.m_ControlChildHeight);
+				layout.m_Reverse = uiStackLayoutComponent["reverse"].as<bool>(layout.m_Reverse);
 			}
 
 			auto rigidbody2DComponent = entityNode["rigidbody2D_component"];

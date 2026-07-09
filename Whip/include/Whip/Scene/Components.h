@@ -186,6 +186,23 @@ struct UIButtonComponent
 	static constexpr std::string_view ScriptStructName = "UIButtonComponent";
 };
 
+struct UIStackLayoutComponent
+{
+	enum class Axis : uint8_t { Horizontal = 0, Vertical };
+	enum class Alignment : uint8_t { Start = 0, Center, End, Stretch };
+
+	Axis m_Axis = Axis::Vertical;
+	Alignment m_Alignment = Alignment::Center;
+	glm::vec4 m_Padding{ 12.0f, 12.0f, 12.0f, 12.0f }; // left, top, right, bottom
+	float m_Spacing = 8.0f;
+	glm::vec2 m_ChildSize{ 180.0f, 48.0f };
+	bool m_ControlChildWidth = true;
+	bool m_ControlChildHeight = true;
+	bool m_Reverse = false;
+
+	static constexpr std::string_view ScriptStructName = "UIStackLayoutComponent";
+};
+
 struct CameraComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
     SceneCamera m_Camera;
@@ -331,17 +348,17 @@ struct ComponentGroup {};
 
 using AllComponentsNoIDNoTagNoScript = ComponentGroup<TransformComponent,
 	SpriteRendererComponent, CircleRendererComponent, TextComponent, CameraComponent,
-	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent,
+	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent,
 	AnimatorComponent, Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent>;
 
 using AllComponentsNoIDNoTag = ComponentGroup<TransformComponent, SpriteRendererComponent,
 	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent,
-	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, AnimatorComponent, Rigidbody2DComponent,
+	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
 	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, HierarchyComponent, PrefabComponent>;
 
 using AllComponents = ComponentGroup<TransformComponent, SpriteRendererComponent,
 	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent,
-	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, AnimatorComponent, Rigidbody2DComponent,
+	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
 	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, IDComponent, TagComponent, HierarchyComponent, PrefabComponent>;
 
 _WHIP_END

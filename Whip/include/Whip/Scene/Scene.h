@@ -75,6 +75,7 @@ private:
 	void UpdateAnimators(Timestep ts);
 
 	void RenderScene(EditorCamera& cam);
+	void UpdateUILayouts();
 	void UpdateRuntimeUI();
 	void RenderUIOverlay();
 

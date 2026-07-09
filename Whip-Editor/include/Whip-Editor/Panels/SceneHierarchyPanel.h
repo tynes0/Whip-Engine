@@ -49,6 +49,16 @@ public:
 	bool RevertSelectedTemplateShortcut();
 	bool UnpackSelectedTemplateShortcut();
 private:
+	enum class UIElementKind : uint8_t
+	{
+		Panel = 0,
+		Image,
+		Text,
+		Button,
+		VerticalLayout,
+		HorizontalLayout
+	};
+
 	void MarkHierarchyDirty();
 	void RebuildHierarchyCache();
 	bool CanUseFlatHierarchyClipper() const;
@@ -70,6 +80,8 @@ private:
 	bool CanParentEntity(Entity child, Entity parent) const;
 	bool IsDescendantOf(Entity entityIn, UUID ancestorId) const;
 	Entity FindPrefabRoot(Entity entityIn) const;
+	Entity CreateUIElement(UIElementKind kind, Entity parent = {});
+	void DrawCreateUIMenu(Entity parent = {});
 	void DestroyEntityWithSelection(Entity entityIn);
 	bool IsSelected(Entity entityIn) const;
 	void NotifySceneChange();

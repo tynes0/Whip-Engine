@@ -679,6 +679,7 @@ void SceneHierarchyPanel::OnImGuiRender()
 				groupEntity.GetComponent<HierarchyComponent>().m_IsGroup = true;
 				MarkHierarchyDirty();
 			}
+			DrawCreateUIMenu();
 
 			ImGui::EndPopup();
 		}
@@ -976,6 +977,7 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 				SetEntityParent(childGroup, entityIn);
 				MarkHierarchyDirty();
 			}
+			DrawCreateUIMenu(entityIn);
 			if (hierarchy.m_Parent != 0 && ImGui::MenuItem("Move To Root"))
 			{
 				NotifySceneChange();
@@ -1100,6 +1102,101 @@ Entity SceneHierarchyPanel::FindPrefabRoot(Entity entityIn) const
 	return entityIn.GetComponent<PrefabComponent>().m_Root ? entityIn : Entity{};
 }
 
+Entity SceneHierarchyPanel::CreateUIElement(UIElementKind kind, Entity parent)
+{
+	if (!m_Context)
+		return {};
+
+	NotifySceneChange();
+
+	const char* name = "UI Element";
+	switch (kind)
+	{
+	case UIElementKind::Panel: name = "UI Panel"; break;
+	case UIElementKind::Image: name = "UI Image"; break;
+	case UIElementKind::Text: name = "UI Text"; break;
+	case UIElementKind::Button: name = "UI Button"; break;
+	case UIElementKind::VerticalLayout: name = "UI Vertical Layout"; break;
+	case UIElementKind::HorizontalLayout: name = "UI Horizontal Layout"; break;
+	}
+
+	Entity entity = m_Context->CreateEntity(name);
+	auto& transform = entity.AddComponent<UITransformComponent>();
+	transform.m_Size = { 220.0f, 64.0f };
+	transform.m_SortOrder = parent && parent.HasComponent<UITransformComponent>() ? parent.GetComponent<UITransformComponent>().m_SortOrder + 1 : 0;
+
+	if (parent)
+		SetEntityParent(entity, parent);
+
+	switch (kind)
+	{
+	case UIElementKind::Panel:
+	{
+		transform.m_Size = { 360.0f, 240.0f };
+		auto& image = entity.AddComponent<UIImageComponent>();
+		image.m_Color = { 0.05f, 0.08f, 0.10f, 0.86f };
+		break;
+	}
+	case UIElementKind::Image:
+	{
+		transform.m_Size = { 160.0f, 160.0f };
+		entity.AddComponent<UIImageComponent>();
+		break;
+	}
+	case UIElementKind::Text:
+	{
+		transform.m_Size = { 260.0f, 48.0f };
+		auto& text = entity.AddComponent<UITextComponent>();
+		text.m_TextString = "New Text";
+		text.m_FontSize = 24.0f;
+		break;
+	}
+	case UIElementKind::Button:
+	{
+		transform.m_Size = { 200.0f, 56.0f };
+		auto& button = entity.AddComponent<UIButtonComponent>();
+		button.m_Text = "Button";
+		break;
+	}
+	case UIElementKind::VerticalLayout:
+	case UIElementKind::HorizontalLayout:
+	{
+		transform.m_Size = { 360.0f, 260.0f };
+		auto& image = entity.AddComponent<UIImageComponent>();
+		image.m_Color = { 0.04f, 0.07f, 0.09f, 0.72f };
+		auto& layout = entity.AddComponent<UIStackLayoutComponent>();
+		layout.m_Axis = kind == UIElementKind::HorizontalLayout ? UIStackLayoutComponent::Axis::Horizontal : UIStackLayoutComponent::Axis::Vertical;
+		layout.m_Alignment = UIStackLayoutComponent::Alignment::Center;
+		break;
+	}
+	}
+
+	SetSelectedEntity(entity);
+	MarkHierarchyDirty();
+	return entity;
+}
+
+void SceneHierarchyPanel::DrawCreateUIMenu(Entity parent)
+{
+	if (ImGui::BeginMenu("Create UI"))
+	{
+		if (ImGui::MenuItem("Panel"))
+			CreateUIElement(UIElementKind::Panel, parent);
+		if (ImGui::MenuItem("Image"))
+			CreateUIElement(UIElementKind::Image, parent);
+		if (ImGui::MenuItem("Text"))
+			CreateUIElement(UIElementKind::Text, parent);
+		if (ImGui::MenuItem("Button"))
+			CreateUIElement(UIElementKind::Button, parent);
+		ImGui::Separator();
+		if (ImGui::MenuItem("Vertical Layout"))
+			CreateUIElement(UIElementKind::VerticalLayout, parent);
+		if (ImGui::MenuItem("Horizontal Layout"))
+			CreateUIElement(UIElementKind::HorizontalLayout, parent);
+		ImGui::EndMenu();
+	}
+}
+
 void SceneHierarchyPanel::DestroyEntityWithSelection(Entity entityIn)
 {
 	if (!entityIn)
@@ -1174,6 +1271,7 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 		DisplayAddComponentEntry<UIImageComponent>("UI Image");
 		DisplayAddComponentEntry<UITextComponent>("UI Text");
 		DisplayAddComponentEntry<UIButtonComponent>("UI Button");
+		DisplayAddComponentEntry<UIStackLayoutComponent>("UI Stack Layout");
 		DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D");
 		DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D");
 		DisplayAddComponentEntry<CircleCollider2DComponent>("Circle Collider 2D");
@@ -2002,6 +2100,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 		DisplayAddComponentEntry<UIImageComponent>("UI Image");
 		DisplayAddComponentEntry<UITextComponent>("UI Text");
 		DisplayAddComponentEntry<UIButtonComponent>("UI Button");
+		DisplayAddComponentEntry<UIStackLayoutComponent>("UI Stack Layout");
 		DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D");
 		DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D");
 		DisplayAddComponentEntry<CircleCollider2DComponent>("Circle Collider 2D");
@@ -2651,6 +2750,26 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::Checkbox("Pressed", &component.m_Pressed);
 			ImGui::Checkbox("Clicked This Frame", &component.m_ClickedThisFrame);
 			ImGui::EndDisabled();
+		});
+	ImGui::Spacing();
+	DrawComponent<UIStackLayoutComponent>("UI Stack Layout", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			const char* axisLabels[] = { "Horizontal", "Vertical" };
+			int axis = static_cast<int>(component.m_Axis);
+			if (ImGui::Combo("Axis", &axis, axisLabels, IM_ARRAYSIZE(axisLabels)))
+				component.m_Axis = static_cast<UIStackLayoutComponent::Axis>(axis);
+
+			const char* alignmentLabels[] = { "Start", "Center", "End", "Stretch" };
+			int alignment = static_cast<int>(component.m_Alignment);
+			if (ImGui::Combo("Alignment", &alignment, alignmentLabels, IM_ARRAYSIZE(alignmentLabels)))
+				component.m_Alignment = static_cast<UIStackLayoutComponent::Alignment>(alignment);
+
+			ImGui::DragFloat4("Padding L/T/R/B", glm::value_ptr(component.m_Padding), 1.0f, 0.0f, 4096.0f);
+			ImGui::DragFloat("Spacing", &component.m_Spacing, 1.0f, 0.0f, 4096.0f);
+			ImGui::DragFloat2("Child Size", glm::value_ptr(component.m_ChildSize), 1.0f, 1.0f, 4096.0f);
+			ImGui::Checkbox("Control Child Width", &component.m_ControlChildWidth);
+			ImGui::Checkbox("Control Child Height", &component.m_ControlChildHeight);
+			ImGui::Checkbox("Reverse", &component.m_Reverse);
 		});
 	ImGui::Spacing();
 	DrawComponent<Rigidbody2DComponent>("Rigidbody 2D", entityIn, m_SceneChangeCallback, [](auto& component)

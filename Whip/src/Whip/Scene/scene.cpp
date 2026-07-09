@@ -80,10 +80,10 @@ namespace
 		int32_t m_SortOrder = 0;
 	};
 
-	UIRect BuildUIRect(const UITransformComponent& transform, const glm::vec2& viewportSize)
+	UIRect BuildUIRect(const UITransformComponent& transform, const glm::vec2& containerMin, const glm::vec2& containerSize)
 	{
-		const glm::vec2 anchorMin = transform.m_AnchorMin * viewportSize;
-		const glm::vec2 anchorMax = transform.m_AnchorMax * viewportSize;
+		const glm::vec2 anchorMin = containerMin + transform.m_AnchorMin * containerSize;
+		const glm::vec2 anchorMax = containerMin + transform.m_AnchorMax * containerSize;
 		const glm::vec2 anchorSize = glm::max(anchorMax - anchorMin, glm::vec2(0.0f));
 		const glm::vec2 size = glm::max((anchorSize + transform.m_Size) * transform.m_Scale, glm::vec2(1.0f));
 		const glm::vec2 pivotPoint = anchorMin + anchorSize * transform.m_Pivot + transform.m_AnchoredPosition;
@@ -95,6 +95,29 @@ namespace
 		rect.m_Min = center - size * 0.5f;
 		rect.m_Max = center + size * 0.5f;
 		return rect;
+	}
+
+	UIRect ResolveUIRect(Scene& scene, entt::registry& registry, entt::entity entity, const glm::vec2& viewportSize, uint32_t depth = 0)
+	{
+		glm::vec2 containerMin{ 0.0f, 0.0f };
+		glm::vec2 containerSize = viewportSize;
+
+		if (depth < 32 && registry.any_of<HierarchyComponent>(entity))
+		{
+			const auto& hierarchy = registry.get<HierarchyComponent>(entity);
+			if (hierarchy.m_Parent != 0)
+			{
+				Entity parent = scene.FindEntityByUUID(hierarchy.m_Parent);
+				if (parent && parent.HasComponent<UITransformComponent>())
+				{
+					UIRect parentRect = ResolveUIRect(scene, registry, static_cast<entt::entity>(parent), viewportSize, depth + 1);
+					containerMin = parentRect.m_Min;
+					containerSize = parentRect.m_Size;
+				}
+			}
+		}
+
+		return BuildUIRect(registry.get<UITransformComponent>(entity), containerMin, containerSize);
 	}
 
 	glm::mat4 BuildUITransform(const UIRect& rect, const UITransformComponent& transform, float z)
@@ -124,6 +147,18 @@ namespace
 		const glm::mat4 textTransform = glm::translate(glm::mat4(1.0f), glm::vec3(textOrigin, z))
 			* glm::scale(glm::mat4(1.0f), glm::vec3(safeFontSize, safeFontSize, 1.0f));
 		Renderer2D::DrawString(text, ResolveFont(fontHandle), textTransform, { color, kerning, lineSpacing }, entityId);
+	}
+
+	float ResolveCrossPosition(UIStackLayoutComponent::Alignment alignment, float contentMin, float contentMax, float childSize)
+	{
+		switch (alignment)
+		{
+		case UIStackLayoutComponent::Alignment::Start: return contentMin + childSize * 0.5f;
+		case UIStackLayoutComponent::Alignment::End: return contentMax - childSize * 0.5f;
+		case UIStackLayoutComponent::Alignment::Center:
+		case UIStackLayoutComponent::Alignment::Stretch:
+		default: return (contentMin + contentMax) * 0.5f;
+		}
 	}
 }
 
@@ -675,6 +710,8 @@ void Scene::UpdateRuntimeUI()
 	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
 		return;
 
+	UpdateUILayouts();
+
 	const bool inputActive = Input::IsRuntimeInputActive() && Input::IsMouseInsideViewport();
 	glm::vec2 mousePosition = Input::GetMouseViewportPosition();
 	mousePosition.y = static_cast<float>(m_ViewportHeight) - mousePosition.y;
@@ -694,7 +731,7 @@ void Scene::UpdateRuntimeUI()
 			continue;
 		}
 
-		const UIRect rect = BuildUIRect(transform, viewportSize);
+		const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
 		const bool hovered = mousePosition.x >= rect.m_Min.x && mousePosition.x <= rect.m_Max.x
 			&& mousePosition.y >= rect.m_Min.y && mousePosition.y <= rect.m_Max.y;
 		button.m_Hovered = hovered;
@@ -703,11 +740,115 @@ void Scene::UpdateRuntimeUI()
 	}
 }
 
+void Scene::UpdateUILayouts()
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
+		return;
+
+	const glm::vec2 viewportSize{ static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight) };
+	auto view = m_Registry.view<UITransformComponent, UIStackLayoutComponent, HierarchyComponent>();
+	for (auto entity : view)
+	{
+		auto [layoutTransform, layout, hierarchy] = view.get<UITransformComponent, UIStackLayoutComponent, HierarchyComponent>(entity);
+		if (!layoutTransform.m_Visible || hierarchy.m_Children.empty())
+			continue;
+
+		const UIRect parentRect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
+		const float contentMinX = parentRect.m_Min.x + layout.m_Padding.x;
+		const float contentMaxX = parentRect.m_Max.x - layout.m_Padding.z;
+		const float contentMinY = parentRect.m_Min.y + layout.m_Padding.w;
+		const float contentMaxY = parentRect.m_Max.y - layout.m_Padding.y;
+		const float contentWidth = std::max(contentMaxX - contentMinX, 1.0f);
+		const float contentHeight = std::max(contentMaxY - contentMinY, 1.0f);
+
+		std::vector<Entity> children;
+		children.reserve(hierarchy.m_Children.size());
+		for (UUID childId : hierarchy.m_Children)
+		{
+			Entity child = FindEntityByUUID(childId);
+			if (child && child.HasComponent<UITransformComponent>())
+				children.push_back(child);
+		}
+		if (children.empty())
+			continue;
+		if (layout.m_Reverse)
+			std::reverse(children.begin(), children.end());
+
+		if (layout.m_Axis == UIStackLayoutComponent::Axis::Horizontal)
+		{
+			float totalWidth = 0.0f;
+			for (Entity child : children)
+			{
+				auto& childTransform = child.GetComponent<UITransformComponent>();
+				if (layout.m_ControlChildWidth)
+					childTransform.m_Size.x = layout.m_ChildSize.x;
+				if (layout.m_ControlChildHeight || layout.m_Alignment == UIStackLayoutComponent::Alignment::Stretch)
+					childTransform.m_Size.y = layout.m_Alignment == UIStackLayoutComponent::Alignment::Stretch ? contentHeight : layout.m_ChildSize.y;
+				totalWidth += childTransform.m_Size.x;
+			}
+			totalWidth += layout.m_Spacing * static_cast<float>(children.size() - 1);
+
+			float currentX = contentMinX;
+			if (layout.m_Alignment == UIStackLayoutComponent::Alignment::Center)
+				currentX = contentMinX + std::max(contentWidth - totalWidth, 0.0f) * 0.5f;
+			else if (layout.m_Alignment == UIStackLayoutComponent::Alignment::End)
+				currentX = contentMaxX - totalWidth;
+
+			for (Entity child : children)
+			{
+				auto& childTransform = child.GetComponent<UITransformComponent>();
+				const float childY = ResolveCrossPosition(layout.m_Alignment, contentMinY, contentMaxY, childTransform.m_Size.y);
+				const glm::vec2 desiredCenter{ currentX + childTransform.m_Size.x * 0.5f, childY };
+				childTransform.m_AnchorMin = { 0.0f, 0.0f };
+				childTransform.m_AnchorMax = { 0.0f, 0.0f };
+				childTransform.m_Pivot = { 0.5f, 0.5f };
+				childTransform.m_AnchoredPosition = desiredCenter - parentRect.m_Min;
+				currentX += childTransform.m_Size.x + layout.m_Spacing;
+			}
+		}
+		else
+		{
+			float totalHeight = 0.0f;
+			for (Entity child : children)
+			{
+				auto& childTransform = child.GetComponent<UITransformComponent>();
+				if (layout.m_ControlChildWidth || layout.m_Alignment == UIStackLayoutComponent::Alignment::Stretch)
+					childTransform.m_Size.x = layout.m_Alignment == UIStackLayoutComponent::Alignment::Stretch ? contentWidth : layout.m_ChildSize.x;
+				if (layout.m_ControlChildHeight)
+					childTransform.m_Size.y = layout.m_ChildSize.y;
+				totalHeight += childTransform.m_Size.y;
+			}
+			totalHeight += layout.m_Spacing * static_cast<float>(children.size() - 1);
+
+			float currentY = contentMaxY;
+			if (layout.m_Alignment == UIStackLayoutComponent::Alignment::Center)
+				currentY = contentMaxY - std::max(contentHeight - totalHeight, 0.0f) * 0.5f;
+			else if (layout.m_Alignment == UIStackLayoutComponent::Alignment::End)
+				currentY = contentMinY + totalHeight;
+
+			for (Entity child : children)
+			{
+				auto& childTransform = child.GetComponent<UITransformComponent>();
+				const float childX = ResolveCrossPosition(layout.m_Alignment, contentMinX, contentMaxX, childTransform.m_Size.x);
+				const glm::vec2 desiredCenter{ childX, currentY - childTransform.m_Size.y * 0.5f };
+				childTransform.m_AnchorMin = { 0.0f, 0.0f };
+				childTransform.m_AnchorMax = { 0.0f, 0.0f };
+				childTransform.m_Pivot = { 0.5f, 0.5f };
+				childTransform.m_AnchoredPosition = desiredCenter - parentRect.m_Min;
+				currentY -= childTransform.m_Size.y + layout.m_Spacing;
+			}
+		}
+	}
+}
+
 void Scene::RenderUIOverlay()
 {
 	WHP_PROFILE_FUNCTION();
 	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
 		return;
+
+	UpdateUILayouts();
 
 	std::vector<UIRenderItem> items;
 	{
@@ -736,7 +877,7 @@ void Scene::RenderUIOverlay()
 	{
 		const entt::entity entity = items[index].m_Entity;
 		const auto& transform = m_Registry.get<UITransformComponent>(entity);
-		const UIRect rect = BuildUIRect(transform, viewportSize);
+		const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
 		const float z = static_cast<float>(index) * 0.001f;
 		const int entityId = static_cast<int>(entity);
 
@@ -819,6 +960,11 @@ void Scene::OnComponentAdded<UITextComponent>(Entity entityIn, UITextComponent& 
 
 template<>
 void Scene::OnComponentAdded<UIButtonComponent>(Entity entityIn, UIButtonComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<UIStackLayoutComponent>(Entity entityIn, UIStackLayoutComponent& component)
 {
 }
 
