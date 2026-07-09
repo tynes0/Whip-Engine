@@ -145,6 +145,24 @@ struct UITransformComponent
 	static constexpr std::string_view ScriptStructName = "UITransformComponent";
 };
 
+struct UICanvasComponent
+{
+	enum class ScaleMode : uint8_t
+	{
+		ConstantPixelSize = 0,
+		ScaleWithScreenSize
+	};
+
+	ScaleMode m_ScaleMode = ScaleMode::ScaleWithScreenSize;
+	glm::vec2 m_ReferenceResolution{ 1920.0f, 1080.0f };
+	float m_MatchWidthOrHeight = 0.5f;
+	float m_ScaleFactor = 1.0f;
+	bool m_Visible = true;
+	bool m_ShowInEditor = true;
+
+	static constexpr std::string_view ScriptStructName = "UICanvasComponent";
+};
+
 struct UIImageComponent
 {
 	glm::vec4 m_Color{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -352,17 +370,17 @@ struct ComponentGroup {};
 
 using AllComponentsNoIDNoTagNoScript = ComponentGroup<TransformComponent,
 	SpriteRendererComponent, CircleRendererComponent, TextComponent, CameraComponent,
-	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent,
+	UITransformComponent, UICanvasComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent,
 	AnimatorComponent, Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent>;
 
 using AllComponentsNoIDNoTag = ComponentGroup<TransformComponent, SpriteRendererComponent,
 	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent,
-	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
+	UITransformComponent, UICanvasComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
 	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, HierarchyComponent, PrefabComponent>;
 
 using AllComponents = ComponentGroup<TransformComponent, SpriteRendererComponent,
 	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent,
-	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
+	UITransformComponent, UICanvasComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
 	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, IDComponent, TagComponent, HierarchyComponent, PrefabComponent>;
 
 _WHIP_END

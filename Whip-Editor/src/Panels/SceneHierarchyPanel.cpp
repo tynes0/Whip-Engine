@@ -571,6 +571,8 @@ bool SceneHierarchyPanel::EntityMatchesSearch(Entity entityIn) const
 		searchable += " text";
 	if (entityIn.HasComponent<UITransformComponent>())
 		searchable += " ui";
+	if (entityIn.HasComponent<UICanvasComponent>())
+		searchable += " canvas ui root screen";
 	if (entityIn.HasComponent<UIImageComponent>())
 		searchable += " image";
 	if (entityIn.HasComponent<UITextComponent>())
@@ -1243,6 +1245,50 @@ Entity SceneHierarchyPanel::FindPrefabRoot(Entity entityIn) const
 	return entityIn.GetComponent<PrefabComponent>().m_Root ? entityIn : Entity{};
 }
 
+Entity SceneHierarchyPanel::FindFirstUICanvas() const
+{
+	if (!m_Context)
+		return {};
+
+	auto view = m_Context->m_Registry.view<UITransformComponent, UICanvasComponent>();
+	for (auto entityId : view)
+		return Entity{ entityId, m_Context.get() };
+	return {};
+}
+
+void SceneHierarchyPanel::ConfigureCanvasTransform(UITransformComponent& transform)
+{
+	transform.m_AnchorMin = { 0.0f, 0.0f };
+	transform.m_AnchorMax = { 1.0f, 1.0f };
+	transform.m_Pivot = { 0.5f, 0.5f };
+	transform.m_AnchoredPosition = { 0.0f, 0.0f };
+	transform.m_Size = { 0.0f, 0.0f };
+	transform.m_Scale = { 1.0f, 1.0f };
+	transform.m_Rotation = 0.0f;
+	transform.m_SortOrder = 0;
+	transform.m_Visible = true;
+}
+
+Entity SceneHierarchyPanel::FindOrCreateUICanvas()
+{
+	if (Entity canvas = FindFirstUICanvas())
+		return canvas;
+
+	Entity canvas = m_Context->CreateEntity("Canvas");
+	auto& transform = canvas.AddComponent<UITransformComponent>();
+	ConfigureCanvasTransform(transform);
+	canvas.AddComponent<UICanvasComponent>();
+	MarkHierarchyDirty();
+	return canvas;
+}
+
+Entity SceneHierarchyPanel::ResolveUIParent(Entity requestedParent)
+{
+	if (requestedParent && requestedParent.HasComponent<UITransformComponent>())
+		return requestedParent;
+	return FindOrCreateUICanvas();
+}
+
 Entity SceneHierarchyPanel::CreateUIElement(UIElementKind kind, Entity parent)
 {
 	if (!m_Context)
@@ -1254,6 +1300,7 @@ Entity SceneHierarchyPanel::CreateUIElement(UIElementKind kind, Entity parent)
 	switch (kind)
 	{
 	case UIElementKind::Panel: name = "UI Panel"; break;
+	case UIElementKind::Canvas: name = "Canvas"; break;
 	case UIElementKind::Image: name = "UI Image"; break;
 	case UIElementKind::Text: name = "UI Text"; break;
 	case UIElementKind::Button: name = "UI Button"; break;
@@ -1263,14 +1310,21 @@ Entity SceneHierarchyPanel::CreateUIElement(UIElementKind kind, Entity parent)
 
 	Entity entity = m_Context->CreateEntity(name);
 	auto& transform = entity.AddComponent<UITransformComponent>();
+	Entity resolvedParent = kind == UIElementKind::Canvas ? Entity{} : ResolveUIParent(parent);
 	transform.m_Size = { 220.0f, 64.0f };
-	transform.m_SortOrder = parent && parent.HasComponent<UITransformComponent>() ? parent.GetComponent<UITransformComponent>().m_SortOrder + 1 : 0;
+	transform.m_SortOrder = resolvedParent && resolvedParent.HasComponent<UITransformComponent>() ? resolvedParent.GetComponent<UITransformComponent>().m_SortOrder + 1 : 0;
 
-	if (parent)
-		SetEntityParent(entity, parent);
+	if (resolvedParent)
+		SetEntityParent(entity, resolvedParent);
 
 	switch (kind)
 	{
+	case UIElementKind::Canvas:
+	{
+		ConfigureCanvasTransform(transform);
+		entity.AddComponent<UICanvasComponent>();
+		break;
+	}
 	case UIElementKind::Panel:
 	{
 		transform.m_Size = { 360.0f, 240.0f };
@@ -1323,12 +1377,15 @@ Entity SceneHierarchyPanel::CreateUITemplate(UITemplateKind kind, Entity parent)
 		return {};
 
 	NotifySceneChange();
+	Entity resolvedRootParent = parent && parent.HasComponent<UITransformComponent>() ? parent : Entity{};
+	if (kind == UITemplateKind::PauseMenu && !resolvedRootParent)
+		resolvedRootParent = FindOrCreateUICanvas();
 
-	auto createUIEntity = [this, parent](const char* name, Entity explicitParent = {}) -> Entity
+	auto createUIEntity = [this, resolvedRootParent](const char* name, Entity explicitParent = {}) -> Entity
 		{
 			Entity entity = m_Context->CreateEntity(name);
 			entity.AddComponent<UITransformComponent>();
-			Entity resolvedParent = explicitParent ? explicitParent : parent;
+			Entity resolvedParent = explicitParent ? explicitParent : resolvedRootParent;
 			if (resolvedParent)
 				SetEntityParent(entity, resolvedParent);
 			return entity;
@@ -1339,11 +1396,9 @@ Entity SceneHierarchyPanel::CreateUITemplate(UITemplateKind kind, Entity parent)
 	{
 		root = createUIEntity("HUD Canvas");
 		auto& rootTransform = root.GetComponent<UITransformComponent>();
-		rootTransform.m_AnchorMin = { 0.0f, 0.0f };
-		rootTransform.m_AnchorMax = { 1.0f, 1.0f };
-		rootTransform.m_Pivot = { 0.5f, 0.5f };
-		rootTransform.m_Size = { 0.0f, 0.0f };
+		ConfigureCanvasTransform(rootTransform);
 		rootTransform.m_SortOrder = parent && parent.HasComponent<UITransformComponent>() ? parent.GetComponent<UITransformComponent>().m_SortOrder + 1 : 0;
+		root.AddComponent<UICanvasComponent>();
 
 		Entity score = createUIEntity("Score Text", root);
 		auto& scoreTransform = score.GetComponent<UITransformComponent>();
@@ -1412,6 +1467,9 @@ void SceneHierarchyPanel::DrawCreateUIMenu(Entity parent)
 {
 	if (ImGui::BeginMenu("Create UI"))
 	{
+		if (ImGui::MenuItem("Canvas"))
+			CreateUIElement(UIElementKind::Canvas, parent);
+		ImGui::Separator();
 		if (ImGui::MenuItem("Panel"))
 			CreateUIElement(UIElementKind::Panel, parent);
 		if (ImGui::MenuItem("Image"))
@@ -1505,6 +1563,7 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 		DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer");
 		DisplayAddComponentEntry<TextComponent>("Text");
 		DisplayAddComponentEntry<UITransformComponent>("UI Transform");
+		DisplayAddComponentEntry<UICanvasComponent>("UI Canvas");
 		DisplayAddComponentEntry<UIImageComponent>("UI Image");
 		DisplayAddComponentEntry<UITextComponent>("UI Text");
 		DisplayAddComponentEntry<UIButtonComponent>("UI Button");
@@ -2334,6 +2393,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 		DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer");
 		DisplayAddComponentEntry<TextComponent>("Text");
 		DisplayAddComponentEntry<UITransformComponent>("UI Transform");
+		DisplayAddComponentEntry<UICanvasComponent>("UI Canvas");
 		DisplayAddComponentEntry<UIImageComponent>("UI Image");
 		DisplayAddComponentEntry<UITextComponent>("UI Text");
 		DisplayAddComponentEntry<UIButtonComponent>("UI Button");
@@ -2388,15 +2448,23 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::EndDisabled();
 		});
 	ImGui::Spacing();
-	DrawComponent<TransformComponent>("Transform", entityIn, m_SceneChangeCallback, [](auto& component)
-		{
-			float spacing = ImGui::GetStyle().IndentSpacing;
-			UI::DrawVec3Control("Translation", component.m_Translation, 0, 100, spacing);
-			glm::vec3 rotation = glm::degrees(component.m_Rotation);
-			UI::DrawVec3Control("Rotation", rotation, 0, 100, spacing);
-			component.m_Rotation = glm::radians(rotation);
-			UI::DrawVec3Control("Scale", component.m_Scale, 1.0f, 100, spacing);
-		});
+	const bool isUIEntity = entityIn.HasComponent<UITransformComponent>();
+	if (isUIEntity)
+	{
+		ImGui::TextDisabled("Screen-space UI entity. Use UI Transform for position, size, anchors, and pivot.");
+	}
+	else
+	{
+		DrawComponent<TransformComponent>("Transform", entityIn, m_SceneChangeCallback, [](auto& component)
+			{
+				float spacing = ImGui::GetStyle().IndentSpacing;
+				UI::DrawVec3Control("Translation", component.m_Translation, 0, 100, spacing);
+				glm::vec3 rotation = glm::degrees(component.m_Rotation);
+				UI::DrawVec3Control("Rotation", rotation, 0, 100, spacing);
+				component.m_Rotation = glm::radians(rotation);
+				UI::DrawVec3Control("Scale", component.m_Scale, 1.0f, 100, spacing);
+			});
+	}
 	ImGui::Spacing();
 	DrawComponent<CameraComponent>("Camera", entityIn, m_SceneChangeCallback, [](auto& component)
 		{
@@ -2794,6 +2862,41 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 
 			ImGui::SameLine();
 			ImGui::Text("Font");
+		});
+	ImGui::Spacing();
+	DrawComponent<UICanvasComponent>("UI Canvas", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			if (ImGui::BeginTable("UICanvasTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable))
+			{
+				BEGIN_COMPONENT_TABLE_ROW("Visible");
+				ImGui::Checkbox("##UICanvasVisible", &component.m_Visible);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Editor Bounds");
+				ImGui::Checkbox("##UICanvasShowInEditor", &component.m_ShowInEditor);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Scale Mode");
+				const char* scaleModeLabels[] = { "Constant Pixel Size", "Scale With Screen Size" };
+				int scaleMode = static_cast<int>(component.m_ScaleMode);
+				if (ImGui::Combo("##UICanvasScaleMode", &scaleMode, scaleModeLabels, IM_ARRAYSIZE(scaleModeLabels)))
+					component.m_ScaleMode = static_cast<UICanvasComponent::ScaleMode>(scaleMode);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Reference");
+				ImGui::DragFloat2("##UICanvasReferenceResolution", glm::value_ptr(component.m_ReferenceResolution), 1.0f, 1.0f, 8192.0f);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Match W/H");
+				ImGui::SliderFloat("##UICanvasMatch", &component.m_MatchWidthOrHeight, 0.0f, 1.0f, "%.2f");
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Scale Factor");
+				ImGui::DragFloat("##UICanvasScaleFactor", &component.m_ScaleFactor, 0.01f, 0.01f, 16.0f, "%.2f");
+				END_COMPONENT_TABLE_ROW();
+
+				ImGui::EndTable();
+			}
 		});
 	ImGui::Spacing();
 	DrawComponent<UITransformComponent>("UI Transform", entityIn, m_SceneChangeCallback, [](auto& component)
@@ -3272,8 +3375,47 @@ void SceneHierarchyPanel::AddComponentToSelection()
 {
 	WHP_PROFILE_FUNCTION();
 	for (Entity selected : GetSelectedEntities())
-		if (selected && !selected.HasComponent<T>())
+	{
+		if (!selected || selected.HasComponent<T>())
+			continue;
+
+		if constexpr (std::is_same_v<T, UICanvasComponent>)
+		{
+			UITransformComponent& transform = selected.HasComponent<UITransformComponent>() ? selected.GetComponent<UITransformComponent>() : selected.AddComponent<UITransformComponent>();
+			ConfigureCanvasTransform(transform);
+			if (selected.HasComponent<HierarchyComponent>())
+				SetEntityParent(selected, {});
+			selected.AddComponent<UICanvasComponent>();
+		}
+		else if constexpr (std::is_same_v<T, UITransformComponent>)
+		{
+			selected.AddComponent<UITransformComponent>();
+			if (!selected.HasComponent<UICanvasComponent>())
+				SetEntityParent(selected, FindOrCreateUICanvas());
+		}
+		else if constexpr (std::is_same_v<T, UIImageComponent> || std::is_same_v<T, UITextComponent> || std::is_same_v<T, UIButtonComponent> || std::is_same_v<T, UIStackLayoutComponent>)
+		{
+			if (!selected.HasComponent<UITransformComponent>())
+				selected.AddComponent<UITransformComponent>();
+			if (!selected.HasComponent<UICanvasComponent>())
+			{
+				bool hasUIParent = false;
+				if (selected.HasComponent<HierarchyComponent>())
+				{
+					const auto& hierarchy = selected.GetComponent<HierarchyComponent>();
+					Entity parent = hierarchy.m_Parent != 0 ? m_Context->FindEntityByUUID(hierarchy.m_Parent) : Entity{};
+					hasUIParent = parent && parent.HasComponent<UITransformComponent>();
+				}
+				if (!hasUIParent)
+					SetEntityParent(selected, FindOrCreateUICanvas());
+			}
 			selected.AddComponent<T>();
+		}
+		else
+		{
+			selected.AddComponent<T>();
+		}
+	}
 }
 
 template<class T>

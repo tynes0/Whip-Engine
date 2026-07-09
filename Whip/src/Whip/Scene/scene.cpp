@@ -81,13 +81,66 @@ namespace
 		int32_t m_SortOrder = 0;
 	};
 
-	UIRect BuildUIRect(const UITransformComponent& transform, const glm::vec2& containerMin, const glm::vec2& containerSize)
+	float ResolveCanvasScale(const UICanvasComponent& canvas, const glm::vec2& viewportSize)
+	{
+		const glm::vec2 referenceResolution = glm::max(canvas.m_ReferenceResolution, glm::vec2(1.0f));
+		float scale = canvas.m_ScaleFactor;
+		if (canvas.m_ScaleMode == UICanvasComponent::ScaleMode::ScaleWithScreenSize)
+		{
+			const float widthScale = viewportSize.x / referenceResolution.x;
+			const float heightScale = viewportSize.y / referenceResolution.y;
+			const float match = glm::clamp(canvas.m_MatchWidthOrHeight, 0.0f, 1.0f);
+			scale *= glm::mix(widthScale, heightScale, match);
+		}
+		return std::max(scale, 0.001f);
+	}
+
+	float ResolveUIScale(Scene& scene, entt::registry& registry, entt::entity entity, const glm::vec2& viewportSize, uint32_t depth = 0)
+	{
+		if (registry.any_of<UICanvasComponent>(entity))
+			return ResolveCanvasScale(registry.get<UICanvasComponent>(entity), viewportSize);
+
+		if (depth >= 32 || !registry.any_of<HierarchyComponent>(entity))
+			return 1.0f;
+
+		const auto& hierarchy = registry.get<HierarchyComponent>(entity);
+		if (hierarchy.m_Parent == 0)
+			return 1.0f;
+
+		Entity parent = scene.FindEntityByUUID(hierarchy.m_Parent);
+		if (!parent)
+			return 1.0f;
+
+		return ResolveUIScale(scene, registry, static_cast<entt::entity>(parent), viewportSize, depth + 1);
+	}
+
+	bool IsUIBranchVisible(Scene& scene, entt::registry& registry, entt::entity entity, uint32_t depth = 0)
+	{
+		if (registry.any_of<UITransformComponent>(entity) && !registry.get<UITransformComponent>(entity).m_Visible)
+			return false;
+		if (registry.any_of<UICanvasComponent>(entity) && !registry.get<UICanvasComponent>(entity).m_Visible)
+			return false;
+		if (depth >= 32 || !registry.any_of<HierarchyComponent>(entity))
+			return true;
+
+		const auto& hierarchy = registry.get<HierarchyComponent>(entity);
+		if (hierarchy.m_Parent == 0)
+			return true;
+
+		Entity parent = scene.FindEntityByUUID(hierarchy.m_Parent);
+		if (!parent)
+			return true;
+
+		return IsUIBranchVisible(scene, registry, static_cast<entt::entity>(parent), depth + 1);
+	}
+
+	UIRect BuildUIRect(const UITransformComponent& transform, const glm::vec2& containerMin, const glm::vec2& containerSize, float uiScale)
 	{
 		const glm::vec2 anchorMin = containerMin + transform.m_AnchorMin * containerSize;
 		const glm::vec2 anchorMax = containerMin + transform.m_AnchorMax * containerSize;
 		const glm::vec2 anchorSize = glm::max(anchorMax - anchorMin, glm::vec2(0.0f));
-		const glm::vec2 size = glm::max((anchorSize + transform.m_Size) * transform.m_Scale, glm::vec2(1.0f));
-		const glm::vec2 pivotPoint = anchorMin + anchorSize * transform.m_Pivot + transform.m_AnchoredPosition;
+		const glm::vec2 size = glm::max((anchorSize + transform.m_Size * uiScale) * transform.m_Scale, glm::vec2(1.0f));
+		const glm::vec2 pivotPoint = anchorMin + anchorSize * transform.m_Pivot + transform.m_AnchoredPosition * uiScale;
 		const glm::vec2 center = pivotPoint + (glm::vec2(0.5f) - transform.m_Pivot) * size;
 
 		UIRect rect;
@@ -118,7 +171,8 @@ namespace
 			}
 		}
 
-		return BuildUIRect(registry.get<UITransformComponent>(entity), containerMin, containerSize);
+		const float uiScale = ResolveUIScale(scene, registry, entity, viewportSize);
+		return BuildUIRect(registry.get<UITransformComponent>(entity), containerMin, containerSize, uiScale);
 	}
 
 	bool ContainsPoint(const UIRect& rect, const glm::vec2& point)
@@ -765,7 +819,7 @@ void Scene::UpdateRuntimeUI()
 		for (auto entity : imageView)
 		{
 			auto [transform, image] = imageView.get<UITransformComponent, UIImageComponent>(entity);
-			if (!transform.m_Visible || !image.m_RaycastTarget)
+			if (!transform.m_Visible || !image.m_RaycastTarget || !IsUIBranchVisible(*this, m_Registry, entity))
 				continue;
 
 			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
@@ -776,7 +830,7 @@ void Scene::UpdateRuntimeUI()
 		for (auto entity : buttonView)
 		{
 			auto [transform, button] = buttonView.get<UITransformComponent, UIButtonComponent>(entity);
-			if (!transform.m_Visible || !button.m_RaycastTarget)
+			if (!transform.m_Visible || !button.m_RaycastTarget || !IsUIBranchVisible(*this, m_Registry, entity))
 				continue;
 
 			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
@@ -789,7 +843,7 @@ void Scene::UpdateRuntimeUI()
 		for (auto entity : buttonView)
 		{
 			auto [transform, button] = buttonView.get<UITransformComponent, UIButtonComponent>(entity);
-			if (transform.m_Visible && button.m_Interactable && button.m_RaycastTarget && button.m_NavigationEnabled)
+			if (transform.m_Visible && button.m_Interactable && button.m_RaycastTarget && button.m_NavigationEnabled && IsUIBranchVisible(*this, m_Registry, entity))
 				navigableButtons.push_back(entity);
 		}
 	}
@@ -997,7 +1051,7 @@ void Scene::RenderUIOverlay()
 		for (auto entity : view)
 		{
 			const auto& transform = view.get<UITransformComponent>(entity);
-			if (transform.m_Visible)
+			if (transform.m_Visible && IsUIBranchVisible(*this, m_Registry, entity))
 				items.push_back({ entity, transform.m_SortOrder });
 		}
 	}
@@ -1063,6 +1117,44 @@ void Scene::RenderUIOverlay()
 	RenderCommand::SetDepthTest(true);
 }
 
+void Scene::RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities)
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
+		return;
+
+	const glm::vec2 viewportSize{ static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight) };
+	OrthographicCamera uiCamera(0.0f, viewportSize.x, 0.0f, viewportSize.y);
+	RenderCommand::SetDepthTest(false);
+	Renderer2D::BeginScene(uiCamera);
+
+	auto canvasView = m_Registry.view<UITransformComponent, UICanvasComponent>();
+	for (auto entity : canvasView)
+	{
+		const auto& canvas = m_Registry.get<UICanvasComponent>(entity);
+		if (!canvas.m_ShowInEditor || !canvas.m_Visible || !IsUIBranchVisible(*this, m_Registry, entity))
+			continue;
+
+		const auto& transform = m_Registry.get<UITransformComponent>(entity);
+		const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
+		Renderer2D::DrawRect(BuildUITransform(rect, transform, -0.01f), glm::vec4(0.32f, 0.62f, 0.85f, 0.72f));
+	}
+
+	for (UUID selectedId : selectedEntities)
+	{
+		Entity selected = FindEntityByUUID(selectedId);
+		if (!selected || !selected.HasComponent<UITransformComponent>() || !IsUIBranchVisible(*this, m_Registry, static_cast<entt::entity>(selected)))
+			continue;
+
+		const auto& transform = selected.GetComponent<UITransformComponent>();
+		const UIRect rect = ResolveUIRect(*this, m_Registry, static_cast<entt::entity>(selected), viewportSize);
+		Renderer2D::DrawRect(BuildUITransform(rect, transform, -0.005f), glm::vec4(0.95f, 0.55f, 0.16f, 1.0f));
+	}
+
+	Renderer2D::EndScene();
+	RenderCommand::SetDepthTest(true);
+}
+
 template<>
 void Scene::OnComponentAdded<TransformComponent>(Entity entityIn, TransformComponent& component)
 {
@@ -1092,6 +1184,11 @@ void Scene::OnComponentAdded<TextComponent>(Entity entityIn, TextComponent& comp
 
 template<>
 void Scene::OnComponentAdded<UITransformComponent>(Entity entityIn, UITransformComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<UICanvasComponent>(Entity entityIn, UICanvasComponent& component)
 {
 }
 

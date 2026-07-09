@@ -12,6 +12,7 @@
 #include <Whip/Physics/PhysicsWorld.h>
 
 #include <unordered_map>
+#include <vector>
 
 #include <entt.hpp>
 
@@ -63,6 +64,7 @@ public:
 	Entity FindEntityByName(std::string_view name);
 	AnimatorRuntime* GetAnimatorRuntime(UUID entityId);
 	AnimatorRuntime* GetOrCreateAnimatorRuntime(Entity entityIn);
+	void RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities = {});
 
 	void OnRuntimeStart();
 	void OnRuntimeStop();

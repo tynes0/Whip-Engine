@@ -541,6 +541,22 @@ namespace Utils
 			out << YAML::EndMap; // ui_transform_component
 		}
 
+		if (entityIn.HasComponent<UICanvasComponent>())
+		{
+			out << YAML::Key << "ui_canvas_component";
+			out << YAML::BeginMap; // ui_canvas_component
+
+			auto& canvas = entityIn.GetComponent<UICanvasComponent>();
+			out << YAML::Key << "scale_mode" << YAML::Value << static_cast<int>(canvas.m_ScaleMode);
+			out << YAML::Key << "reference_resolution" << YAML::Value << canvas.m_ReferenceResolution;
+			out << YAML::Key << "match_width_or_height" << YAML::Value << canvas.m_MatchWidthOrHeight;
+			out << YAML::Key << "scale_factor" << YAML::Value << canvas.m_ScaleFactor;
+			out << YAML::Key << "visible" << YAML::Value << canvas.m_Visible;
+			out << YAML::Key << "show_in_editor" << YAML::Value << canvas.m_ShowInEditor;
+
+			out << YAML::EndMap; // ui_canvas_component
+		}
+
 		if (entityIn.HasComponent<UIImageComponent>())
 		{
 			out << YAML::Key << "ui_image_component";
@@ -1036,6 +1052,18 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				uiTransform.m_Rotation = uiTransformComponent["rotation"].as<float>(uiTransform.m_Rotation);
 				uiTransform.m_SortOrder = uiTransformComponent["sort_order"].as<int32_t>(uiTransform.m_SortOrder);
 				uiTransform.m_Visible = uiTransformComponent["visible"].as<bool>(uiTransform.m_Visible);
+			}
+
+			auto uiCanvasComponent = entityNode["ui_canvas_component"];
+			if (uiCanvasComponent)
+			{
+				auto& canvas = deserializedEntity.AddComponent<UICanvasComponent>();
+				canvas.m_ScaleMode = static_cast<UICanvasComponent::ScaleMode>(uiCanvasComponent["scale_mode"].as<int>(static_cast<int>(canvas.m_ScaleMode)));
+				canvas.m_ReferenceResolution = uiCanvasComponent["reference_resolution"].as<glm::vec2>(canvas.m_ReferenceResolution);
+				canvas.m_MatchWidthOrHeight = uiCanvasComponent["match_width_or_height"].as<float>(canvas.m_MatchWidthOrHeight);
+				canvas.m_ScaleFactor = uiCanvasComponent["scale_factor"].as<float>(canvas.m_ScaleFactor);
+				canvas.m_Visible = uiCanvasComponent["visible"].as<bool>(canvas.m_Visible);
+				canvas.m_ShowInEditor = uiCanvasComponent["show_in_editor"].as<bool>(canvas.m_ShowInEditor);
 			}
 
 			auto uiImageComponent = entityNode["ui_image_component"];

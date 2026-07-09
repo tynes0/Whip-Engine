@@ -55,6 +55,7 @@ private:
 	enum class UIElementKind : uint8_t
 	{
 		Panel = 0,
+		Canvas,
 		Image,
 		Text,
 		Button,
@@ -92,6 +93,10 @@ private:
 	bool CanParentEntity(Entity child, Entity parent) const;
 	bool IsDescendantOf(Entity entityIn, UUID ancestorId) const;
 	Entity FindPrefabRoot(Entity entityIn) const;
+	Entity FindFirstUICanvas() const;
+	Entity FindOrCreateUICanvas();
+	Entity ResolveUIParent(Entity requestedParent);
+	static void ConfigureCanvasTransform(UITransformComponent& transform);
 	Entity CreateUIElement(UIElementKind kind, Entity parent = {});
 	Entity CreateUITemplate(UITemplateKind kind, Entity parent = {});
 	void DrawCreateUIMenu(Entity parent = {});

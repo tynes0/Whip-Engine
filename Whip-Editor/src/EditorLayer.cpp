@@ -2637,6 +2637,9 @@ void EditorLayer::OnOverlayRender()
 
 	for (Entity selectedEntity : m_SceneHierarchyPanel.GetSelectedEntities())
 	{
+		if (selectedEntity.HasComponent<UITransformComponent>())
+			continue;
+
 		TransformComponent transform = selectedEntity.GetComponent<TransformComponent>();
 		if (selectedEntity.HasComponent<TextComponent>() && !selectedEntity.HasComponent<SpriteRendererComponent>() && !selectedEntity.HasComponent<CircleRendererComponent>())
 		{
@@ -2647,6 +2650,9 @@ void EditorLayer::OnOverlayRender()
 	}
 
 	Renderer2D::EndScene();
+
+	if (m_SceneManager.State() != SceneState::Play)
+		m_SceneManager.ActiveScene()->RenderUIOverlayDebug(m_SceneHierarchyPanel.GetSelectedEntityIds());
 }
 
 bool EditorLayer::HasProjectLoaded() const
