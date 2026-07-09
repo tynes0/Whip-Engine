@@ -1596,6 +1596,234 @@ namespace
 		src.m_Texture = textureHandle;
 	}
 
+	void UITransformComponentGetAnchoredPosition(UUID entityId, glm::vec2* outPosition)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outPosition = ent.GetComponent<UITransformComponent>().m_AnchoredPosition;
+	}
+
+	void UITransformComponentSetAnchoredPosition(UUID entityId, glm::vec2* position)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITransformComponent>().m_AnchoredPosition = *position;
+	}
+
+	void UITransformComponentGetSize(UUID entityId, glm::vec2* outSize)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outSize = ent.GetComponent<UITransformComponent>().m_Size;
+	}
+
+	void UITransformComponentSetSize(UUID entityId, glm::vec2* size)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITransformComponent>().m_Size = *size;
+	}
+
+	void UITransformComponentGetAnchorMin(UUID entityId, glm::vec2* outAnchor)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outAnchor = ent.GetComponent<UITransformComponent>().m_AnchorMin;
+	}
+
+	void UITransformComponentSetAnchorMin(UUID entityId, glm::vec2* anchor)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITransformComponent>().m_AnchorMin = *anchor;
+	}
+
+	void UITransformComponentGetAnchorMax(UUID entityId, glm::vec2* outAnchor)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outAnchor = ent.GetComponent<UITransformComponent>().m_AnchorMax;
+	}
+
+	void UITransformComponentSetAnchorMax(UUID entityId, glm::vec2* anchor)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITransformComponent>().m_AnchorMax = *anchor;
+	}
+
+	void UITransformComponentGetPivot(UUID entityId, glm::vec2* outPivot)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outPivot = ent.GetComponent<UITransformComponent>().m_Pivot;
+	}
+
+	void UITransformComponentSetPivot(UUID entityId, glm::vec2* pivot)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITransformComponent>().m_Pivot = *pivot;
+	}
+
+	bool UITransformComponentIsVisible(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UITransformComponent>().m_Visible;
+	}
+
+	void UITransformComponentSetVisible(UUID entityId, bool visible)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITransformComponent>().m_Visible = visible;
+	}
+
+	float UITransformComponentGetRotation(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UITransformComponent>().m_Rotation;
+	}
+
+	void UITransformComponentSetRotation(UUID entityId, float rotation)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITransformComponent>().m_Rotation = rotation;
+	}
+
+	int UITransformComponentGetSortOrder(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UITransformComponent>().m_SortOrder;
+	}
+
+	void UITransformComponentSetSortOrder(UUID entityId, int sortOrder)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITransformComponent>().m_SortOrder = sortOrder;
+	}
+
+	void UIImageComponentGetColor(UUID entityId, glm::vec4* outColor)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outColor = ent.GetComponent<UIImageComponent>().m_Color;
+	}
+
+	void UIImageComponentSetColor(UUID entityId, glm::vec4* color)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIImageComponent>().m_Color = *color;
+	}
+
+	uint64_t UIImageComponentGetTextureHandle(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return static_cast<uint64_t>(ent.GetComponent<UIImageComponent>().m_Texture);
+	}
+
+	void UIImageComponentSetTextureHandle(UUID entityId, UUID textureHandle)
+	{
+		if (textureHandle != 0 && !Project::GetActive()->GetRuntimeAssetManager()->GetAssetRegistry().Exist(AssetType::Texture2D, textureHandle))
+		{
+			WHP_CORE_WARN("[C# Method] The given handle is not bound to a Texture!");
+			return;
+		}
+
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIImageComponent>().m_Texture = textureHandle;
+	}
+
+	int UIImageComponentGetTextureSpriteIndex(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIImageComponent>().m_TextureSpriteIndex;
+	}
+
+	void UIImageComponentSetTextureSpriteIndex(UUID entityId, int spriteIndex)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIImageComponent>().m_TextureSpriteIndex = spriteIndex;
+	}
+
+	bool UIImageComponentIsRaycastTarget(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIImageComponent>().m_RaycastTarget;
+	}
+
+	void UIImageComponentSetRaycastTarget(UUID entityId, bool raycastTarget)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIImageComponent>().m_RaycastTarget = raycastTarget;
+	}
+
+	MonoString* UITextComponentGetText(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return Utils::CreateString(ent.GetComponent<UITextComponent>().m_TextString.c_str());
+	}
+
+	void UITextComponentSetText(UUID entityId, MonoString* text)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITextComponent>().m_TextString = detail::MonoStringToString(text);
+	}
+
+	void UITextComponentGetColor(UUID entityId, glm::vec4* outColor)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outColor = ent.GetComponent<UITextComponent>().m_Color;
+	}
+
+	void UITextComponentSetColor(UUID entityId, glm::vec4* color)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITextComponent>().m_Color = *color;
+	}
+
+	float UITextComponentGetFontSize(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UITextComponent>().m_FontSize;
+	}
+
+	void UITextComponentSetFontSize(UUID entityId, float fontSize)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITextComponent>().m_FontSize = fontSize;
+	}
+
+	MonoString* UIButtonComponentGetText(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return Utils::CreateString(ent.GetComponent<UIButtonComponent>().m_Text.c_str());
+	}
+
+	void UIButtonComponentSetText(UUID entityId, MonoString* text)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIButtonComponent>().m_Text = detail::MonoStringToString(text);
+	}
+
+	bool UIButtonComponentIsInteractable(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIButtonComponent>().m_Interactable;
+	}
+
+	void UIButtonComponentSetInteractable(UUID entityId, bool interactable)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIButtonComponent>().m_Interactable = interactable;
+	}
+
+	bool UIButtonComponentIsHovered(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIButtonComponent>().m_Hovered;
+	}
+
+	bool UIButtonComponentIsPressed(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIButtonComponent>().m_Pressed;
+	}
+
+	bool UIButtonComponentWasClickedThisFrame(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIButtonComponent>().m_ClickedThisFrame;
+	}
+
 	void CircleRendererComponentGetColor(UUID entityId, glm::vec4* outColor)
 	{
 		Entity ent = detail::GetEntity(entityId);
@@ -1944,6 +2172,45 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(SpriteRendererComponent_GetTextureHandle, SpriteRendererComponentGetTextureHandle);
 	ADD_INTERNAL_CALL(SpriteRendererComponent_SetTextureHandle, SpriteRendererComponentSetTextureHandle);
 	// todo Texture jobs
+
+	// runtime ui components
+	ADD_INTERNAL_CALL(UITransformComponent_GetAnchoredPosition, UITransformComponentGetAnchoredPosition);
+	ADD_INTERNAL_CALL(UITransformComponent_SetAnchoredPosition, UITransformComponentSetAnchoredPosition);
+	ADD_INTERNAL_CALL(UITransformComponent_GetSize, UITransformComponentGetSize);
+	ADD_INTERNAL_CALL(UITransformComponent_SetSize, UITransformComponentSetSize);
+	ADD_INTERNAL_CALL(UITransformComponent_GetAnchorMin, UITransformComponentGetAnchorMin);
+	ADD_INTERNAL_CALL(UITransformComponent_SetAnchorMin, UITransformComponentSetAnchorMin);
+	ADD_INTERNAL_CALL(UITransformComponent_GetAnchorMax, UITransformComponentGetAnchorMax);
+	ADD_INTERNAL_CALL(UITransformComponent_SetAnchorMax, UITransformComponentSetAnchorMax);
+	ADD_INTERNAL_CALL(UITransformComponent_GetPivot, UITransformComponentGetPivot);
+	ADD_INTERNAL_CALL(UITransformComponent_SetPivot, UITransformComponentSetPivot);
+	ADD_INTERNAL_CALL(UITransformComponent_IsVisible, UITransformComponentIsVisible);
+	ADD_INTERNAL_CALL(UITransformComponent_SetVisible, UITransformComponentSetVisible);
+	ADD_INTERNAL_CALL(UITransformComponent_GetRotation, UITransformComponentGetRotation);
+	ADD_INTERNAL_CALL(UITransformComponent_SetRotation, UITransformComponentSetRotation);
+	ADD_INTERNAL_CALL(UITransformComponent_GetSortOrder, UITransformComponentGetSortOrder);
+	ADD_INTERNAL_CALL(UITransformComponent_SetSortOrder, UITransformComponentSetSortOrder);
+	ADD_INTERNAL_CALL(UIImageComponent_GetColor, UIImageComponentGetColor);
+	ADD_INTERNAL_CALL(UIImageComponent_SetColor, UIImageComponentSetColor);
+	ADD_INTERNAL_CALL(UIImageComponent_GetTextureHandle, UIImageComponentGetTextureHandle);
+	ADD_INTERNAL_CALL(UIImageComponent_SetTextureHandle, UIImageComponentSetTextureHandle);
+	ADD_INTERNAL_CALL(UIImageComponent_GetTextureSpriteIndex, UIImageComponentGetTextureSpriteIndex);
+	ADD_INTERNAL_CALL(UIImageComponent_SetTextureSpriteIndex, UIImageComponentSetTextureSpriteIndex);
+	ADD_INTERNAL_CALL(UIImageComponent_IsRaycastTarget, UIImageComponentIsRaycastTarget);
+	ADD_INTERNAL_CALL(UIImageComponent_SetRaycastTarget, UIImageComponentSetRaycastTarget);
+	ADD_INTERNAL_CALL(UITextComponent_GetText, UITextComponentGetText);
+	ADD_INTERNAL_CALL(UITextComponent_SetText, UITextComponentSetText);
+	ADD_INTERNAL_CALL(UITextComponent_GetColor, UITextComponentGetColor);
+	ADD_INTERNAL_CALL(UITextComponent_SetColor, UITextComponentSetColor);
+	ADD_INTERNAL_CALL(UITextComponent_GetFontSize, UITextComponentGetFontSize);
+	ADD_INTERNAL_CALL(UITextComponent_SetFontSize, UITextComponentSetFontSize);
+	ADD_INTERNAL_CALL(UIButtonComponent_GetText, UIButtonComponentGetText);
+	ADD_INTERNAL_CALL(UIButtonComponent_SetText, UIButtonComponentSetText);
+	ADD_INTERNAL_CALL(UIButtonComponent_IsInteractable, UIButtonComponentIsInteractable);
+	ADD_INTERNAL_CALL(UIButtonComponent_SetInteractable, UIButtonComponentSetInteractable);
+	ADD_INTERNAL_CALL(UIButtonComponent_IsHovered, UIButtonComponentIsHovered);
+	ADD_INTERNAL_CALL(UIButtonComponent_IsPressed, UIButtonComponentIsPressed);
+	ADD_INTERNAL_CALL(UIButtonComponent_WasClickedThisFrame, UIButtonComponentWasClickedThisFrame);
 
 	// circle_renderer_component
 	ADD_INTERNAL_CALL(CircleRendererComponent_GetColor, CircleRendererComponentGetColor);

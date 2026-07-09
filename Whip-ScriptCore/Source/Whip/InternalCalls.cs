@@ -473,6 +473,86 @@ namespace Whip
 
 		#endregion
 
+		#region RuntimeUI
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_GetAnchoredPosition(ulong entityID, out Vector2 position);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_SetAnchoredPosition(ulong entityID, Vector2 position);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_GetSize(ulong entityID, out Vector2 size);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_SetSize(ulong entityID, Vector2 size);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_GetAnchorMin(ulong entityID, out Vector2 anchor);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_SetAnchorMin(ulong entityID, Vector2 anchor);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_GetAnchorMax(ulong entityID, out Vector2 anchor);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_SetAnchorMax(ulong entityID, Vector2 anchor);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_GetPivot(ulong entityID, out Vector2 pivot);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_SetPivot(ulong entityID, Vector2 pivot);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UITransformComponent_IsVisible(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_SetVisible(ulong entityID, bool visible);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UITransformComponent_GetRotation(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_SetRotation(ulong entityID, float rotation);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static int UITransformComponent_GetSortOrder(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_SetSortOrder(ulong entityID, int sortOrder);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIImageComponent_GetColor(ulong entityID, out Vector4 color);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIImageComponent_SetColor(ulong entityID, Vector4 color);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static ulong UIImageComponent_GetTextureHandle(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIImageComponent_SetTextureHandle(ulong entityID, ulong textureHandle);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static int UIImageComponent_GetTextureSpriteIndex(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIImageComponent_SetTextureSpriteIndex(ulong entityID, int spriteIndex);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIImageComponent_IsRaycastTarget(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIImageComponent_SetRaycastTarget(ulong entityID, bool raycastTarget);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static string UITextComponent_GetText(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITextComponent_SetText(ulong entityID, string text);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITextComponent_GetColor(ulong entityID, out Vector4 color);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITextComponent_SetColor(ulong entityID, Vector4 color);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UITextComponent_GetFontSize(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITextComponent_SetFontSize(ulong entityID, float fontSize);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static string UIButtonComponent_GetText(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIButtonComponent_SetText(ulong entityID, string text);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIButtonComponent_IsInteractable(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIButtonComponent_SetInteractable(ulong entityID, bool interactable);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIButtonComponent_IsHovered(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIButtonComponent_IsPressed(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIButtonComponent_WasClickedThisFrame(ulong entityID);
+		#endregion
+
 		#region CircleRendererComponent
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void CircleRendererComponent_GetColor(ulong entityID, out Vector4 color);

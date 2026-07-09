@@ -130,6 +130,62 @@ struct TextComponent
 	static constexpr std::string_view ScriptStructName = "TextComponent";
 };
 
+struct UITransformComponent
+{
+	glm::vec2 m_AnchorMin{ 0.5f, 0.5f };
+	glm::vec2 m_AnchorMax{ 0.5f, 0.5f };
+	glm::vec2 m_Pivot{ 0.5f, 0.5f };
+	glm::vec2 m_AnchoredPosition{ 0.0f, 0.0f };
+	glm::vec2 m_Size{ 180.0f, 48.0f };
+	glm::vec2 m_Scale{ 1.0f, 1.0f };
+	float m_Rotation = 0.0f;
+	int32_t m_SortOrder = 0;
+	bool m_Visible = true;
+
+	static constexpr std::string_view ScriptStructName = "UITransformComponent";
+};
+
+struct UIImageComponent
+{
+	glm::vec4 m_Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+	AssetHandle m_Texture = 0;
+	int32_t m_TextureSpriteIndex = -1;
+	bool m_RaycastTarget = true;
+
+	static constexpr std::string_view ScriptStructName = "UIImageComponent";
+};
+
+struct UITextComponent
+{
+	std::string m_TextString = "Text";
+	AssetHandle m_Font = 0;
+	glm::vec4 m_Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+	float m_FontSize = 24.0f;
+	float m_Kerning = 0.0f;
+	float m_LineSpacing = 0.0f;
+
+	static constexpr std::string_view ScriptStructName = "UITextComponent";
+};
+
+struct UIButtonComponent
+{
+	std::string m_Text = "Button";
+	AssetHandle m_Font = 0;
+	glm::vec4 m_NormalColor{ 0.12f, 0.16f, 0.20f, 1.0f };
+	glm::vec4 m_HoveredColor{ 0.20f, 0.32f, 0.44f, 1.0f };
+	glm::vec4 m_PressedColor{ 0.10f, 0.22f, 0.34f, 1.0f };
+	glm::vec4 m_DisabledColor{ 0.10f, 0.11f, 0.12f, 0.65f };
+	glm::vec4 m_TextColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+	float m_FontSize = 20.0f;
+	bool m_Interactable = true;
+	bool m_RaycastTarget = true;
+	bool m_Hovered = false;
+	bool m_Pressed = false;
+	bool m_ClickedThisFrame = false;
+
+	static constexpr std::string_view ScriptStructName = "UIButtonComponent";
+};
+
 struct CameraComponent // NOLINT(cppcoreguidelines-special-member-functions)
 {
     SceneCamera m_Camera;
@@ -275,14 +331,17 @@ struct ComponentGroup {};
 
 using AllComponentsNoIDNoTagNoScript = ComponentGroup<TransformComponent,
 	SpriteRendererComponent, CircleRendererComponent, TextComponent, CameraComponent,
+	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent,
 	AnimatorComponent, Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent>;
 
 using AllComponentsNoIDNoTag = ComponentGroup<TransformComponent, SpriteRendererComponent,
-	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, AnimatorComponent, Rigidbody2DComponent,
+	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent,
+	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, AnimatorComponent, Rigidbody2DComponent,
 	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, HierarchyComponent, PrefabComponent>;
 
 using AllComponents = ComponentGroup<TransformComponent, SpriteRendererComponent,
-	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent, AnimatorComponent, Rigidbody2DComponent,
+	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent,
+	UITransformComponent, UIImageComponent, UITextComponent, UIButtonComponent, AnimatorComponent, Rigidbody2DComponent,
 	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, IDComponent, TagComponent, HierarchyComponent, PrefabComponent>;
 
 _WHIP_END

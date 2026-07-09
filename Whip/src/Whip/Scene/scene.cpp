@@ -5,6 +5,7 @@
 
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Render/Renderer2D.h>
+#include <Whip/Core/Input.h>
 
 #include <Whip/Physics/PhysicsWorld.h>
 
@@ -22,6 +23,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <vector>
 
 _WHIP_START
 
@@ -62,6 +64,66 @@ namespace
 	void CopyComponentIfExists(ComponentGroup<Components...>, Entity dst, Entity src)
 	{
 		CopyComponentIfExists<Components...>(dst, src);
+	}
+
+	struct UIRect
+	{
+		glm::vec2 m_Min{ 0.0f };
+		glm::vec2 m_Max{ 0.0f };
+		glm::vec2 m_Size{ 0.0f };
+		glm::vec2 m_Center{ 0.0f };
+	};
+
+	struct UIRenderItem
+	{
+		entt::entity m_Entity = entt::null;
+		int32_t m_SortOrder = 0;
+	};
+
+	UIRect BuildUIRect(const UITransformComponent& transform, const glm::vec2& viewportSize)
+	{
+		const glm::vec2 anchorMin = transform.m_AnchorMin * viewportSize;
+		const glm::vec2 anchorMax = transform.m_AnchorMax * viewportSize;
+		const glm::vec2 anchorSize = glm::max(anchorMax - anchorMin, glm::vec2(0.0f));
+		const glm::vec2 size = glm::max((anchorSize + transform.m_Size) * transform.m_Scale, glm::vec2(1.0f));
+		const glm::vec2 pivotPoint = anchorMin + anchorSize * transform.m_Pivot + transform.m_AnchoredPosition;
+		const glm::vec2 center = pivotPoint + (glm::vec2(0.5f) - transform.m_Pivot) * size;
+
+		UIRect rect;
+		rect.m_Size = size;
+		rect.m_Center = center;
+		rect.m_Min = center - size * 0.5f;
+		rect.m_Max = center + size * 0.5f;
+		return rect;
+	}
+
+	glm::mat4 BuildUITransform(const UIRect& rect, const UITransformComponent& transform, float z)
+	{
+		return glm::translate(glm::mat4(1.0f), glm::vec3(rect.m_Center, z))
+			* glm::rotate(glm::mat4(1.0f), glm::radians(transform.m_Rotation), glm::vec3(0.0f, 0.0f, 1.0f))
+			* glm::scale(glm::mat4(1.0f), glm::vec3(rect.m_Size, 1.0f));
+	}
+
+	Ref<Font> ResolveFont(AssetHandle handle)
+	{
+		if (handle != 0 && AssetManager::IsAssetHandleValid(handle) && AssetManager::GetAssetType(handle) == AssetType::Font)
+		{
+			if (Ref<Font> font = AssetManager::GetAsset<Font>(handle))
+				return font;
+		}
+		return Font::GetDefault();
+	}
+
+	void DrawUIText(const std::string& text, AssetHandle fontHandle, const glm::vec4& color, float fontSize, float kerning, float lineSpacing, const UIRect& rect, float z, int entityId)
+	{
+		if (text.empty())
+			return;
+
+		const float safeFontSize = std::max(fontSize, 1.0f);
+		const glm::vec2 textOrigin = rect.m_Min + glm::vec2(8.0f, std::max((rect.m_Size.y - safeFontSize) * 0.5f, 0.0f));
+		const glm::mat4 textTransform = glm::translate(glm::mat4(1.0f), glm::vec3(textOrigin, z))
+			* glm::scale(glm::mat4(1.0f), glm::vec3(safeFontSize, safeFontSize, 1.0f));
+		Renderer2D::DrawString(text, ResolveFont(fontHandle), textTransform, { color, kerning, lineSpacing }, entityId);
 	}
 }
 
@@ -253,6 +315,8 @@ void Scene::OnUpdateRuntime(Timestep ts)
 	WHP_PROFILE_FUNCTION();
 	if(!m_IsPaused || m_StepFrames-- > 0)
 	{
+		UpdateRuntimeUI();
+
 		{
 			WHP_PROFILE_SCOPE("Script Update");
 			// C# OnUpdate
@@ -334,6 +398,7 @@ void Scene::OnUpdateRuntime(Timestep ts)
 
 			Renderer2D::EndScene();
 		}
+		RenderUIOverlay();
 	}
 
 }
@@ -356,6 +421,7 @@ void Scene::OnUpdateSimulation(Timestep ts, EditorCamera& cam)
 		m_PhysicsWorld.Update(ts);
 		AnimationManager::Get().Update(ts);
 		UpdateAnimators(ts);
+		UpdateRuntimeUI();
 	}
 
 	RenderScene(cam);
@@ -600,6 +666,113 @@ void Scene::RenderScene(EditorCamera& cam)
 	}
 
 	Renderer2D::EndScene();
+	RenderUIOverlay();
+}
+
+void Scene::UpdateRuntimeUI()
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
+		return;
+
+	const bool inputActive = Input::IsRuntimeInputActive() && Input::IsMouseInsideViewport();
+	glm::vec2 mousePosition = Input::GetMouseViewportPosition();
+	mousePosition.y = static_cast<float>(m_ViewportHeight) - mousePosition.y;
+	const glm::vec2 viewportSize{ static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight) };
+
+	auto view = m_Registry.view<UITransformComponent, UIButtonComponent>();
+	for (auto entity : view)
+	{
+		auto [transform, button] = view.get<UITransformComponent, UIButtonComponent>(entity);
+		button.m_ClickedThisFrame = false;
+
+		const bool canInteract = inputActive && transform.m_Visible && button.m_Interactable && button.m_RaycastTarget;
+		if (!canInteract)
+		{
+			button.m_Hovered = false;
+			button.m_Pressed = false;
+			continue;
+		}
+
+		const UIRect rect = BuildUIRect(transform, viewportSize);
+		const bool hovered = mousePosition.x >= rect.m_Min.x && mousePosition.x <= rect.m_Max.x
+			&& mousePosition.y >= rect.m_Min.y && mousePosition.y <= rect.m_Max.y;
+		button.m_Hovered = hovered;
+		button.m_Pressed = hovered && Input::IsMouseButtonDown(Mouse::ButtonLeft);
+		button.m_ClickedThisFrame = hovered && Input::IsMouseButtonReleased(Mouse::ButtonLeft);
+	}
+}
+
+void Scene::RenderUIOverlay()
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
+		return;
+
+	std::vector<UIRenderItem> items;
+	{
+		auto view = m_Registry.view<UITransformComponent>();
+		for (auto entity : view)
+		{
+			const auto& transform = view.get<UITransformComponent>(entity);
+			if (transform.m_Visible)
+				items.push_back({ entity, transform.m_SortOrder });
+		}
+	}
+
+	if (items.empty())
+		return;
+
+	std::sort(items.begin(), items.end(), [](const UIRenderItem& left, const UIRenderItem& right)
+		{
+			return left.m_SortOrder < right.m_SortOrder;
+		});
+
+	const glm::vec2 viewportSize{ static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight) };
+	OrthographicCamera uiCamera(0.0f, viewportSize.x, 0.0f, viewportSize.y);
+	Renderer2D::BeginScene(uiCamera);
+
+	for (size_t index = 0; index < items.size(); ++index)
+	{
+		const entt::entity entity = items[index].m_Entity;
+		const auto& transform = m_Registry.get<UITransformComponent>(entity);
+		const UIRect rect = BuildUIRect(transform, viewportSize);
+		const float z = static_cast<float>(index) * 0.001f;
+		const int entityId = static_cast<int>(entity);
+
+		if (m_Registry.any_of<UIImageComponent>(entity))
+		{
+			const auto& image = m_Registry.get<UIImageComponent>(entity);
+			SpriteRendererComponent sprite;
+			sprite.m_Color = image.m_Color;
+			sprite.m_Texture = image.m_Texture;
+			sprite.m_TextureSpriteIndex = image.m_TextureSpriteIndex;
+			Renderer2D::DrawSprite(BuildUITransform(rect, transform, z), sprite, entityId);
+		}
+
+		if (m_Registry.any_of<UIButtonComponent>(entity))
+		{
+			const auto& button = m_Registry.get<UIButtonComponent>(entity);
+			glm::vec4 color = button.m_NormalColor;
+			if (!button.m_Interactable)
+				color = button.m_DisabledColor;
+			else if (button.m_Pressed)
+				color = button.m_PressedColor;
+			else if (button.m_Hovered)
+				color = button.m_HoveredColor;
+
+			Renderer2D::DrawQuad(BuildUITransform(rect, transform, z + 0.00025f), color, entityId);
+			DrawUIText(button.m_Text, button.m_Font, button.m_TextColor, button.m_FontSize, 0.0f, 0.0f, rect, z + 0.0005f, entityId);
+		}
+
+		if (m_Registry.any_of<UITextComponent>(entity))
+		{
+			const auto& text = m_Registry.get<UITextComponent>(entity);
+			DrawUIText(text.m_TextString, text.m_Font, text.m_Color, text.m_FontSize, text.m_Kerning, text.m_LineSpacing, rect, z + 0.00075f, entityId);
+		}
+	}
+
+	Renderer2D::EndScene();
 }
 
 template<>
@@ -626,6 +799,26 @@ void Scene::OnComponentAdded<CircleRendererComponent>(Entity entityIn, CircleRen
 
 template<>
 void Scene::OnComponentAdded<TextComponent>(Entity entityIn, TextComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<UITransformComponent>(Entity entityIn, UITransformComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<UIImageComponent>(Entity entityIn, UIImageComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<UITextComponent>(Entity entityIn, UITextComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<UIButtonComponent>(Entity entityIn, UIButtonComponent& component)
 {
 }
 

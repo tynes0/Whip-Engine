@@ -75,6 +75,8 @@ private:
 	void UpdateAnimators(Timestep ts);
 
 	void RenderScene(EditorCamera& cam);
+	void UpdateRuntimeUI();
+	void RenderUIOverlay();
 
 	template<class T>
 	void OnComponentAdded(Entity entityIn, T& component);

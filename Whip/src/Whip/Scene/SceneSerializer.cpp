@@ -522,6 +522,75 @@ namespace Utils
 			out << YAML::EndMap; // text_component
 		}
 
+		if (entityIn.HasComponent<UITransformComponent>())
+		{
+			out << YAML::Key << "ui_transform_component";
+			out << YAML::BeginMap; // ui_transform_component
+
+			auto& uiTransform = entityIn.GetComponent<UITransformComponent>();
+			out << YAML::Key << "anchor_min" << YAML::Value << uiTransform.m_AnchorMin;
+			out << YAML::Key << "anchor_max" << YAML::Value << uiTransform.m_AnchorMax;
+			out << YAML::Key << "pivot" << YAML::Value << uiTransform.m_Pivot;
+			out << YAML::Key << "anchored_position" << YAML::Value << uiTransform.m_AnchoredPosition;
+			out << YAML::Key << "size" << YAML::Value << uiTransform.m_Size;
+			out << YAML::Key << "scale" << YAML::Value << uiTransform.m_Scale;
+			out << YAML::Key << "rotation" << YAML::Value << uiTransform.m_Rotation;
+			out << YAML::Key << "sort_order" << YAML::Value << uiTransform.m_SortOrder;
+			out << YAML::Key << "visible" << YAML::Value << uiTransform.m_Visible;
+
+			out << YAML::EndMap; // ui_transform_component
+		}
+
+		if (entityIn.HasComponent<UIImageComponent>())
+		{
+			out << YAML::Key << "ui_image_component";
+			out << YAML::BeginMap; // ui_image_component
+
+			auto& image = entityIn.GetComponent<UIImageComponent>();
+			out << YAML::Key << "color" << YAML::Value << image.m_Color;
+			out << YAML::Key << "texture_handle" << YAML::Value << image.m_Texture;
+			out << YAML::Key << "texture_sprite_index" << YAML::Value << image.m_TextureSpriteIndex;
+			out << YAML::Key << "raycast_target" << YAML::Value << image.m_RaycastTarget;
+
+			out << YAML::EndMap; // ui_image_component
+		}
+
+		if (entityIn.HasComponent<UITextComponent>())
+		{
+			out << YAML::Key << "ui_text_component";
+			out << YAML::BeginMap; // ui_text_component
+
+			auto& text = entityIn.GetComponent<UITextComponent>();
+			out << YAML::Key << "text_string" << YAML::Value << text.m_TextString;
+			out << YAML::Key << "font" << YAML::Value << (uint64_t)text.m_Font;
+			out << YAML::Key << "color" << YAML::Value << text.m_Color;
+			out << YAML::Key << "font_size" << YAML::Value << text.m_FontSize;
+			out << YAML::Key << "kerning" << YAML::Value << text.m_Kerning;
+			out << YAML::Key << "line_spacing" << YAML::Value << text.m_LineSpacing;
+
+			out << YAML::EndMap; // ui_text_component
+		}
+
+		if (entityIn.HasComponent<UIButtonComponent>())
+		{
+			out << YAML::Key << "ui_button_component";
+			out << YAML::BeginMap; // ui_button_component
+
+			auto& button = entityIn.GetComponent<UIButtonComponent>();
+			out << YAML::Key << "text" << YAML::Value << button.m_Text;
+			out << YAML::Key << "font" << YAML::Value << (uint64_t)button.m_Font;
+			out << YAML::Key << "normal_color" << YAML::Value << button.m_NormalColor;
+			out << YAML::Key << "hovered_color" << YAML::Value << button.m_HoveredColor;
+			out << YAML::Key << "pressed_color" << YAML::Value << button.m_PressedColor;
+			out << YAML::Key << "disabled_color" << YAML::Value << button.m_DisabledColor;
+			out << YAML::Key << "text_color" << YAML::Value << button.m_TextColor;
+			out << YAML::Key << "font_size" << YAML::Value << button.m_FontSize;
+			out << YAML::Key << "interactable" << YAML::Value << button.m_Interactable;
+			out << YAML::Key << "raycast_target" << YAML::Value << button.m_RaycastTarget;
+
+			out << YAML::EndMap; // ui_button_component
+		}
+
 		if (entityIn.HasComponent<Rigidbody2DComponent>())
 		{
 			out << YAML::Key << "rigidbody2D_component";
@@ -932,6 +1001,59 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				text.m_Color = textComponent["color"].as<glm::vec4>();
 				text.m_Kerning = textComponent["kerning"].as<float>();
 				text.m_LineSpacing = textComponent["line_spacing"].as<float>();
+			}
+
+			auto uiTransformComponent = entityNode["ui_transform_component"];
+			if (uiTransformComponent)
+			{
+				auto& uiTransform = deserializedEntity.AddComponent<UITransformComponent>();
+				uiTransform.m_AnchorMin = uiTransformComponent["anchor_min"].as<glm::vec2>(uiTransform.m_AnchorMin);
+				uiTransform.m_AnchorMax = uiTransformComponent["anchor_max"].as<glm::vec2>(uiTransform.m_AnchorMax);
+				uiTransform.m_Pivot = uiTransformComponent["pivot"].as<glm::vec2>(uiTransform.m_Pivot);
+				uiTransform.m_AnchoredPosition = uiTransformComponent["anchored_position"].as<glm::vec2>(uiTransform.m_AnchoredPosition);
+				uiTransform.m_Size = uiTransformComponent["size"].as<glm::vec2>(uiTransform.m_Size);
+				uiTransform.m_Scale = uiTransformComponent["scale"].as<glm::vec2>(uiTransform.m_Scale);
+				uiTransform.m_Rotation = uiTransformComponent["rotation"].as<float>(uiTransform.m_Rotation);
+				uiTransform.m_SortOrder = uiTransformComponent["sort_order"].as<int32_t>(uiTransform.m_SortOrder);
+				uiTransform.m_Visible = uiTransformComponent["visible"].as<bool>(uiTransform.m_Visible);
+			}
+
+			auto uiImageComponent = entityNode["ui_image_component"];
+			if (uiImageComponent)
+			{
+				auto& image = deserializedEntity.AddComponent<UIImageComponent>();
+				image.m_Color = uiImageComponent["color"].as<glm::vec4>(image.m_Color);
+				image.m_Texture = uiImageComponent["texture_handle"].as<AssetHandle>(image.m_Texture);
+				image.m_TextureSpriteIndex = uiImageComponent["texture_sprite_index"].as<int32_t>(image.m_TextureSpriteIndex);
+				image.m_RaycastTarget = uiImageComponent["raycast_target"].as<bool>(image.m_RaycastTarget);
+			}
+
+			auto uiTextComponent = entityNode["ui_text_component"];
+			if (uiTextComponent)
+			{
+				auto& text = deserializedEntity.AddComponent<UITextComponent>();
+				text.m_TextString = uiTextComponent["text_string"].as<std::string>(text.m_TextString);
+				text.m_Font = uiTextComponent["font"].as<uint64_t>(text.m_Font);
+				text.m_Color = uiTextComponent["color"].as<glm::vec4>(text.m_Color);
+				text.m_FontSize = uiTextComponent["font_size"].as<float>(text.m_FontSize);
+				text.m_Kerning = uiTextComponent["kerning"].as<float>(text.m_Kerning);
+				text.m_LineSpacing = uiTextComponent["line_spacing"].as<float>(text.m_LineSpacing);
+			}
+
+			auto uiButtonComponent = entityNode["ui_button_component"];
+			if (uiButtonComponent)
+			{
+				auto& button = deserializedEntity.AddComponent<UIButtonComponent>();
+				button.m_Text = uiButtonComponent["text"].as<std::string>(button.m_Text);
+				button.m_Font = uiButtonComponent["font"].as<uint64_t>(button.m_Font);
+				button.m_NormalColor = uiButtonComponent["normal_color"].as<glm::vec4>(button.m_NormalColor);
+				button.m_HoveredColor = uiButtonComponent["hovered_color"].as<glm::vec4>(button.m_HoveredColor);
+				button.m_PressedColor = uiButtonComponent["pressed_color"].as<glm::vec4>(button.m_PressedColor);
+				button.m_DisabledColor = uiButtonComponent["disabled_color"].as<glm::vec4>(button.m_DisabledColor);
+				button.m_TextColor = uiButtonComponent["text_color"].as<glm::vec4>(button.m_TextColor);
+				button.m_FontSize = uiButtonComponent["font_size"].as<float>(button.m_FontSize);
+				button.m_Interactable = uiButtonComponent["interactable"].as<bool>(button.m_Interactable);
+				button.m_RaycastTarget = uiButtonComponent["raycast_target"].as<bool>(button.m_RaycastTarget);
 			}
 
 			auto rigidbody2DComponent = entityNode["rigidbody2D_component"];

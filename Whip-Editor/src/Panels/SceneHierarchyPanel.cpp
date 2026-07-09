@@ -1170,6 +1170,10 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 		DisplayAddComponentEntry<SpriteRendererComponent>("Sprite Renderer");
 		DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer");
 		DisplayAddComponentEntry<TextComponent>("Text");
+		DisplayAddComponentEntry<UITransformComponent>("UI Transform");
+		DisplayAddComponentEntry<UIImageComponent>("UI Image");
+		DisplayAddComponentEntry<UITextComponent>("UI Text");
+		DisplayAddComponentEntry<UIButtonComponent>("UI Button");
 		DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D");
 		DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D");
 		DisplayAddComponentEntry<CircleCollider2DComponent>("Circle Collider 2D");
@@ -1994,6 +1998,10 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 		DisplayAddComponentEntry<SpriteRendererComponent>("Sprite Renderer");
 		DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer");
 		DisplayAddComponentEntry<TextComponent>("Text");
+		DisplayAddComponentEntry<UITransformComponent>("UI Transform");
+		DisplayAddComponentEntry<UIImageComponent>("UI Image");
+		DisplayAddComponentEntry<UITextComponent>("UI Text");
+		DisplayAddComponentEntry<UIButtonComponent>("UI Button");
 		DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D");
 		DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D");
 		DisplayAddComponentEntry<CircleCollider2DComponent>("Circle Collider 2D");
@@ -2450,6 +2458,199 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 
 			ImGui::SameLine();
 			ImGui::Text("Font");
+		});
+	ImGui::Spacing();
+	DrawComponent<UITransformComponent>("UI Transform", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			if (ImGui::BeginTable("UITransformTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable))
+			{
+				BEGIN_COMPONENT_TABLE_ROW("Visible");
+				ImGui::Checkbox("##UIVisible", &component.m_Visible);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Anchor Min");
+				ImGui::DragFloat2("##UIAnchorMin", glm::value_ptr(component.m_AnchorMin), 0.01f, 0.0f, 1.0f);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Anchor Max");
+				ImGui::DragFloat2("##UIAnchorMax", glm::value_ptr(component.m_AnchorMax), 0.01f, 0.0f, 1.0f);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Pivot");
+				ImGui::DragFloat2("##UIPivot", glm::value_ptr(component.m_Pivot), 0.01f, 0.0f, 1.0f);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Position");
+				ImGui::DragFloat2("##UIAnchoredPosition", glm::value_ptr(component.m_AnchoredPosition), 1.0f);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Size");
+				ImGui::DragFloat2("##UISize", glm::value_ptr(component.m_Size), 1.0f, 1.0f, 8192.0f);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Scale");
+				ImGui::DragFloat2("##UIScale", glm::value_ptr(component.m_Scale), 0.01f, 0.01f, 100.0f);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Rotation");
+				ImGui::DragFloat("##UIRotation", &component.m_Rotation, 0.25f, -360.0f, 360.0f);
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Sort Order");
+				ImGui::InputInt("##UISortOrder", &component.m_SortOrder);
+				END_COMPONENT_TABLE_ROW();
+
+				ImGui::EndTable();
+			}
+		});
+	ImGui::Spacing();
+	DrawComponent<UIImageComponent>("UI Image", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			ImGui::ColorEdit4("Color", glm::value_ptr(component.m_Color));
+			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
+
+			std::string label = "None";
+			bool isTextureValid = false;
+			if (component.m_Texture != 0)
+			{
+				if (AssetManager::IsAssetHandleValid(component.m_Texture) && AssetManager::GetAssetType(component.m_Texture) == AssetType::Texture2D)
+				{
+					label = TextureAssetLabel(component.m_Texture, component.m_TextureSpriteIndex);
+					isTextureValid = true;
+				}
+				else
+					label = "Invalid";
+			}
+
+			const float buttonLabelWidth = glm::max<float>(100.0f, ImGui::CalcTextSize(label.c_str()).x + 20.0f);
+			const auto dragDropCallback = [&component](AssetHandle handle)
+				{
+					component.m_Texture = handle;
+					component.m_TextureSpriteIndex = -1;
+				};
+			const auto assetReferenceCallback = [&component](AssetHandle handle, int32_t spriteIndex)
+				{
+					component.m_Texture = handle;
+					component.m_TextureSpriteIndex = spriteIndex;
+				};
+
+			UI::DragDropTarget(AssetType::Texture2D, dragDropCallback, label.c_str(), true, buttonLabelWidth, 0.0f, true, nullptr, assetReferenceCallback);
+			if (isTextureValid)
+			{
+				ImGui::SameLine();
+				if (ImGui::Button("X##ClearUIImageTexture"))
+				{
+					component.m_Texture = 0;
+					component.m_TextureSpriteIndex = -1;
+				}
+			}
+			ImGui::SameLine();
+			ImGui::Text("Texture");
+
+			if (isTextureValid)
+			{
+				const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(component.m_Texture);
+				const auto& sprites = metadata.m_TextureSettings.m_Sprites;
+				if (!sprites.empty())
+				{
+					const bool validSpriteIndex = component.m_TextureSpriteIndex >= 0 && component.m_TextureSpriteIndex < static_cast<int32_t>(sprites.size());
+					const char* preview = validSpriteIndex ? sprites[static_cast<size_t>(component.m_TextureSpriteIndex)].m_Name.c_str() : "Full Texture";
+					if (ImGui::BeginCombo("Sprite", preview))
+					{
+						if (ImGui::Selectable("Full Texture", component.m_TextureSpriteIndex < 0))
+							component.m_TextureSpriteIndex = -1;
+						for (int32_t spriteIndex = 0; std::cmp_less(spriteIndex, sprites.size()); ++spriteIndex)
+						{
+							const bool selected = component.m_TextureSpriteIndex == spriteIndex;
+							if (ImGui::Selectable(sprites[static_cast<size_t>(spriteIndex)].m_Name.c_str(), selected))
+								component.m_TextureSpriteIndex = spriteIndex;
+							if (selected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+				}
+			}
+		});
+	ImGui::Spacing();
+	DrawComponent<UITextComponent>("UI Text", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			ImGui::InputTextMultiline("Text", &component.m_TextString);
+			ImGui::ColorEdit4("Color", glm::value_ptr(component.m_Color));
+			ImGui::DragFloat("Font Size", &component.m_FontSize, 1.0f, 1.0f, 256.0f);
+			ImGui::DragFloat("Kerning", &component.m_Kerning, 0.025f);
+			ImGui::DragFloat("Line Spacing", &component.m_LineSpacing, 0.025f);
+
+			std::string label = "None";
+			bool isFontValid = false;
+			if (component.m_Font != 0)
+			{
+				if (AssetManager::IsAssetHandleValid(component.m_Font) && AssetManager::GetAssetType(component.m_Font) == AssetType::Font)
+				{
+					const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(component.m_Font);
+					label = metadata.m_Filepath.filename().string();
+					isFontValid = true;
+				}
+				else
+					label = "Invalid";
+			}
+
+			const float buttonLabelWidth = glm::max<float>(100.0f, ImGui::CalcTextSize(label.c_str()).x + 20.0f);
+			UI::DragDropTarget(AssetType::Font, [&component](AssetHandle handle) { component.m_Font = handle; }, label.c_str(), true, buttonLabelWidth, 0.0f);
+			if (isFontValid)
+			{
+				ImGui::SameLine();
+				if (ImGui::Button("X##ClearUITextFont"))
+					component.m_Font = 0;
+			}
+			ImGui::SameLine();
+			ImGui::Text("Font");
+		});
+	ImGui::Spacing();
+	DrawComponent<UIButtonComponent>("UI Button", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			ImGui::InputText("Text", &component.m_Text);
+			ImGui::Checkbox("Interactable", &component.m_Interactable);
+			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
+			ImGui::DragFloat("Font Size", &component.m_FontSize, 1.0f, 1.0f, 256.0f);
+			ImGui::ColorEdit4("Normal", glm::value_ptr(component.m_NormalColor));
+			ImGui::ColorEdit4("Hovered", glm::value_ptr(component.m_HoveredColor));
+			ImGui::ColorEdit4("Pressed", glm::value_ptr(component.m_PressedColor));
+			ImGui::ColorEdit4("Disabled", glm::value_ptr(component.m_DisabledColor));
+			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
+
+			std::string label = "None";
+			bool isFontValid = false;
+			if (component.m_Font != 0)
+			{
+				if (AssetManager::IsAssetHandleValid(component.m_Font) && AssetManager::GetAssetType(component.m_Font) == AssetType::Font)
+				{
+					const AssetMetadata& metadata = Project::GetActive()->GetEditorAssetManager()->GetMetadata(component.m_Font);
+					label = metadata.m_Filepath.filename().string();
+					isFontValid = true;
+				}
+				else
+					label = "Invalid";
+			}
+
+			const float buttonLabelWidth = glm::max<float>(100.0f, ImGui::CalcTextSize(label.c_str()).x + 20.0f);
+			UI::DragDropTarget(AssetType::Font, [&component](AssetHandle handle) { component.m_Font = handle; }, label.c_str(), true, buttonLabelWidth, 0.0f);
+			if (isFontValid)
+			{
+				ImGui::SameLine();
+				if (ImGui::Button("X##ClearUIButtonFont"))
+					component.m_Font = 0;
+			}
+			ImGui::SameLine();
+			ImGui::Text("Font");
+
+			ImGui::Separator();
+			ImGui::TextDisabled("Runtime");
+			ImGui::BeginDisabled();
+			ImGui::Checkbox("Hovered", &component.m_Hovered);
+			ImGui::Checkbox("Pressed", &component.m_Pressed);
+			ImGui::Checkbox("Clicked This Frame", &component.m_ClickedThisFrame);
+			ImGui::EndDisabled();
 		});
 	ImGui::Spacing();
 	DrawComponent<Rigidbody2DComponent>("Rigidbody 2D", entityIn, m_SceneChangeCallback, [](auto& component)
