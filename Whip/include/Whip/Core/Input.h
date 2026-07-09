@@ -46,6 +46,9 @@ public:
 
 	static void SetCursorMode(CursorMode mode);
 	WHP_NODISCARD static CursorMode GetCursorMode();
+	WHP_NODISCARD static CursorMode GetRequestedCursorMode();
+	static void SetCursorModeOverride(bool enabled, CursorMode mode = CursorMode::Normal);
+	WHP_NODISCARD static bool IsCursorModeOverrideEnabled();
 	static void SetCursorVisible(bool visible);
 	WHP_NODISCARD static bool IsCursorVisible();
 	static void SetCursorShape(CursorShape shape);

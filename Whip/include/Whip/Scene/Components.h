@@ -173,6 +173,20 @@ struct UIImageComponent
 	static constexpr std::string_view ScriptStructName = "UIImageComponent";
 };
 
+enum class UITextHorizontalAlignment : uint8_t
+{
+	Left = 0,
+	Center,
+	Right
+};
+
+enum class UITextVerticalAlignment : uint8_t
+{
+	Top = 0,
+	Center,
+	Bottom
+};
+
 struct UITextComponent
 {
 	std::string m_TextString = "Text";
@@ -181,6 +195,8 @@ struct UITextComponent
 	float m_FontSize = 24.0f;
 	float m_Kerning = 0.0f;
 	float m_LineSpacing = 0.0f;
+	UITextHorizontalAlignment m_HorizontalAlignment = UITextHorizontalAlignment::Center;
+	UITextVerticalAlignment m_VerticalAlignment = UITextVerticalAlignment::Center;
 
 	static constexpr std::string_view ScriptStructName = "UITextComponent";
 };
@@ -196,6 +212,8 @@ struct UIButtonComponent
 	glm::vec4 m_FocusColor{ 0.42f, 0.68f, 0.94f, 1.0f };
 	glm::vec4 m_TextColor{ 1.0f, 1.0f, 1.0f, 1.0f };
 	float m_FontSize = 20.0f;
+	UITextHorizontalAlignment m_TextHorizontalAlignment = UITextHorizontalAlignment::Center;
+	UITextVerticalAlignment m_TextVerticalAlignment = UITextVerticalAlignment::Center;
 	bool m_Interactable = true;
 	bool m_RaycastTarget = true;
 	bool m_NavigationEnabled = true;

@@ -6,6 +6,7 @@
 #include <Whip/Scripting/ScriptEngine.h>
 #include <Whip/Render/RenderCommand.h>
 #include <Whip/Render/Renderer2D.h>
+#include <Whip/Render/MsdfData.h>
 #include <Whip/Core/Input.h>
 
 #include <Whip/Physics/PhysicsWorld.h>
@@ -175,6 +176,26 @@ namespace
 		return BuildUIRect(registry.get<UITransformComponent>(entity), containerMin, containerSize, uiScale);
 	}
 
+	void ResolveUIContainer(Scene& scene, entt::registry& registry, entt::entity entity, const glm::vec2& viewportSize, glm::vec2& outMin, glm::vec2& outSize, uint32_t depth = 0)
+	{
+		outMin = { 0.0f, 0.0f };
+		outSize = viewportSize;
+		if (depth >= 32 || !registry.any_of<HierarchyComponent>(entity))
+			return;
+
+		const auto& hierarchy = registry.get<HierarchyComponent>(entity);
+		if (hierarchy.m_Parent == 0)
+			return;
+
+		Entity parent = scene.FindEntityByUUID(hierarchy.m_Parent);
+		if (!parent || !parent.HasComponent<UITransformComponent>())
+			return;
+
+		const UIRect parentRect = ResolveUIRect(scene, registry, static_cast<entt::entity>(parent), viewportSize, depth + 1);
+		outMin = parentRect.m_Min;
+		outSize = parentRect.m_Size;
+	}
+
 	bool ContainsPoint(const UIRect& rect, const glm::vec2& point)
 	{
 		return point.x >= rect.m_Min.x && point.x <= rect.m_Max.x
@@ -198,16 +219,78 @@ namespace
 		return Font::GetDefault();
 	}
 
-	void DrawUIText(const std::string& text, AssetHandle fontHandle, const glm::vec4& color, float fontSize, float kerning, float lineSpacing, const UIRect& rect, float z, int entityId)
+	glm::vec2 MeasureUIText(const std::string& text, const Ref<Font>& font, float fontSize, float kerning, float lineSpacing)
+	{
+		if (text.empty() || !font)
+			return { 0.0f, 0.0f };
+
+		const auto& fontGeometry = font->GetMsdfData()->m_FontGeometry;
+		const auto& metrics = fontGeometry.getMetrics();
+		const double fsScale = 1.0 / (metrics.ascenderY - metrics.descenderY);
+		const auto spaceGlyph = fontGeometry.getGlyph(' ');
+		const float spaceGlyphAdvance = spaceGlyph ? static_cast<float>(spaceGlyph->getAdvance()) : 1.0f;
+		const float lineHeight = static_cast<float>(fsScale * metrics.lineHeight + lineSpacing) * fontSize;
+
+		float maxWidth = 0.0f;
+		float currentWidth = 0.0f;
+		uint32_t lineCount = 1;
+		for (size_t i = 0; i < text.size(); ++i)
+		{
+			const char character = text[i];
+			if (character == '\r')
+				continue;
+			if (character == '\n')
+			{
+				maxWidth = std::max(maxWidth, currentWidth);
+				currentWidth = 0.0f;
+				++lineCount;
+				continue;
+			}
+			if (character == '\t')
+			{
+				currentWidth += 4.0f * (static_cast<float>(fsScale) * spaceGlyphAdvance + kerning) * fontSize;
+				continue;
+			}
+
+			double advance = spaceGlyphAdvance;
+			if (const auto glyph = fontGeometry.getGlyph(character))
+				advance = glyph->getAdvance();
+			if (i < text.size() - 1)
+				fontGeometry.getAdvance(advance, character, text[i + 1]);
+			currentWidth += (static_cast<float>(fsScale * advance) + kerning) * fontSize;
+		}
+
+		maxWidth = std::max(maxWidth, currentWidth);
+		return { maxWidth, std::max(lineHeight * static_cast<float>(lineCount), fontSize) };
+	}
+
+	void DrawUIText(const std::string& text, AssetHandle fontHandle, const glm::vec4& color, float fontSize, float kerning, float lineSpacing, UITextHorizontalAlignment horizontalAlignment, UITextVerticalAlignment verticalAlignment, const UIRect& rect, float z, int entityId)
 	{
 		if (text.empty())
 			return;
 
 		const float safeFontSize = std::max(fontSize, 1.0f);
-		const glm::vec2 textOrigin = rect.m_Min + glm::vec2(8.0f, std::max((rect.m_Size.y - safeFontSize) * 0.5f, 0.0f));
+		const Ref<Font> font = ResolveFont(fontHandle);
+		const glm::vec2 textSize = MeasureUIText(text, font, safeFontSize, kerning, lineSpacing);
+		constexpr float padding = 8.0f;
+		float originX = rect.m_Min.x + padding;
+		if (horizontalAlignment == UITextHorizontalAlignment::Center)
+			originX = rect.m_Min.x + std::max((rect.m_Size.x - textSize.x) * 0.5f, padding);
+		else if (horizontalAlignment == UITextHorizontalAlignment::Right)
+			originX = rect.m_Max.x - textSize.x - padding;
+
+		float originY = rect.m_Min.y + std::max((rect.m_Size.y - safeFontSize) * 0.5f, 0.0f);
+		if (verticalAlignment == UITextVerticalAlignment::Top)
+			originY = rect.m_Max.y - safeFontSize - padding;
+		else if (verticalAlignment == UITextVerticalAlignment::Center)
+			originY = rect.m_Min.y + std::max((rect.m_Size.y - textSize.y) * 0.5f, 0.0f);
+		else if (verticalAlignment == UITextVerticalAlignment::Bottom)
+			originY = rect.m_Min.y + padding;
+
+		const glm::vec2 textOrigin{ originX, originY };
 		const glm::mat4 textTransform = glm::translate(glm::mat4(1.0f), glm::vec3(textOrigin, z))
 			* glm::scale(glm::mat4(1.0f), glm::vec3(safeFontSize, safeFontSize, 1.0f));
-		Renderer2D::DrawString(text, ResolveFont(fontHandle), textTransform, { color, kerning, lineSpacing }, entityId);
+		Renderer2D::DrawString(text, font, textTransform, { color, kerning, lineSpacing }, entityId);
 	}
 
 	float ResolveCrossPosition(UIStackLayoutComponent::Alignment alignment, float contentMin, float contentMax, float childSize)
@@ -340,6 +423,43 @@ AnimatorRuntime* Scene::GetOrCreateAnimatorRuntime(Entity entityIn)
 		return runtime;
 
 	return CreateAnimatorRuntime(entityIn, component);
+}
+
+bool Scene::TryResolveUIRect(Entity entityIn, glm::vec2& center, glm::vec2& size)
+{
+	if (!entityIn || entityIn.GetScene() != this || !entityIn.HasComponent<UITransformComponent>() || m_ViewportWidth == 0 || m_ViewportHeight == 0)
+		return false;
+
+	const glm::vec2 viewportSize{ static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight) };
+	const UIRect rect = ResolveUIRect(*this, m_Registry, static_cast<entt::entity>(entityIn), viewportSize);
+	center = rect.m_Center;
+	size = rect.m_Size;
+	return true;
+}
+
+bool Scene::ApplyUIRectTransform(Entity entityIn, const glm::vec2& center, const glm::vec2& size, float rotationDegrees)
+{
+	if (!entityIn || entityIn.GetScene() != this || !entityIn.HasComponent<UITransformComponent>() || m_ViewportWidth == 0 || m_ViewportHeight == 0)
+		return false;
+
+	auto& transform = entityIn.GetComponent<UITransformComponent>();
+	const glm::vec2 viewportSize{ static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight) };
+	glm::vec2 containerMin{ 0.0f };
+	glm::vec2 containerSize = viewportSize;
+	ResolveUIContainer(*this, m_Registry, static_cast<entt::entity>(entityIn), viewportSize, containerMin, containerSize);
+
+	const glm::vec2 anchorMin = containerMin + transform.m_AnchorMin * containerSize;
+	const glm::vec2 anchorMax = containerMin + transform.m_AnchorMax * containerSize;
+	const glm::vec2 anchorSize = glm::max(anchorMax - anchorMin, glm::vec2(0.0f));
+	const float uiScale = ResolveUIScale(*this, m_Registry, static_cast<entt::entity>(entityIn), viewportSize);
+	const glm::vec2 safeScale = glm::max(glm::abs(transform.m_Scale), glm::vec2(0.001f));
+	const glm::vec2 safeSize = glm::max(glm::abs(size), glm::vec2(1.0f));
+	const glm::vec2 pivotPoint = center - (glm::vec2(0.5f) - transform.m_Pivot) * safeSize;
+
+	transform.m_AnchoredPosition = (pivotPoint - (anchorMin + anchorSize * transform.m_Pivot)) / uiScale;
+	transform.m_Size = glm::max((safeSize / safeScale - anchorSize) / uiScale, glm::vec2(1.0f));
+	transform.m_Rotation = rotationDegrees;
+	return true;
 }
 
 void Scene::OnRuntimeStart()
@@ -1103,13 +1223,13 @@ void Scene::RenderUIOverlay()
 			Renderer2D::DrawQuad(BuildUITransform(rect, transform, z + 0.00025f), color, entityId);
 			if (button.m_Focused && button.m_Interactable)
 				Renderer2D::DrawRect(BuildUITransform(rect, transform, z + 0.00045f), button.m_FocusColor, entityId);
-			DrawUIText(button.m_Text, button.m_Font, button.m_TextColor, button.m_FontSize, 0.0f, 0.0f, rect, z + 0.0005f, entityId);
+			DrawUIText(button.m_Text, button.m_Font, button.m_TextColor, button.m_FontSize, 0.0f, 0.0f, button.m_TextHorizontalAlignment, button.m_TextVerticalAlignment, rect, z + 0.0005f, entityId);
 		}
 
 		if (m_Registry.any_of<UITextComponent>(entity))
 		{
 			const auto& text = m_Registry.get<UITextComponent>(entity);
-			DrawUIText(text.m_TextString, text.m_Font, text.m_Color, text.m_FontSize, text.m_Kerning, text.m_LineSpacing, rect, z + 0.00075f, entityId);
+			DrawUIText(text.m_TextString, text.m_Font, text.m_Color, text.m_FontSize, text.m_Kerning, text.m_LineSpacing, text.m_HorizontalAlignment, text.m_VerticalAlignment, rect, z + 0.00075f, entityId);
 		}
 	}
 

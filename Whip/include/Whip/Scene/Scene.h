@@ -64,6 +64,8 @@ public:
 	Entity FindEntityByName(std::string_view name);
 	AnimatorRuntime* GetAnimatorRuntime(UUID entityId);
 	AnimatorRuntime* GetOrCreateAnimatorRuntime(Entity entityIn);
+	bool TryResolveUIRect(Entity entityIn, glm::vec2& center, glm::vec2& size);
+	bool ApplyUIRectTransform(Entity entityIn, const glm::vec2& center, const glm::vec2& size, float rotationDegrees);
 	void RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities = {});
 
 	void OnRuntimeStart();

@@ -41,6 +41,11 @@ public:
 	void OnEvent(Event& event) override;
 private:
 	using SceneState = EditorSceneState;
+	enum class ViewportCursorMode : uint8_t
+	{
+		Editor = 0,
+		Game
+	};
 
 	friend class EditorAssetInteractionManager;
 	friend class EditorEntityTemplateManager;
@@ -68,6 +73,8 @@ private:
 	void DrawCommandPalette();
 	Assistant::ContextSnapshot BuildAssistantContextSnapshot() const;
 	bool ApplyAssistantProposal(const Assistant::ToolProposal& proposal);
+	void UpdateViewportCursorMode();
+	bool ToggleViewportCursorMode();
 
 	void UIToolbar();
 	Timestep m_Ts;
@@ -80,6 +87,7 @@ private:
 	glm::vec2 m_ViewportSize = { 1.0f, 1.0f };
 	bool m_ViewportHovered = false;
 	bool m_ViewportFocused = false;
+	ViewportCursorMode m_ViewportCursorMode = ViewportCursorMode::Editor;
 
 	// entity
 	Entity m_HoveredEntity;

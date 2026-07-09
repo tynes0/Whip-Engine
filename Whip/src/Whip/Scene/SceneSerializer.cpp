@@ -583,6 +583,8 @@ namespace Utils
 			out << YAML::Key << "font_size" << YAML::Value << text.m_FontSize;
 			out << YAML::Key << "kerning" << YAML::Value << text.m_Kerning;
 			out << YAML::Key << "line_spacing" << YAML::Value << text.m_LineSpacing;
+			out << YAML::Key << "horizontal_alignment" << YAML::Value << static_cast<int>(text.m_HorizontalAlignment);
+			out << YAML::Key << "vertical_alignment" << YAML::Value << static_cast<int>(text.m_VerticalAlignment);
 
 			out << YAML::EndMap; // ui_text_component
 		}
@@ -602,6 +604,8 @@ namespace Utils
 			out << YAML::Key << "focus_color" << YAML::Value << button.m_FocusColor;
 			out << YAML::Key << "text_color" << YAML::Value << button.m_TextColor;
 			out << YAML::Key << "font_size" << YAML::Value << button.m_FontSize;
+			out << YAML::Key << "text_horizontal_alignment" << YAML::Value << static_cast<int>(button.m_TextHorizontalAlignment);
+			out << YAML::Key << "text_vertical_alignment" << YAML::Value << static_cast<int>(button.m_TextVerticalAlignment);
 			out << YAML::Key << "interactable" << YAML::Value << button.m_Interactable;
 			out << YAML::Key << "raycast_target" << YAML::Value << button.m_RaycastTarget;
 			out << YAML::Key << "navigation_enabled" << YAML::Value << button.m_NavigationEnabled;
@@ -1086,6 +1090,8 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				text.m_FontSize = uiTextComponent["font_size"].as<float>(text.m_FontSize);
 				text.m_Kerning = uiTextComponent["kerning"].as<float>(text.m_Kerning);
 				text.m_LineSpacing = uiTextComponent["line_spacing"].as<float>(text.m_LineSpacing);
+				text.m_HorizontalAlignment = static_cast<UITextHorizontalAlignment>(uiTextComponent["horizontal_alignment"].as<int>(static_cast<int>(text.m_HorizontalAlignment)));
+				text.m_VerticalAlignment = static_cast<UITextVerticalAlignment>(uiTextComponent["vertical_alignment"].as<int>(static_cast<int>(text.m_VerticalAlignment)));
 			}
 
 			auto uiButtonComponent = entityNode["ui_button_component"];
@@ -1101,6 +1107,8 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				button.m_FocusColor = uiButtonComponent["focus_color"].as<glm::vec4>(button.m_FocusColor);
 				button.m_TextColor = uiButtonComponent["text_color"].as<glm::vec4>(button.m_TextColor);
 				button.m_FontSize = uiButtonComponent["font_size"].as<float>(button.m_FontSize);
+				button.m_TextHorizontalAlignment = static_cast<UITextHorizontalAlignment>(uiButtonComponent["text_horizontal_alignment"].as<int>(static_cast<int>(button.m_TextHorizontalAlignment)));
+				button.m_TextVerticalAlignment = static_cast<UITextVerticalAlignment>(uiButtonComponent["text_vertical_alignment"].as<int>(static_cast<int>(button.m_TextVerticalAlignment)));
 				button.m_Interactable = uiButtonComponent["interactable"].as<bool>(button.m_Interactable);
 				button.m_RaycastTarget = uiButtonComponent["raycast_target"].as<bool>(button.m_RaycastTarget);
 				button.m_NavigationEnabled = uiButtonComponent["navigation_enabled"].as<bool>(button.m_NavigationEnabled);

@@ -1408,6 +1408,8 @@ void EditorLayer::OnDetach()
 {
 	WHP_PROFILE_FUNCTION();
 	Input::SetRuntimeInputEnabled(false);
+	Input::SetCursorMode(CursorMode::Normal);
+	Input::SetCursorModeOverride(false);
 	m_ProjectManager.CancelAsyncOperations(true);
 	m_ExportManager.CancelExport(true);
 	m_SceneManager.WriteRecoverySnapshot("Editor shutdown");
@@ -1427,6 +1429,7 @@ void EditorLayer::OnUpdate(Timestep ts)
 		m_ViewportHovered &&
 		m_ViewportFocused &&
 		!m_GizmoUsing);
+	UpdateViewportCursorMode();
 	m_ProjectManager.UpdateAsyncOperations();
 	m_ExportManager.UpdateAsyncOperations();
 	m_ScriptManager.ProcessSourceChanges(m_SceneManager.State() == SceneState::Edit);
@@ -1576,6 +1579,7 @@ void EditorLayer::OnImGuiRender()
 		m_ViewportFocused = ImGui::IsWindowFocused();
 		m_ViewportHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
 		Input::SetViewportState(m_ViewportHovered, m_ViewportFocused, m_ViewportBounds[0], m_ViewportBounds[1]);
+		UpdateViewportCursorMode();
 		Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered || m_GizmoHovered || m_GizmoUsing);
 		ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
 		m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
@@ -1627,76 +1631,148 @@ void EditorLayer::OnImGuiRender()
 		if (selectedEntity && m_GizmoType != -1 && m_SceneManager.State() != SceneState::Play)
 		{
 		    ImGuizmo::SetDrawlist();
-			ImGuizmo::SetOrthographic(false);
 			ImGuizmo::AllowAxisFlip(false);
 		    ImGuizmo::SetRect(m_ViewportBounds[0].x, m_ViewportBounds[0].y, m_ViewportBounds[1].x - m_ViewportBounds[0].x, m_ViewportBounds[1].y - m_ViewportBounds[0].y);
-		    // Camera
-		    const glm::mat4& cameraProjection = m_EditorCamera.GetProjection();
-		    glm::mat4 cameraView = m_EditorCamera.GetViewMatrix();
-
-		    // Entity transform
-		    auto& tc = selectedEntity.GetComponent<TransformComponent>();
-		    glm::mat4 transform = tc.GetTransform();
-			const glm::vec3 baseTranslation = tc.m_Translation;
-			const glm::vec3 baseRotation = tc.m_Rotation;
-			const glm::vec3 baseScale = tc.m_Scale;
 
 		    // Snapping
 			const int snapIndex = GizmoSnapIndex(m_GizmoType);
 		    bool snap = EditorUtils::IsControlDown() && snapIndex != -1;
 
 			ImGuizmo::OPERATION operation = static_cast<ImGuizmo::OPERATION>(m_GizmoType);
-			ImGuizmo::Manipulate(
-				glm::value_ptr(cameraView),
-				glm::value_ptr(cameraProjection),
-				operation,
-				ImGuizmo::LOCAL,
-				glm::value_ptr(transform),
-				nullptr,
-				snap ? const_cast<float*>(glm::value_ptr(m_UISettings.GetSnapValues(static_cast<uint32_t>(snapIndex)))) : nullptr);
-			m_GizmoHovered = ImGuizmo::IsOver(operation);
-			m_GizmoUsing = ImGuizmo::IsUsing();
 
-		    if (m_GizmoUsing)
-		    {
-				if (!m_HistoryManager.IsGizmoHistoryActive())
+			if (selectedEntity.HasComponent<UITransformComponent>())
+			{
+				glm::vec2 baseCenter{ 0.0f };
+				glm::vec2 baseSize{ 1.0f };
+				if (Ref<Scene> activeScene = m_SceneManager.ActiveScene(); activeScene && activeScene->TryResolveUIRect(selectedEntity, baseCenter, baseSize))
 				{
-					m_HistoryManager.CaptureSceneHistory();
-					m_HistoryManager.SetGizmoHistoryActive(true);
+					ImGuizmo::SetOrthographic(true);
+					glm::mat4 cameraProjection = glm::ortho(0.0f, m_ViewportSize.x, 0.0f, m_ViewportSize.y, -1.0f, 1.0f);
+					glm::mat4 cameraView{ 1.0f };
+					const auto& uiTransform = selectedEntity.GetComponent<UITransformComponent>();
+					glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(baseCenter, 0.0f))
+						* glm::rotate(glm::mat4(1.0f), glm::radians(uiTransform.m_Rotation), glm::vec3(0.0f, 0.0f, 1.0f))
+						* glm::scale(glm::mat4(1.0f), glm::vec3(baseSize, 1.0f));
+					const float baseRotation = uiTransform.m_Rotation;
+
+					ImGuizmo::Manipulate(
+						glm::value_ptr(cameraView),
+						glm::value_ptr(cameraProjection),
+						operation,
+						ImGuizmo::LOCAL,
+						glm::value_ptr(transform),
+						nullptr,
+						snap ? const_cast<float*>(glm::value_ptr(m_UISettings.GetSnapValues(static_cast<uint32_t>(snapIndex)))) : nullptr);
+					m_GizmoHovered = ImGuizmo::IsOver(operation);
+					m_GizmoUsing = ImGuizmo::IsUsing();
+
+					if (m_GizmoUsing)
+					{
+						if (!m_HistoryManager.IsGizmoHistoryActive())
+						{
+							m_HistoryManager.CaptureSceneHistory();
+							m_HistoryManager.SetGizmoHistoryActive(true);
+						}
+
+						glm::vec3 translation, rotation, scale;
+						if (!Math::DecomposeTransform(transform, translation, rotation, scale))
+							WHP_CLIENT_WARN("UI Transform Decomposing error!");
+
+						const glm::vec2 newCenter{ translation.x, translation.y };
+						const glm::vec2 newSize = glm::max(glm::abs(glm::vec2(scale.x, scale.y)), glm::vec2(1.0f));
+						const float newRotation = glm::degrees(rotation.z);
+						const glm::vec2 deltaCenter = newCenter - baseCenter;
+						const glm::vec2 sizeRatio{
+							baseSize.x != 0.0f ? newSize.x / baseSize.x : 1.0f,
+							baseSize.y != 0.0f ? newSize.y / baseSize.y : 1.0f
+						};
+						const float deltaRotation = newRotation - baseRotation;
+
+						std::vector<Entity> selectedEntities = m_SceneHierarchyPanel.GetSelectedEntities();
+						if (std::ranges::find(selectedEntities, selectedEntity) == selectedEntities.end())
+							selectedEntities.push_back(selectedEntity);
+
+						for (Entity selected : selectedEntities)
+						{
+							if (!selected || !selected.HasComponent<UITransformComponent>() || selected == selectedEntity)
+								continue;
+
+							glm::vec2 selectedCenter{ 0.0f };
+							glm::vec2 selectedSize{ 1.0f };
+							if (!activeScene->TryResolveUIRect(selected, selectedCenter, selectedSize))
+								continue;
+
+							const float selectedRotation = selected.GetComponent<UITransformComponent>().m_Rotation;
+							activeScene->ApplyUIRectTransform(selected, selectedCenter + deltaCenter, selectedSize * sizeRatio, selectedRotation + deltaRotation);
+						}
+
+						activeScene->ApplyUIRectTransform(selectedEntity, newCenter, newSize, newRotation);
+					}
 				}
+			}
+			else if (selectedEntity.HasComponent<TransformComponent>())
+			{
+				ImGuizmo::SetOrthographic(false);
+				const glm::mat4& cameraProjection = m_EditorCamera.GetProjection();
+				glm::mat4 cameraView = m_EditorCamera.GetViewMatrix();
+				auto& tc = selectedEntity.GetComponent<TransformComponent>();
+				glm::mat4 transform = tc.GetTransform();
+				const glm::vec3 baseTranslation = tc.m_Translation;
+				const glm::vec3 baseRotation = tc.m_Rotation;
+				const glm::vec3 baseScale = tc.m_Scale;
 
-		        glm::vec3 translation, rotation, scale;
-				if (!Math::DecomposeTransform(transform, translation, rotation, scale))
-					WHP_CLIENT_WARN("Transform Decomposing error!");
+				ImGuizmo::Manipulate(
+					glm::value_ptr(cameraView),
+					glm::value_ptr(cameraProjection),
+					operation,
+					ImGuizmo::LOCAL,
+					glm::value_ptr(transform),
+					nullptr,
+					snap ? const_cast<float*>(glm::value_ptr(m_UISettings.GetSnapValues(static_cast<uint32_t>(snapIndex)))) : nullptr);
+				m_GizmoHovered = ImGuizmo::IsOver(operation);
+				m_GizmoUsing = ImGuizmo::IsUsing();
 
-		        glm::vec3 deltaTranslation = translation - baseTranslation;
-		        glm::vec3 deltaRotation = rotation - baseRotation;
-				glm::vec3 scaleRatio = glm::vec3(1.0f);
-				scaleRatio.x = baseScale.x != 0.0f ? scale.x / baseScale.x : 1.0f;
-				scaleRatio.y = baseScale.y != 0.0f ? scale.y / baseScale.y : 1.0f;
-				scaleRatio.z = baseScale.z != 0.0f ? scale.z / baseScale.z : 1.0f;
-
-				std::vector<Entity> selectedEntities = m_SceneHierarchyPanel.GetSelectedEntities();
-				if (std::ranges::find(selectedEntities, selectedEntity) == selectedEntities.end())
-					selectedEntities.push_back(selectedEntity);
-
-				for (Entity selected : selectedEntities)
+				if (m_GizmoUsing)
 				{
-					if (!selected || !selected.HasComponent<TransformComponent>())
-						continue;
-					if (selected == selectedEntity)
-						continue;
+					if (!m_HistoryManager.IsGizmoHistoryActive())
+					{
+						m_HistoryManager.CaptureSceneHistory();
+						m_HistoryManager.SetGizmoHistoryActive(true);
+					}
 
-					auto& selectedTransform = selected.GetComponent<TransformComponent>();
-					selectedTransform.m_Translation += deltaTranslation;
-					selectedTransform.m_Rotation += deltaRotation;
-					selectedTransform.m_Scale *= scaleRatio;
+					glm::vec3 translation, rotation, scale;
+					if (!Math::DecomposeTransform(transform, translation, rotation, scale))
+						WHP_CLIENT_WARN("Transform Decomposing error!");
+
+					glm::vec3 deltaTranslation = translation - baseTranslation;
+					glm::vec3 deltaRotation = rotation - baseRotation;
+					glm::vec3 scaleRatio = glm::vec3(1.0f);
+					scaleRatio.x = baseScale.x != 0.0f ? scale.x / baseScale.x : 1.0f;
+					scaleRatio.y = baseScale.y != 0.0f ? scale.y / baseScale.y : 1.0f;
+					scaleRatio.z = baseScale.z != 0.0f ? scale.z / baseScale.z : 1.0f;
+
+					std::vector<Entity> selectedEntities = m_SceneHierarchyPanel.GetSelectedEntities();
+					if (std::ranges::find(selectedEntities, selectedEntity) == selectedEntities.end())
+						selectedEntities.push_back(selectedEntity);
+
+					for (Entity selected : selectedEntities)
+					{
+						if (!selected || !selected.HasComponent<TransformComponent>() || selected.HasComponent<UITransformComponent>())
+							continue;
+						if (selected == selectedEntity)
+							continue;
+
+						auto& selectedTransform = selected.GetComponent<TransformComponent>();
+						selectedTransform.m_Translation += deltaTranslation;
+						selectedTransform.m_Rotation += deltaRotation;
+						selectedTransform.m_Scale *= scaleRatio;
+					}
+
+					tc.m_Translation = translation;
+					tc.m_Rotation = rotation;
+					tc.m_Scale = scale;
 				}
-
-		        tc.m_Translation = translation;
-		        tc.m_Rotation = rotation;
-		        tc.m_Scale = scale;
-		    }
+			}
 		}
 		if (!m_GizmoUsing)
 			m_HistoryManager.SetGizmoHistoryActive(false);
@@ -2476,6 +2552,20 @@ void EditorLayer::RegisterEditorShortcuts()
 		},
 		[this]() { return HasProjectLoaded(); },
 		[this]() { return m_ViewportFocused; });
+	m_ShortcutManager.Add(
+		EditorShortcutScope::Viewport,
+		"viewport.toggle_cursor_mode",
+		"Toggle Game Cursor Mode",
+		"Viewport",
+		{
+			.m_Key = Key::M,
+			.m_Ctrl = true,
+			.m_Shift = true,
+			.m_Alt = false
+		},
+		[this]() { return ToggleViewportCursorMode(); },
+		[this]() { return HasProjectLoaded() && (m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate); },
+		[this]() { return m_ViewportFocused; });
 	auto addConsoleShortcut = [this](const char* id, const char* displayName, const UI::ShortcutBinding& binding, std::function<bool()> callback)
 	{
 		m_ShortcutManager.Add(
@@ -2658,6 +2748,28 @@ void EditorLayer::OnOverlayRender()
 bool EditorLayer::HasProjectLoaded() const
 {
 	return Project::GetActive() != nullptr;
+}
+
+void EditorLayer::UpdateViewportCursorMode()
+{
+	const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
+	if (!runtimeViewport)
+	{
+		m_ViewportCursorMode = ViewportCursorMode::Editor;
+		Input::SetCursorMode(CursorMode::Normal);
+		Input::SetCursorModeOverride(true, CursorMode::Normal);
+		return;
+	}
+
+	const bool useGameCursor = runtimeViewport && m_ViewportCursorMode == ViewportCursorMode::Game && m_ViewportHovered && m_ViewportFocused;
+	Input::SetCursorModeOverride(!useGameCursor, CursorMode::Normal);
+}
+
+bool EditorLayer::ToggleViewportCursorMode()
+{
+	m_ViewportCursorMode = m_ViewportCursorMode == ViewportCursorMode::Editor ? ViewportCursorMode::Game : ViewportCursorMode::Editor;
+	UpdateViewportCursorMode();
+	return true;
 }
 
 void EditorLayer::UIToolbar()

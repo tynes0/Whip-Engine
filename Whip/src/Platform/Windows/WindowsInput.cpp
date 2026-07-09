@@ -31,6 +31,9 @@ namespace
 		bool m_ViewportFocused = true;
 		bool m_RuntimeInputEnabled = true;
 		bool m_RuntimeInputCapturedByUI = false;
+		CursorMode m_RequestedCursorMode = CursorMode::Normal;
+		CursorMode m_CursorOverrideMode = CursorMode::Normal;
+		bool m_CursorOverrideEnabled = false;
 	};
 
 	static constexpr KeyCode s_ValidKeys[] =
@@ -53,6 +56,11 @@ namespace
 	};
 
 	static InputData s_InputData;
+
+	void ApplyCursorMode()
+	{
+		Application::Get().GetWindow().SetCursorMode(s_InputData.m_CursorOverrideEnabled ? s_InputData.m_CursorOverrideMode : s_InputData.m_RequestedCursorMode);
+	}
 
 	GLFWwindow* GetGLFWWindow()
 	{
@@ -279,12 +287,32 @@ WHP_NODISCARD bool Input::IsRuntimeGameplayInputActive()
 
 void Input::SetCursorMode(CursorMode mode)
 {
-	Application::Get().GetWindow().SetCursorMode(mode);
+	s_InputData.m_RequestedCursorMode = mode;
+	ApplyCursorMode();
 }
 
 WHP_NODISCARD CursorMode Input::GetCursorMode()
 {
 	return Application::Get().GetWindow().GetCursorMode();
+}
+
+WHP_NODISCARD CursorMode Input::GetRequestedCursorMode()
+{
+	return s_InputData.m_RequestedCursorMode;
+}
+
+void Input::SetCursorModeOverride(bool enabled, CursorMode mode)
+{
+	if (s_InputData.m_CursorOverrideEnabled == enabled && s_InputData.m_CursorOverrideMode == mode)
+		return;
+	s_InputData.m_CursorOverrideEnabled = enabled;
+	s_InputData.m_CursorOverrideMode = mode;
+	ApplyCursorMode();
+}
+
+WHP_NODISCARD bool Input::IsCursorModeOverrideEnabled()
+{
+	return s_InputData.m_CursorOverrideEnabled;
 }
 
 void Input::SetCursorVisible(bool visible)

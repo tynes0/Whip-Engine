@@ -420,6 +420,19 @@ namespace
 		ImGui::PopID();
 	}
 
+	void DrawUITextAlignmentControls(UITextHorizontalAlignment& horizontalAlignment, UITextVerticalAlignment& verticalAlignment)
+	{
+		const char* horizontalLabels[] = { "Left", "Center", "Right" };
+		int horizontal = static_cast<int>(horizontalAlignment);
+		if (ImGui::Combo("Horizontal Align", &horizontal, horizontalLabels, IM_ARRAYSIZE(horizontalLabels)))
+			horizontalAlignment = static_cast<UITextHorizontalAlignment>(horizontal);
+
+		const char* verticalLabels[] = { "Top", "Center", "Bottom" };
+		int vertical = static_cast<int>(verticalAlignment);
+		if (ImGui::Combo("Vertical Align", &vertical, verticalLabels, IM_ARRAYSIZE(verticalLabels)))
+			verticalAlignment = static_cast<UITextVerticalAlignment>(vertical);
+	}
+
 	template<typename T, typename UIFunction>
 	void DrawComponent(const std::string& name, Entity entityIn, const std::function<void()>& beforeChange, UIFunction uiFunction)
 	{
@@ -3019,6 +3032,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::DragFloat("Font Size", &component.m_FontSize, 1.0f, 1.0f, 256.0f);
 			ImGui::DragFloat("Kerning", &component.m_Kerning, 0.025f);
 			ImGui::DragFloat("Line Spacing", &component.m_LineSpacing, 0.025f);
+			DrawUITextAlignmentControls(component.m_HorizontalAlignment, component.m_VerticalAlignment);
 
 			std::string label = "None";
 			bool isFontValid = false;
@@ -3053,6 +3067,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
 			ImGui::Checkbox("Keyboard Navigation", &component.m_NavigationEnabled);
 			ImGui::DragFloat("Font Size", &component.m_FontSize, 1.0f, 1.0f, 256.0f);
+			DrawUITextAlignmentControls(component.m_TextHorizontalAlignment, component.m_TextVerticalAlignment);
 			ImGui::ColorEdit4("Normal", glm::value_ptr(component.m_NormalColor));
 			ImGui::ColorEdit4("Hovered", glm::value_ptr(component.m_HoveredColor));
 			ImGui::ColorEdit4("Pressed", glm::value_ptr(component.m_PressedColor));
