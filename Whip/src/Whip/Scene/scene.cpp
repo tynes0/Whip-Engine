@@ -4,6 +4,7 @@
 #include <Whip/Scene/Components.h>
 
 #include <Whip/Scripting/ScriptEngine.h>
+#include <Whip/Render/RenderCommand.h>
 #include <Whip/Render/Renderer2D.h>
 #include <Whip/Core/Input.h>
 
@@ -1011,6 +1012,7 @@ void Scene::RenderUIOverlay()
 
 	const glm::vec2 viewportSize{ static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight) };
 	OrthographicCamera uiCamera(0.0f, viewportSize.x, 0.0f, viewportSize.y);
+	RenderCommand::SetDepthTest(false);
 	Renderer2D::BeginScene(uiCamera);
 
 	for (size_t index = 0; index < items.size(); ++index)
@@ -1058,6 +1060,7 @@ void Scene::RenderUIOverlay()
 	}
 
 	Renderer2D::EndScene();
+	RenderCommand::SetDepthTest(true);
 }
 
 template<>

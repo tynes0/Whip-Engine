@@ -37,6 +37,11 @@ public:
 		s_RenderAPI->Clear();
 	}
 
+	static void SetDepthTest(bool enabled)
+	{
+		s_RenderAPI->SetDepthTest(enabled);
+	}
+
 	static void DrawIndexed(const whip::Ref<VertexArray>& vertexArray, uint32_t indexCount = 0)
 	{
 		s_RenderAPI->DrawIndexed(vertexArray, indexCount);
