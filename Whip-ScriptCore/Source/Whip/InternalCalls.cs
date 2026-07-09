@@ -74,6 +74,30 @@ namespace Whip
 		internal extern static float Input_GetMouseY();
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void Input_GetMousePosition(out Vector2 position);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void Input_GetMouseDelta(out Vector2 delta);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void Input_GetMouseViewportPosition(out Vector2 position);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool Input_IsMouseInsideViewport();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float Input_GetScrollDeltaX();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float Input_GetScrollDeltaY();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool Input_IsRuntimeInputActive();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void Cursor_SetMode(int mode);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static int Cursor_GetMode();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void Cursor_SetVisible(bool visible);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool Cursor_IsVisible();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void Cursor_SetShape(int shape);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static int Cursor_GetShape();
 		#endregion
 
 		#region AudioData

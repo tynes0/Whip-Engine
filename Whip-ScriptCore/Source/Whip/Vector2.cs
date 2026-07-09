@@ -8,6 +8,9 @@ namespace Whip
 		public float Y { get; set; }
 
 		public static Vector2 Zero => new Vector2(0.0f);
+		public static Vector2 One => new Vector2(1.0f);
+		public static Vector2 UnitX => new Vector2(1.0f, 0.0f);
+		public static Vector2 UnitY => new Vector2(0.0f, 1.0f);
 
 		public Vector2(float scalar)
 		{
@@ -25,10 +28,22 @@ namespace Whip
 		{
 			return new Vector2(a.X + b.X, a.Y + b.Y);
 		}
+		public static Vector2 operator -(Vector2 a, Vector2 b)
+		{
+			return new Vector2(a.X - b.X, a.Y - b.Y);
+		}
 
 		public static Vector2 operator *(Vector2 vector, float scalar)
 		{
 			return new Vector2(vector.X * scalar, vector.Y * scalar);
+		}
+		public static Vector2 operator *(float scalar, Vector2 vector)
+		{
+			return vector * scalar;
+		}
+		public static Vector2 operator /(Vector2 vector, float scalar)
+		{
+			return new Vector2(vector.X / scalar, vector.Y / scalar);
 		}
 
 		public float LengthSquared()
@@ -39,6 +54,21 @@ namespace Whip
 		public float Length()
 		{
 			return (float)Math.Sqrt(LengthSquared());
+		}
+		public Vector2 Normalized()
+		{
+			float length = Length();
+			return length > 0.00001f ? this / length : Zero;
+		}
+		public void Normalize()
+		{
+			Vector2 normalized = Normalized();
+			X = normalized.X;
+			Y = normalized.Y;
+		}
+		public override string ToString()
+		{
+			return $"Vector2({X}, {Y})";
 		}
 
 	}
