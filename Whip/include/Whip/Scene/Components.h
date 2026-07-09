@@ -175,13 +175,17 @@ struct UIButtonComponent
 	glm::vec4 m_HoveredColor{ 0.20f, 0.32f, 0.44f, 1.0f };
 	glm::vec4 m_PressedColor{ 0.10f, 0.22f, 0.34f, 1.0f };
 	glm::vec4 m_DisabledColor{ 0.10f, 0.11f, 0.12f, 0.65f };
+	glm::vec4 m_FocusColor{ 0.42f, 0.68f, 0.94f, 1.0f };
 	glm::vec4 m_TextColor{ 1.0f, 1.0f, 1.0f, 1.0f };
 	float m_FontSize = 20.0f;
 	bool m_Interactable = true;
 	bool m_RaycastTarget = true;
+	bool m_NavigationEnabled = true;
 	bool m_Hovered = false;
 	bool m_Pressed = false;
+	bool m_Focused = false;
 	bool m_ClickedThisFrame = false;
+	bool m_SubmittedThisFrame = false;
 
 	static constexpr std::string_view ScriptStructName = "UIButtonComponent";
 };

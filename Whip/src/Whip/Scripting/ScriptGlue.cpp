@@ -1828,10 +1828,22 @@ namespace
 		return ent.GetComponent<UIButtonComponent>().m_Pressed;
 	}
 
+	bool UIButtonComponentIsFocused(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIButtonComponent>().m_Focused;
+	}
+
 	bool UIButtonComponentWasClickedThisFrame(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
 		return ent.GetComponent<UIButtonComponent>().m_ClickedThisFrame;
+	}
+
+	bool UIButtonComponentWasSubmittedThisFrame(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIButtonComponent>().m_SubmittedThisFrame;
 	}
 
 	void CircleRendererComponentGetColor(UUID entityId, glm::vec4* outColor)
@@ -2222,7 +2234,9 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UIButtonComponent_SetInteractable, UIButtonComponentSetInteractable);
 	ADD_INTERNAL_CALL(UIButtonComponent_IsHovered, UIButtonComponentIsHovered);
 	ADD_INTERNAL_CALL(UIButtonComponent_IsPressed, UIButtonComponentIsPressed);
+	ADD_INTERNAL_CALL(UIButtonComponent_IsFocused, UIButtonComponentIsFocused);
 	ADD_INTERNAL_CALL(UIButtonComponent_WasClickedThisFrame, UIButtonComponentWasClickedThisFrame);
+	ADD_INTERNAL_CALL(UIButtonComponent_WasSubmittedThisFrame, UIButtonComponentWasSubmittedThisFrame);
 
 	// circle_renderer_component
 	ADD_INTERNAL_CALL(CircleRendererComponent_GetColor, CircleRendererComponentGetColor);

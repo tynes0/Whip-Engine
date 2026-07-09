@@ -554,7 +554,11 @@ namespace Whip
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool UIButtonComponent_IsPressed(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIButtonComponent_IsFocused(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool UIButtonComponent_WasClickedThisFrame(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIButtonComponent_WasSubmittedThisFrame(ulong entityID);
 		#endregion
 
 		#region CircleRendererComponent

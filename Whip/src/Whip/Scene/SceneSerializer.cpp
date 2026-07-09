@@ -583,10 +583,12 @@ namespace Utils
 			out << YAML::Key << "hovered_color" << YAML::Value << button.m_HoveredColor;
 			out << YAML::Key << "pressed_color" << YAML::Value << button.m_PressedColor;
 			out << YAML::Key << "disabled_color" << YAML::Value << button.m_DisabledColor;
+			out << YAML::Key << "focus_color" << YAML::Value << button.m_FocusColor;
 			out << YAML::Key << "text_color" << YAML::Value << button.m_TextColor;
 			out << YAML::Key << "font_size" << YAML::Value << button.m_FontSize;
 			out << YAML::Key << "interactable" << YAML::Value << button.m_Interactable;
 			out << YAML::Key << "raycast_target" << YAML::Value << button.m_RaycastTarget;
+			out << YAML::Key << "navigation_enabled" << YAML::Value << button.m_NavigationEnabled;
 
 			out << YAML::EndMap; // ui_button_component
 		}
@@ -1068,10 +1070,12 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				button.m_HoveredColor = uiButtonComponent["hovered_color"].as<glm::vec4>(button.m_HoveredColor);
 				button.m_PressedColor = uiButtonComponent["pressed_color"].as<glm::vec4>(button.m_PressedColor);
 				button.m_DisabledColor = uiButtonComponent["disabled_color"].as<glm::vec4>(button.m_DisabledColor);
+				button.m_FocusColor = uiButtonComponent["focus_color"].as<glm::vec4>(button.m_FocusColor);
 				button.m_TextColor = uiButtonComponent["text_color"].as<glm::vec4>(button.m_TextColor);
 				button.m_FontSize = uiButtonComponent["font_size"].as<float>(button.m_FontSize);
 				button.m_Interactable = uiButtonComponent["interactable"].as<bool>(button.m_Interactable);
 				button.m_RaycastTarget = uiButtonComponent["raycast_target"].as<bool>(button.m_RaycastTarget);
+				button.m_NavigationEnabled = uiButtonComponent["navigation_enabled"].as<bool>(button.m_NavigationEnabled);
 			}
 
 			auto uiStackLayoutComponent = entityNode["ui_stack_layout_component"];

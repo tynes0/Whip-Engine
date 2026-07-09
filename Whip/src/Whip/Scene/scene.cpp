@@ -291,6 +291,7 @@ void Scene::OnRuntimeStart()
 {
 	WHP_PROFILE_FUNCTION();
 	m_IsRunning = true;
+	m_FocusedUIButton = 0;
 	m_PhysicsWorld.Create();
 	{
 		ScriptEngine::OnRuntimeStart(this);
@@ -317,12 +318,14 @@ void Scene::OnRuntimeStop()
 	ScriptEngine::OnRuntimeStop();
 	OnAudiosStop();
 	ClearAnimatorRuntimes();
+	m_FocusedUIButton = 0;
 }
 
 void Scene::OnSimulationStart()
 {
 	WHP_PROFILE_FUNCTION();
 	m_IsRunning = true;
+	m_FocusedUIButton = 0;
 	m_PhysicsWorld.Create();
 	{
 		ScriptEngine::OnRuntimeStart(this);
@@ -349,6 +352,7 @@ void Scene::OnSimulationStop()
 	ScriptEngine::OnRuntimeStop();
 	OnAudiosStop();
 	ClearAnimatorRuntimes();
+	m_FocusedUIButton = 0;
 }
 
 void Scene::OnUpdateRuntime(Timestep ts)
@@ -731,14 +735,17 @@ void Scene::UpdateRuntimeUI()
 	{
 		auto [transform, button] = buttonView.get<UITransformComponent, UIButtonComponent>(entity);
 		button.m_ClickedThisFrame = false;
+		button.m_SubmittedThisFrame = false;
 		button.m_Hovered = false;
 		button.m_Pressed = false;
+		button.m_Focused = false;
 	}
 
 	bool capturedByUI = false;
 	entt::entity hoveredButton = entt::null;
 	int32_t hoveredSortOrder = 0;
 	bool hasTopmostRaycastTarget = false;
+	std::vector<entt::entity> navigableButtons;
 
 	auto setTopmostRaycastTarget = [&](entt::entity entity, int32_t sortOrder, bool isInteractableButton)
 		{
@@ -777,9 +784,78 @@ void Scene::UpdateRuntimeUI()
 
 			setTopmostRaycastTarget(entity, transform.m_SortOrder, button.m_Interactable);
 		}
+
+		for (auto entity : buttonView)
+		{
+			auto [transform, button] = buttonView.get<UITransformComponent, UIButtonComponent>(entity);
+			if (transform.m_Visible && button.m_Interactable && button.m_RaycastTarget && button.m_NavigationEnabled)
+				navigableButtons.push_back(entity);
+		}
+	}
+
+	std::sort(navigableButtons.begin(), navigableButtons.end(), [&](entt::entity left, entt::entity right)
+		{
+			const auto& leftTransform = m_Registry.get<UITransformComponent>(left);
+			const auto& rightTransform = m_Registry.get<UITransformComponent>(right);
+			if (leftTransform.m_SortOrder != rightTransform.m_SortOrder)
+				return leftTransform.m_SortOrder < rightTransform.m_SortOrder;
+
+			const UIRect leftRect = ResolveUIRect(*this, m_Registry, left, viewportSize);
+			const UIRect rightRect = ResolveUIRect(*this, m_Registry, right, viewportSize);
+			if (leftRect.m_Center.y != rightRect.m_Center.y)
+				return leftRect.m_Center.y > rightRect.m_Center.y;
+			return leftRect.m_Center.x < rightRect.m_Center.x;
+		});
+
+	Entity focusedEntity = m_FocusedUIButton ? FindEntityByUUID(m_FocusedUIButton) : Entity{};
+	auto focusedIt = focusedEntity ? std::find(navigableButtons.begin(), navigableButtons.end(), static_cast<entt::entity>(focusedEntity)) : navigableButtons.end();
+	if (focusedIt == navigableButtons.end())
+	{
+		m_FocusedUIButton = 0;
+		focusedEntity = {};
+	}
+
+	if (hoveredButton != entt::null && Input::IsMouseButtonPressed(Mouse::ButtonLeft))
+	{
+		auto& hoveredComponent = m_Registry.get<UIButtonComponent>(hoveredButton);
+		if (hoveredComponent.m_NavigationEnabled)
+		{
+			Entity hoveredEntity{ hoveredButton, this };
+			m_FocusedUIButton = hoveredEntity.GetUUID();
+			focusedEntity = hoveredEntity;
+			focusedIt = std::find(navigableButtons.begin(), navigableButtons.end(), hoveredButton);
+		}
+	}
+
+	const bool shiftHeld = Input::IsKeyDown(Key::LeftShift) || Input::IsKeyDown(Key::RightShift);
+	const bool nextRequested = (Input::IsKeyPressed(Key::Tab) && !shiftHeld) || Input::IsKeyPressed(Key::Down) || Input::IsKeyPressed(Key::Right);
+	const bool previousRequested = (Input::IsKeyPressed(Key::Tab) && shiftHeld) || Input::IsKeyPressed(Key::Up) || Input::IsKeyPressed(Key::Left);
+	const bool submitRequested = Input::IsKeyPressed(Key::Enter) || Input::IsKeyPressed(Key::KPEnter) || Input::IsKeyPressed(Key::Space);
+	const bool navigationUsed = inputActive && !navigableButtons.empty() && (nextRequested || previousRequested || submitRequested);
+	if (navigationUsed)
+	{
+		capturedByUI = true;
+		if (focusedIt == navigableButtons.end())
+			focusedIt = navigableButtons.begin();
+
+		if (nextRequested || previousRequested)
+		{
+			size_t focusedIndex = static_cast<size_t>(std::distance(navigableButtons.begin(), focusedIt));
+			if (nextRequested)
+				focusedIndex = (focusedIndex + 1) % navigableButtons.size();
+			else
+				focusedIndex = focusedIndex == 0 ? navigableButtons.size() - 1 : focusedIndex - 1;
+			focusedIt = navigableButtons.begin() + static_cast<std::ptrdiff_t>(focusedIndex);
+		}
+
+		focusedEntity = Entity{ *focusedIt, this };
+		m_FocusedUIButton = focusedEntity.GetUUID();
 	}
 
 	Input::SetRuntimeInputCapturedByUI(capturedByUI);
+
+	if (focusedEntity && focusedEntity.HasComponent<UIButtonComponent>())
+		focusedEntity.GetComponent<UIButtonComponent>().m_Focused = true;
 
 	if (hoveredButton != entt::null)
 	{
@@ -789,6 +865,18 @@ void Scene::UpdateRuntimeUI()
 		button.m_ClickedThisFrame = Input::IsMouseButtonReleased(Mouse::ButtonLeft);
 		if (button.m_ClickedThisFrame)
 			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIClick, Entity{ hoveredButton, this });
+	}
+
+	if (submitRequested && focusedEntity && focusedEntity.HasComponent<UIButtonComponent>() && inputActive)
+	{
+		auto& button = focusedEntity.GetComponent<UIButtonComponent>();
+		if (button.m_Interactable && button.m_NavigationEnabled)
+		{
+			button.m_Pressed = true;
+			button.m_ClickedThisFrame = true;
+			button.m_SubmittedThisFrame = true;
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIClick, focusedEntity);
+		}
 	}
 }
 
@@ -953,8 +1041,12 @@ void Scene::RenderUIOverlay()
 				color = button.m_PressedColor;
 			else if (button.m_Hovered)
 				color = button.m_HoveredColor;
+			else if (button.m_Focused)
+				color = glm::mix(button.m_NormalColor, button.m_FocusColor, 0.25f);
 
 			Renderer2D::DrawQuad(BuildUITransform(rect, transform, z + 0.00025f), color, entityId);
+			if (button.m_Focused && button.m_Interactable)
+				Renderer2D::DrawRect(BuildUITransform(rect, transform, z + 0.00045f), button.m_FocusColor, entityId);
 			DrawUIText(button.m_Text, button.m_Font, button.m_TextColor, button.m_FontSize, 0.0f, 0.0f, rect, z + 0.0005f, entityId);
 		}
 

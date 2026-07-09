@@ -98,6 +98,7 @@ private:
 
 	PhysicsWorld m_PhysicsWorld;
 	std::unordered_map<UUID, AnimatorRuntime> m_AnimatorRuntimes;
+	UUID m_FocusedUIButton = 0;
 };
 
 _WHIP_END

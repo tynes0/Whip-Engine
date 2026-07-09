@@ -2807,11 +2807,13 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::InputText("Text", &component.m_Text);
 			ImGui::Checkbox("Interactable", &component.m_Interactable);
 			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
+			ImGui::Checkbox("Keyboard Navigation", &component.m_NavigationEnabled);
 			ImGui::DragFloat("Font Size", &component.m_FontSize, 1.0f, 1.0f, 256.0f);
 			ImGui::ColorEdit4("Normal", glm::value_ptr(component.m_NormalColor));
 			ImGui::ColorEdit4("Hovered", glm::value_ptr(component.m_HoveredColor));
 			ImGui::ColorEdit4("Pressed", glm::value_ptr(component.m_PressedColor));
 			ImGui::ColorEdit4("Disabled", glm::value_ptr(component.m_DisabledColor));
+			ImGui::ColorEdit4("Focus", glm::value_ptr(component.m_FocusColor));
 			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
 
 			std::string label = "None";
@@ -2844,7 +2846,9 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::BeginDisabled();
 			ImGui::Checkbox("Hovered", &component.m_Hovered);
 			ImGui::Checkbox("Pressed", &component.m_Pressed);
+			ImGui::Checkbox("Focused", &component.m_Focused);
 			ImGui::Checkbox("Clicked This Frame", &component.m_ClickedThisFrame);
+			ImGui::Checkbox("Submitted This Frame", &component.m_SubmittedThisFrame);
 			ImGui::EndDisabled();
 		});
 	ImGui::Spacing();
