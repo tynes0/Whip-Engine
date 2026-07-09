@@ -169,6 +169,22 @@ namespace
 		return value;
 	}
 
+	std::string EntitySortKey(Entity entityIn)
+	{
+		if (!entityIn || !entityIn.HasComponent<TagComponent>())
+			return {};
+		return Lowercase(entityIn.GetComponent<TagComponent>().m_Tag);
+	}
+
+	bool EntityDisplayLess(Entity left, Entity right)
+	{
+		const std::string leftKey = EntitySortKey(left);
+		const std::string rightKey = EntitySortKey(right);
+		if (leftKey == rightKey)
+			return static_cast<uint64_t>(left.GetUUID()) < static_cast<uint64_t>(right.GetUUID());
+		return leftKey < rightKey;
+	}
+
 	bool FilenameMatches(const std::filesystem::path& path, const std::vector<std::string>& filenames)
 	{
 		const std::string filename = Lowercase(path.filename().string());
@@ -471,6 +487,8 @@ void SceneHierarchyPanel::SetContext(const Ref<Scene>& context)
 {
 	m_Context = context;
 	ClearSelection();
+	ClearSearchShortcut();
+	m_RequestSearchFocus = false;
 	MarkHierarchyDirty();
 }
 
@@ -517,12 +535,74 @@ void SceneHierarchyPanel::RebuildHierarchyCache()
 		}
 	}
 
+	std::sort(m_RootEntityCache.begin(), m_RootEntityCache.end(), EntityDisplayLess);
 	m_HierarchyCacheDirty = false;
 }
 
 bool SceneHierarchyPanel::CanUseFlatHierarchyClipper() const
 {
 	return m_CanClipFlatHierarchy;
+}
+
+bool SceneHierarchyPanel::IsSearchActive() const
+{
+	return !m_CachedSearchQueryLower.empty();
+}
+
+bool SceneHierarchyPanel::EntityMatchesSearch(Entity entityIn) const
+{
+	if (!IsSearchActive())
+		return true;
+	if (!IsEntityAlive(entityIn) || !entityIn.HasComponent<TagComponent>() || !entityIn.HasComponent<HierarchyComponent>())
+		return false;
+
+	const auto& tag = entityIn.GetComponent<TagComponent>().m_Tag;
+	const auto& hierarchy = entityIn.GetComponent<HierarchyComponent>();
+	std::string searchable = Lowercase(tag + " " + std::to_string(static_cast<uint64_t>(entityIn.GetUUID())));
+	if (hierarchy.m_IsGroup)
+		searchable += " group";
+	if (entityIn.HasComponent<CameraComponent>())
+		searchable += " camera";
+	if (entityIn.HasComponent<ScriptComponent>())
+		searchable += " script";
+	if (entityIn.HasComponent<SpriteRendererComponent>())
+		searchable += " sprite renderer texture";
+	if (entityIn.HasComponent<TextComponent>())
+		searchable += " text";
+	if (entityIn.HasComponent<UITransformComponent>())
+		searchable += " ui";
+	if (entityIn.HasComponent<UIImageComponent>())
+		searchable += " image";
+	if (entityIn.HasComponent<UITextComponent>())
+		searchable += " ui text";
+	if (entityIn.HasComponent<UIButtonComponent>())
+		searchable += " button ui button";
+	if (entityIn.HasComponent<Rigidbody2DComponent>())
+		searchable += " rigidbody physics";
+	if (entityIn.HasComponent<BoxCollider2DComponent>())
+		searchable += " box collider physics";
+	if (entityIn.HasComponent<CircleCollider2DComponent>())
+		searchable += " circle collider physics";
+
+	return searchable.find(m_CachedSearchQueryLower) != std::string::npos;
+}
+
+bool SceneHierarchyPanel::EntityOrDescendantMatchesSearch(Entity entityIn) const
+{
+	if (!IsSearchActive())
+		return true;
+	if (EntityMatchesSearch(entityIn))
+		return true;
+	if (!IsEntityAlive(entityIn) || !entityIn.HasComponent<HierarchyComponent>())
+		return false;
+
+	const auto& hierarchy = entityIn.GetComponent<HierarchyComponent>();
+	for (UUID childId : hierarchy.m_Children)
+	{
+		if (Entity child = m_Context ? m_Context->FindEntityByUUID(childId) : Entity{}; child && EntityOrDescendantMatchesSearch(child))
+			return true;
+	}
+	return false;
 }
 
 bool SceneHierarchyPanel::IsEntityAlive(Entity entityIn) const
@@ -600,6 +680,8 @@ void SceneHierarchyPanel::RegisterShortcuts(EditorShortcutManager& shortcuts)
 
 	add("create_entity", "Create Entity", "Scene", { Key::N, true, true, false }, [this]() { return CreateEntityShortcut(); }, [this]() { return m_Context != nullptr; });
 	add("create_group", "Create Group", "Scene", { Key::G, true, true, false }, [this]() { return CreateGroupShortcut(); }, [this]() { return m_Context != nullptr; });
+	add("focus_search", "Focus Search", "Navigation", { Key::F, true, false, false }, [this]() { return FocusSearchShortcut(); }, [this]() { return m_Context != nullptr; });
+	add("clear_search", "Clear Search", "Navigation", { Key::Escape, false, false, false }, [this]() { return ClearSearchShortcut(); }, [this]() { return IsSearchActive(); });
 	add("clear_selection", "Clear Selection", "Selection", { Key::Escape, false, false, false }, [this]() { ClearSelection(); return true; }, [this]() { return m_SelectionContext; });
 	add("move_to_root", "Move Selection To Root", "Hierarchy", { Key::Home, true, true, false }, [this]() { return MoveSelectionToRootShortcut(); }, [this]() { return m_SelectionContext; });
 	add("save_template", "Save Selected Entity Template", "Entity Template", { Key::T, true, true, false }, [this]() { return SaveSelectedTemplateShortcut(); }, [this]() { return m_SelectionContext && m_SaveEntityTemplateCallback; });
@@ -645,7 +727,40 @@ void SceneHierarchyPanel::OnImGuiRender()
 		if (m_HierarchyCacheDirty || m_CachedEntityCount != group.size())
 			RebuildHierarchyCache();
 
-		if (CanUseFlatHierarchyClipper() && m_RootEntityCache.size() > 80)
+		if (m_RequestSearchFocus)
+		{
+			ImGui::SetKeyboardFocusHere();
+			m_RequestSearchFocus = false;
+		}
+
+		const bool showClearSearch = !m_SearchQuery.empty();
+		const float clearSearchWidth = showClearSearch ? ImGui::CalcTextSize("Clear").x + ImGui::GetStyle().FramePadding.x * 2.0f : 0.0f;
+		const float searchWidth = showClearSearch ? std::max(ImGui::GetContentRegionAvail().x - clearSearchWidth - ImGui::GetStyle().ItemSpacing.x, 80.0f) : -1.0f;
+		ImGui::SetNextItemWidth(searchWidth);
+		if (ImGui::InputTextWithHint("##SceneHierarchySearch", "Search entities, components, UUID...", &m_SearchQuery))
+			m_CachedSearchQueryLower = Lowercase(m_SearchQuery);
+		if (showClearSearch)
+		{
+			ImGui::SameLine();
+			if (ImGui::Button("Clear"))
+				ClearSearchShortcut();
+		}
+		ImGui::Separator();
+
+		if (IsSearchActive())
+		{
+			size_t visibleCount = 0;
+			for (Entity rootEntity : m_RootEntityCache)
+			{
+				if (!EntityOrDescendantMatchesSearch(rootEntity))
+					continue;
+				DrawEntityNode(rootEntity);
+				++visibleCount;
+			}
+			if (visibleCount == 0)
+				ImGui::TextDisabled("No matching entities.");
+		}
+		else if (CanUseFlatHierarchyClipper() && m_RootEntityCache.size() > 80)
 		{
 			ImGuiListClipper clipper;
 			clipper.Begin(static_cast<int>(m_RootEntityCache.size()));
@@ -907,6 +1022,23 @@ bool SceneHierarchyPanel::UnpackSelectedTemplateShortcut()
 	return true;
 }
 
+bool SceneHierarchyPanel::FocusSearchShortcut()
+{
+	if (!m_Context)
+		return false;
+	m_RequestSearchFocus = true;
+	return true;
+}
+
+bool SceneHierarchyPanel::ClearSearchShortcut()
+{
+	if (m_SearchQuery.empty() && m_CachedSearchQueryLower.empty())
+		return false;
+	m_SearchQuery.clear();
+	m_CachedSearchQueryLower.clear();
+	return true;
+}
+
 void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 {
 	if (!IsEntityAlive(entityIn) || !entityIn.HasComponent<TagComponent>() || !entityIn.HasComponent<HierarchyComponent>())
@@ -914,6 +1046,8 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 		MarkHierarchyDirty();
 		return;
 	}
+	if (IsSearchActive() && !EntityOrDescendantMatchesSearch(entityIn))
+		return;
 
 	auto& tag = entityIn.GetComponent<TagComponent>().m_Tag;
 	auto& hierarchy = entityIn.GetComponent<HierarchyComponent>();
@@ -923,6 +1057,8 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 	flags |= ImGuiTreeNodeFlags_SpanAvailWidth;
 	if (hierarchy.m_Children.empty())
 		flags |= ImGuiTreeNodeFlags_Leaf;
+	else if (IsSearchActive())
+		flags |= ImGuiTreeNodeFlags_DefaultOpen;
 
 	std::string groupLabel;
 	const char* label = tag.c_str();
@@ -1012,11 +1148,16 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entityIn)
 
 		if (opened)
 		{
+			std::vector<Entity> children;
+			children.reserve(hierarchy.m_Children.size());
 			for (UUID childId : hierarchy.m_Children)
 			{
 				if (Entity child = m_Context->FindEntityByUUID(childId); child)
-					DrawEntityNode(child);
+					children.push_back(child);
 			}
+			std::sort(children.begin(), children.end(), EntityDisplayLess);
+			for (Entity child : children)
+				DrawEntityNode(child);
 			ImGui::TreePop();
 		}
 

@@ -8,6 +8,7 @@
 #include <Whip/Core/Memory.h>
 
 #include <functional>
+#include <string>
 #include <vector>
 
 
@@ -48,6 +49,8 @@ public:
 	bool ApplySelectedTemplateShortcut();
 	bool RevertSelectedTemplateShortcut();
 	bool UnpackSelectedTemplateShortcut();
+	bool FocusSearchShortcut();
+	bool ClearSearchShortcut();
 private:
 	enum class UIElementKind : uint8_t
 	{
@@ -68,6 +71,9 @@ private:
 	void MarkHierarchyDirty();
 	void RebuildHierarchyCache();
 	bool CanUseFlatHierarchyClipper() const;
+	bool IsSearchActive() const;
+	bool EntityMatchesSearch(Entity entityIn) const;
+	bool EntityOrDescendantMatchesSearch(Entity entityIn) const;
 	bool IsEntityAlive(Entity entityIn) const;
 	void ValidateSelection();
 	void DrawEntityNode(Entity entityIn);
@@ -119,7 +125,10 @@ private:
 	bool m_Focused = false;
 	bool m_HierarchyCacheDirty = true;
 	bool m_CanClipFlatHierarchy = true;
+	bool m_RequestSearchFocus = false;
 	size_t m_CachedEntityCount = 0;
+	std::string m_SearchQuery;
+	std::string m_CachedSearchQueryLower;
 };
 
 _WHIP_END

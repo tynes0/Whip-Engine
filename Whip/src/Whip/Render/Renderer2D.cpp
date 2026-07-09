@@ -643,8 +643,8 @@ void Renderer2D::BeginScene(const OrthographicCamera& camera)
 {
 	WHP_PROFILE_FUNCTION();
 
-	s_Data.m_QuadShader->Bind();
-	s_Data.m_QuadShader->SetMat4("u_view_projection", camera.GetViewProjectionMatrix());
+	s_Data.m_CameraBuffer.m_ViewProjection = camera.GetViewProjectionMatrix();
+	s_Data.m_CameraUniformBuffer->SetData(&s_Data.m_CameraBuffer, sizeof(Renderer2DData::CameraData));
 
 	s_Data.m_TextureAssetCache.clear();
 	s_FrameSubTextureCache.clear();
