@@ -1176,6 +1176,97 @@ Entity SceneHierarchyPanel::CreateUIElement(UIElementKind kind, Entity parent)
 	return entity;
 }
 
+Entity SceneHierarchyPanel::CreateUITemplate(UITemplateKind kind, Entity parent)
+{
+	if (!m_Context)
+		return {};
+
+	NotifySceneChange();
+
+	auto createUIEntity = [this, parent](const char* name, Entity explicitParent = {}) -> Entity
+		{
+			Entity entity = m_Context->CreateEntity(name);
+			entity.AddComponent<UITransformComponent>();
+			Entity resolvedParent = explicitParent ? explicitParent : parent;
+			if (resolvedParent)
+				SetEntityParent(entity, resolvedParent);
+			return entity;
+		};
+
+	Entity root;
+	if (kind == UITemplateKind::HUD)
+	{
+		root = createUIEntity("HUD Canvas");
+		auto& rootTransform = root.GetComponent<UITransformComponent>();
+		rootTransform.m_AnchorMin = { 0.0f, 0.0f };
+		rootTransform.m_AnchorMax = { 1.0f, 1.0f };
+		rootTransform.m_Pivot = { 0.5f, 0.5f };
+		rootTransform.m_Size = { 0.0f, 0.0f };
+		rootTransform.m_SortOrder = parent && parent.HasComponent<UITransformComponent>() ? parent.GetComponent<UITransformComponent>().m_SortOrder + 1 : 0;
+
+		Entity score = createUIEntity("Score Text", root);
+		auto& scoreTransform = score.GetComponent<UITransformComponent>();
+		scoreTransform.m_AnchorMin = { 0.0f, 1.0f };
+		scoreTransform.m_AnchorMax = { 0.0f, 1.0f };
+		scoreTransform.m_Pivot = { 0.0f, 1.0f };
+		scoreTransform.m_AnchoredPosition = { 24.0f, -24.0f };
+		scoreTransform.m_Size = { 260.0f, 44.0f };
+		scoreTransform.m_SortOrder = rootTransform.m_SortOrder + 1;
+		auto& scoreText = score.AddComponent<UITextComponent>();
+		scoreText.m_TextString = "Score: 0";
+		scoreText.m_FontSize = 28.0f;
+
+		Entity menu = createUIEntity("Menu Button", root);
+		auto& menuTransform = menu.GetComponent<UITransformComponent>();
+		menuTransform.m_AnchorMin = { 1.0f, 1.0f };
+		menuTransform.m_AnchorMax = { 1.0f, 1.0f };
+		menuTransform.m_Pivot = { 1.0f, 1.0f };
+		menuTransform.m_AnchoredPosition = { -24.0f, -24.0f };
+		menuTransform.m_Size = { 150.0f, 48.0f };
+		menuTransform.m_SortOrder = rootTransform.m_SortOrder + 2;
+		menu.AddComponent<UIButtonComponent>().m_Text = "Menu";
+	}
+	else
+	{
+		root = createUIEntity("Pause Menu");
+		auto& rootTransform = root.GetComponent<UITransformComponent>();
+		rootTransform.m_Size = { 420.0f, 330.0f };
+		rootTransform.m_SortOrder = parent && parent.HasComponent<UITransformComponent>() ? parent.GetComponent<UITransformComponent>().m_SortOrder + 10 : 10;
+		auto& panel = root.AddComponent<UIImageComponent>();
+		panel.m_Color = { 0.04f, 0.07f, 0.09f, 0.92f };
+
+		Entity title = createUIEntity("Pause Title", root);
+		auto& titleTransform = title.GetComponent<UITransformComponent>();
+		titleTransform.m_AnchoredPosition = { 0.0f, 108.0f };
+		titleTransform.m_Size = { 300.0f, 48.0f };
+		titleTransform.m_SortOrder = rootTransform.m_SortOrder + 1;
+		auto& titleText = title.AddComponent<UITextComponent>();
+		titleText.m_TextString = "Paused";
+		titleText.m_FontSize = 34.0f;
+
+		constexpr std::array<std::pair<const char*, const char*>, 3> buttons =
+		{
+			std::pair{ "Resume Button", "Resume" },
+			std::pair{ "Restart Button", "Restart" },
+			std::pair{ "Quit Button", "Quit" }
+		};
+
+		for (size_t index = 0; index < buttons.size(); ++index)
+		{
+			Entity buttonEntity = createUIEntity(buttons[index].first, root);
+			auto& buttonTransform = buttonEntity.GetComponent<UITransformComponent>();
+			buttonTransform.m_AnchoredPosition = { 0.0f, 40.0f - static_cast<float>(index) * 68.0f };
+			buttonTransform.m_Size = { 250.0f, 54.0f };
+			buttonTransform.m_SortOrder = rootTransform.m_SortOrder + 2 + static_cast<int32_t>(index);
+			buttonEntity.AddComponent<UIButtonComponent>().m_Text = buttons[index].second;
+		}
+	}
+
+	SetSelectedEntity(root);
+	MarkHierarchyDirty();
+	return root;
+}
+
 void SceneHierarchyPanel::DrawCreateUIMenu(Entity parent)
 {
 	if (ImGui::BeginMenu("Create UI"))
@@ -1193,6 +1284,11 @@ void SceneHierarchyPanel::DrawCreateUIMenu(Entity parent)
 			CreateUIElement(UIElementKind::VerticalLayout, parent);
 		if (ImGui::MenuItem("Horizontal Layout"))
 			CreateUIElement(UIElementKind::HorizontalLayout, parent);
+		ImGui::Separator();
+		if (ImGui::MenuItem("HUD Template"))
+			CreateUITemplate(UITemplateKind::HUD, parent);
+		if (ImGui::MenuItem("Pause Menu Template"))
+			CreateUITemplate(UITemplateKind::PauseMenu, parent);
 		ImGui::EndMenu();
 	}
 }

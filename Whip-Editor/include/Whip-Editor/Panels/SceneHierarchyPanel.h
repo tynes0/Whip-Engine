@@ -59,6 +59,12 @@ private:
 		HorizontalLayout
 	};
 
+	enum class UITemplateKind : uint8_t
+	{
+		HUD = 0,
+		PauseMenu
+	};
+
 	void MarkHierarchyDirty();
 	void RebuildHierarchyCache();
 	bool CanUseFlatHierarchyClipper() const;
@@ -81,6 +87,7 @@ private:
 	bool IsDescendantOf(Entity entityIn, UUID ancestorId) const;
 	Entity FindPrefabRoot(Entity entityIn) const;
 	Entity CreateUIElement(UIElementKind kind, Entity parent = {});
+	Entity CreateUITemplate(UITemplateKind kind, Entity parent = {});
 	void DrawCreateUIMenu(Entity parent = {});
 	void DestroyEntityWithSelection(Entity entityIn);
 	bool IsSelected(Entity entityIn) const;

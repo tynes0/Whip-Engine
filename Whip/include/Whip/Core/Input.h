@@ -40,6 +40,9 @@ public:
 	static void SetRuntimeInputEnabled(bool enabled);
 	WHP_NODISCARD static bool IsRuntimeInputEnabled();
 	WHP_NODISCARD static bool IsRuntimeInputActive();
+	static void SetRuntimeInputCapturedByUI(bool captured);
+	WHP_NODISCARD static bool IsRuntimeInputCapturedByUI();
+	WHP_NODISCARD static bool IsRuntimeGameplayInputActive();
 
 	static void SetCursorMode(CursorMode mode);
 	WHP_NODISCARD static CursorMode GetCursorMode();

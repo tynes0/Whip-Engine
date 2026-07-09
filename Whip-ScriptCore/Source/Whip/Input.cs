@@ -9,6 +9,8 @@ namespace Whip
 		public static Vector2 MouseViewportPosition => GetMouseViewportPosition();
 		public static Vector2 ScrollDelta => GetScrollDelta();
 		public static bool RuntimeInputActive => InternalCalls.Input_IsRuntimeInputActive();
+		public static bool RuntimeInputCapturedByUI => InternalCalls.Input_IsRuntimeInputCapturedByUI();
+		public static bool GameplayInputActive => InternalCalls.Input_IsRuntimeGameplayInputActive();
 		public static bool MouseInsideViewport => InternalCalls.Input_IsMouseInsideViewport();
 
 		public static bool IsKeyDown(KeyCode keycode)

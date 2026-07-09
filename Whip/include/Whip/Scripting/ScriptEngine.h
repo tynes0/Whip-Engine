@@ -71,7 +71,8 @@ FrenumClassInNamespace(whip, EntityMethodType, uint8_t,
 	OnDestroy,
 	OnColliderEnter,
 	OnColliderExit,
-	OnAnimationEvent
+	OnAnimationEvent,
+	OnUIClick
 )
 
 struct ScriptField
@@ -220,6 +221,7 @@ public:
 	void InvokeOnColliderEnter(std::string_view tag);
 	void InvokeOnColliderExit(std::string_view tag);
 	void InvokeOnAnimationEvent(std::string_view eventName);
+	void InvokeOnUIClick();
 
 	void InvokeMethod(EntityMethodType methodType, const Payload& payload);
 

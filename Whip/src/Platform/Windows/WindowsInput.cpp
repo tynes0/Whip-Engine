@@ -30,6 +30,7 @@ namespace
 		bool m_ViewportHovered = true;
 		bool m_ViewportFocused = true;
 		bool m_RuntimeInputEnabled = true;
+		bool m_RuntimeInputCapturedByUI = false;
 	};
 
 	static constexpr KeyCode s_ValidKeys[] =
@@ -108,6 +109,7 @@ void Input::BeginFrame()
 	s_InputData.m_MouseDelta = s_InputData.m_CurrentMousePosition - s_InputData.m_PreviousMousePosition;
 	s_InputData.m_ScrollDeltaX = Application::Get().GetWindow().GetScrollDeltaX();
 	s_InputData.m_ScrollDeltaY = Application::Get().GetWindow().GetScrollDeltaY();
+	s_InputData.m_RuntimeInputCapturedByUI = false;
 }
 
 WHP_NODISCARD bool Input::IsKeyPressed(int keyCode)
@@ -258,6 +260,21 @@ WHP_NODISCARD bool Input::IsRuntimeInputActive()
 	if (Application::Get().GetMode() == ApplicationMode::Runtime)
 		return s_InputData.m_RuntimeInputEnabled;
 	return s_InputData.m_RuntimeInputEnabled && s_InputData.m_ViewportHovered && s_InputData.m_ViewportFocused;
+}
+
+void Input::SetRuntimeInputCapturedByUI(bool captured)
+{
+	s_InputData.m_RuntimeInputCapturedByUI = captured;
+}
+
+WHP_NODISCARD bool Input::IsRuntimeInputCapturedByUI()
+{
+	return s_InputData.m_RuntimeInputCapturedByUI;
+}
+
+WHP_NODISCARD bool Input::IsRuntimeGameplayInputActive()
+{
+	return IsRuntimeInputActive() && !s_InputData.m_RuntimeInputCapturedByUI;
 }
 
 void Input::SetCursorMode(CursorMode mode)

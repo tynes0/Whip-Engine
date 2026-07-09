@@ -120,6 +120,12 @@ namespace
 		return BuildUIRect(registry.get<UITransformComponent>(entity), containerMin, containerSize);
 	}
 
+	bool ContainsPoint(const UIRect& rect, const glm::vec2& point)
+	{
+		return point.x >= rect.m_Min.x && point.x <= rect.m_Max.x
+			&& point.y >= rect.m_Min.y && point.y <= rect.m_Max.y;
+	}
+
 	glm::mat4 BuildUITransform(const UIRect& rect, const UITransformComponent& transform, float z)
 	{
 		return glm::translate(glm::mat4(1.0f), glm::vec3(rect.m_Center, z))
@@ -708,7 +714,10 @@ void Scene::UpdateRuntimeUI()
 {
 	WHP_PROFILE_FUNCTION();
 	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
+	{
+		Input::SetRuntimeInputCapturedByUI(false);
 		return;
+	}
 
 	UpdateUILayouts();
 
@@ -717,26 +726,69 @@ void Scene::UpdateRuntimeUI()
 	mousePosition.y = static_cast<float>(m_ViewportHeight) - mousePosition.y;
 	const glm::vec2 viewportSize{ static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight) };
 
-	auto view = m_Registry.view<UITransformComponent, UIButtonComponent>();
-	for (auto entity : view)
+	auto buttonView = m_Registry.view<UITransformComponent, UIButtonComponent>();
+	for (auto entity : buttonView)
 	{
-		auto [transform, button] = view.get<UITransformComponent, UIButtonComponent>(entity);
+		auto [transform, button] = buttonView.get<UITransformComponent, UIButtonComponent>(entity);
 		button.m_ClickedThisFrame = false;
+		button.m_Hovered = false;
+		button.m_Pressed = false;
+	}
 
-		const bool canInteract = inputActive && transform.m_Visible && button.m_Interactable && button.m_RaycastTarget;
-		if (!canInteract)
+	bool capturedByUI = false;
+	entt::entity hoveredButton = entt::null;
+	int32_t hoveredSortOrder = 0;
+	bool hasTopmostRaycastTarget = false;
+
+	auto setTopmostRaycastTarget = [&](entt::entity entity, int32_t sortOrder, bool isInteractableButton)
 		{
-			button.m_Hovered = false;
-			button.m_Pressed = false;
-			continue;
+			capturedByUI = true;
+			if (!hasTopmostRaycastTarget || sortOrder >= hoveredSortOrder)
+			{
+				hasTopmostRaycastTarget = true;
+				hoveredSortOrder = sortOrder;
+				hoveredButton = isInteractableButton ? entity : entt::null;
+			}
+		};
+
+	if (inputActive)
+	{
+		auto imageView = m_Registry.view<UITransformComponent, UIImageComponent>();
+		for (auto entity : imageView)
+		{
+			auto [transform, image] = imageView.get<UITransformComponent, UIImageComponent>(entity);
+			if (!transform.m_Visible || !image.m_RaycastTarget)
+				continue;
+
+			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
+			if (ContainsPoint(rect, mousePosition))
+				setTopmostRaycastTarget(entity, transform.m_SortOrder, false);
 		}
 
-		const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
-		const bool hovered = mousePosition.x >= rect.m_Min.x && mousePosition.x <= rect.m_Max.x
-			&& mousePosition.y >= rect.m_Min.y && mousePosition.y <= rect.m_Max.y;
-		button.m_Hovered = hovered;
-		button.m_Pressed = hovered && Input::IsMouseButtonDown(Mouse::ButtonLeft);
-		button.m_ClickedThisFrame = hovered && Input::IsMouseButtonReleased(Mouse::ButtonLeft);
+		for (auto entity : buttonView)
+		{
+			auto [transform, button] = buttonView.get<UITransformComponent, UIButtonComponent>(entity);
+			if (!transform.m_Visible || !button.m_RaycastTarget)
+				continue;
+
+			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
+			if (!ContainsPoint(rect, mousePosition))
+				continue;
+
+			setTopmostRaycastTarget(entity, transform.m_SortOrder, button.m_Interactable);
+		}
+	}
+
+	Input::SetRuntimeInputCapturedByUI(capturedByUI);
+
+	if (hoveredButton != entt::null)
+	{
+		auto& button = m_Registry.get<UIButtonComponent>(hoveredButton);
+		button.m_Hovered = true;
+		button.m_Pressed = Input::IsMouseButtonDown(Mouse::ButtonLeft);
+		button.m_ClickedThisFrame = Input::IsMouseButtonReleased(Mouse::ButtonLeft);
+		if (button.m_ClickedThisFrame)
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIClick, Entity{ hoveredButton, this });
 	}
 }
 

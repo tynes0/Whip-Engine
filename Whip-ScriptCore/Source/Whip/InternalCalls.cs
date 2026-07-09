@@ -87,6 +87,10 @@ namespace Whip
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool Input_IsRuntimeInputActive();
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool Input_IsRuntimeInputCapturedByUI();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool Input_IsRuntimeGameplayInputActive();
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void Cursor_SetMode(int mode);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static int Cursor_GetMode();

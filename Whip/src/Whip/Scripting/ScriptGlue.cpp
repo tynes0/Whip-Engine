@@ -372,42 +372,42 @@ namespace
 
 	static bool InputIsKeyDown(KeyCode keyCode)
 	{
-		return Input::IsRuntimeInputActive() && Input::IsKeyDown(keyCode);
+		return Input::IsRuntimeGameplayInputActive() && Input::IsKeyDown(keyCode);
 	}
 
 	static bool InputIsKeyUp(KeyCode keyCode)
 	{
-		return !Input::IsRuntimeInputActive() || Input::IsKeyUp(keyCode);
+		return !Input::IsRuntimeGameplayInputActive() || Input::IsKeyUp(keyCode);
 	}
 
 	static bool InputIsKeyPressed(KeyCode keyCode)
 	{
-		return Input::IsRuntimeInputActive() && Input::IsKeyPressed(keyCode);
+		return Input::IsRuntimeGameplayInputActive() && Input::IsKeyPressed(keyCode);
 	}
 
 	static bool InputIsKeyReleased(KeyCode keyCode)
 	{
-		return Input::IsRuntimeInputActive() && Input::IsKeyReleased(keyCode);
+		return Input::IsRuntimeGameplayInputActive() && Input::IsKeyReleased(keyCode);
 	}
 
 	static bool InputIsMouseButtonDown(MouseCode button)
 	{
-		return Input::IsRuntimeInputActive() && Input::IsMouseButtonDown(button);
+		return Input::IsRuntimeGameplayInputActive() && Input::IsMouseButtonDown(button);
 	}
 
 	static bool InputIsMouseButtonUp(MouseCode button)
 	{
-		return !Input::IsRuntimeInputActive() || Input::IsMouseButtonUp(button);
+		return !Input::IsRuntimeGameplayInputActive() || Input::IsMouseButtonUp(button);
 	}
 
 	static bool InputIsMouseButtonPressed(MouseCode button)
 	{
-		return Input::IsRuntimeInputActive() && Input::IsMouseButtonPressed(button);
+		return Input::IsRuntimeGameplayInputActive() && Input::IsMouseButtonPressed(button);
 	}
 
 	static bool InputIsMouseButtonReleased(MouseCode button)
 	{
-		return Input::IsRuntimeInputActive() && Input::IsMouseButtonReleased(button);
+		return Input::IsRuntimeGameplayInputActive() && Input::IsMouseButtonReleased(button);
 	}
 
 	static float InputGetMouseX()
@@ -429,7 +429,7 @@ namespace
 
 	static void InputGetMouseDelta(glm::vec2* delta)
 	{
-		const glm::vec2 value = Input::IsRuntimeInputActive() ? Input::GetMouseDelta() : glm::vec2{ 0.0f };
+		const glm::vec2 value = Input::IsRuntimeGameplayInputActive() ? Input::GetMouseDelta() : glm::vec2{ 0.0f };
 		delta->x = value.x;
 		delta->y = value.y;
 	}
@@ -448,17 +448,27 @@ namespace
 
 	static float InputGetScrollDeltaX()
 	{
-		return Input::IsRuntimeInputActive() ? Input::GetScrollDeltaX() : 0.0f;
+		return Input::IsRuntimeGameplayInputActive() ? Input::GetScrollDeltaX() : 0.0f;
 	}
 
 	static float InputGetScrollDeltaY()
 	{
-		return Input::IsRuntimeInputActive() ? Input::GetScrollDeltaY() : 0.0f;
+		return Input::IsRuntimeGameplayInputActive() ? Input::GetScrollDeltaY() : 0.0f;
 	}
 
 	static bool InputIsRuntimeInputActive()
 	{
 		return Input::IsRuntimeInputActive();
+	}
+
+	static bool InputIsRuntimeInputCapturedByUI()
+	{
+		return Input::IsRuntimeInputCapturedByUI();
+	}
+
+	static bool InputIsRuntimeGameplayInputActive()
+	{
+		return Input::IsRuntimeGameplayInputActive();
 	}
 
 	static void CursorSetMode(int mode)
@@ -2001,6 +2011,8 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(Input_GetScrollDeltaX, InputGetScrollDeltaX);
 	ADD_INTERNAL_CALL(Input_GetScrollDeltaY, InputGetScrollDeltaY);
 	ADD_INTERNAL_CALL(Input_IsRuntimeInputActive, InputIsRuntimeInputActive);
+	ADD_INTERNAL_CALL(Input_IsRuntimeInputCapturedByUI, InputIsRuntimeInputCapturedByUI);
+	ADD_INTERNAL_CALL(Input_IsRuntimeGameplayInputActive, InputIsRuntimeGameplayInputActive);
 	ADD_INTERNAL_CALL(Cursor_SetMode, CursorSetMode);
 	ADD_INTERNAL_CALL(Cursor_GetMode, CursorGetMode);
 	ADD_INTERNAL_CALL(Cursor_SetVisible, CursorSetVisible);

@@ -535,6 +535,7 @@ ScriptInstance::ScriptInstance(const Ref<ScriptClass>& scriptClass, Entity entit
 	m_Methods[EntityMethodType::OnColliderEnter] = scriptClass->GetMethod("OnColliderEnter", 1);
 	m_Methods[EntityMethodType::OnColliderExit] = scriptClass->GetMethod("OnColliderExit", 1);
 	m_Methods[EntityMethodType::OnAnimationEvent] = scriptClass->GetMethod("OnAnimationEvent", 1);
+	m_Methods[EntityMethodType::OnUIClick] = scriptClass->GetMethod("OnUIClick", 0);
 	if (!m_Instance)
 		return;
 
@@ -603,6 +604,13 @@ void ScriptInstance::InvokeOnAnimationEvent(std::string_view eventName)
 		void* param = monoString;
 		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnAnimationEvent], &param, MakeMethodContext("OnAnimationEvent"));
 	}
+}
+
+void ScriptInstance::InvokeOnUIClick()
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUIClick])
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIClick], nullptr, MakeMethodContext("OnUIClick"));
 }
 
 void ScriptInstance::InvokeMethod(EntityMethodType methodType, const Payload& payload)

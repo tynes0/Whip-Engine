@@ -59,6 +59,7 @@ namespace Whip
 		public virtual void OnColliderEnter(String tag) {}
 		public virtual void OnColliderExit(String tag) {}
 		public virtual void OnAnimationEvent(String eventName) {}
+		public virtual void OnUIClick() {}
 		public bool HasComponent<T>() where T : Component, new()
 		{
 			Type componentType = typeof(T);
