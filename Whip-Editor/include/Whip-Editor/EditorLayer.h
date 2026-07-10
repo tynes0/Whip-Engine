@@ -87,7 +87,11 @@ private:
 	glm::vec2 m_ViewportSize = { 1.0f, 1.0f };
 	bool m_ViewportHovered = false;
 	bool m_ViewportFocused = false;
-	ViewportCursorMode m_ViewportCursorMode = ViewportCursorMode::Editor;
+	glm::vec2 m_GameViewportBounds[2]{};
+	glm::vec2 m_GameViewportSize = { 1.0f, 1.0f };
+	bool m_GameViewportHovered = false;
+	bool m_GameViewportFocused = false;
+	ViewportCursorMode m_ViewportCursorMode = ViewportCursorMode::Game;
 
 	// entity
 	Entity m_HoveredEntity;

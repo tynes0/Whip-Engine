@@ -1426,8 +1426,8 @@ void EditorLayer::OnUpdate(Timestep ts)
 	WHP_PROFILE_FUNCTION();
 	m_Ts = ts;
 	Input::SetRuntimeInputEnabled((m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate) &&
-		m_ViewportHovered &&
-		m_ViewportFocused &&
+		m_GameViewportHovered &&
+		m_GameViewportFocused &&
 		!m_GizmoUsing);
 	UpdateViewportCursorMode();
 	m_ProjectManager.UpdateAsyncOperations();
@@ -1442,14 +1442,18 @@ void EditorLayer::OnUpdate(Timestep ts)
 
 	{
 		WHP_PROFILE_SCOPE("Viewport Size");
-		m_SceneManager.ActiveScene()->OnViewportResize(static_cast<uint32_t>(m_ViewportSize.x), static_cast<uint32_t>(m_ViewportSize.y));
+		const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
+		glm::vec2 renderViewportSize = runtimeViewport ? m_GameViewportSize : m_ViewportSize;
+		if (renderViewportSize.x <= 0.0f || renderViewportSize.y <= 0.0f)
+			renderViewportSize = m_ViewportSize;
+		m_SceneManager.ActiveScene()->OnViewportResize(static_cast<uint32_t>(renderViewportSize.x), static_cast<uint32_t>(renderViewportSize.y));
 		if (FramebufferSpecification spec = m_Framebuffer->GetSpecification();
-			m_ViewportSize.x > 0.0f &&
-			m_ViewportSize.y > 0.0f &&
-			(spec.m_Width != static_cast<uint32_t>(m_ViewportSize.x) || spec.m_Height != static_cast<uint32_t>(m_ViewportSize.y)))
+			renderViewportSize.x > 0.0f &&
+			renderViewportSize.y > 0.0f &&
+			(spec.m_Width != static_cast<uint32_t>(renderViewportSize.x) || spec.m_Height != static_cast<uint32_t>(renderViewportSize.y)))
 		{
-			m_Framebuffer->Resize(static_cast<uint32_t>(m_ViewportSize.x), static_cast<uint32_t>(m_ViewportSize.y));
-			m_EditorCamera.SetViewportSize(m_ViewportSize.x, m_ViewportSize.y);
+			m_Framebuffer->Resize(static_cast<uint32_t>(renderViewportSize.x), static_cast<uint32_t>(renderViewportSize.y));
+			m_EditorCamera.SetViewportSize(renderViewportSize.x, renderViewportSize.y);
 		}
 	}
 
@@ -1567,10 +1571,10 @@ void EditorLayer::OnImGuiRender()
 		}
 		style.WindowMinSize.x = minWinSizeX;
 	}
-	// viewport
+	// scene view
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.0f, 0.0f });
-		ImGui::Begin("Viewport");
+		ImGui::Begin("Scene View");
 		auto viewportMinRegion = ImGui::GetWindowContentRegionMin();
 		auto viewportMaxRegion = ImGui::GetWindowContentRegionMax();
 		auto viewportOffset = ImGui::GetWindowPos();
@@ -1578,9 +1582,8 @@ void EditorLayer::OnImGuiRender()
 		m_ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
 		m_ViewportFocused = ImGui::IsWindowFocused();
 		m_ViewportHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
-		Input::SetViewportState(m_ViewportHovered, m_ViewportFocused, m_ViewportBounds[0], m_ViewportBounds[1]);
-		UpdateViewportCursorMode();
-		Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered || m_GizmoHovered || m_GizmoUsing);
+		if (m_SceneManager.State() == SceneState::Edit)
+			Input::SetViewportState(m_ViewportHovered, m_ViewportFocused, m_ViewportBounds[0], m_ViewportBounds[1]);
 		ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
 		m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
 
@@ -1777,10 +1780,41 @@ void EditorLayer::OnImGuiRender()
 		if (!m_GizmoUsing)
 			m_HistoryManager.SetGizmoHistoryActive(false);
 		UIToolbar();
-		Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered || m_GizmoHovered || m_GizmoUsing);
 		ImGui::End();
 		ImGui::PopStyleVar();
-	} // viewport
+	} // scene view
+
+	// game view
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.0f, 0.0f });
+		ImGui::Begin("Game");
+		const auto gameMinRegion = ImGui::GetWindowContentRegionMin();
+		const auto gameMaxRegion = ImGui::GetWindowContentRegionMax();
+		const auto gameOffset = ImGui::GetWindowPos();
+		m_GameViewportBounds[0] = { gameMinRegion.x + gameOffset.x, gameMinRegion.y + gameOffset.y };
+		m_GameViewportBounds[1] = { gameMaxRegion.x + gameOffset.x, gameMaxRegion.y + gameOffset.y };
+		m_GameViewportFocused = ImGui::IsWindowFocused();
+		m_GameViewportHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+		const ImVec2 gamePanelSize = ImGui::GetContentRegionAvail();
+		m_GameViewportSize = { glm::max(gamePanelSize.x, 1.0f), glm::max(gamePanelSize.y, 1.0f) };
+
+		if (gamePanelSize.x > 0.0f && gamePanelSize.y > 0.0f)
+			UI::Image(UI::ToImGuiTextureId(m_Framebuffer->GetColorAttachmentRendererId()), gamePanelSize, ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
+
+		const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
+		if (runtimeViewport)
+			Input::SetViewportState(m_GameViewportHovered, m_GameViewportFocused, m_GameViewportBounds[0], m_GameViewportBounds[1]);
+		else if (m_GameViewportHovered)
+			ImGui::SetTooltip("Play or simulate to route input through Game view.");
+
+		ImGui::End();
+		ImGui::PopStyleVar();
+	} // game view
+
+	const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
+	const bool interactiveViewportHovered = m_ViewportHovered || (runtimeViewport && m_GameViewportHovered);
+	Application::Get().GetImGuiLayer()->BlockEvents(!interactiveViewportHovered || m_GizmoHovered || m_GizmoUsing);
+	UpdateViewportCursorMode();
 
 	m_UIProject.OnImGuiRender(); // should be in dockspace
 
@@ -1811,7 +1845,7 @@ _WHP_PRAGMA_WARNING(pop)
 
 void EditorLayer::OnEvent(Event& event)
 {
-	if (m_SceneManager.State() == SceneState::Edit && !m_GizmoHovered && !m_GizmoUsing && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
+	if (m_SceneManager.State() == SceneState::Edit && m_ViewportHovered && !m_GizmoHovered && !m_GizmoUsing && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
 		m_EditorCamera.OnEvent(event);
     EventDispatcher dispatcher(event);
     dispatcher.Dispatch<KeyPressedEvent>([this]<typename... T0>(T0&&... args) -> decltype(auto) { return m_EventManager.OnKeyPressed(std::forward<T0>(args)...); });
@@ -2555,7 +2589,7 @@ void EditorLayer::RegisterEditorShortcuts()
 	m_ShortcutManager.Add(
 		EditorShortcutScope::Viewport,
 		"viewport.toggle_cursor_mode",
-		"Toggle Game Cursor Mode",
+		"Toggle Game View Cursor Capture",
 		"Viewport",
 		{
 			.m_Key = Key::M,
@@ -2565,7 +2599,7 @@ void EditorLayer::RegisterEditorShortcuts()
 		},
 		[this]() { return ToggleViewportCursorMode(); },
 		[this]() { return HasProjectLoaded() && (m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate); },
-		[this]() { return m_ViewportFocused; });
+		[this]() { return m_GameViewportFocused; });
 	auto addConsoleShortcut = [this](const char* id, const char* displayName, const UI::ShortcutBinding& binding, std::function<bool()> callback)
 	{
 		m_ShortcutManager.Add(
@@ -2755,13 +2789,12 @@ void EditorLayer::UpdateViewportCursorMode()
 	const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
 	if (!runtimeViewport)
 	{
-		m_ViewportCursorMode = ViewportCursorMode::Editor;
 		Input::SetCursorMode(CursorMode::Normal);
 		Input::SetCursorModeOverride(true, CursorMode::Normal);
 		return;
 	}
 
-	const bool useGameCursor = runtimeViewport && m_ViewportCursorMode == ViewportCursorMode::Game && m_ViewportHovered && m_ViewportFocused;
+	const bool useGameCursor = m_ViewportCursorMode == ViewportCursorMode::Game && m_GameViewportHovered && m_GameViewportFocused;
 	Input::SetCursorModeOverride(!useGameCursor, CursorMode::Normal);
 }
 
