@@ -80,6 +80,7 @@ private:
 	void RenderSceneView(Timestep ts);
 	void RenderGameView(Timestep ts);
 	void DrawGameViewToolbar();
+	void DrawGameViewSafeAreaOverlay(const glm::vec2& imageMin, const glm::vec2& imageMax);
 
 	void UIToolbar();
 	Timestep m_Ts;
@@ -100,6 +101,8 @@ private:
 	ViewportCursorMode m_ViewportCursorMode = ViewportCursorMode::Game;
 	int m_GameViewPresetIndex = 0;
 	glm::vec2 m_GameRenderSize = { 1280.0f, 720.0f };
+	bool m_UIEditorMode = true;
+	bool m_GameViewSafeAreaPreview = true;
 
 	// entity
 	Entity m_HoveredEntity;

@@ -2,6 +2,24 @@
 
 namespace Whip
 {
+	public enum PointerPhase
+	{
+		None = 0,
+		Pressed,
+		Held,
+		Released
+	}
+
+	public struct PointerState
+	{
+		public Vector2 Position;
+		public Vector2 ViewportPosition;
+		public PointerPhase Phase;
+		public bool InsideViewport;
+
+		public bool Down => Phase == PointerPhase.Pressed || Phase == PointerPhase.Held;
+	}
+
 	public class Input
 	{
 		public static Vector2 MousePosition => GetMousePosition();
@@ -71,6 +89,24 @@ namespace Whip
 		public static Vector2 GetScrollDelta()
 		{
 			return new Vector2(InternalCalls.Input_GetScrollDeltaX(), InternalCalls.Input_GetScrollDeltaY());
+		}
+		public static PointerState GetPrimaryPointer()
+		{
+			PointerPhase phase = PointerPhase.None;
+			if (IsMouseButtonPressed(MouseCode.ButtonLeft))
+				phase = PointerPhase.Pressed;
+			else if (IsMouseButtonDown(MouseCode.ButtonLeft))
+				phase = PointerPhase.Held;
+			else if (IsMouseButtonReleased(MouseCode.ButtonLeft))
+				phase = PointerPhase.Released;
+
+			return new PointerState
+			{
+				Position = MousePosition,
+				ViewportPosition = MouseViewportPosition,
+				Phase = phase,
+				InsideViewport = MouseInsideViewport
+			};
 		}
 		public static float GetScrollDeltaX()
 		{

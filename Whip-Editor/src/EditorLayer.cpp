@@ -48,21 +48,23 @@ _WHIP_START
 		const char* m_Name = "Free Aspect";
 		uint32_t m_Width = 0;
 		uint32_t m_Height = 0;
+		const char* m_DeviceClass = "Custom";
+		glm::vec4 m_SafeAreaInsets{ 0.0f, 0.0f, 0.0f, 0.0f }; // left, top, right, bottom normalized
 	};
 
-	constexpr std::array<GameViewResolutionPreset, 11> s_GameViewResolutionPresets =
+	const std::array<GameViewResolutionPreset, 11> s_GameViewResolutionPresets =
 	{ {
-		{ "Free Aspect", 0, 0 },
-		{ "HD 16:9 (1280 x 720)", 1280, 720 },
-		{ "Full HD 16:9 (1920 x 1080)", 1920, 1080 },
-		{ "Steam Deck (1280 x 800)", 1280, 800 },
-		{ "iPhone 12 (390 x 844)", 390, 844 },
-		{ "iPhone 12 Landscape (844 x 390)", 844, 390 },
-		{ "iPhone 15 Pro (393 x 852)", 393, 852 },
-		{ "Galaxy S24 (360 x 780)", 360, 780 },
-		{ "Galaxy S24 Landscape (780 x 360)", 780, 360 },
-		{ "Pixel 8 (412 x 915)", 412, 915 },
-		{ "iPad Portrait (820 x 1180)", 820, 1180 }
+		{ "Free Aspect", 0, 0, "Custom", { 0.0f, 0.0f, 0.0f, 0.0f } },
+		{ "HD 16:9 (1280 x 720)", 1280, 720, "Desktop", { 0.0f, 0.0f, 0.0f, 0.0f } },
+		{ "Full HD 16:9 (1920 x 1080)", 1920, 1080, "Desktop", { 0.0f, 0.0f, 0.0f, 0.0f } },
+		{ "Steam Deck (1280 x 800)", 1280, 800, "Handheld", { 0.020f, 0.035f, 0.020f, 0.020f } },
+		{ "iPhone 12 (390 x 844)", 390, 844, "Mobile", { 0.000f, 0.055f, 0.000f, 0.040f } },
+		{ "iPhone 12 Landscape (844 x 390)", 844, 390, "Mobile", { 0.055f, 0.000f, 0.055f, 0.025f } },
+		{ "iPhone 15 Pro (393 x 852)", 393, 852, "Mobile", { 0.000f, 0.070f, 0.000f, 0.045f } },
+		{ "Galaxy S24 (360 x 780)", 360, 780, "Mobile", { 0.000f, 0.038f, 0.000f, 0.025f } },
+		{ "Galaxy S24 Landscape (780 x 360)", 780, 360, "Mobile", { 0.045f, 0.000f, 0.045f, 0.018f } },
+		{ "Pixel 8 (412 x 915)", 412, 915, "Mobile", { 0.000f, 0.045f, 0.000f, 0.030f } },
+		{ "iPad Portrait (820 x 1180)", 820, 1180, "Tablet", { 0.018f, 0.025f, 0.018f, 0.018f } }
 	} };
 
 	glm::vec2 FitSizeToRegion(const glm::vec2& sourceSize, const glm::vec2& regionSize)
@@ -1576,6 +1578,40 @@ void EditorLayer::DrawGameViewToolbar()
 	ImGui::SameLine();
 	ImGui::TextDisabled("%.0f x %.0f", m_GameRenderSize.x, m_GameRenderSize.y);
 
+	ImGui::SameLine();
+	ImGui::TextDisabled("%s", currentPreset.m_DeviceClass);
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton(m_UIEditorMode ? "UI Mode: On" : "UI Mode: Off"))
+		m_UIEditorMode = !m_UIEditorMode;
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Shows UI bounds and keeps UI editing affordances visible in Scene view.");
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton(m_GameViewSafeAreaPreview ? "Safe Area: On" : "Safe Area: Off"))
+		m_GameViewSafeAreaPreview = !m_GameViewSafeAreaPreview;
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Draws the selected device preset safe area over the Game view.");
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Apply Safe Area"))
+	{
+		if (Ref<Scene> scene = m_SceneManager.ActiveScene())
+		{
+			m_HistoryManager.CaptureSceneHistory();
+			const glm::vec4 insets = currentPreset.m_SafeAreaInsets;
+			auto view = scene->GetAllEntitiesWith<UICanvasComponent>();
+			for (auto entity : view)
+			{
+				auto& canvas = view.get<UICanvasComponent>(entity);
+				canvas.m_ShowSafeAreaInEditor = true;
+				canvas.m_SafeAreaInsets = insets;
+			}
+		}
+	}
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Copies the current Game view preset safe area to all Canvas components.");
+
 	const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
 	ImGui::SameLine();
 	ImGui::TextColored(runtimeViewport ? ImVec4(0.52f, 0.86f, 0.62f, 1.0f) : ImVec4(0.58f, 0.66f, 0.74f, 1.0f), runtimeViewport ? "Live" : "Preview");
@@ -1591,6 +1627,37 @@ void EditorLayer::DrawGameViewToolbar()
 	}
 
 	ImGui::PopStyleVar(2);
+}
+
+void EditorLayer::DrawGameViewSafeAreaOverlay(const glm::vec2& imageMin, const glm::vec2& imageMax)
+{
+	if (!m_GameViewSafeAreaPreview)
+		return;
+
+	const int presetIndex = std::clamp(m_GameViewPresetIndex, 0, static_cast<int>(s_GameViewResolutionPresets.size()) - 1);
+	const GameViewResolutionPreset& preset = s_GameViewResolutionPresets[static_cast<size_t>(presetIndex)];
+	const glm::vec4 insets = glm::clamp(preset.m_SafeAreaInsets, glm::vec4(0.0f), glm::vec4(0.45f));
+	if (insets.x + insets.y + insets.z + insets.w <= 0.0001f)
+		return;
+
+	const glm::vec2 imageSize = glm::max(imageMax - imageMin, glm::vec2(1.0f));
+	const glm::vec2 safeMin{
+		imageMin.x + imageSize.x * insets.x,
+		imageMin.y + imageSize.y * insets.y
+	};
+	const glm::vec2 safeMax{
+		imageMax.x - imageSize.x * insets.z,
+		imageMax.y - imageSize.y * insets.w
+	};
+
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	const ImU32 shade = IM_COL32(0, 0, 0, 82);
+	drawList->AddRectFilled(ImVec2(imageMin.x, imageMin.y), ImVec2(imageMax.x, safeMin.y), shade);
+	drawList->AddRectFilled(ImVec2(imageMin.x, safeMax.y), ImVec2(imageMax.x, imageMax.y), shade);
+	drawList->AddRectFilled(ImVec2(imageMin.x, safeMin.y), ImVec2(safeMin.x, safeMax.y), shade);
+	drawList->AddRectFilled(ImVec2(safeMax.x, safeMin.y), ImVec2(imageMax.x, safeMax.y), shade);
+	drawList->AddRect(ImVec2(safeMin.x, safeMin.y), ImVec2(safeMax.x, safeMax.y), IM_COL32(92, 210, 166, 230), 0.0f, 0, 1.5f);
+	drawList->AddText(ImVec2(safeMin.x + 8.0f, safeMin.y + 6.0f), IM_COL32(180, 236, 214, 235), "Safe Area");
 }
 
 void EditorLayer::OnUpdate(Timestep ts)
@@ -1924,6 +1991,8 @@ void EditorLayer::OnImGuiRender()
 
 		const ImVec2 imageMin = ImGui::GetItemRectMin();
 		const ImVec2 imageMax = ImGui::GetItemRectMax();
+		if (imageSize.x > 0.0f && imageSize.y > 0.0f)
+			DrawGameViewSafeAreaOverlay({ imageMin.x, imageMin.y }, { imageMax.x, imageMax.y });
 		m_GameViewportBounds[0] = { imageMin.x, imageMin.y };
 		m_GameViewportBounds[1] = { imageMax.x, imageMax.y };
 		m_GameViewportSize = { glm::max(imageSize.x, 1.0f), glm::max(imageSize.y, 1.0f) };
@@ -2893,7 +2962,7 @@ void EditorLayer::OnOverlayRender()
 
 	Renderer2D::EndScene();
 
-	if (m_SceneManager.State() != SceneState::Play)
+	if (m_UIEditorMode && m_SceneManager.State() != SceneState::Play)
 		m_SceneManager.ActiveScene()->RenderUIOverlayDebug(m_SceneHierarchyPanel.GetSelectedEntityIds());
 }
 

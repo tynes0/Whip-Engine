@@ -1846,6 +1846,223 @@ namespace
 		return ent.GetComponent<UIButtonComponent>().m_SubmittedThisFrame;
 	}
 
+	void UIPanelComponentGetColor(UUID entityId, glm::vec4* outColor)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outColor = ent.GetComponent<UIPanelComponent>().m_Color;
+	}
+
+	void UIPanelComponentSetColor(UUID entityId, glm::vec4* color)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIPanelComponent>().m_Color = *color;
+	}
+
+	bool UIPanelComponentIsRaycastTarget(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIPanelComponent>().m_RaycastTarget;
+	}
+
+	void UIPanelComponentSetRaycastTarget(UUID entityId, bool raycastTarget)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIPanelComponent>().m_RaycastTarget = raycastTarget;
+	}
+
+	MonoString* UIToggleComponentGetLabel(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return Utils::CreateString(ent.GetComponent<UIToggleComponent>().m_Label.c_str());
+	}
+
+	void UIToggleComponentSetLabel(UUID entityId, MonoString* label)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIToggleComponent>().m_Label = detail::MonoStringToString(label);
+	}
+
+	bool UIToggleComponentIsChecked(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIToggleComponent>().m_Checked;
+	}
+
+	void UIToggleComponentSetChecked(UUID entityId, bool value)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIToggleComponent>().m_Checked = value;
+	}
+
+	bool UIToggleComponentIsInteractable(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIToggleComponent>().m_Interactable;
+	}
+
+	void UIToggleComponentSetInteractable(UUID entityId, bool interactable)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIToggleComponent>().m_Interactable = interactable;
+	}
+
+	bool UIToggleComponentIsHovered(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIToggleComponent>().m_Hovered;
+	}
+
+	bool UIToggleComponentIsPressed(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIToggleComponent>().m_Pressed;
+	}
+
+	bool UIToggleComponentIsFocused(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIToggleComponent>().m_Focused;
+	}
+
+	bool UIToggleComponentWasChangedThisFrame(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIToggleComponent>().m_ChangedThisFrame;
+	}
+
+	float UISliderComponentGetValue(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_Value;
+	}
+
+	void UISliderComponentSetValue(UUID entityId, float value)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		auto& slider = ent.GetComponent<UISliderComponent>();
+		slider.m_Value = glm::clamp(value, std::min(slider.m_MinValue, slider.m_MaxValue), std::max(slider.m_MinValue, slider.m_MaxValue));
+	}
+
+	float UISliderComponentGetMinValue(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_MinValue;
+	}
+
+	void UISliderComponentSetMinValue(UUID entityId, float value)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UISliderComponent>().m_MinValue = value;
+	}
+
+	float UISliderComponentGetMaxValue(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_MaxValue;
+	}
+
+	void UISliderComponentSetMaxValue(UUID entityId, float value)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UISliderComponent>().m_MaxValue = value;
+	}
+
+	bool UISliderComponentIsInteractable(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_Interactable;
+	}
+
+	void UISliderComponentSetInteractable(UUID entityId, bool interactable)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UISliderComponent>().m_Interactable = interactable;
+	}
+
+	bool UISliderComponentIsHovered(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_Hovered;
+	}
+
+	bool UISliderComponentIsPressed(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_Pressed;
+	}
+
+	bool UISliderComponentIsFocused(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_Focused;
+	}
+
+	bool UISliderComponentWasChangedThisFrame(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_ChangedThisFrame;
+	}
+
+	MonoString* UIInputFieldComponentGetText(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return Utils::CreateString(ent.GetComponent<UIInputFieldComponent>().m_Text.c_str());
+	}
+
+	void UIInputFieldComponentSetText(UUID entityId, MonoString* text)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIInputFieldComponent>().m_Text = detail::MonoStringToString(text);
+	}
+
+	MonoString* UIInputFieldComponentGetPlaceholder(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return Utils::CreateString(ent.GetComponent<UIInputFieldComponent>().m_Placeholder.c_str());
+	}
+
+	void UIInputFieldComponentSetPlaceholder(UUID entityId, MonoString* placeholder)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIInputFieldComponent>().m_Placeholder = detail::MonoStringToString(placeholder);
+	}
+
+	bool UIInputFieldComponentIsInteractable(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIInputFieldComponent>().m_Interactable;
+	}
+
+	void UIInputFieldComponentSetInteractable(UUID entityId, bool interactable)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIInputFieldComponent>().m_Interactable = interactable;
+	}
+
+	bool UIInputFieldComponentIsHovered(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIInputFieldComponent>().m_Hovered;
+	}
+
+	bool UIInputFieldComponentIsFocused(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIInputFieldComponent>().m_Focused;
+	}
+
+	bool UIInputFieldComponentWasChangedThisFrame(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIInputFieldComponent>().m_ChangedThisFrame;
+	}
+
+	bool UIInputFieldComponentWasSubmittedThisFrame(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIInputFieldComponent>().m_SubmittedThisFrame;
+	}
+
 	void CircleRendererComponentGetColor(UUID entityId, glm::vec4* outColor)
 	{
 		Entity ent = detail::GetEntity(entityId);
@@ -2222,6 +2439,10 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UIImageComponent_SetTextureSpriteIndex, UIImageComponentSetTextureSpriteIndex);
 	ADD_INTERNAL_CALL(UIImageComponent_IsRaycastTarget, UIImageComponentIsRaycastTarget);
 	ADD_INTERNAL_CALL(UIImageComponent_SetRaycastTarget, UIImageComponentSetRaycastTarget);
+	ADD_INTERNAL_CALL(UIPanelComponent_GetColor, UIPanelComponentGetColor);
+	ADD_INTERNAL_CALL(UIPanelComponent_SetColor, UIPanelComponentSetColor);
+	ADD_INTERNAL_CALL(UIPanelComponent_IsRaycastTarget, UIPanelComponentIsRaycastTarget);
+	ADD_INTERNAL_CALL(UIPanelComponent_SetRaycastTarget, UIPanelComponentSetRaycastTarget);
 	ADD_INTERNAL_CALL(UITextComponent_GetText, UITextComponentGetText);
 	ADD_INTERNAL_CALL(UITextComponent_SetText, UITextComponentSetText);
 	ADD_INTERNAL_CALL(UITextComponent_GetColor, UITextComponentGetColor);
@@ -2237,6 +2458,38 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UIButtonComponent_IsFocused, UIButtonComponentIsFocused);
 	ADD_INTERNAL_CALL(UIButtonComponent_WasClickedThisFrame, UIButtonComponentWasClickedThisFrame);
 	ADD_INTERNAL_CALL(UIButtonComponent_WasSubmittedThisFrame, UIButtonComponentWasSubmittedThisFrame);
+	ADD_INTERNAL_CALL(UIToggleComponent_GetLabel, UIToggleComponentGetLabel);
+	ADD_INTERNAL_CALL(UIToggleComponent_SetLabel, UIToggleComponentSetLabel);
+	ADD_INTERNAL_CALL(UIToggleComponent_IsChecked, UIToggleComponentIsChecked);
+	ADD_INTERNAL_CALL(UIToggleComponent_SetChecked, UIToggleComponentSetChecked);
+	ADD_INTERNAL_CALL(UIToggleComponent_IsInteractable, UIToggleComponentIsInteractable);
+	ADD_INTERNAL_CALL(UIToggleComponent_SetInteractable, UIToggleComponentSetInteractable);
+	ADD_INTERNAL_CALL(UIToggleComponent_IsHovered, UIToggleComponentIsHovered);
+	ADD_INTERNAL_CALL(UIToggleComponent_IsPressed, UIToggleComponentIsPressed);
+	ADD_INTERNAL_CALL(UIToggleComponent_IsFocused, UIToggleComponentIsFocused);
+	ADD_INTERNAL_CALL(UIToggleComponent_WasChangedThisFrame, UIToggleComponentWasChangedThisFrame);
+	ADD_INTERNAL_CALL(UISliderComponent_GetValue, UISliderComponentGetValue);
+	ADD_INTERNAL_CALL(UISliderComponent_SetValue, UISliderComponentSetValue);
+	ADD_INTERNAL_CALL(UISliderComponent_GetMinValue, UISliderComponentGetMinValue);
+	ADD_INTERNAL_CALL(UISliderComponent_SetMinValue, UISliderComponentSetMinValue);
+	ADD_INTERNAL_CALL(UISliderComponent_GetMaxValue, UISliderComponentGetMaxValue);
+	ADD_INTERNAL_CALL(UISliderComponent_SetMaxValue, UISliderComponentSetMaxValue);
+	ADD_INTERNAL_CALL(UISliderComponent_IsInteractable, UISliderComponentIsInteractable);
+	ADD_INTERNAL_CALL(UISliderComponent_SetInteractable, UISliderComponentSetInteractable);
+	ADD_INTERNAL_CALL(UISliderComponent_IsHovered, UISliderComponentIsHovered);
+	ADD_INTERNAL_CALL(UISliderComponent_IsPressed, UISliderComponentIsPressed);
+	ADD_INTERNAL_CALL(UISliderComponent_IsFocused, UISliderComponentIsFocused);
+	ADD_INTERNAL_CALL(UISliderComponent_WasChangedThisFrame, UISliderComponentWasChangedThisFrame);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_GetText, UIInputFieldComponentGetText);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_SetText, UIInputFieldComponentSetText);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_GetPlaceholder, UIInputFieldComponentGetPlaceholder);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_SetPlaceholder, UIInputFieldComponentSetPlaceholder);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_IsInteractable, UIInputFieldComponentIsInteractable);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_SetInteractable, UIInputFieldComponentSetInteractable);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_IsHovered, UIInputFieldComponentIsHovered);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_IsFocused, UIInputFieldComponentIsFocused);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_WasChangedThisFrame, UIInputFieldComponentWasChangedThisFrame);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_WasSubmittedThisFrame, UIInputFieldComponentWasSubmittedThisFrame);
 
 	// circle_renderer_component
 	ADD_INTERNAL_CALL(CircleRendererComponent_GetColor, CircleRendererComponentGetColor);

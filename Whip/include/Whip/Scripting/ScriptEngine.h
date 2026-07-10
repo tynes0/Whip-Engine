@@ -72,7 +72,11 @@ FrenumClassInNamespace(whip, EntityMethodType, uint8_t,
 	OnColliderEnter,
 	OnColliderExit,
 	OnAnimationEvent,
-	OnUIClick
+	OnUIClick,
+	OnUIToggle,
+	OnUISlider,
+	OnUIInputChanged,
+	OnUIInputSubmit
 )
 
 struct ScriptField
@@ -222,6 +226,10 @@ public:
 	void InvokeOnColliderExit(std::string_view tag);
 	void InvokeOnAnimationEvent(std::string_view eventName);
 	void InvokeOnUIClick();
+	void InvokeOnUIToggle(bool value);
+	void InvokeOnUISlider(float value);
+	void InvokeOnUIInputChanged(std::string_view value);
+	void InvokeOnUIInputSubmit(std::string_view value);
 
 	void InvokeMethod(EntityMethodType methodType, const Payload& payload);
 

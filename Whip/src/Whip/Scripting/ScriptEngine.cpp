@@ -536,6 +536,10 @@ ScriptInstance::ScriptInstance(const Ref<ScriptClass>& scriptClass, Entity entit
 	m_Methods[EntityMethodType::OnColliderExit] = scriptClass->GetMethod("OnColliderExit", 1);
 	m_Methods[EntityMethodType::OnAnimationEvent] = scriptClass->GetMethod("OnAnimationEvent", 1);
 	m_Methods[EntityMethodType::OnUIClick] = scriptClass->GetMethod("OnUIClick", 0);
+	m_Methods[EntityMethodType::OnUIToggle] = scriptClass->GetMethod("OnUIToggle", 1);
+	m_Methods[EntityMethodType::OnUISlider] = scriptClass->GetMethod("OnUISlider", 1);
+	m_Methods[EntityMethodType::OnUIInputChanged] = scriptClass->GetMethod("OnUIInputChanged", 1);
+	m_Methods[EntityMethodType::OnUIInputSubmit] = scriptClass->GetMethod("OnUIInputSubmit", 1);
 	if (!m_Instance)
 		return;
 
@@ -613,6 +617,51 @@ void ScriptInstance::InvokeOnUIClick()
 		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIClick], nullptr, MakeMethodContext("OnUIClick"));
 }
 
+void ScriptInstance::InvokeOnUIToggle(bool value)
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUIToggle])
+	{
+		MonoBoolean monoValue = value ? 1 : 0;
+		void* param = &monoValue;
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIToggle], &param, MakeMethodContext("OnUIToggle"));
+	}
+}
+
+void ScriptInstance::InvokeOnUISlider(float value)
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUISlider])
+	{
+		void* param = &value;
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUISlider], &param, MakeMethodContext("OnUISlider"));
+	}
+}
+
+void ScriptInstance::InvokeOnUIInputChanged(std::string_view value)
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUIInputChanged])
+	{
+		const std::string valueString(value);
+		MonoString* monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, valueString.c_str());
+		void* param = monoString;
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIInputChanged], &param, MakeMethodContext("OnUIInputChanged"));
+	}
+}
+
+void ScriptInstance::InvokeOnUIInputSubmit(std::string_view value)
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUIInputSubmit])
+	{
+		const std::string valueString(value);
+		MonoString* monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, valueString.c_str());
+		void* param = monoString;
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIInputSubmit], &param, MakeMethodContext("OnUIInputSubmit"));
+	}
+}
+
 void ScriptInstance::InvokeMethod(EntityMethodType methodType, const Payload& payload)
 {
 	WHP_PROFILE_FUNCTION();
@@ -629,6 +678,23 @@ void ScriptInstance::InvokeMethod(EntityMethodType methodType, const Payload& pa
 	{
 		const std::string tagString(payload.Get<std::string_view>());
 		MonoString* monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, tagString.c_str());
+		param = monoString;
+	}
+	else if (methodType == EntityMethodType::OnUIToggle)
+	{
+		MonoBoolean monoValue = payload.Get<bool>() ? 1 : 0;
+		param = &monoValue;
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[methodType], &param, MakeMethodContext(frenum::to_string_view(methodType)));
+		return;
+	}
+	else if (methodType == EntityMethodType::OnUISlider)
+	{
+		param = const_cast<float*>(&payload.Get<float>());
+	}
+	else if (methodType == EntityMethodType::OnUIInputChanged || methodType == EntityMethodType::OnUIInputSubmit)
+	{
+		const std::string valueString(payload.Get<std::string_view>());
+		MonoString* monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, valueString.c_str());
 		param = monoString;
 	}
 

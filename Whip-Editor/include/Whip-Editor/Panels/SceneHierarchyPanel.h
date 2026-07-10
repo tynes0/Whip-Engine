@@ -59,6 +59,9 @@ private:
 		Image,
 		Text,
 		Button,
+		Toggle,
+		Slider,
+		InputField,
 		VerticalLayout,
 		HorizontalLayout
 	};

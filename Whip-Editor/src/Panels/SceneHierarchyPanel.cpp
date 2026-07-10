@@ -1317,6 +1317,9 @@ Entity SceneHierarchyPanel::CreateUIElement(UIElementKind kind, Entity parent)
 	case UIElementKind::Image: name = "UI Image"; break;
 	case UIElementKind::Text: name = "UI Text"; break;
 	case UIElementKind::Button: name = "UI Button"; break;
+	case UIElementKind::Toggle: name = "UI Toggle"; break;
+	case UIElementKind::Slider: name = "UI Slider"; break;
+	case UIElementKind::InputField: name = "UI Input Field"; break;
 	case UIElementKind::VerticalLayout: name = "UI Vertical Layout"; break;
 	case UIElementKind::HorizontalLayout: name = "UI Horizontal Layout"; break;
 	}
@@ -1341,8 +1344,8 @@ Entity SceneHierarchyPanel::CreateUIElement(UIElementKind kind, Entity parent)
 	case UIElementKind::Panel:
 	{
 		transform.m_Size = { 360.0f, 240.0f };
-		auto& image = entity.AddComponent<UIImageComponent>();
-		image.m_Color = { 0.05f, 0.08f, 0.10f, 0.86f };
+		auto& panel = entity.AddComponent<UIPanelComponent>();
+		panel.m_Color = { 0.05f, 0.08f, 0.10f, 0.86f };
 		break;
 	}
 	case UIElementKind::Image:
@@ -1364,6 +1367,27 @@ Entity SceneHierarchyPanel::CreateUIElement(UIElementKind kind, Entity parent)
 		transform.m_Size = { 200.0f, 56.0f };
 		auto& button = entity.AddComponent<UIButtonComponent>();
 		button.m_Text = "Button";
+		break;
+	}
+	case UIElementKind::Toggle:
+	{
+		transform.m_Size = { 220.0f, 52.0f };
+		auto& toggle = entity.AddComponent<UIToggleComponent>();
+		toggle.m_Label = "Toggle";
+		break;
+	}
+	case UIElementKind::Slider:
+	{
+		transform.m_Size = { 260.0f, 48.0f };
+		auto& slider = entity.AddComponent<UISliderComponent>();
+		slider.m_Value = 0.5f;
+		break;
+	}
+	case UIElementKind::InputField:
+	{
+		transform.m_Size = { 280.0f, 54.0f };
+		auto& inputField = entity.AddComponent<UIInputFieldComponent>();
+		inputField.m_Placeholder = "Enter text";
 		break;
 	}
 	case UIElementKind::VerticalLayout:
@@ -1491,6 +1515,12 @@ void SceneHierarchyPanel::DrawCreateUIMenu(Entity parent)
 			CreateUIElement(UIElementKind::Text, parent);
 		if (ImGui::MenuItem("Button"))
 			CreateUIElement(UIElementKind::Button, parent);
+		if (ImGui::MenuItem("Toggle"))
+			CreateUIElement(UIElementKind::Toggle, parent);
+		if (ImGui::MenuItem("Slider"))
+			CreateUIElement(UIElementKind::Slider, parent);
+		if (ImGui::MenuItem("Input Field"))
+			CreateUIElement(UIElementKind::InputField, parent);
 		ImGui::Separator();
 		if (ImGui::MenuItem("Vertical Layout"))
 			CreateUIElement(UIElementKind::VerticalLayout, parent);
@@ -1577,9 +1607,13 @@ void SceneHierarchyPanel::DrawMultiEditComponents(const std::vector<Entity>& sel
 		DisplayAddComponentEntry<TextComponent>("Text");
 		DisplayAddComponentEntry<UITransformComponent>("UI Transform");
 		DisplayAddComponentEntry<UICanvasComponent>("UI Canvas");
+		DisplayAddComponentEntry<UIPanelComponent>("UI Panel");
 		DisplayAddComponentEntry<UIImageComponent>("UI Image");
 		DisplayAddComponentEntry<UITextComponent>("UI Text");
 		DisplayAddComponentEntry<UIButtonComponent>("UI Button");
+		DisplayAddComponentEntry<UIToggleComponent>("UI Toggle");
+		DisplayAddComponentEntry<UISliderComponent>("UI Slider");
+		DisplayAddComponentEntry<UIInputFieldComponent>("UI Input Field");
 		DisplayAddComponentEntry<UIStackLayoutComponent>("UI Stack Layout");
 		DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D");
 		DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D");
@@ -2407,9 +2441,13 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 		DisplayAddComponentEntry<TextComponent>("Text");
 		DisplayAddComponentEntry<UITransformComponent>("UI Transform");
 		DisplayAddComponentEntry<UICanvasComponent>("UI Canvas");
+		DisplayAddComponentEntry<UIPanelComponent>("UI Panel");
 		DisplayAddComponentEntry<UIImageComponent>("UI Image");
 		DisplayAddComponentEntry<UITextComponent>("UI Text");
 		DisplayAddComponentEntry<UIButtonComponent>("UI Button");
+		DisplayAddComponentEntry<UIToggleComponent>("UI Toggle");
+		DisplayAddComponentEntry<UISliderComponent>("UI Slider");
+		DisplayAddComponentEntry<UIInputFieldComponent>("UI Input Field");
 		DisplayAddComponentEntry<UIStackLayoutComponent>("UI Stack Layout");
 		DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D");
 		DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D");
@@ -2889,6 +2927,10 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 				ImGui::Checkbox("##UICanvasShowInEditor", &component.m_ShowInEditor);
 				END_COMPONENT_TABLE_ROW();
 
+				BEGIN_COMPONENT_TABLE_ROW("Safe Area");
+				ImGui::Checkbox("##UICanvasSafeArea", &component.m_ShowSafeAreaInEditor);
+				END_COMPONENT_TABLE_ROW();
+
 				BEGIN_COMPONENT_TABLE_ROW("Scale Mode");
 				const char* scaleModeLabels[] = { "Constant Pixel Size", "Scale With Screen Size" };
 				int scaleMode = static_cast<int>(component.m_ScaleMode);
@@ -2906,6 +2948,10 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 
 				BEGIN_COMPONENT_TABLE_ROW("Scale Factor");
 				ImGui::DragFloat("##UICanvasScaleFactor", &component.m_ScaleFactor, 0.01f, 0.01f, 16.0f, "%.2f");
+				END_COMPONENT_TABLE_ROW();
+
+				BEGIN_COMPONENT_TABLE_ROW("Safe Insets");
+				ImGui::DragFloat4("##UICanvasSafeInsets", glm::value_ptr(component.m_SafeAreaInsets), 0.005f, 0.0f, 0.45f, "%.3f");
 				END_COMPONENT_TABLE_ROW();
 
 				ImGui::EndTable();
@@ -2954,6 +3000,12 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 
 				ImGui::EndTable();
 			}
+		});
+	ImGui::Spacing();
+	DrawComponent<UIPanelComponent>("UI Panel", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			ImGui::ColorEdit4("Color", glm::value_ptr(component.m_Color));
+			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
 		});
 	ImGui::Spacing();
 	DrawComponent<UIImageComponent>("UI Image", entityIn, m_SceneChangeCallback, [](auto& component)
@@ -3074,6 +3126,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::ColorEdit4("Disabled", glm::value_ptr(component.m_DisabledColor));
 			ImGui::ColorEdit4("Focus", glm::value_ptr(component.m_FocusColor));
 			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
+			ImGui::InputText("On Click", &component.m_OnClickCallback);
 
 			std::string label = "None";
 			bool isFontValid = false;
@@ -3107,6 +3160,75 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::Checkbox("Pressed", &component.m_Pressed);
 			ImGui::Checkbox("Focused", &component.m_Focused);
 			ImGui::Checkbox("Clicked This Frame", &component.m_ClickedThisFrame);
+			ImGui::Checkbox("Submitted This Frame", &component.m_SubmittedThisFrame);
+			ImGui::EndDisabled();
+		});
+	ImGui::Spacing();
+	DrawComponent<UIToggleComponent>("UI Toggle", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			ImGui::InputText("Label", &component.m_Label);
+			ImGui::Checkbox("Checked", &component.m_Checked);
+			ImGui::Checkbox("Interactable", &component.m_Interactable);
+			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
+			ImGui::Checkbox("Keyboard Navigation", &component.m_NavigationEnabled);
+			ImGui::DragFloat("Font Size", &component.m_FontSize, 1.0f, 1.0f, 256.0f);
+			ImGui::InputText("On Value Changed", &component.m_OnValueChangedCallback);
+			ImGui::ColorEdit4("Box", glm::value_ptr(component.m_BoxColor));
+			ImGui::ColorEdit4("Check", glm::value_ptr(component.m_CheckColor));
+			ImGui::ColorEdit4("Hovered", glm::value_ptr(component.m_HoveredColor));
+			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
+			ImGui::Separator();
+			ImGui::TextDisabled("Runtime");
+			ImGui::BeginDisabled();
+			ImGui::Checkbox("Hovered", &component.m_Hovered);
+			ImGui::Checkbox("Pressed", &component.m_Pressed);
+			ImGui::Checkbox("Focused", &component.m_Focused);
+			ImGui::Checkbox("Changed This Frame", &component.m_ChangedThisFrame);
+			ImGui::EndDisabled();
+		});
+	ImGui::Spacing();
+	DrawComponent<UISliderComponent>("UI Slider", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			ImGui::DragFloat("Value", &component.m_Value, 0.01f, std::min(component.m_MinValue, component.m_MaxValue), std::max(component.m_MinValue, component.m_MaxValue));
+			ImGui::DragFloat("Min", &component.m_MinValue, 0.01f);
+			ImGui::DragFloat("Max", &component.m_MaxValue, 0.01f);
+			ImGui::Checkbox("Interactable", &component.m_Interactable);
+			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
+			ImGui::InputText("On Value Changed", &component.m_OnValueChangedCallback);
+			ImGui::ColorEdit4("Background", glm::value_ptr(component.m_BackgroundColor));
+			ImGui::ColorEdit4("Fill", glm::value_ptr(component.m_FillColor));
+			ImGui::ColorEdit4("Handle", glm::value_ptr(component.m_HandleColor));
+			ImGui::Separator();
+			ImGui::TextDisabled("Runtime");
+			ImGui::BeginDisabled();
+			ImGui::Checkbox("Hovered", &component.m_Hovered);
+			ImGui::Checkbox("Pressed", &component.m_Pressed);
+			ImGui::Checkbox("Focused", &component.m_Focused);
+			ImGui::Checkbox("Changed This Frame", &component.m_ChangedThisFrame);
+			ImGui::EndDisabled();
+		});
+	ImGui::Spacing();
+	DrawComponent<UIInputFieldComponent>("UI Input Field", entityIn, m_SceneChangeCallback, [](auto& component)
+		{
+			ImGui::InputText("Text", &component.m_Text);
+			ImGui::InputText("Placeholder", &component.m_Placeholder);
+			ImGui::DragFloat("Font Size", &component.m_FontSize, 1.0f, 1.0f, 256.0f);
+			ImGui::InputInt("Max Characters", &component.m_MaxCharacters);
+			component.m_MaxCharacters = std::max(component.m_MaxCharacters, 0);
+			ImGui::Checkbox("Interactable", &component.m_Interactable);
+			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
+			ImGui::InputText("On Submit", &component.m_OnSubmitCallback);
+			ImGui::InputText("On Value Changed", &component.m_OnValueChangedCallback);
+			ImGui::ColorEdit4("Background", glm::value_ptr(component.m_BackgroundColor));
+			ImGui::ColorEdit4("Focused", glm::value_ptr(component.m_FocusedColor));
+			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
+			ImGui::ColorEdit4("Placeholder", glm::value_ptr(component.m_PlaceholderColor));
+			ImGui::Separator();
+			ImGui::TextDisabled("Runtime");
+			ImGui::BeginDisabled();
+			ImGui::Checkbox("Hovered", &component.m_Hovered);
+			ImGui::Checkbox("Focused", &component.m_Focused);
+			ImGui::Checkbox("Changed This Frame", &component.m_ChangedThisFrame);
 			ImGui::Checkbox("Submitted This Frame", &component.m_SubmittedThisFrame);
 			ImGui::EndDisabled();
 		});
@@ -3408,7 +3530,7 @@ void SceneHierarchyPanel::AddComponentToSelection()
 			if (!selected.HasComponent<UICanvasComponent>())
 				SetEntityParent(selected, FindOrCreateUICanvas());
 		}
-		else if constexpr (std::is_same_v<T, UIImageComponent> || std::is_same_v<T, UITextComponent> || std::is_same_v<T, UIButtonComponent> || std::is_same_v<T, UIStackLayoutComponent>)
+		else if constexpr (std::is_same_v<T, UIPanelComponent> || std::is_same_v<T, UIImageComponent> || std::is_same_v<T, UITextComponent> || std::is_same_v<T, UIButtonComponent> || std::is_same_v<T, UIToggleComponent> || std::is_same_v<T, UISliderComponent> || std::is_same_v<T, UIInputFieldComponent> || std::is_same_v<T, UIStackLayoutComponent>)
 		{
 			if (!selected.HasComponent<UITransformComponent>())
 				selected.AddComponent<UITransformComponent>();

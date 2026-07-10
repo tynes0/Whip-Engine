@@ -553,8 +553,22 @@ namespace Utils
 			out << YAML::Key << "scale_factor" << YAML::Value << canvas.m_ScaleFactor;
 			out << YAML::Key << "visible" << YAML::Value << canvas.m_Visible;
 			out << YAML::Key << "show_in_editor" << YAML::Value << canvas.m_ShowInEditor;
+			out << YAML::Key << "show_safe_area_in_editor" << YAML::Value << canvas.m_ShowSafeAreaInEditor;
+			out << YAML::Key << "safe_area_insets" << YAML::Value << canvas.m_SafeAreaInsets;
 
 			out << YAML::EndMap; // ui_canvas_component
+		}
+
+		if (entityIn.HasComponent<UIPanelComponent>())
+		{
+			out << YAML::Key << "ui_panel_component";
+			out << YAML::BeginMap; // ui_panel_component
+
+			auto& panel = entityIn.GetComponent<UIPanelComponent>();
+			out << YAML::Key << "color" << YAML::Value << panel.m_Color;
+			out << YAML::Key << "raycast_target" << YAML::Value << panel.m_RaycastTarget;
+
+			out << YAML::EndMap; // ui_panel_component
 		}
 
 		if (entityIn.HasComponent<UIImageComponent>())
@@ -609,8 +623,73 @@ namespace Utils
 			out << YAML::Key << "interactable" << YAML::Value << button.m_Interactable;
 			out << YAML::Key << "raycast_target" << YAML::Value << button.m_RaycastTarget;
 			out << YAML::Key << "navigation_enabled" << YAML::Value << button.m_NavigationEnabled;
+			out << YAML::Key << "on_click_callback" << YAML::Value << button.m_OnClickCallback;
 
 			out << YAML::EndMap; // ui_button_component
+		}
+
+		if (entityIn.HasComponent<UIToggleComponent>())
+		{
+			out << YAML::Key << "ui_toggle_component";
+			out << YAML::BeginMap; // ui_toggle_component
+
+			auto& toggle = entityIn.GetComponent<UIToggleComponent>();
+			out << YAML::Key << "label" << YAML::Value << toggle.m_Label;
+			out << YAML::Key << "font" << YAML::Value << (uint64_t)toggle.m_Font;
+			out << YAML::Key << "box_color" << YAML::Value << toggle.m_BoxColor;
+			out << YAML::Key << "check_color" << YAML::Value << toggle.m_CheckColor;
+			out << YAML::Key << "text_color" << YAML::Value << toggle.m_TextColor;
+			out << YAML::Key << "hovered_color" << YAML::Value << toggle.m_HoveredColor;
+			out << YAML::Key << "font_size" << YAML::Value << toggle.m_FontSize;
+			out << YAML::Key << "checked" << YAML::Value << toggle.m_Checked;
+			out << YAML::Key << "interactable" << YAML::Value << toggle.m_Interactable;
+			out << YAML::Key << "raycast_target" << YAML::Value << toggle.m_RaycastTarget;
+			out << YAML::Key << "navigation_enabled" << YAML::Value << toggle.m_NavigationEnabled;
+			out << YAML::Key << "on_value_changed_callback" << YAML::Value << toggle.m_OnValueChangedCallback;
+
+			out << YAML::EndMap; // ui_toggle_component
+		}
+
+		if (entityIn.HasComponent<UISliderComponent>())
+		{
+			out << YAML::Key << "ui_slider_component";
+			out << YAML::BeginMap; // ui_slider_component
+
+			auto& slider = entityIn.GetComponent<UISliderComponent>();
+			out << YAML::Key << "value" << YAML::Value << slider.m_Value;
+			out << YAML::Key << "min_value" << YAML::Value << slider.m_MinValue;
+			out << YAML::Key << "max_value" << YAML::Value << slider.m_MaxValue;
+			out << YAML::Key << "background_color" << YAML::Value << slider.m_BackgroundColor;
+			out << YAML::Key << "fill_color" << YAML::Value << slider.m_FillColor;
+			out << YAML::Key << "handle_color" << YAML::Value << slider.m_HandleColor;
+			out << YAML::Key << "interactable" << YAML::Value << slider.m_Interactable;
+			out << YAML::Key << "raycast_target" << YAML::Value << slider.m_RaycastTarget;
+			out << YAML::Key << "on_value_changed_callback" << YAML::Value << slider.m_OnValueChangedCallback;
+
+			out << YAML::EndMap; // ui_slider_component
+		}
+
+		if (entityIn.HasComponent<UIInputFieldComponent>())
+		{
+			out << YAML::Key << "ui_input_field_component";
+			out << YAML::BeginMap; // ui_input_field_component
+
+			auto& inputField = entityIn.GetComponent<UIInputFieldComponent>();
+			out << YAML::Key << "text" << YAML::Value << inputField.m_Text;
+			out << YAML::Key << "placeholder" << YAML::Value << inputField.m_Placeholder;
+			out << YAML::Key << "font" << YAML::Value << (uint64_t)inputField.m_Font;
+			out << YAML::Key << "background_color" << YAML::Value << inputField.m_BackgroundColor;
+			out << YAML::Key << "focused_color" << YAML::Value << inputField.m_FocusedColor;
+			out << YAML::Key << "text_color" << YAML::Value << inputField.m_TextColor;
+			out << YAML::Key << "placeholder_color" << YAML::Value << inputField.m_PlaceholderColor;
+			out << YAML::Key << "font_size" << YAML::Value << inputField.m_FontSize;
+			out << YAML::Key << "max_characters" << YAML::Value << inputField.m_MaxCharacters;
+			out << YAML::Key << "interactable" << YAML::Value << inputField.m_Interactable;
+			out << YAML::Key << "raycast_target" << YAML::Value << inputField.m_RaycastTarget;
+			out << YAML::Key << "on_submit_callback" << YAML::Value << inputField.m_OnSubmitCallback;
+			out << YAML::Key << "on_value_changed_callback" << YAML::Value << inputField.m_OnValueChangedCallback;
+
+			out << YAML::EndMap; // ui_input_field_component
 		}
 
 		if (entityIn.HasComponent<UIStackLayoutComponent>())
@@ -1068,6 +1147,16 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				canvas.m_ScaleFactor = uiCanvasComponent["scale_factor"].as<float>(canvas.m_ScaleFactor);
 				canvas.m_Visible = uiCanvasComponent["visible"].as<bool>(canvas.m_Visible);
 				canvas.m_ShowInEditor = uiCanvasComponent["show_in_editor"].as<bool>(canvas.m_ShowInEditor);
+				canvas.m_ShowSafeAreaInEditor = uiCanvasComponent["show_safe_area_in_editor"].as<bool>(canvas.m_ShowSafeAreaInEditor);
+				canvas.m_SafeAreaInsets = uiCanvasComponent["safe_area_insets"].as<glm::vec4>(canvas.m_SafeAreaInsets);
+			}
+
+			auto uiPanelComponent = entityNode["ui_panel_component"];
+			if (uiPanelComponent)
+			{
+				auto& panel = deserializedEntity.AddComponent<UIPanelComponent>();
+				panel.m_Color = uiPanelComponent["color"].as<glm::vec4>(panel.m_Color);
+				panel.m_RaycastTarget = uiPanelComponent["raycast_target"].as<bool>(panel.m_RaycastTarget);
 			}
 
 			auto uiImageComponent = entityNode["ui_image_component"];
@@ -1112,6 +1201,59 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				button.m_Interactable = uiButtonComponent["interactable"].as<bool>(button.m_Interactable);
 				button.m_RaycastTarget = uiButtonComponent["raycast_target"].as<bool>(button.m_RaycastTarget);
 				button.m_NavigationEnabled = uiButtonComponent["navigation_enabled"].as<bool>(button.m_NavigationEnabled);
+				button.m_OnClickCallback = uiButtonComponent["on_click_callback"].as<std::string>(button.m_OnClickCallback);
+			}
+
+			auto uiToggleComponent = entityNode["ui_toggle_component"];
+			if (uiToggleComponent)
+			{
+				auto& toggle = deserializedEntity.AddComponent<UIToggleComponent>();
+				toggle.m_Label = uiToggleComponent["label"].as<std::string>(toggle.m_Label);
+				toggle.m_Font = uiToggleComponent["font"].as<uint64_t>(toggle.m_Font);
+				toggle.m_BoxColor = uiToggleComponent["box_color"].as<glm::vec4>(toggle.m_BoxColor);
+				toggle.m_CheckColor = uiToggleComponent["check_color"].as<glm::vec4>(toggle.m_CheckColor);
+				toggle.m_TextColor = uiToggleComponent["text_color"].as<glm::vec4>(toggle.m_TextColor);
+				toggle.m_HoveredColor = uiToggleComponent["hovered_color"].as<glm::vec4>(toggle.m_HoveredColor);
+				toggle.m_FontSize = uiToggleComponent["font_size"].as<float>(toggle.m_FontSize);
+				toggle.m_Checked = uiToggleComponent["checked"].as<bool>(toggle.m_Checked);
+				toggle.m_Interactable = uiToggleComponent["interactable"].as<bool>(toggle.m_Interactable);
+				toggle.m_RaycastTarget = uiToggleComponent["raycast_target"].as<bool>(toggle.m_RaycastTarget);
+				toggle.m_NavigationEnabled = uiToggleComponent["navigation_enabled"].as<bool>(toggle.m_NavigationEnabled);
+				toggle.m_OnValueChangedCallback = uiToggleComponent["on_value_changed_callback"].as<std::string>(toggle.m_OnValueChangedCallback);
+			}
+
+			auto uiSliderComponent = entityNode["ui_slider_component"];
+			if (uiSliderComponent)
+			{
+				auto& slider = deserializedEntity.AddComponent<UISliderComponent>();
+				slider.m_Value = uiSliderComponent["value"].as<float>(slider.m_Value);
+				slider.m_MinValue = uiSliderComponent["min_value"].as<float>(slider.m_MinValue);
+				slider.m_MaxValue = uiSliderComponent["max_value"].as<float>(slider.m_MaxValue);
+				slider.m_BackgroundColor = uiSliderComponent["background_color"].as<glm::vec4>(slider.m_BackgroundColor);
+				slider.m_FillColor = uiSliderComponent["fill_color"].as<glm::vec4>(slider.m_FillColor);
+				slider.m_HandleColor = uiSliderComponent["handle_color"].as<glm::vec4>(slider.m_HandleColor);
+				slider.m_Interactable = uiSliderComponent["interactable"].as<bool>(slider.m_Interactable);
+				slider.m_RaycastTarget = uiSliderComponent["raycast_target"].as<bool>(slider.m_RaycastTarget);
+				slider.m_OnValueChangedCallback = uiSliderComponent["on_value_changed_callback"].as<std::string>(slider.m_OnValueChangedCallback);
+			}
+
+			auto uiInputFieldComponent = entityNode["ui_input_field_component"];
+			if (uiInputFieldComponent)
+			{
+				auto& inputField = deserializedEntity.AddComponent<UIInputFieldComponent>();
+				inputField.m_Text = uiInputFieldComponent["text"].as<std::string>(inputField.m_Text);
+				inputField.m_Placeholder = uiInputFieldComponent["placeholder"].as<std::string>(inputField.m_Placeholder);
+				inputField.m_Font = uiInputFieldComponent["font"].as<uint64_t>(inputField.m_Font);
+				inputField.m_BackgroundColor = uiInputFieldComponent["background_color"].as<glm::vec4>(inputField.m_BackgroundColor);
+				inputField.m_FocusedColor = uiInputFieldComponent["focused_color"].as<glm::vec4>(inputField.m_FocusedColor);
+				inputField.m_TextColor = uiInputFieldComponent["text_color"].as<glm::vec4>(inputField.m_TextColor);
+				inputField.m_PlaceholderColor = uiInputFieldComponent["placeholder_color"].as<glm::vec4>(inputField.m_PlaceholderColor);
+				inputField.m_FontSize = uiInputFieldComponent["font_size"].as<float>(inputField.m_FontSize);
+				inputField.m_MaxCharacters = uiInputFieldComponent["max_characters"].as<int32_t>(inputField.m_MaxCharacters);
+				inputField.m_Interactable = uiInputFieldComponent["interactable"].as<bool>(inputField.m_Interactable);
+				inputField.m_RaycastTarget = uiInputFieldComponent["raycast_target"].as<bool>(inputField.m_RaycastTarget);
+				inputField.m_OnSubmitCallback = uiInputFieldComponent["on_submit_callback"].as<std::string>(inputField.m_OnSubmitCallback);
+				inputField.m_OnValueChangedCallback = uiInputFieldComponent["on_value_changed_callback"].as<std::string>(inputField.m_OnValueChangedCallback);
 			}
 
 			auto uiStackLayoutComponent = entityNode["ui_stack_layout_component"];

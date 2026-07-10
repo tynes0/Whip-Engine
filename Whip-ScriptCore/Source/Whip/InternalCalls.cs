@@ -529,6 +529,15 @@ namespace Whip
 		internal extern static void UIImageComponent_SetRaycastTarget(ulong entityID, bool raycastTarget);
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIPanelComponent_GetColor(ulong entityID, out Vector4 color);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIPanelComponent_SetColor(ulong entityID, Vector4 color);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIPanelComponent_IsRaycastTarget(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIPanelComponent_SetRaycastTarget(ulong entityID, bool raycastTarget);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static string UITextComponent_GetText(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UITextComponent_SetText(ulong entityID, string text);
@@ -559,6 +568,73 @@ namespace Whip
 		internal extern static bool UIButtonComponent_WasClickedThisFrame(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool UIButtonComponent_WasSubmittedThisFrame(ulong entityID);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static string UIToggleComponent_GetLabel(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIToggleComponent_SetLabel(ulong entityID, string label);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIToggleComponent_IsChecked(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIToggleComponent_SetChecked(ulong entityID, bool value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIToggleComponent_IsInteractable(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIToggleComponent_SetInteractable(ulong entityID, bool interactable);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIToggleComponent_IsHovered(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIToggleComponent_IsPressed(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIToggleComponent_IsFocused(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIToggleComponent_WasChangedThisFrame(ulong entityID);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UISliderComponent_GetValue(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UISliderComponent_SetValue(ulong entityID, float value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UISliderComponent_GetMinValue(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UISliderComponent_SetMinValue(ulong entityID, float value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UISliderComponent_GetMaxValue(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UISliderComponent_SetMaxValue(ulong entityID, float value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UISliderComponent_IsInteractable(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UISliderComponent_SetInteractable(ulong entityID, bool interactable);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UISliderComponent_IsHovered(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UISliderComponent_IsPressed(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UISliderComponent_IsFocused(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UISliderComponent_WasChangedThisFrame(ulong entityID);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static string UIInputFieldComponent_GetText(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIInputFieldComponent_SetText(ulong entityID, string text);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static string UIInputFieldComponent_GetPlaceholder(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIInputFieldComponent_SetPlaceholder(ulong entityID, string placeholder);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIInputFieldComponent_IsInteractable(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIInputFieldComponent_SetInteractable(ulong entityID, bool interactable);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIInputFieldComponent_IsHovered(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIInputFieldComponent_IsFocused(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIInputFieldComponent_WasChangedThisFrame(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UIInputFieldComponent_WasSubmittedThisFrame(ulong entityID);
 		#endregion
 
 		#region CircleRendererComponent

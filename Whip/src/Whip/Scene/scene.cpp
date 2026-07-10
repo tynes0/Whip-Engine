@@ -82,6 +82,106 @@ namespace
 		int32_t m_SortOrder = 0;
 	};
 
+	enum class UIControlKind : uint8_t
+	{
+		None = 0,
+		Button,
+		Toggle,
+		Slider,
+		InputField
+	};
+
+	struct UIInteractionTarget
+	{
+		entt::entity m_Entity = entt::null;
+		UIControlKind m_Kind = UIControlKind::None;
+		int32_t m_SortOrder = 0;
+	};
+
+	struct UIPointerState
+	{
+		glm::vec2 m_Position{ 0.0f };
+		bool m_Active = false;
+		bool m_Down = false;
+		bool m_Pressed = false;
+		bool m_Released = false;
+	};
+
+	UIPointerState ResolvePrimaryPointerState(uint32_t viewportWidth, uint32_t viewportHeight)
+	{
+		UIPointerState state;
+		state.m_Active = Input::IsRuntimeInputActive() && Input::IsMouseInsideViewport();
+		if (!state.m_Active)
+			return state;
+
+		state.m_Position = Input::GetMouseViewportPosition();
+		state.m_Position.y = static_cast<float>(viewportHeight) - state.m_Position.y;
+		state.m_Down = Input::IsMouseButtonDown(Mouse::ButtonLeft);
+		state.m_Pressed = Input::IsMouseButtonPressed(Mouse::ButtonLeft);
+		state.m_Released = Input::IsMouseButtonReleased(Mouse::ButtonLeft);
+		return state;
+	}
+
+	float NormalizeSliderValue(const UISliderComponent& slider)
+	{
+		const float range = slider.m_MaxValue - slider.m_MinValue;
+		if (std::abs(range) <= 0.0001f)
+			return 0.0f;
+		return glm::clamp((slider.m_Value - slider.m_MinValue) / range, 0.0f, 1.0f);
+	}
+
+	float ValueFromSliderPoint(const UISliderComponent& slider, const UIRect& rect, const glm::vec2& point)
+	{
+		const float normalized = glm::clamp((point.x - rect.m_Min.x) / std::max(rect.m_Size.x, 1.0f), 0.0f, 1.0f);
+		return glm::mix(slider.m_MinValue, slider.m_MaxValue, normalized);
+	}
+
+	bool AppendRuntimeTextInput(std::string& text, int32_t maxCharacters)
+	{
+		bool changed = false;
+		const bool shiftHeld = Input::IsKeyDown(Key::LeftShift) || Input::IsKeyDown(Key::RightShift);
+		auto appendCharacter = [&](char character)
+			{
+				if (maxCharacters <= 0 || text.size() < static_cast<size_t>(maxCharacters))
+				{
+					text.push_back(character);
+					changed = true;
+				}
+			};
+
+		for (int key = Key::A; key <= Key::Z; ++key)
+		{
+			if (Input::IsKeyPressed(key))
+			{
+				const char character = static_cast<char>((shiftHeld ? 'A' : 'a') + (key - Key::A));
+				appendCharacter(character);
+			}
+		}
+
+		for (int key = Key::D0; key <= Key::D9; ++key)
+			if (Input::IsKeyPressed(key))
+				appendCharacter(static_cast<char>('0' + (key - Key::D0)));
+
+		for (int key = Key::KP0; key <= Key::KP9; ++key)
+			if (Input::IsKeyPressed(key))
+				appendCharacter(static_cast<char>('0' + (key - Key::KP0)));
+
+		if (Input::IsKeyPressed(Key::Space))
+			appendCharacter(' ');
+		if (Input::IsKeyPressed(Key::Minus))
+			appendCharacter(shiftHeld ? '_' : '-');
+		if (Input::IsKeyPressed(Key::Period))
+			appendCharacter('.');
+		if (Input::IsKeyPressed(Key::Comma))
+			appendCharacter(',');
+		if (Input::IsKeyPressed(Key::Backspace) && !text.empty())
+		{
+			text.pop_back();
+			changed = true;
+		}
+		return changed;
+	}
+
 	float ResolveCanvasScale(const UICanvasComponent& canvas, const glm::vec2& viewportSize)
 	{
 		const glm::vec2 referenceResolution = glm::max(canvas.m_ReferenceResolution, glm::vec2(1.0f));
@@ -466,7 +566,7 @@ void Scene::OnRuntimeStart()
 {
 	WHP_PROFILE_FUNCTION();
 	m_IsRunning = true;
-	m_FocusedUIButton = 0;
+	m_FocusedUIControl = 0;
 	m_PhysicsWorld.Create();
 	{
 		ScriptEngine::OnRuntimeStart(this);
@@ -493,14 +593,14 @@ void Scene::OnRuntimeStop()
 	ScriptEngine::OnRuntimeStop();
 	OnAudiosStop();
 	ClearAnimatorRuntimes();
-	m_FocusedUIButton = 0;
+	m_FocusedUIControl = 0;
 }
 
 void Scene::OnSimulationStart()
 {
 	WHP_PROFILE_FUNCTION();
 	m_IsRunning = true;
-	m_FocusedUIButton = 0;
+	m_FocusedUIControl = 0;
 	m_PhysicsWorld.Create();
 	{
 		ScriptEngine::OnRuntimeStart(this);
@@ -527,7 +627,7 @@ void Scene::OnSimulationStop()
 	ScriptEngine::OnRuntimeStop();
 	OnAudiosStop();
 	ClearAnimatorRuntimes();
-	m_FocusedUIButton = 0;
+	m_FocusedUIControl = 0;
 }
 
 void Scene::OnUpdateRuntime(Timestep ts)
@@ -903,9 +1003,7 @@ void Scene::UpdateRuntimeUI()
 
 	UpdateUILayouts();
 
-	const bool inputActive = Input::IsRuntimeInputActive() && Input::IsMouseInsideViewport();
-	glm::vec2 mousePosition = Input::GetMouseViewportPosition();
-	mousePosition.y = static_cast<float>(m_ViewportHeight) - mousePosition.y;
+	const UIPointerState pointer = ResolvePrimaryPointerState(m_ViewportWidth, m_ViewportHeight);
 	const glm::vec2 viewportSize{ static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight) };
 
 	auto buttonView = m_Registry.view<UITransformComponent, UIButtonComponent>();
@@ -919,25 +1017,65 @@ void Scene::UpdateRuntimeUI()
 		button.m_Focused = false;
 	}
 
-	bool capturedByUI = false;
-	entt::entity hoveredButton = entt::null;
-	int32_t hoveredSortOrder = 0;
-	bool hasTopmostRaycastTarget = false;
-	std::vector<entt::entity> navigableButtons;
+	auto toggleView = m_Registry.view<UITransformComponent, UIToggleComponent>();
+	for (auto entity : toggleView)
+	{
+		auto [transform, toggle] = toggleView.get<UITransformComponent, UIToggleComponent>(entity);
+		toggle.m_Hovered = false;
+		toggle.m_Pressed = false;
+		toggle.m_Focused = false;
+		toggle.m_ChangedThisFrame = false;
+	}
 
-	auto setTopmostRaycastTarget = [&](entt::entity entity, int32_t sortOrder, bool isInteractableButton)
+	auto sliderView = m_Registry.view<UITransformComponent, UISliderComponent>();
+	for (auto entity : sliderView)
+	{
+		auto [transform, slider] = sliderView.get<UITransformComponent, UISliderComponent>(entity);
+		slider.m_Hovered = false;
+		slider.m_Pressed = false;
+		slider.m_Focused = false;
+		slider.m_ChangedThisFrame = false;
+		slider.m_Value = glm::clamp(slider.m_Value, std::min(slider.m_MinValue, slider.m_MaxValue), std::max(slider.m_MinValue, slider.m_MaxValue));
+	}
+
+	auto inputFieldView = m_Registry.view<UITransformComponent, UIInputFieldComponent>();
+	for (auto entity : inputFieldView)
+	{
+		auto [transform, inputField] = inputFieldView.get<UITransformComponent, UIInputFieldComponent>(entity);
+		inputField.m_Hovered = false;
+		inputField.m_SubmittedThisFrame = false;
+		inputField.m_ChangedThisFrame = false;
+	}
+
+	bool capturedByUI = false;
+	UIInteractionTarget hoveredTarget;
+	bool hasTopmostRaycastTarget = false;
+	std::vector<entt::entity> navigableControls;
+
+	auto setTopmostRaycastTarget = [&](entt::entity entity, int32_t sortOrder, UIControlKind kind)
 		{
 			capturedByUI = true;
-			if (!hasTopmostRaycastTarget || sortOrder >= hoveredSortOrder)
+			if (!hasTopmostRaycastTarget || sortOrder >= hoveredTarget.m_SortOrder)
 			{
 				hasTopmostRaycastTarget = true;
-				hoveredSortOrder = sortOrder;
-				hoveredButton = isInteractableButton ? entity : entt::null;
+				hoveredTarget = { entity, kind, sortOrder };
 			}
 		};
 
-	if (inputActive)
+	if (pointer.m_Active)
 	{
+		auto panelView = m_Registry.view<UITransformComponent, UIPanelComponent>();
+		for (auto entity : panelView)
+		{
+			auto [transform, panel] = panelView.get<UITransformComponent, UIPanelComponent>(entity);
+			if (!transform.m_Visible || !panel.m_RaycastTarget || !IsUIBranchVisible(*this, m_Registry, entity))
+				continue;
+
+			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
+			if (ContainsPoint(rect, pointer.m_Position))
+				setTopmostRaycastTarget(entity, transform.m_SortOrder, UIControlKind::None);
+		}
+
 		auto imageView = m_Registry.view<UITransformComponent, UIImageComponent>();
 		for (auto entity : imageView)
 		{
@@ -946,8 +1084,8 @@ void Scene::UpdateRuntimeUI()
 				continue;
 
 			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
-			if (ContainsPoint(rect, mousePosition))
-				setTopmostRaycastTarget(entity, transform.m_SortOrder, false);
+			if (ContainsPoint(rect, pointer.m_Position))
+				setTopmostRaycastTarget(entity, transform.m_SortOrder, UIControlKind::None);
 		}
 
 		for (auto entity : buttonView)
@@ -957,21 +1095,72 @@ void Scene::UpdateRuntimeUI()
 				continue;
 
 			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
-			if (!ContainsPoint(rect, mousePosition))
+			if (!ContainsPoint(rect, pointer.m_Position))
 				continue;
 
-			setTopmostRaycastTarget(entity, transform.m_SortOrder, button.m_Interactable);
+			setTopmostRaycastTarget(entity, transform.m_SortOrder, button.m_Interactable ? UIControlKind::Button : UIControlKind::None);
+		}
+
+		for (auto entity : toggleView)
+		{
+			auto [transform, toggle] = toggleView.get<UITransformComponent, UIToggleComponent>(entity);
+			if (!transform.m_Visible || !toggle.m_RaycastTarget || !IsUIBranchVisible(*this, m_Registry, entity))
+				continue;
+
+			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
+			if (ContainsPoint(rect, pointer.m_Position))
+				setTopmostRaycastTarget(entity, transform.m_SortOrder, toggle.m_Interactable ? UIControlKind::Toggle : UIControlKind::None);
+		}
+
+		for (auto entity : sliderView)
+		{
+			auto [transform, slider] = sliderView.get<UITransformComponent, UISliderComponent>(entity);
+			if (!transform.m_Visible || !slider.m_RaycastTarget || !IsUIBranchVisible(*this, m_Registry, entity))
+				continue;
+
+			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
+			if (ContainsPoint(rect, pointer.m_Position))
+				setTopmostRaycastTarget(entity, transform.m_SortOrder, slider.m_Interactable ? UIControlKind::Slider : UIControlKind::None);
+		}
+
+		for (auto entity : inputFieldView)
+		{
+			auto [transform, inputField] = inputFieldView.get<UITransformComponent, UIInputFieldComponent>(entity);
+			if (!transform.m_Visible || !inputField.m_RaycastTarget || !IsUIBranchVisible(*this, m_Registry, entity))
+				continue;
+
+			const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
+			if (ContainsPoint(rect, pointer.m_Position))
+				setTopmostRaycastTarget(entity, transform.m_SortOrder, inputField.m_Interactable ? UIControlKind::InputField : UIControlKind::None);
 		}
 
 		for (auto entity : buttonView)
 		{
 			auto [transform, button] = buttonView.get<UITransformComponent, UIButtonComponent>(entity);
 			if (transform.m_Visible && button.m_Interactable && button.m_RaycastTarget && button.m_NavigationEnabled && IsUIBranchVisible(*this, m_Registry, entity))
-				navigableButtons.push_back(entity);
+				navigableControls.push_back(entity);
+		}
+		for (auto entity : toggleView)
+		{
+			auto [transform, toggle] = toggleView.get<UITransformComponent, UIToggleComponent>(entity);
+			if (transform.m_Visible && toggle.m_Interactable && toggle.m_RaycastTarget && toggle.m_NavigationEnabled && IsUIBranchVisible(*this, m_Registry, entity))
+				navigableControls.push_back(entity);
+		}
+		for (auto entity : sliderView)
+		{
+			auto [transform, slider] = sliderView.get<UITransformComponent, UISliderComponent>(entity);
+			if (transform.m_Visible && slider.m_Interactable && slider.m_RaycastTarget && IsUIBranchVisible(*this, m_Registry, entity))
+				navigableControls.push_back(entity);
+		}
+		for (auto entity : inputFieldView)
+		{
+			auto [transform, inputField] = inputFieldView.get<UITransformComponent, UIInputFieldComponent>(entity);
+			if (transform.m_Visible && inputField.m_Interactable && inputField.m_RaycastTarget && IsUIBranchVisible(*this, m_Registry, entity))
+				navigableControls.push_back(entity);
 		}
 	}
 
-	std::sort(navigableButtons.begin(), navigableButtons.end(), [&](entt::entity left, entt::entity right)
+	std::sort(navigableControls.begin(), navigableControls.end(), [&](entt::entity left, entt::entity right)
 		{
 			const auto& leftTransform = m_Registry.get<UITransformComponent>(left);
 			const auto& rightTransform = m_Registry.get<UITransformComponent>(right);
@@ -985,67 +1174,77 @@ void Scene::UpdateRuntimeUI()
 			return leftRect.m_Center.x < rightRect.m_Center.x;
 		});
 
-	Entity focusedEntity = m_FocusedUIButton ? FindEntityByUUID(m_FocusedUIButton) : Entity{};
-	auto focusedIt = focusedEntity ? std::find(navigableButtons.begin(), navigableButtons.end(), static_cast<entt::entity>(focusedEntity)) : navigableButtons.end();
-	if (focusedIt == navigableButtons.end())
+	Entity focusedEntity = m_FocusedUIControl ? FindEntityByUUID(m_FocusedUIControl) : Entity{};
+	auto focusedIt = focusedEntity ? std::find(navigableControls.begin(), navigableControls.end(), static_cast<entt::entity>(focusedEntity)) : navigableControls.end();
+	if (focusedIt == navigableControls.end())
 	{
-		m_FocusedUIButton = 0;
+		m_FocusedUIControl = 0;
 		focusedEntity = {};
 	}
 
-	if (hoveredButton != entt::null && Input::IsMouseButtonPressed(Mouse::ButtonLeft))
+	if (hoveredTarget.m_Entity != entt::null && pointer.m_Pressed)
 	{
-		auto& hoveredComponent = m_Registry.get<UIButtonComponent>(hoveredButton);
-		if (hoveredComponent.m_NavigationEnabled)
-		{
-			Entity hoveredEntity{ hoveredButton, this };
-			m_FocusedUIButton = hoveredEntity.GetUUID();
-			focusedEntity = hoveredEntity;
-			focusedIt = std::find(navigableButtons.begin(), navigableButtons.end(), hoveredButton);
-		}
+		Entity hoveredEntity{ hoveredTarget.m_Entity, this };
+		if (hoveredTarget.m_Kind != UIControlKind::None)
+			m_FocusedUIControl = hoveredEntity.GetUUID();
+		else
+			m_FocusedUIControl = 0;
+		focusedEntity = hoveredTarget.m_Kind != UIControlKind::None ? hoveredEntity : Entity{};
+		focusedIt = focusedEntity ? std::find(navigableControls.begin(), navigableControls.end(), hoveredTarget.m_Entity) : navigableControls.end();
 	}
 
 	const bool shiftHeld = Input::IsKeyDown(Key::LeftShift) || Input::IsKeyDown(Key::RightShift);
 	const bool nextRequested = (Input::IsKeyPressed(Key::Tab) && !shiftHeld) || Input::IsKeyPressed(Key::Down) || Input::IsKeyPressed(Key::Right);
 	const bool previousRequested = (Input::IsKeyPressed(Key::Tab) && shiftHeld) || Input::IsKeyPressed(Key::Up) || Input::IsKeyPressed(Key::Left);
 	const bool submitRequested = Input::IsKeyPressed(Key::Enter) || Input::IsKeyPressed(Key::KPEnter) || Input::IsKeyPressed(Key::Space);
-	const bool navigationUsed = inputActive && !navigableButtons.empty() && (nextRequested || previousRequested || submitRequested);
+	const bool navigationUsed = pointer.m_Active && !navigableControls.empty() && (nextRequested || previousRequested || submitRequested);
 	if (navigationUsed)
 	{
 		capturedByUI = true;
-		if (focusedIt == navigableButtons.end())
-			focusedIt = navigableButtons.begin();
+		if (focusedIt == navigableControls.end())
+			focusedIt = navigableControls.begin();
 
 		if (nextRequested || previousRequested)
 		{
-			size_t focusedIndex = static_cast<size_t>(std::distance(navigableButtons.begin(), focusedIt));
+			size_t focusedIndex = static_cast<size_t>(std::distance(navigableControls.begin(), focusedIt));
 			if (nextRequested)
-				focusedIndex = (focusedIndex + 1) % navigableButtons.size();
+				focusedIndex = (focusedIndex + 1) % navigableControls.size();
 			else
-				focusedIndex = focusedIndex == 0 ? navigableButtons.size() - 1 : focusedIndex - 1;
-			focusedIt = navigableButtons.begin() + static_cast<std::ptrdiff_t>(focusedIndex);
+				focusedIndex = focusedIndex == 0 ? navigableControls.size() - 1 : focusedIndex - 1;
+			focusedIt = navigableControls.begin() + static_cast<std::ptrdiff_t>(focusedIndex);
 		}
 
 		focusedEntity = Entity{ *focusedIt, this };
-		m_FocusedUIButton = focusedEntity.GetUUID();
+		m_FocusedUIControl = focusedEntity.GetUUID();
 	}
 
 	Input::SetRuntimeInputCapturedByUI(capturedByUI);
 
 	if (focusedEntity && focusedEntity.HasComponent<UIButtonComponent>())
 		focusedEntity.GetComponent<UIButtonComponent>().m_Focused = true;
-
-	if (hoveredButton != entt::null)
+	if (focusedEntity && focusedEntity.HasComponent<UIToggleComponent>())
+		focusedEntity.GetComponent<UIToggleComponent>().m_Focused = true;
+	if (focusedEntity && focusedEntity.HasComponent<UISliderComponent>())
+		focusedEntity.GetComponent<UISliderComponent>().m_Focused = true;
+	if (focusedEntity && focusedEntity.HasComponent<UIInputFieldComponent>())
+		focusedEntity.GetComponent<UIInputFieldComponent>().m_Focused = true;
+	for (auto entity : inputFieldView)
 	{
-		auto& button = m_Registry.get<UIButtonComponent>(hoveredButton);
-		button.m_Hovered = true;
-		button.m_Pressed = Input::IsMouseButtonDown(Mouse::ButtonLeft);
-		button.m_ClickedThisFrame = Input::IsMouseButtonReleased(Mouse::ButtonLeft);
-		if (button.m_ClickedThisFrame)
-			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIClick, Entity{ hoveredButton, this });
+		if (!focusedEntity || static_cast<entt::entity>(focusedEntity) != entity)
+			m_Registry.get<UIInputFieldComponent>(entity).m_Focused = false;
 	}
 
-	if (submitRequested && focusedEntity && focusedEntity.HasComponent<UIButtonComponent>() && inputActive)
+	if (hoveredTarget.m_Entity != entt::null && hoveredTarget.m_Kind == UIControlKind::Button)
+	{
+		auto& button = m_Registry.get<UIButtonComponent>(hoveredTarget.m_Entity);
+		button.m_Hovered = true;
+		button.m_Pressed = pointer.m_Down;
+		button.m_ClickedThisFrame = pointer.m_Released;
+		if (button.m_ClickedThisFrame)
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIClick, Entity{ hoveredTarget.m_Entity, this });
+	}
+
+	if (submitRequested && focusedEntity && focusedEntity.HasComponent<UIButtonComponent>() && pointer.m_Active)
 	{
 		auto& button = focusedEntity.GetComponent<UIButtonComponent>();
 		if (button.m_Interactable && button.m_NavigationEnabled)
@@ -1055,6 +1254,92 @@ void Scene::UpdateRuntimeUI()
 			button.m_SubmittedThisFrame = true;
 			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIClick, focusedEntity);
 		}
+	}
+
+	if (hoveredTarget.m_Entity != entt::null && hoveredTarget.m_Kind == UIControlKind::Toggle)
+	{
+		auto& toggle = m_Registry.get<UIToggleComponent>(hoveredTarget.m_Entity);
+		toggle.m_Hovered = true;
+		toggle.m_Pressed = pointer.m_Down;
+		if (pointer.m_Released)
+		{
+			toggle.m_Checked = !toggle.m_Checked;
+			toggle.m_ChangedThisFrame = true;
+			bool value = toggle.m_Checked;
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIToggle, Entity{ hoveredTarget.m_Entity, this }, Payload::Ref(value));
+		}
+	}
+
+	if (submitRequested && focusedEntity && focusedEntity.HasComponent<UIToggleComponent>() && pointer.m_Active)
+	{
+		auto& toggle = focusedEntity.GetComponent<UIToggleComponent>();
+		if (toggle.m_Interactable && toggle.m_NavigationEnabled)
+		{
+			toggle.m_Checked = !toggle.m_Checked;
+			toggle.m_ChangedThisFrame = true;
+			bool value = toggle.m_Checked;
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIToggle, focusedEntity, Payload::Ref(value));
+		}
+	}
+
+	if (hoveredTarget.m_Entity != entt::null && hoveredTarget.m_Kind == UIControlKind::Slider)
+	{
+		auto& slider = m_Registry.get<UISliderComponent>(hoveredTarget.m_Entity);
+		slider.m_Hovered = true;
+		slider.m_Pressed = pointer.m_Down;
+		if (pointer.m_Down)
+		{
+			const UIRect rect = ResolveUIRect(*this, m_Registry, hoveredTarget.m_Entity, viewportSize);
+			const float oldValue = slider.m_Value;
+			slider.m_Value = ValueFromSliderPoint(slider, rect, pointer.m_Position);
+			slider.m_ChangedThisFrame = std::abs(oldValue - slider.m_Value) > 0.0001f;
+			if (slider.m_ChangedThisFrame)
+			{
+				float value = slider.m_Value;
+				ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUISlider, Entity{ hoveredTarget.m_Entity, this }, Payload::Ref(value));
+			}
+		}
+	}
+
+	if (focusedEntity && focusedEntity.HasComponent<UISliderComponent>() && pointer.m_Active)
+	{
+		auto& slider = focusedEntity.GetComponent<UISliderComponent>();
+		const float step = std::max(std::abs(slider.m_MaxValue - slider.m_MinValue) * 0.05f, 0.01f);
+		const float oldValue = slider.m_Value;
+		if (Input::IsKeyPressed(Key::Left))
+			slider.m_Value -= step;
+		if (Input::IsKeyPressed(Key::Right))
+			slider.m_Value += step;
+		slider.m_Value = glm::clamp(slider.m_Value, std::min(slider.m_MinValue, slider.m_MaxValue), std::max(slider.m_MinValue, slider.m_MaxValue));
+		slider.m_ChangedThisFrame |= std::abs(oldValue - slider.m_Value) > 0.0001f;
+		if (slider.m_ChangedThisFrame)
+		{
+			float value = slider.m_Value;
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUISlider, focusedEntity, Payload::Ref(value));
+		}
+	}
+
+	if (hoveredTarget.m_Entity != entt::null && hoveredTarget.m_Kind == UIControlKind::InputField)
+		m_Registry.get<UIInputFieldComponent>(hoveredTarget.m_Entity).m_Hovered = true;
+
+	if (focusedEntity && focusedEntity.HasComponent<UIInputFieldComponent>() && pointer.m_Active)
+	{
+		auto& inputField = focusedEntity.GetComponent<UIInputFieldComponent>();
+		capturedByUI = true;
+		const bool changed = AppendRuntimeTextInput(inputField.m_Text, inputField.m_MaxCharacters);
+		inputField.m_ChangedThisFrame = changed;
+		if (changed)
+		{
+			std::string_view textView(inputField.m_Text);
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIInputChanged, focusedEntity, Payload::Ref(textView));
+		}
+		if (Input::IsKeyPressed(Key::Enter) || Input::IsKeyPressed(Key::KPEnter))
+		{
+			inputField.m_SubmittedThisFrame = true;
+			std::string_view textView(inputField.m_Text);
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIInputSubmit, focusedEntity, Payload::Ref(textView));
+		}
+		Input::SetRuntimeInputCapturedByUI(true);
 	}
 }
 
@@ -1200,6 +1485,12 @@ void Scene::RenderUIOverlay()
 		const float z = static_cast<float>(index) * 0.001f;
 		const int entityId = static_cast<int>(entity);
 
+		if (m_Registry.any_of<UIPanelComponent>(entity))
+		{
+			const auto& panel = m_Registry.get<UIPanelComponent>(entity);
+			Renderer2D::DrawQuad(BuildUITransform(rect, transform, z + 0.0001f), panel.m_Color, entityId);
+		}
+
 		if (m_Registry.any_of<UIImageComponent>(entity))
 		{
 			const auto& image = m_Registry.get<UIImageComponent>(entity);
@@ -1227,6 +1518,86 @@ void Scene::RenderUIOverlay()
 			if (button.m_Focused && button.m_Interactable)
 				Renderer2D::DrawRect(BuildUITransform(rect, transform, z + 0.00045f), button.m_FocusColor, entityId);
 			DrawUIText(button.m_Text, button.m_Font, button.m_TextColor, button.m_FontSize, 0.0f, 0.0f, button.m_TextHorizontalAlignment, button.m_TextVerticalAlignment, rect, z + 0.0005f, entityId);
+		}
+
+		if (m_Registry.any_of<UIToggleComponent>(entity))
+		{
+			const auto& toggle = m_Registry.get<UIToggleComponent>(entity);
+			const float boxSize = std::min(rect.m_Size.y * 0.62f, 28.0f);
+			UIRect boxRect;
+			boxRect.m_Size = { boxSize, boxSize };
+			boxRect.m_Center = { rect.m_Min.x + 12.0f + boxSize * 0.5f, rect.m_Center.y };
+			boxRect.m_Min = boxRect.m_Center - boxRect.m_Size * 0.5f;
+			boxRect.m_Max = boxRect.m_Center + boxRect.m_Size * 0.5f;
+
+			glm::vec4 boxColor = toggle.m_Hovered || toggle.m_Focused ? glm::mix(toggle.m_BoxColor, toggle.m_HoveredColor, 0.6f) : toggle.m_BoxColor;
+			if (!toggle.m_Interactable)
+				boxColor.a *= 0.55f;
+
+			Renderer2D::DrawQuad(BuildUITransform(boxRect, transform, z + 0.00025f), boxColor, entityId);
+			Renderer2D::DrawRect(BuildUITransform(boxRect, transform, z + 0.00035f), toggle.m_CheckColor, entityId);
+			if (toggle.m_Checked)
+			{
+				UIRect checkRect = boxRect;
+				checkRect.m_Size = glm::max(boxRect.m_Size - glm::vec2(10.0f), glm::vec2(4.0f));
+				Renderer2D::DrawQuad(BuildUITransform(checkRect, transform, z + 0.00045f), toggle.m_CheckColor, entityId);
+			}
+
+			UIRect labelRect = rect;
+			labelRect.m_Min.x = boxRect.m_Max.x + 10.0f;
+			labelRect.m_Size.x = std::max(rect.m_Max.x - labelRect.m_Min.x, 1.0f);
+			labelRect.m_Center.x = labelRect.m_Min.x + labelRect.m_Size.x * 0.5f;
+			DrawUIText(toggle.m_Label, toggle.m_Font, toggle.m_TextColor, toggle.m_FontSize, 0.0f, 0.0f, UITextHorizontalAlignment::Left, UITextVerticalAlignment::Center, labelRect, z + 0.00055f, entityId);
+		}
+
+		if (m_Registry.any_of<UISliderComponent>(entity))
+		{
+			const auto& slider = m_Registry.get<UISliderComponent>(entity);
+			const float trackHeight = std::min(std::max(rect.m_Size.y * 0.22f, 6.0f), 14.0f);
+			UIRect trackRect = rect;
+			trackRect.m_Size.y = trackHeight;
+			trackRect.m_Center.y = rect.m_Center.y;
+			trackRect.m_Min.y = trackRect.m_Center.y - trackHeight * 0.5f;
+			trackRect.m_Max.y = trackRect.m_Center.y + trackHeight * 0.5f;
+			Renderer2D::DrawQuad(BuildUITransform(trackRect, transform, z + 0.00025f), slider.m_BackgroundColor, entityId);
+
+			const float normalized = NormalizeSliderValue(slider);
+			UIRect fillRect = trackRect;
+			fillRect.m_Size.x = std::max(trackRect.m_Size.x * normalized, 1.0f);
+			fillRect.m_Center.x = trackRect.m_Min.x + fillRect.m_Size.x * 0.5f;
+			fillRect.m_Max.x = fillRect.m_Min.x + fillRect.m_Size.x;
+			Renderer2D::DrawQuad(BuildUITransform(fillRect, transform, z + 0.00035f), slider.m_FillColor, entityId);
+
+			UIRect handleRect;
+			const float handleSize = std::min(std::max(rect.m_Size.y * 0.55f, 18.0f), 34.0f);
+			handleRect.m_Size = { handleSize, handleSize };
+			handleRect.m_Center = { glm::mix(trackRect.m_Min.x, trackRect.m_Max.x, normalized), trackRect.m_Center.y };
+			handleRect.m_Min = handleRect.m_Center - handleRect.m_Size * 0.5f;
+			handleRect.m_Max = handleRect.m_Center + handleRect.m_Size * 0.5f;
+			glm::vec4 handleColor = slider.m_Hovered || slider.m_Focused ? glm::mix(slider.m_HandleColor, slider.m_FillColor, 0.25f) : slider.m_HandleColor;
+			Renderer2D::DrawQuad(BuildUITransform(handleRect, transform, z + 0.0005f), handleColor, entityId);
+		}
+
+		if (m_Registry.any_of<UIInputFieldComponent>(entity))
+		{
+			const auto& inputField = m_Registry.get<UIInputFieldComponent>(entity);
+			const glm::vec4 backgroundColor = inputField.m_Focused ? inputField.m_FocusedColor : inputField.m_BackgroundColor;
+			Renderer2D::DrawQuad(BuildUITransform(rect, transform, z + 0.00025f), backgroundColor, entityId);
+			if (inputField.m_Focused || inputField.m_Hovered)
+				Renderer2D::DrawRect(BuildUITransform(rect, transform, z + 0.00035f), glm::vec4(0.35f, 0.62f, 0.88f, 0.95f), entityId);
+
+			const bool hasText = !inputField.m_Text.empty();
+			DrawUIText(hasText ? inputField.m_Text : inputField.m_Placeholder,
+				inputField.m_Font,
+				hasText ? inputField.m_TextColor : inputField.m_PlaceholderColor,
+				inputField.m_FontSize,
+				0.0f,
+				0.0f,
+				UITextHorizontalAlignment::Left,
+				UITextVerticalAlignment::Center,
+				rect,
+				z + 0.00055f,
+				entityId);
 		}
 
 		if (m_Registry.any_of<UITextComponent>(entity))
@@ -1261,6 +1632,18 @@ void Scene::RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities)
 		const auto& transform = m_Registry.get<UITransformComponent>(entity);
 		const UIRect rect = ResolveUIRect(*this, m_Registry, entity, viewportSize);
 		Renderer2D::DrawRect(BuildUITransform(rect, transform, -0.01f), glm::vec4(0.32f, 0.62f, 0.85f, 0.72f));
+		if (canvas.m_ShowSafeAreaInEditor)
+		{
+			const glm::vec4 insets = glm::clamp(canvas.m_SafeAreaInsets, glm::vec4(0.0f), glm::vec4(0.45f));
+			UIRect safeRect = rect;
+			safeRect.m_Min.x += rect.m_Size.x * insets.x;
+			safeRect.m_Max.x -= rect.m_Size.x * insets.z;
+			safeRect.m_Max.y -= rect.m_Size.y * insets.y;
+			safeRect.m_Min.y += rect.m_Size.y * insets.w;
+			safeRect.m_Size = glm::max(safeRect.m_Max - safeRect.m_Min, glm::vec2(1.0f));
+			safeRect.m_Center = safeRect.m_Min + safeRect.m_Size * 0.5f;
+			Renderer2D::DrawRect(BuildUITransform(safeRect, transform, -0.009f), glm::vec4(0.38f, 0.88f, 0.70f, 0.86f));
+		}
 	}
 
 	for (UUID selectedId : selectedEntities)
@@ -1316,6 +1699,11 @@ void Scene::OnComponentAdded<UICanvasComponent>(Entity entityIn, UICanvasCompone
 }
 
 template<>
+void Scene::OnComponentAdded<UIPanelComponent>(Entity entityIn, UIPanelComponent& component)
+{
+}
+
+template<>
 void Scene::OnComponentAdded<UIImageComponent>(Entity entityIn, UIImageComponent& component)
 {
 }
@@ -1327,6 +1715,21 @@ void Scene::OnComponentAdded<UITextComponent>(Entity entityIn, UITextComponent& 
 
 template<>
 void Scene::OnComponentAdded<UIButtonComponent>(Entity entityIn, UIButtonComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<UIToggleComponent>(Entity entityIn, UIToggleComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<UISliderComponent>(Entity entityIn, UISliderComponent& component)
+{
+}
+
+template<>
+void Scene::OnComponentAdded<UIInputFieldComponent>(Entity entityIn, UIInputFieldComponent& component)
 {
 }
 

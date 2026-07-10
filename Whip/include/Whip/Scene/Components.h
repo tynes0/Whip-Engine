@@ -159,8 +159,18 @@ struct UICanvasComponent
 	float m_ScaleFactor = 1.0f;
 	bool m_Visible = true;
 	bool m_ShowInEditor = true;
+	bool m_ShowSafeAreaInEditor = false;
+	glm::vec4 m_SafeAreaInsets{ 0.0f, 0.0f, 0.0f, 0.0f }; // left, top, right, bottom in normalized viewport space
 
 	static constexpr std::string_view ScriptStructName = "UICanvasComponent";
+};
+
+struct UIPanelComponent
+{
+	glm::vec4 m_Color{ 0.05f, 0.08f, 0.10f, 0.86f };
+	bool m_RaycastTarget = false;
+
+	static constexpr std::string_view ScriptStructName = "UIPanelComponent";
 };
 
 struct UIImageComponent
@@ -222,8 +232,73 @@ struct UIButtonComponent
 	bool m_Focused = false;
 	bool m_ClickedThisFrame = false;
 	bool m_SubmittedThisFrame = false;
+	std::string m_OnClickCallback;
 
 	static constexpr std::string_view ScriptStructName = "UIButtonComponent";
+};
+
+struct UIToggleComponent
+{
+	std::string m_Label = "Toggle";
+	AssetHandle m_Font = 0;
+	glm::vec4 m_BoxColor{ 0.10f, 0.14f, 0.17f, 1.0f };
+	glm::vec4 m_CheckColor{ 0.32f, 0.64f, 0.92f, 1.0f };
+	glm::vec4 m_TextColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+	glm::vec4 m_HoveredColor{ 0.18f, 0.28f, 0.36f, 1.0f };
+	float m_FontSize = 20.0f;
+	bool m_Checked = false;
+	bool m_Interactable = true;
+	bool m_RaycastTarget = true;
+	bool m_NavigationEnabled = true;
+	bool m_Hovered = false;
+	bool m_Pressed = false;
+	bool m_Focused = false;
+	bool m_ChangedThisFrame = false;
+	std::string m_OnValueChangedCallback;
+
+	static constexpr std::string_view ScriptStructName = "UIToggleComponent";
+};
+
+struct UISliderComponent
+{
+	float m_Value = 0.5f;
+	float m_MinValue = 0.0f;
+	float m_MaxValue = 1.0f;
+	glm::vec4 m_BackgroundColor{ 0.08f, 0.11f, 0.14f, 1.0f };
+	glm::vec4 m_FillColor{ 0.30f, 0.58f, 0.88f, 1.0f };
+	glm::vec4 m_HandleColor{ 0.92f, 0.96f, 1.0f, 1.0f };
+	bool m_Interactable = true;
+	bool m_RaycastTarget = true;
+	bool m_Hovered = false;
+	bool m_Pressed = false;
+	bool m_Focused = false;
+	bool m_ChangedThisFrame = false;
+	std::string m_OnValueChangedCallback;
+
+	static constexpr std::string_view ScriptStructName = "UISliderComponent";
+};
+
+struct UIInputFieldComponent
+{
+	std::string m_Text;
+	std::string m_Placeholder = "Enter text";
+	AssetHandle m_Font = 0;
+	glm::vec4 m_BackgroundColor{ 0.08f, 0.11f, 0.14f, 1.0f };
+	glm::vec4 m_FocusedColor{ 0.11f, 0.18f, 0.24f, 1.0f };
+	glm::vec4 m_TextColor{ 0.94f, 0.96f, 0.98f, 1.0f };
+	glm::vec4 m_PlaceholderColor{ 0.52f, 0.60f, 0.68f, 1.0f };
+	float m_FontSize = 20.0f;
+	int32_t m_MaxCharacters = 128;
+	bool m_Interactable = true;
+	bool m_RaycastTarget = true;
+	bool m_Hovered = false;
+	bool m_Focused = false;
+	bool m_SubmittedThisFrame = false;
+	bool m_ChangedThisFrame = false;
+	std::string m_OnSubmitCallback;
+	std::string m_OnValueChangedCallback;
+
+	static constexpr std::string_view ScriptStructName = "UIInputFieldComponent";
 };
 
 struct UIStackLayoutComponent
@@ -388,17 +463,17 @@ struct ComponentGroup {};
 
 using AllComponentsNoIDNoTagNoScript = ComponentGroup<TransformComponent,
 	SpriteRendererComponent, CircleRendererComponent, TextComponent, CameraComponent,
-	UITransformComponent, UICanvasComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent,
+	UITransformComponent, UICanvasComponent, UIPanelComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIToggleComponent, UISliderComponent, UIInputFieldComponent, UIStackLayoutComponent,
 	AnimatorComponent, Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent>;
 
 using AllComponentsNoIDNoTag = ComponentGroup<TransformComponent, SpriteRendererComponent,
 	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent,
-	UITransformComponent, UICanvasComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
+	UITransformComponent, UICanvasComponent, UIPanelComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIToggleComponent, UISliderComponent, UIInputFieldComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
 	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, HierarchyComponent, PrefabComponent>;
 
 using AllComponents = ComponentGroup<TransformComponent, SpriteRendererComponent,
 	CircleRendererComponent, TextComponent, CameraComponent, ScriptComponent,
-	UITransformComponent, UICanvasComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
+	UITransformComponent, UICanvasComponent, UIPanelComponent, UIImageComponent, UITextComponent, UIButtonComponent, UIToggleComponent, UISliderComponent, UIInputFieldComponent, UIStackLayoutComponent, AnimatorComponent, Rigidbody2DComponent,
 	BoxCollider2DComponent, CircleCollider2DComponent, AudioComponent, IDComponent, TagComponent, HierarchyComponent, PrefabComponent>;
 
 _WHIP_END
