@@ -533,118 +533,67 @@ void Scene::OnSimulationStop()
 void Scene::OnUpdateRuntime(Timestep ts)
 {
 	WHP_PROFILE_FUNCTION();
-	if(!m_IsPaused || m_StepFrames-- > 0)
+	OnUpdateRuntimeSystems(ts);
+	RenderRuntimeScene();
+}
+
+void Scene::OnUpdateRuntimeSystems(Timestep ts)
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_IsPaused && m_StepFrames-- <= 0)
+		return;
+
+	UpdateRuntimeUI();
+
 	{
-		UpdateRuntimeUI();
-
+		WHP_PROFILE_SCOPE("Script Update");
+		auto view = m_Registry.view<ScriptComponent>();
+		for (auto e : view)
 		{
-			WHP_PROFILE_SCOPE("Script Update");
-			// C# OnUpdate
-			auto view = m_Registry.view<ScriptComponent>();
-			for (auto e : view)
-			{
-				Entity ent = { e, this };
-				float f = ts;
-				ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUpdate, ent, Payload::Ref<float>(f));
-			}
-		}
-
-		// Physics
-		{
-			WHP_PROFILE_SCOPE("Physics Update");
-			m_PhysicsWorld.Update(ts);
-		}
-
-		// animations
-		{
-			WHP_PROFILE_SCOPE("Animators Update");
-			AnimationManager::Get().Update(ts);
-			UpdateAnimators(ts);
+			Entity ent = { e, this };
+			float f = ts;
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUpdate, ent, Payload::Ref<float>(f));
 		}
 	}
 
 	{
-		WHP_PROFILE_SCOPE("Renderer Update");
-		Camera* mainCamera = nullptr;
-		glm::mat4 cameraTransform;
-		{
-			auto group = m_Registry.group<TransformComponent>(entt::get<CameraComponent>);
-			for (auto entity : group)
-			{
-				auto [transform, cam] = group.get<TransformComponent, CameraComponent>(entity);
-				if (cam.m_Primary)
-				{
-					mainCamera = &cam.m_Camera;
-					cameraTransform = transform.GetTransform();
-					break;
-				}
-			}
-		}
-		if (mainCamera)
-		{
-			// sprites
-			Renderer2D::BeginScene(*mainCamera, cameraTransform);
-			{
-				auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
-				for (auto ent : view)
-				{
-					const auto& [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(ent);
-					Renderer2D::DrawSprite(transform.GetTransform(), sprite, static_cast<int>(ent));
-				}
-			}
-
-			// circles
-			{
-				auto view = m_Registry.view<TransformComponent, CircleRendererComponent>();
-				for (auto ent : view)
-				{
-					const auto& [transform, circle] = view.get<TransformComponent, CircleRendererComponent>(ent);
-
-					Renderer2D::DrawCircle(transform.GetTransform(), circle.m_Color, circle.m_Thickness, circle.m_Fade, static_cast<int>(ent));
-				}
-			}
-
-
-			// texts
-			{
-				auto view = m_Registry.view<TransformComponent, TextComponent>();
-				for (auto entity : view)
-				{
-					const auto& [transform, text] = view.get<TransformComponent, TextComponent>(entity);
-
-					Renderer2D::DrawString(text.m_TextString, transform.GetTransform(), text, static_cast<int>(entity));
-				}
-			}
-
-			Renderer2D::EndScene();
-		}
-		RenderUIOverlay();
+		WHP_PROFILE_SCOPE("Physics Update");
+		m_PhysicsWorld.Update(ts);
 	}
 
+	{
+		WHP_PROFILE_SCOPE("Animators Update");
+		AnimationManager::Get().Update(ts);
+		UpdateAnimators(ts);
+	}
 }
 
 void Scene::OnUpdateSimulation(Timestep ts, EditorCamera& cam)
 {
-	if (!m_IsPaused || m_StepFrames-- > 0)
-	{
-		{
-			// C# OnUpdate
-			auto view = m_Registry.view<ScriptComponent>();
-			for (auto e : view)
-			{
-				Entity ent = { e, this };
-				float f = ts;
-				ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUpdate, ent, Payload::Ref<float>(f));
-			}
-		}
+	OnUpdateSimulationSystems(ts);
+	RenderScene(cam);
+}
 
-		m_PhysicsWorld.Update(ts);
-		AnimationManager::Get().Update(ts);
-		UpdateAnimators(ts);
-		UpdateRuntimeUI();
+void Scene::OnUpdateSimulationSystems(Timestep ts)
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_IsPaused && m_StepFrames-- <= 0)
+		return;
+
+	{
+		auto view = m_Registry.view<ScriptComponent>();
+		for (auto e : view)
+		{
+			Entity ent = { e, this };
+			float f = ts;
+			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUpdate, ent, Payload::Ref<float>(f));
+		}
 	}
 
-	RenderScene(cam);
+	m_PhysicsWorld.Update(ts);
+	AnimationManager::Get().Update(ts);
+	UpdateAnimators(ts);
+	UpdateRuntimeUI();
 }
 
 void Scene::OnUpdateEditor(Timestep ts, EditorCamera& cam)
@@ -886,6 +835,60 @@ void Scene::RenderScene(EditorCamera& cam)
 	}
 
 	Renderer2D::EndScene();
+	RenderUIOverlay();
+}
+
+void Scene::RenderRuntimeScene()
+{
+	WHP_PROFILE_FUNCTION();
+	Camera* mainCamera = nullptr;
+	glm::mat4 cameraTransform;
+	{
+		auto group = m_Registry.group<TransformComponent>(entt::get<CameraComponent>);
+		for (auto entity : group)
+		{
+			auto [transform, cam] = group.get<TransformComponent, CameraComponent>(entity);
+			if (cam.m_Primary)
+			{
+				mainCamera = &cam.m_Camera;
+				cameraTransform = transform.GetTransform();
+				break;
+			}
+		}
+	}
+
+	if (mainCamera)
+	{
+		Renderer2D::BeginScene(*mainCamera, cameraTransform);
+		{
+			auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
+			for (auto entity : view)
+			{
+				const auto& [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
+				Renderer2D::DrawSprite(transform.GetTransform(), sprite, static_cast<int>(entity));
+			}
+		}
+
+		{
+			auto view = m_Registry.view<TransformComponent, CircleRendererComponent>();
+			for (auto entity : view)
+			{
+				const auto& [transform, circle] = view.get<TransformComponent, CircleRendererComponent>(entity);
+				Renderer2D::DrawCircle(transform.GetTransform(), circle.m_Color, circle.m_Thickness, circle.m_Fade, static_cast<int>(entity));
+			}
+		}
+
+		{
+			auto view = m_Registry.view<TransformComponent, TextComponent>();
+			for (auto entity : view)
+			{
+				const auto& [transform, text] = view.get<TransformComponent, TextComponent>(entity);
+				Renderer2D::DrawString(text.m_TextString, transform.GetTransform(), text, static_cast<int>(entity));
+			}
+		}
+
+		Renderer2D::EndScene();
+	}
 	RenderUIOverlay();
 }
 

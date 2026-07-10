@@ -36,7 +36,9 @@ public:
 	void OnSimulationStop();
 
 	void OnUpdateRuntime(Timestep ts);
+	void OnUpdateRuntimeSystems(Timestep ts);
 	void OnUpdateSimulation(Timestep ts, EditorCamera& cam);
+	void OnUpdateSimulationSystems(Timestep ts);
 	void OnUpdateEditor(Timestep ts, EditorCamera& cam);
 	void OnViewportResize(uint32_t width, uint32_t height);
 
@@ -66,6 +68,8 @@ public:
 	AnimatorRuntime* GetOrCreateAnimatorRuntime(Entity entityIn);
 	bool TryResolveUIRect(Entity entityIn, glm::vec2& center, glm::vec2& size);
 	bool ApplyUIRectTransform(Entity entityIn, const glm::vec2& center, const glm::vec2& size, float rotationDegrees);
+	void RenderScene(EditorCamera& cam);
+	void RenderRuntimeScene();
 	void RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities = {});
 
 	void OnRuntimeStart();
@@ -78,7 +82,6 @@ private:
 	void ClearAnimatorRuntimes();
 	void UpdateAnimators(Timestep ts);
 
-	void RenderScene(EditorCamera& cam);
 	void UpdateUILayouts();
 	void UpdateRuntimeUI();
 	void RenderUIOverlay();

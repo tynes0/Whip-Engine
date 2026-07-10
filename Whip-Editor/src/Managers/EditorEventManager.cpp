@@ -38,9 +38,9 @@ bool EditorEventManager::OnMouseButtonPressed(MouseButtonPressedEvent& event)
 
 			if (mouseX >= 0 && mouseY >= 0 && mouseX < static_cast<int>(viewportSize.x) && mouseY < static_cast<int>(viewportSize.y))
 			{
-				layer.m_Framebuffer->Bind();
-				const int pixelData = layer.m_Framebuffer->ReadPixel(1, mouseX, mouseY);
-				layer.m_Framebuffer->Unbind();
+				layer.m_SceneFramebuffer->Bind();
+				const int pixelData = layer.m_SceneFramebuffer->ReadPixel(1, mouseX, mouseY);
+				layer.m_SceneFramebuffer->Unbind();
 				hoveredEntity = pixelData == -1 ? Entity() : Entity(static_cast<entt::entity>(pixelData), layer.m_SceneManager.ActiveScene().get());
 			}
 

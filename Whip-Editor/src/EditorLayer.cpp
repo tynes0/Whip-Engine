@@ -12,6 +12,7 @@
 #include <Whip-Editor/Panels/ConsolePanel.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -20,6 +21,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <imgui.h>
@@ -40,6 +42,37 @@ _WHIP_START
 		Restore,
 		Close
 	};
+
+	struct GameViewResolutionPreset
+	{
+		const char* m_Name = "Free Aspect";
+		uint32_t m_Width = 0;
+		uint32_t m_Height = 0;
+	};
+
+	constexpr std::array<GameViewResolutionPreset, 11> s_GameViewResolutionPresets =
+	{ {
+		{ "Free Aspect", 0, 0 },
+		{ "HD 16:9 (1280 x 720)", 1280, 720 },
+		{ "Full HD 16:9 (1920 x 1080)", 1920, 1080 },
+		{ "Steam Deck (1280 x 800)", 1280, 800 },
+		{ "iPhone 12 (390 x 844)", 390, 844 },
+		{ "iPhone 12 Landscape (844 x 390)", 844, 390 },
+		{ "iPhone 15 Pro (393 x 852)", 393, 852 },
+		{ "Galaxy S24 (360 x 780)", 360, 780 },
+		{ "Galaxy S24 Landscape (780 x 360)", 780, 360 },
+		{ "Pixel 8 (412 x 915)", 412, 915 },
+		{ "iPad Portrait (820 x 1180)", 820, 1180 }
+	} };
+
+	glm::vec2 FitSizeToRegion(const glm::vec2& sourceSize, const glm::vec2& regionSize)
+	{
+		if (sourceSize.x <= 0.0f || sourceSize.y <= 0.0f || regionSize.x <= 0.0f || regionSize.y <= 0.0f)
+			return { 0.0f, 0.0f };
+
+		const float scale = glm::min(regionSize.x / sourceSize.x, regionSize.y / sourceSize.y);
+		return glm::floor(sourceSize * glm::max(scale, 0.0f));
+	}
 
 	bool DrawShellWindowControlButton(const char* id, ShellWindowControl control, ImVec2 size)
 	{
@@ -1360,7 +1393,8 @@ void EditorLayer::OnAttach()
     fbSpec.m_Attachments = { FramebufferTextureFormat::Rgba8, FramebufferTextureFormat::RedInteger, FramebufferTextureFormat::Depth };
     fbSpec.m_Width = Application::Get().GetWindow().GetWidth();
     fbSpec.m_Height = Application::Get().GetWindow().GetHeight();
-    m_Framebuffer = Framebuffer::Create(fbSpec);
+    m_SceneFramebuffer = Framebuffer::Create(fbSpec);
+	m_GameFramebuffer = Framebuffer::Create(fbSpec);
 
 	// scene
 	m_SceneManager.ResetToEmptyScene();
@@ -1421,6 +1455,144 @@ void EditorLayer::OnDetach()
 
 }
 
+glm::vec2 EditorLayer::GetGameViewRenderSize() const
+{
+	const int presetIndex = std::clamp(m_GameViewPresetIndex, 0, static_cast<int>(s_GameViewResolutionPresets.size()) - 1);
+	const GameViewResolutionPreset& preset = s_GameViewResolutionPresets[static_cast<size_t>(presetIndex)];
+	if (preset.m_Width > 0 && preset.m_Height > 0)
+		return { static_cast<float>(preset.m_Width), static_cast<float>(preset.m_Height) };
+
+	glm::vec2 freeSize = m_GameViewportSize;
+	if (m_GameViewAvailableSize.x > 1.0f && m_GameViewAvailableSize.y > 1.0f)
+		freeSize = m_GameViewAvailableSize;
+	else if (freeSize.x <= 1.0f || freeSize.y <= 1.0f)
+		freeSize = m_ViewportSize;
+	return glm::max(glm::floor(freeSize), glm::vec2(1.0f));
+}
+
+void EditorLayer::ResizeFramebufferIfNeeded(const Ref<Framebuffer>& framebuffer, const glm::vec2& size)
+{
+	if (!framebuffer)
+		return;
+
+	const uint32_t width = glm::max(static_cast<uint32_t>(size.x), 1u);
+	const uint32_t height = glm::max(static_cast<uint32_t>(size.y), 1u);
+	const FramebufferSpecification& spec = framebuffer->GetSpecification();
+	if (spec.m_Width != width || spec.m_Height != height)
+		framebuffer->Resize(width, height);
+}
+
+void EditorLayer::RenderGameView(Timestep ts)
+{
+	WHP_PROFILE_FUNCTION();
+	Ref<Scene> activeScene = m_SceneManager.ActiveScene();
+	if (!activeScene || !m_GameFramebuffer)
+		return;
+
+	m_GameRenderSize = GetGameViewRenderSize();
+	ResizeFramebufferIfNeeded(m_GameFramebuffer, m_GameRenderSize);
+
+	m_GameFramebuffer->Bind();
+	RenderCommand::SetClearColor({ 0.045f, 0.052f, 0.058f, 1.0f });
+	RenderCommand::Clear();
+	m_GameFramebuffer->ClearAttachment(1, -1);
+
+	activeScene->OnViewportResize(static_cast<uint32_t>(m_GameRenderSize.x), static_cast<uint32_t>(m_GameRenderSize.y));
+	switch (m_SceneManager.State())
+	{
+	case SceneState::Edit:
+		activeScene->RenderRuntimeScene();
+		break;
+	case SceneState::Play:
+		activeScene->OnUpdateRuntimeSystems(ts);
+		activeScene->RenderRuntimeScene();
+		m_SceneManager.ProcessRuntimeSceneTransition();
+		break;
+	case SceneState::Simulate:
+		activeScene->OnUpdateSimulationSystems(ts);
+		activeScene->RenderRuntimeScene();
+		m_SceneManager.ProcessRuntimeSceneTransition();
+		break;
+	}
+
+	m_GameFramebuffer->Unbind();
+}
+
+void EditorLayer::RenderSceneView(Timestep ts)
+{
+	WHP_PROFILE_FUNCTION();
+	Ref<Scene> activeScene = m_SceneManager.ActiveScene();
+	if (!activeScene || !m_SceneFramebuffer)
+		return;
+
+	const glm::vec2 sceneRenderSize = glm::max(glm::floor(m_ViewportSize), glm::vec2(1.0f));
+	ResizeFramebufferIfNeeded(m_SceneFramebuffer, sceneRenderSize);
+	m_EditorCamera.SetViewportSize(sceneRenderSize.x, sceneRenderSize.y);
+
+	m_SceneFramebuffer->Bind();
+	RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.0f });
+	RenderCommand::Clear();
+	m_SceneFramebuffer->ClearAttachment(1, -1);
+
+	activeScene->OnViewportResize(static_cast<uint32_t>(sceneRenderSize.x), static_cast<uint32_t>(sceneRenderSize.y));
+	if (m_ViewportFocused && !m_GizmoUsing)
+		m_EditorCamera.OnUpdate(ts);
+
+	DrawEditorGrid();
+	activeScene->RenderScene(m_EditorCamera);
+	OnOverlayRender();
+
+	m_SceneFramebuffer->Unbind();
+}
+
+void EditorLayer::DrawGameViewToolbar()
+{
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 4.0f));
+	ImGui::Dummy(ImVec2(8.0f, 0.0f));
+	ImGui::SameLine(0.0f, 0.0f);
+
+	const int presetIndex = std::clamp(m_GameViewPresetIndex, 0, static_cast<int>(s_GameViewResolutionPresets.size()) - 1);
+	const GameViewResolutionPreset& currentPreset = s_GameViewResolutionPresets[static_cast<size_t>(presetIndex)];
+	ImGui::SetNextItemWidth(260.0f);
+	if (ImGui::BeginCombo("##GameViewResolutionPreset", currentPreset.m_Name))
+	{
+		for (size_t i = 0; i < s_GameViewResolutionPresets.size(); ++i)
+		{
+			const bool selected = std::cmp_equal(m_GameViewPresetIndex, i);
+			if (ImGui::Selectable(s_GameViewResolutionPresets[i].m_Name, selected))
+			{
+				m_GameViewPresetIndex = static_cast<int>(i);
+				m_GameRenderSize = GetGameViewRenderSize();
+			}
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+		}
+		ImGui::EndCombo();
+	}
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Game render target resolution. Free Aspect follows the Game view image area.");
+
+	ImGui::SameLine();
+	ImGui::TextDisabled("%.0f x %.0f", m_GameRenderSize.x, m_GameRenderSize.y);
+
+	const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
+	ImGui::SameLine();
+	ImGui::TextColored(runtimeViewport ? ImVec4(0.52f, 0.86f, 0.62f, 1.0f) : ImVec4(0.58f, 0.66f, 0.74f, 1.0f), runtimeViewport ? "Live" : "Preview");
+
+	if (runtimeViewport)
+	{
+		ImGui::SameLine();
+		const char* cursorLabel = m_ViewportCursorMode == ViewportCursorMode::Game ? "Cursor: Game" : "Cursor: Editor";
+		if (ImGui::SmallButton(cursorLabel))
+			ToggleViewportCursorMode();
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Ctrl+Shift+M toggles whether Game view uses the runtime cursor mode.");
+	}
+
+	ImGui::PopStyleVar(2);
+}
+
 void EditorLayer::OnUpdate(Timestep ts)
 {
 	WHP_PROFILE_FUNCTION();
@@ -1440,63 +1612,9 @@ void EditorLayer::OnUpdate(Timestep ts)
 			m_SceneManager.WriteRecoverySnapshot("Autosave");
 	}
 
-	{
-		WHP_PROFILE_SCOPE("Viewport Size");
-		const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
-		glm::vec2 renderViewportSize = runtimeViewport ? m_GameViewportSize : m_ViewportSize;
-		if (renderViewportSize.x <= 0.0f || renderViewportSize.y <= 0.0f)
-			renderViewportSize = m_ViewportSize;
-		m_SceneManager.ActiveScene()->OnViewportResize(static_cast<uint32_t>(renderViewportSize.x), static_cast<uint32_t>(renderViewportSize.y));
-		if (FramebufferSpecification spec = m_Framebuffer->GetSpecification();
-			renderViewportSize.x > 0.0f &&
-			renderViewportSize.y > 0.0f &&
-			(spec.m_Width != static_cast<uint32_t>(renderViewportSize.x) || spec.m_Height != static_cast<uint32_t>(renderViewportSize.y)))
-		{
-			m_Framebuffer->Resize(static_cast<uint32_t>(renderViewportSize.x), static_cast<uint32_t>(renderViewportSize.y));
-			m_EditorCamera.SetViewportSize(renderViewportSize.x, renderViewportSize.y);
-		}
-	}
-
-	{
-		WHP_PROFILE_SCOPE("scene::OnUpdate");
-		Renderer2D::ResetStats();
-		m_Framebuffer->Bind();
-		RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.0f });
-		RenderCommand::Clear();
-
-		m_Framebuffer->ClearAttachment(1, -1);
-
-		switch (m_SceneManager.State())
-		{
-		case SceneState::Edit:
-		{
-			if (!m_GizmoUsing)
-				m_EditorCamera.OnUpdate(ts);
-			DrawEditorGrid();
-			m_SceneManager.ActiveScene()->OnUpdateEditor(ts, m_EditorCamera);
-			break;
-		}
-		case SceneState::Play:
-		{
-			m_SceneManager.ActiveScene()->OnUpdateRuntime(ts);
-			m_SceneManager.ProcessRuntimeSceneTransition();
-			break;
-		}
-		case SceneState::Simulate:
-		{
-			if (!m_GizmoUsing)
-				m_EditorCamera.OnUpdate(ts);
-			DrawEditorGrid();
-			m_SceneManager.ActiveScene()->OnUpdateSimulation(ts, m_EditorCamera);
-			m_SceneManager.ProcessRuntimeSceneTransition();
-			break;
-		}
-		}
-	}
-
-	OnOverlayRender();
-
-    m_Framebuffer->Unbind();
+	Renderer2D::ResetStats();
+	RenderGameView(ts);
+	RenderSceneView(ts);
 }
 
 _WHP_PRAGMA_WARNING(push)
@@ -1587,7 +1705,7 @@ void EditorLayer::OnImGuiRender()
 		ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
 		m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
 
-		UI::Image(UI::ToImGuiTextureId(m_Framebuffer->GetColorAttachmentRendererId()), viewportPanelSize, ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
+		UI::Image(UI::ToImGuiTextureId(m_SceneFramebuffer->GetColorAttachmentRendererId()), viewportPanelSize, ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
 		if (ImGui::BeginDragDropTarget())
 		{
 			bool handledDrop = false;
@@ -1788,18 +1906,28 @@ void EditorLayer::OnImGuiRender()
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.0f, 0.0f });
 		ImGui::Begin("Game");
-		const auto gameMinRegion = ImGui::GetWindowContentRegionMin();
-		const auto gameMaxRegion = ImGui::GetWindowContentRegionMax();
-		const auto gameOffset = ImGui::GetWindowPos();
-		m_GameViewportBounds[0] = { gameMinRegion.x + gameOffset.x, gameMinRegion.y + gameOffset.y };
-		m_GameViewportBounds[1] = { gameMaxRegion.x + gameOffset.x, gameMaxRegion.y + gameOffset.y };
 		m_GameViewportFocused = ImGui::IsWindowFocused();
-		m_GameViewportHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+		DrawGameViewToolbar();
+		ImGui::Separator();
 		const ImVec2 gamePanelSize = ImGui::GetContentRegionAvail();
-		m_GameViewportSize = { glm::max(gamePanelSize.x, 1.0f), glm::max(gamePanelSize.y, 1.0f) };
+		const glm::vec2 gameRegionSize{ glm::max(gamePanelSize.x, 1.0f), glm::max(gamePanelSize.y, 1.0f) };
+		m_GameViewAvailableSize = gameRegionSize;
+		const glm::vec2 imageSize = FitSizeToRegion(m_GameRenderSize, gameRegionSize);
+		const ImVec2 imageOffset{
+			glm::max((gamePanelSize.x - imageSize.x) * 0.5f, 0.0f),
+			glm::max((gamePanelSize.y - imageSize.y) * 0.5f, 0.0f)
+		};
+		const ImVec2 imageCursor = ImGui::GetCursorPos();
+		ImGui::SetCursorPos(ImVec2(imageCursor.x + imageOffset.x, imageCursor.y + imageOffset.y));
+		if (imageSize.x > 0.0f && imageSize.y > 0.0f)
+			UI::Image(UI::ToImGuiTextureId(m_GameFramebuffer->GetColorAttachmentRendererId()), ImVec2(imageSize.x, imageSize.y), ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
 
-		if (gamePanelSize.x > 0.0f && gamePanelSize.y > 0.0f)
-			UI::Image(UI::ToImGuiTextureId(m_Framebuffer->GetColorAttachmentRendererId()), gamePanelSize, ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
+		const ImVec2 imageMin = ImGui::GetItemRectMin();
+		const ImVec2 imageMax = ImGui::GetItemRectMax();
+		m_GameViewportBounds[0] = { imageMin.x, imageMin.y };
+		m_GameViewportBounds[1] = { imageMax.x, imageMax.y };
+		m_GameViewportSize = { glm::max(imageSize.x, 1.0f), glm::max(imageSize.y, 1.0f) };
+		m_GameViewportHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
 
 		const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
 		if (runtimeViewport)
@@ -1845,7 +1973,7 @@ _WHP_PRAGMA_WARNING(pop)
 
 void EditorLayer::OnEvent(Event& event)
 {
-	if (m_SceneManager.State() == SceneState::Edit && m_ViewportHovered && !m_GizmoHovered && !m_GizmoUsing && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
+	if (m_ViewportHovered && !m_GizmoHovered && !m_GizmoUsing && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
 		m_EditorCamera.OnEvent(event);
     EventDispatcher dispatcher(event);
     dispatcher.Dispatch<KeyPressedEvent>([this]<typename... T0>(T0&&... args) -> decltype(auto) { return m_EventManager.OnKeyPressed(std::forward<T0>(args)...); });
@@ -2708,17 +2836,7 @@ void EditorLayer::DrawEditorGrid()
 void EditorLayer::OnOverlayRender()
 {
 	WHP_PROFILE_FUNCTION();
-	if (m_SceneManager.State() == SceneState::Play)
-	{
-		Entity cam = m_SceneManager.ActiveScene()->GetPrimaryCameraEntity();
-		if (!cam)
-			return;
-		Renderer2D::BeginScene(cam.GetComponent<CameraComponent>().m_Camera, cam.GetComponent<TransformComponent>().GetTransform());
-	}
-	else
-	{
-		Renderer2D::BeginScene(m_EditorCamera);
-	}
+	Renderer2D::BeginScene(m_EditorCamera);
 
 	if (m_UISettings.GetShowPhysicsColliders())
 	{

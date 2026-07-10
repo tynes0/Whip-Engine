@@ -75,6 +75,11 @@ private:
 	bool ApplyAssistantProposal(const Assistant::ToolProposal& proposal);
 	void UpdateViewportCursorMode();
 	bool ToggleViewportCursorMode();
+	glm::vec2 GetGameViewRenderSize() const;
+	void ResizeFramebufferIfNeeded(const Ref<Framebuffer>& framebuffer, const glm::vec2& size);
+	void RenderSceneView(Timestep ts);
+	void RenderGameView(Timestep ts);
+	void DrawGameViewToolbar();
 
 	void UIToolbar();
 	Timestep m_Ts;
@@ -89,9 +94,12 @@ private:
 	bool m_ViewportFocused = false;
 	glm::vec2 m_GameViewportBounds[2]{};
 	glm::vec2 m_GameViewportSize = { 1.0f, 1.0f };
+	glm::vec2 m_GameViewAvailableSize = { 1.0f, 1.0f };
 	bool m_GameViewportHovered = false;
 	bool m_GameViewportFocused = false;
 	ViewportCursorMode m_ViewportCursorMode = ViewportCursorMode::Game;
+	int m_GameViewPresetIndex = 0;
+	glm::vec2 m_GameRenderSize = { 1280.0f, 720.0f };
 
 	// entity
 	Entity m_HoveredEntity;
@@ -121,7 +129,8 @@ private:
 	char m_CommandPaletteFilter[128]{ 0 };
 
 	// framebuffer
-	Ref<Framebuffer> m_Framebuffer;
+	Ref<Framebuffer> m_SceneFramebuffer;
+	Ref<Framebuffer> m_GameFramebuffer;
 
 	// gizmo
 	int m_GizmoType = -1;
