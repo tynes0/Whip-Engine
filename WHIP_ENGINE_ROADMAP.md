@@ -1,15 +1,40 @@
 # Whip Engine Roadmap
 
-This note captures the engine/editor/runtime work after the first stability pass.
+This note captures the engine/editor/runtime work after the first stability pass and the first authoring/runtime foundation passes.
 
 ## Current Baseline
 
 - Primary supported development target is Windows x64.
 - Primary renderer backend is OpenGL 4.5.
 - Editor is the main executable for authoring projects.
-- There is no complete end-user game export pipeline yet.
+- A first Windows player/export path exists, but packaging polish and platform expansion are still active roadmap work.
 - Android is a desired product target, especially for 2D games.
-- The old F-Box test project/target should be repurposed into the first Whip Player runtime instead of remaining as an unrelated sample game.
+- `Whip-Player` is the first runtime player target.
+- The editor now separates authoring and gameplay presentation through Scene View and Game View.
+- Runtime UI exists as a first-pass component system and now needs deeper UX, layout, and event polish.
+
+## Current Roadmap Position
+
+Whip is currently between the first Windows authoring/runtime foundation pass and the next UI/input/platform pass.
+
+- Done enough to build on:
+  - Windows editor stability pass.
+  - Windows player/export first pass.
+  - Asset pipeline first pass.
+  - Project Health / validation first pass.
+  - Runtime UI component first pass.
+  - Scene View / Game View separation first pass.
+- Current active focus:
+  - Make UI authoring feel like a real game engine workflow.
+  - Harden Game View, resolution presets, and runtime input behavior.
+  - Continue polishing editor UX and panel/layout consistency.
+- Next major engineering arc:
+  - Platform abstraction.
+  - Input/cursor/pointer system.
+  - Runtime UI editor and canvas workflow.
+  - Save/load.
+  - OpenGL ES readiness.
+  - Android player/export prototype.
 
 ## Completed Checkpoint
 
@@ -30,18 +55,65 @@ This note captures the engine/editor/runtime work after the first stability pass
 - Improved create-animation-from-selection for parent spritesheets and sub-sprites.
 - Improved texture editor sprite management with normalize, duplicate, and reorder controls.
 
+### 3. Build / Export And Player First Pass
+
+- Added the first `Whip-Player` runtime target.
+- Added build/export panel foundations.
+- Added Windows build configuration/output controls.
+- Added project health gate integration for export.
+- Added script build and runtime dependency copy flow for exported builds.
+- Added debug/release-oriented export settings groundwork.
+
+### 4. Validation First Pass
+
+- Added Project Health panel.
+- Added scene/project validation checks for common broken states.
+- Added export gating hooks for validation errors and warnings.
+- Added shortcuts for physics collider visibility and editor grid visibility.
+
+### 5. Runtime UI First Pass
+
+- Added runtime UI components:
+  - UI Transform
+  - Canvas
+  - Image
+  - Text
+  - Button
+  - Stack Layout
+- Added UI runtime rendering and basic interaction flow.
+- Added inspector editing for UI components.
+- Added default text alignment controls for text and buttons.
+- Added UI gizmo behavior based on UI Transform instead of world Transform.
+
+### 6. Scene View / Game View First Pass
+
+- Split editor presentation into:
+  - Scene View: editor camera, grid, gizmos, picking, drag/drop, debug overlays.
+  - Game View: primary camera output, runtime UI, runtime input target.
+- Added separate scene and game framebuffers.
+- Added Game View resolution presets:
+  - Free Aspect
+  - HD / Full HD
+  - Steam Deck
+  - iPhone presets
+  - Galaxy S24 presets
+  - Pixel / iPad presets
+- Routed runtime cursor behavior through Game View instead of Scene View.
+- Kept entity picking tied to Scene View only.
+
 ## Priority Roadmap
 
 ### 1. Build / Export Pipeline And Whip Player Runtime
 
-This is the highest priority because it answers the core user question: "I made a game, now how do I ship it?"
+Status: first pass implemented, polish and packaging hardening remain.
 
-- Convert the old F-Box target into `Whip-Player`.
-- Keep `Whip-Player` runtime-only: no editor panels, no editor-only dependencies.
-- Load a project or packaged manifest from command-line arguments.
-- Load the configured start scene automatically.
-- Build scripts before export and copy the script outputs.
-- Copy or package runtime assets, engine resources, Mono runtime files, and script assemblies.
+This is still important because it answers the core user question: "I made a game, now how do I ship it?"
+
+- Keep hardening `Whip-Player` as runtime-only: no editor panels, no editor-only dependencies.
+- Harden project/package loading from command-line arguments.
+- Harden automatic configured start scene loading.
+- Harden script build before export and script output copy.
+- Harden copy/package flow for runtime assets, engine resources, Mono runtime files, and script assemblies.
 - Add editor build settings:
   - target platform
   - build configuration
@@ -62,6 +134,8 @@ This is the highest priority because it answers the core user question: "I made 
 
 ### 2. Asset Pipeline
 
+Status: first pass implemented, ongoing polish.
+
 This is one of the most-used editor areas and should stay polished while export/runtime work starts.
 
 - Polish the texture and sprite editors.
@@ -81,9 +155,14 @@ This is one of the most-used editor areas and should stay polished while export/
 
 ### 3. Editor UX And Panel System
 
+Status: partially implemented, still active.
+
 This keeps the editor feeling professional instead of like a pile of useful tools.
 
 - Polish panel layout, docking, floating, minimize, fullscreen, and restore behavior.
+- Keep Scene View and Game View distinct:
+  - Scene View for authoring.
+  - Game View for primary camera output, runtime input, and device presets.
 - Do one final pass over shortcut focus, scope, conflicts, and settings UX.
 - Improve hierarchy multi-select.
 - Improve hierarchy duplicate, delete, rename, grouping, and reordering.
@@ -124,6 +203,8 @@ This is critical for actually making games that feel good.
 - Add scene tools that make collider authoring less manual.
 
 ### 6. Validation System
+
+Status: first pass implemented, ongoing expansion.
 
 Validation gives the editor a big quality jump and prevents broken exports.
 
@@ -174,6 +255,8 @@ This unlocks Windows/Linux/Android work without spreading platform checks throug
 
 ### 9. Input And Cursor Runtime System
 
+Status: viewport cursor split first pass implemented, unified pointer/action system still pending.
+
 This is needed before Android and before polished desktop games.
 
 - Add a unified pointer API:
@@ -192,6 +275,8 @@ This is needed before Android and before polished desktop games.
   - set cursor image/state
   - platform fallback cursor shapes
 - Add runtime input mapping for game actions.
+- Keep Game View as the canonical runtime input surface in editor play mode.
+- Add device-aware input testing for mobile presets.
 
 ### 10. Save / Load Runtime System
 
@@ -208,16 +293,25 @@ This is needed for real games and especially mobile.
 
 ### 11. Runtime UI System
 
+Status: first pass implemented, now entering real authoring/editor workflow phase.
+
 Editor ImGui is not a game UI solution. Whip needs a runtime UI layer.
 
-- Add Canvas.
-- Add Image, Text, Button, Toggle, Slider, Panel.
-- Add anchors and basic layout.
-- Add screen-space UI first.
+- Harden Canvas, Image, Text, Button, and layout behavior.
+- Add Toggle, Slider, Panel, Input Field, and layout containers.
+- Improve anchors, pivot, stretch, layout, scaling, safe area, and resolution behavior.
+- Continue screen-space UI first.
 - Add world-space UI later.
 - Connect UI events to mouse/touch input.
 - Add script callbacks for UI interaction.
 - Add UI asset/component editing in the editor.
+- Add a proper UI authoring mode:
+  - canvas outline
+  - selected UI bounds
+  - UI-specific gizmos
+  - responsive preview
+  - Game View preset preview
+  - safe area overlays for phones
 
 ### 12. Renderer OpenGL ES Readiness
 
@@ -268,25 +362,27 @@ Do this after shipping/export foundations are real.
 
 ## Recommended Execution Order
 
-1. Build / Export Pipeline And Whip Player Runtime.
-2. Asset Pipeline.
-3. Editor UX And Panel System.
-4. Animation Runtime Control.
-5. Physics And Character Feel.
-6. Validation System.
-7. Project And Templates.
-8. Platform Abstraction Foundation.
-9. Input And Cursor Runtime System.
-10. Save / Load Runtime System.
-11. Runtime UI System.
-12. Renderer OpenGL ES Readiness.
-13. Android Player / Export Prototype.
+1. Finish Runtime UI authoring polish around Canvas, Game View presets, safe areas, and UI event behavior.
+2. Finalize Scene View / Game View UX, including toolbar polish and device preview workflows.
+3. Finish shortcut/focus/layout polish in editor panels.
+4. Expand input and cursor runtime system into a real pointer/action abstraction.
+5. Add Save / Load runtime system.
+6. Start Platform Abstraction Foundation.
+7. Prepare Renderer OpenGL ES readiness.
+8. Build Android Player / Export prototype.
+9. Continue Build / Export hardening for Windows packaging.
+10. Continue Asset Pipeline polish as needed.
+11. Animation Runtime Control debug/validation pass.
+12. Physics And Character Feel, including CapsuleCollider2D.
+13. Project/Templates polish.
 14. Linux Desktop Port.
 15. Long-term renderer backend work.
 
 ## First Implementation Milestone
 
-Start with the Windows export path:
+Status: first pass completed.
+
+The first milestone was the Windows export path:
 
 1. Rename or repurpose F-Box into `Whip-Player`.
 2. Make `Whip-Player` accept a project/package path.
@@ -296,3 +392,15 @@ Start with the Windows export path:
 6. Export a playable Windows folder.
 
 This gives Whip a real "make game -> ship game" loop before Android work begins.
+
+## Next Implementation Milestone
+
+Move from "runtime UI exists" to "runtime UI can be authored comfortably":
+
+1. Create a clearer UI authoring mode on top of Scene View and Game View.
+2. Add Canvas-specific editor overlays.
+3. Add safe area and device preview overlays to Game View presets.
+4. Harden UI scaling behavior across Free Aspect, desktop, and phone presets.
+5. Add missing UI controls: Toggle, Slider, Panel, Input Field.
+6. Add script-facing UI callbacks and helper APIs.
+7. Add touch/pointer groundwork so the same UI stack can move toward Android.
