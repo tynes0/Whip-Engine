@@ -381,27 +381,33 @@ namespace
 			return;
 		}
 
-		const float diameter = safeRadius * 2.0f;
-		const glm::vec2 cornerSize{ diameter, diameter };
-		const glm::vec2 cornerCenters[] =
+		const float middleHeight = std::max(rect.m_Size.y - safeRadius * 2.0f, 0.0f);
+		if (middleHeight > 0.0f)
+			Renderer2D::DrawQuad(BuildUISubTransform(rect, MakeUIRect(rect.m_Center, { rect.m_Size.x, middleHeight }), transform, z), color, entityId);
+
+		const int segments = std::clamp(static_cast<int>(std::ceil(safeRadius)), 12, 48);
+		const float stripHeight = safeRadius / static_cast<float>(segments);
+		const float stripOverlap = 0.75f;
+		const float bottomCenterY = rect.m_Min.y + safeRadius;
+
+		for (int i = 0; i < segments; ++i)
 		{
-			{ rect.m_Min.x + safeRadius, rect.m_Min.y + safeRadius },
-			{ rect.m_Max.x - safeRadius, rect.m_Min.y + safeRadius },
-			{ rect.m_Min.x + safeRadius, rect.m_Max.y - safeRadius },
-			{ rect.m_Max.x - safeRadius, rect.m_Max.y - safeRadius }
-		};
+			const float y0 = rect.m_Min.y + static_cast<float>(i) * stripHeight;
+			const float y1 = rect.m_Min.y + static_cast<float>(i + 1) * stripHeight;
+			const float y = (y0 + y1) * 0.5f;
+			const float dy = y - bottomCenterY;
+			const float halfWidth = std::sqrt(std::max(safeRadius * safeRadius - dy * dy, 0.0f));
+			const float inset = safeRadius - halfWidth;
+			const float width = std::max(rect.m_Size.x - inset * 2.0f, 0.0f);
+			if (width <= 0.0f)
+				continue;
 
-		for (const glm::vec2& cornerCenter : cornerCenters)
-			Renderer2D::DrawCircle(BuildUISubTransform(rect, MakeUIRect(cornerCenter, cornerSize), transform, z), color, 1.0f, 0.005f, entityId);
+			const float visibleStripHeight = stripHeight + stripOverlap;
+			Renderer2D::DrawQuad(BuildUISubTransform(rect, MakeUIRect({ rect.m_Center.x, y }, { width, visibleStripHeight }), transform, z), color, entityId);
 
-		const UIRect horizontal = MakeUIRect(rect.m_Center, { std::max(rect.m_Size.x - diameter, 0.0f), rect.m_Size.y });
-		const UIRect vertical = MakeUIRect(rect.m_Center, { rect.m_Size.x, std::max(rect.m_Size.y - diameter, 0.0f) });
-		const float coverZ = z + 0.00001f;
-
-		if (horizontal.m_Size.x > 0.0f && horizontal.m_Size.y > 0.0f)
-			Renderer2D::DrawQuad(BuildUISubTransform(rect, horizontal, transform, coverZ), color, entityId);
-		if (vertical.m_Size.x > 0.0f && vertical.m_Size.y > 0.0f)
-			Renderer2D::DrawQuad(BuildUISubTransform(rect, vertical, transform, coverZ + 0.00001f), color, entityId);
+			const float topY = rect.m_Max.y - (y - rect.m_Min.y);
+			Renderer2D::DrawQuad(BuildUISubTransform(rect, MakeUIRect({ rect.m_Center.x, topY }, { width, visibleStripHeight }), transform, z), color, entityId);
+		}
 	}
 
 	void DrawUIStyledRect(const UIRect& rect, const UITransformComponent& transform, float z, const glm::vec4& fillColor, int entityId, float radius, float borderThickness = 0.0f, const glm::vec4& borderColor = glm::vec4(0.0f))
