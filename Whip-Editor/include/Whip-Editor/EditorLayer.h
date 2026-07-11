@@ -76,11 +76,16 @@ private:
 	void UpdateViewportCursorMode();
 	bool ToggleViewportCursorMode();
 	glm::vec2 GetGameViewRenderSize() const;
+	glm::vec2 GetCanvasViewRenderSize() const;
 	void ResizeFramebufferIfNeeded(const Ref<Framebuffer>& framebuffer, const glm::vec2& size);
 	void RenderSceneView(Timestep ts);
 	void RenderGameView(Timestep ts);
+	void RenderUICanvasView(Timestep ts);
 	void DrawGameViewToolbar();
+	void DrawUICanvasViewToolbar();
 	void DrawGameViewSafeAreaOverlay(const glm::vec2& imageMin, const glm::vec2& imageMax);
+	bool DrawUITransformGizmo(const glm::vec2& boundsMin, const glm::vec2& boundsMax, const glm::vec2& surfaceSize);
+	Entity ResolveActiveUICanvas() const;
 
 	void UIToolbar();
 	Timestep m_Ts;
@@ -98,9 +103,16 @@ private:
 	glm::vec2 m_GameViewAvailableSize = { 1.0f, 1.0f };
 	bool m_GameViewportHovered = false;
 	bool m_GameViewportFocused = false;
+	glm::vec2 m_UICanvasViewportBounds[2]{};
+	glm::vec2 m_UICanvasViewportSize = { 1.0f, 1.0f };
+	glm::vec2 m_UICanvasViewAvailableSize = { 1.0f, 1.0f };
+	bool m_UICanvasViewportHovered = false;
+	bool m_UICanvasViewportFocused = false;
+	bool m_UICanvasViewOpen = true;
 	ViewportCursorMode m_ViewportCursorMode = ViewportCursorMode::Game;
 	int m_GameViewPresetIndex = 0;
 	glm::vec2 m_GameRenderSize = { 1280.0f, 720.0f };
+	glm::vec2 m_UICanvasRenderSize = { 1280.0f, 720.0f };
 	bool m_UIEditorMode = true;
 	bool m_GameViewSafeAreaPreview = true;
 
@@ -134,6 +146,7 @@ private:
 	// framebuffer
 	Ref<Framebuffer> m_SceneFramebuffer;
 	Ref<Framebuffer> m_GameFramebuffer;
+	Ref<Framebuffer> m_UICanvasFramebuffer;
 
 	// gizmo
 	int m_GizmoType = -1;

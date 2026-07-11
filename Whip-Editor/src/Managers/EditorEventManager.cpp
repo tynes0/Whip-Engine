@@ -25,7 +25,31 @@ bool EditorEventManager::OnMouseButtonPressed(MouseButtonPressedEvent& event)
 	if (event.GetMouseButton() == Mouse::ButtonLeft)
 	{
 		EditorLayer& layer = GetLayer();
-		if (layer.m_ViewportHovered && !layer.m_GizmoHovered && !layer.m_GizmoUsing && !Input::IsKeyDown(Key::LeftAlt) && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
+		if (layer.m_UICanvasViewportHovered && layer.m_UICanvasFramebuffer && !layer.m_GizmoHovered && !layer.m_GizmoUsing && !Input::IsKeyDown(Key::LeftAlt) && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
+		{
+			Entity hoveredEntity;
+			auto [mx, my] = ImGui::GetMousePos();
+			mx -= layer.m_UICanvasViewportBounds[0].x;
+			my -= layer.m_UICanvasViewportBounds[0].y;
+			const glm::vec2 viewportSize = layer.m_UICanvasViewportBounds[1] - layer.m_UICanvasViewportBounds[0];
+			const float renderScaleX = layer.m_UICanvasRenderSize.x / glm::max(viewportSize.x, 1.0f);
+			const float renderScaleY = layer.m_UICanvasRenderSize.y / glm::max(viewportSize.y, 1.0f);
+			const int mouseX = static_cast<int>(mx * renderScaleX);
+			const int mouseY = static_cast<int>((viewportSize.y - my) * renderScaleY);
+
+			if (mouseX >= 0 && mouseY >= 0 && mouseX < static_cast<int>(layer.m_UICanvasRenderSize.x) && mouseY < static_cast<int>(layer.m_UICanvasRenderSize.y))
+			{
+				layer.m_UICanvasFramebuffer->Bind();
+				const int pixelData = layer.m_UICanvasFramebuffer->ReadPixel(1, mouseX, mouseY);
+				layer.m_UICanvasFramebuffer->Unbind();
+				hoveredEntity = pixelData == -1 ? Entity() : Entity(static_cast<entt::entity>(pixelData), layer.m_SceneManager.ActiveScene().get());
+			}
+
+			layer.m_HoveredEntity = hoveredEntity;
+			const bool append = EditorUtils::IsControlDown();
+			layer.m_SceneHierarchyPanel.SetSelectedEntity(hoveredEntity, append);
+		}
+		else if (layer.m_ViewportHovered && !layer.m_GizmoHovered && !layer.m_GizmoUsing && !Input::IsKeyDown(Key::LeftAlt) && Application::Get().GetImGuiLayer()->GetActiveWidgetID() == 0)
 		{
 			Entity hoveredEntity;
 			auto [mx, my] = ImGui::GetMousePos();

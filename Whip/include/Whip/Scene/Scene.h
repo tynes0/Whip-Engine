@@ -68,8 +68,9 @@ public:
 	AnimatorRuntime* GetOrCreateAnimatorRuntime(Entity entityIn);
 	bool TryResolveUIRect(Entity entityIn, glm::vec2& center, glm::vec2& size);
 	bool ApplyUIRectTransform(Entity entityIn, const glm::vec2& center, const glm::vec2& size, float rotationDegrees);
-	void RenderScene(EditorCamera& cam, bool renderUIOverlay = true);
+	void RenderScene(EditorCamera& cam, bool renderUIOverlay = true, bool editorUIVisibility = false);
 	void RenderRuntimeScene();
+	void RenderUIOnly(bool editorUIVisibility = false, const std::vector<UUID>& selectedEntities = {});
 	void RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities = {});
 
 	void OnRuntimeStart();
@@ -84,7 +85,7 @@ private:
 
 	void UpdateUILayouts();
 	void UpdateRuntimeUI();
-	void RenderUIOverlay();
+	void RenderUIOverlay(bool editorUIVisibility = false);
 
 	template<class T>
 	void OnComponentAdded(Entity entityIn, T& component);

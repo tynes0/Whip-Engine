@@ -226,12 +226,23 @@ namespace
 		return ResolveUIScale(scene, registry, static_cast<entt::entity>(parent), viewportSize, depth + 1);
 	}
 
-	bool IsUIBranchVisible(Scene& scene, entt::registry& registry, entt::entity entity, uint32_t depth = 0)
+	bool IsUIBranchVisible(Scene& scene, entt::registry& registry, entt::entity entity, bool editorVisibility = false, uint32_t depth = 0)
 	{
 		if (registry.any_of<UITransformComponent>(entity) && !registry.get<UITransformComponent>(entity).m_Visible)
 			return false;
-		if (registry.any_of<UICanvasComponent>(entity) && !registry.get<UICanvasComponent>(entity).m_Visible)
-			return false;
+		if (registry.any_of<UICanvasComponent>(entity))
+		{
+			const auto& canvas = registry.get<UICanvasComponent>(entity);
+			if (editorVisibility)
+			{
+				if (!canvas.m_ShowInEditor)
+					return false;
+			}
+			else if (!canvas.m_Visible)
+			{
+				return false;
+			}
+		}
 		if (depth >= 32 || !registry.any_of<HierarchyComponent>(entity))
 			return true;
 
@@ -243,7 +254,7 @@ namespace
 		if (!parent)
 			return true;
 
-		return IsUIBranchVisible(scene, registry, static_cast<entt::entity>(parent), depth + 1);
+		return IsUIBranchVisible(scene, registry, static_cast<entt::entity>(parent), editorVisibility, depth + 1);
 	}
 
 	UIRect BuildUIRect(const UITransformComponent& transform, const glm::vec2& containerMin, const glm::vec2& containerSize, float uiScale)
@@ -1007,7 +1018,7 @@ void Scene::UpdateAnimators(Timestep ts)
 	}
 }
 
-void Scene::RenderScene(EditorCamera& cam, bool renderUIOverlay)
+void Scene::RenderScene(EditorCamera& cam, bool renderUIOverlay, bool editorUIVisibility)
 {
 	WHP_PROFILE_FUNCTION();
 	Renderer2D::BeginScene(cam);
@@ -1047,7 +1058,7 @@ void Scene::RenderScene(EditorCamera& cam, bool renderUIOverlay)
 
 	Renderer2D::EndScene();
 	if (renderUIOverlay)
-		RenderUIOverlay();
+		RenderUIOverlay(editorUIVisibility);
 }
 
 void Scene::RenderRuntimeScene()
@@ -1102,6 +1113,14 @@ void Scene::RenderRuntimeScene()
 		Renderer2D::EndScene();
 	}
 	RenderUIOverlay();
+}
+
+void Scene::RenderUIOnly(bool editorUIVisibility, const std::vector<UUID>& selectedEntities)
+{
+	WHP_PROFILE_FUNCTION();
+	RenderUIOverlay(editorUIVisibility);
+	if (editorUIVisibility)
+		RenderUIOverlayDebug(selectedEntities);
 }
 
 void Scene::UpdateRuntimeUI()
@@ -1557,7 +1576,7 @@ void Scene::UpdateUILayouts()
 	}
 }
 
-void Scene::RenderUIOverlay()
+void Scene::RenderUIOverlay(bool editorUIVisibility)
 {
 	WHP_PROFILE_FUNCTION();
 	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
@@ -1571,7 +1590,7 @@ void Scene::RenderUIOverlay()
 		for (auto entity : view)
 		{
 			const auto& transform = view.get<UITransformComponent>(entity);
-			if (transform.m_Visible && IsUIBranchVisible(*this, m_Registry, entity))
+			if (transform.m_Visible && IsUIBranchVisible(*this, m_Registry, entity, editorUIVisibility))
 				items.push_back({ entity, transform.m_SortOrder });
 		}
 	}
@@ -1739,7 +1758,7 @@ void Scene::RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities)
 	for (auto entity : canvasView)
 	{
 		const auto& canvas = m_Registry.get<UICanvasComponent>(entity);
-		if (!canvas.m_ShowInEditor || !canvas.m_Visible || !IsUIBranchVisible(*this, m_Registry, entity))
+		if (!canvas.m_ShowInEditor || !IsUIBranchVisible(*this, m_Registry, entity, true))
 			continue;
 
 		const auto& transform = m_Registry.get<UITransformComponent>(entity);
@@ -1762,7 +1781,7 @@ void Scene::RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities)
 	for (UUID selectedId : selectedEntities)
 	{
 		Entity selected = FindEntityByUUID(selectedId);
-		if (!selected || !selected.HasComponent<UITransformComponent>() || !IsUIBranchVisible(*this, m_Registry, static_cast<entt::entity>(selected)))
+		if (!selected || !selected.HasComponent<UITransformComponent>() || !IsUIBranchVisible(*this, m_Registry, static_cast<entt::entity>(selected), true))
 			continue;
 
 		const auto& transform = selected.GetComponent<UITransformComponent>();

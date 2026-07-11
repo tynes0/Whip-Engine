@@ -2919,11 +2919,11 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 		{
 			if (ImGui::BeginTable("UICanvasTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable))
 			{
-				BEGIN_COMPONENT_TABLE_ROW("Visible");
+				BEGIN_COMPONENT_TABLE_ROW("Runtime Visible");
 				ImGui::Checkbox("##UICanvasVisible", &component.m_Visible);
 				END_COMPONENT_TABLE_ROW();
 
-				BEGIN_COMPONENT_TABLE_ROW("Editor Bounds");
+				BEGIN_COMPONENT_TABLE_ROW("Editor Visible");
 				ImGui::Checkbox("##UICanvasShowInEditor", &component.m_ShowInEditor);
 				END_COMPONENT_TABLE_ROW();
 
