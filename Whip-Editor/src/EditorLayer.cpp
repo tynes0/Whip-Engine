@@ -76,6 +76,34 @@ _WHIP_START
 		return glm::floor(sourceSize * glm::max(scale, 0.0f));
 	}
 
+	bool DrawCenteredImage(ImTextureID textureId, const glm::vec2& sourceSize, const glm::vec2& regionSize, bool hasTexture, glm::vec2& outImageSize)
+	{
+		outImageSize = FitSizeToRegion(sourceSize, regionSize);
+		const ImVec2 panelSize(regionSize.x, regionSize.y);
+		const ImVec2 imageSize(glm::max(outImageSize.x, 1.0f), glm::max(outImageSize.y, 1.0f));
+		const ImVec2 imageOffset{
+			glm::max((panelSize.x - imageSize.x) * 0.5f, 0.0f),
+			glm::max((panelSize.y - imageSize.y) * 0.5f, 0.0f)
+		};
+
+		if (imageOffset.y > 0.0f)
+			ImGui::Dummy(ImVec2(1.0f, imageOffset.y));
+
+		if (imageOffset.x > 0.0f)
+			ImGui::Indent(imageOffset.x);
+
+		const bool drawImage = hasTexture && outImageSize.x > 0.0f && outImageSize.y > 0.0f;
+		if (drawImage)
+			UI::Image(textureId, ImVec2(outImageSize.x, outImageSize.y), ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
+		else
+			ImGui::Dummy(imageSize);
+
+		if (imageOffset.x > 0.0f)
+			ImGui::Unindent(imageOffset.x);
+
+		return drawImage;
+	}
+
 	bool DrawShellWindowControlButton(const char* id, ShellWindowControl control, ImVec2 size)
 	{
 		ImGui::InvisibleButton(id, size);
@@ -2176,24 +2204,22 @@ void EditorLayer::OnImGuiRender()
 		const ImVec2 gamePanelSize = ImGui::GetContentRegionAvail();
 		const glm::vec2 gameRegionSize{ glm::max(gamePanelSize.x, 1.0f), glm::max(gamePanelSize.y, 1.0f) };
 		m_GameViewAvailableSize = gameRegionSize;
-		const glm::vec2 imageSize = FitSizeToRegion(m_GameRenderSize, gameRegionSize);
-		const ImVec2 imageOffset{
-			glm::max((gamePanelSize.x - imageSize.x) * 0.5f, 0.0f),
-			glm::max((gamePanelSize.y - imageSize.y) * 0.5f, 0.0f)
-		};
-		const ImVec2 imageCursor = ImGui::GetCursorPos();
-		ImGui::SetCursorPos(ImVec2(imageCursor.x + imageOffset.x, imageCursor.y + imageOffset.y));
-		if (imageSize.x > 0.0f && imageSize.y > 0.0f)
-			UI::Image(UI::ToImGuiTextureId(m_GameFramebuffer->GetColorAttachmentRendererId()), ImVec2(imageSize.x, imageSize.y), ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
+		glm::vec2 imageSize{ 0.0f };
+		const bool imageDrawn = DrawCenteredImage(
+			m_GameFramebuffer ? UI::ToImGuiTextureId(m_GameFramebuffer->GetColorAttachmentRendererId()) : UI::ToImGuiTextureId(0u),
+			m_GameRenderSize,
+			gameRegionSize,
+			m_GameFramebuffer != nullptr,
+			imageSize);
 
 		const ImVec2 imageMin = ImGui::GetItemRectMin();
 		const ImVec2 imageMax = ImGui::GetItemRectMax();
-		if (imageSize.x > 0.0f && imageSize.y > 0.0f)
+		if (imageDrawn)
 			DrawGameViewSafeAreaOverlay({ imageMin.x, imageMin.y }, { imageMax.x, imageMax.y });
 		m_GameViewportBounds[0] = { imageMin.x, imageMin.y };
 		m_GameViewportBounds[1] = { imageMax.x, imageMax.y };
 		m_GameViewportSize = { glm::max(imageSize.x, 1.0f), glm::max(imageSize.y, 1.0f) };
-		m_GameViewportHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+		m_GameViewportHovered = imageDrawn && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
 
 		const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
 		if (runtimeViewport)
@@ -2218,24 +2244,22 @@ void EditorLayer::OnImGuiRender()
 			const ImVec2 canvasPanelSize = ImGui::GetContentRegionAvail();
 			const glm::vec2 canvasRegionSize{ glm::max(canvasPanelSize.x, 1.0f), glm::max(canvasPanelSize.y, 1.0f) };
 			m_UICanvasViewAvailableSize = canvasRegionSize;
-			const glm::vec2 imageSize = FitSizeToRegion(m_UICanvasRenderSize, canvasRegionSize);
-			const ImVec2 imageOffset{
-				glm::max((canvasPanelSize.x - imageSize.x) * 0.5f, 0.0f),
-				glm::max((canvasPanelSize.y - imageSize.y) * 0.5f, 0.0f)
-			};
-			const ImVec2 imageCursor = ImGui::GetCursorPos();
-			ImGui::SetCursorPos(ImVec2(imageCursor.x + imageOffset.x, imageCursor.y + imageOffset.y));
-			if (imageSize.x > 0.0f && imageSize.y > 0.0f && m_UICanvasFramebuffer)
-				UI::Image(UI::ToImGuiTextureId(m_UICanvasFramebuffer->GetColorAttachmentRendererId()), ImVec2(imageSize.x, imageSize.y), ImVec2{ 0.0f, 1.0f }, ImVec2{ 1.0f, 0.0f });
+			glm::vec2 imageSize{ 0.0f };
+			const bool imageDrawn = DrawCenteredImage(
+				m_UICanvasFramebuffer ? UI::ToImGuiTextureId(m_UICanvasFramebuffer->GetColorAttachmentRendererId()) : UI::ToImGuiTextureId(0u),
+				m_UICanvasRenderSize,
+				canvasRegionSize,
+				m_UICanvasFramebuffer != nullptr,
+				imageSize);
 
 			const ImVec2 imageMin = ImGui::GetItemRectMin();
 			const ImVec2 imageMax = ImGui::GetItemRectMax();
 			m_UICanvasViewportBounds[0] = { imageMin.x, imageMin.y };
 			m_UICanvasViewportBounds[1] = { imageMax.x, imageMax.y };
 			m_UICanvasViewportSize = { glm::max(imageSize.x, 1.0f), glm::max(imageSize.y, 1.0f) };
-			m_UICanvasViewportHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+			m_UICanvasViewportHovered = imageDrawn && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
 
-			if (m_SceneManager.State() != SceneState::Play)
+			if (imageDrawn && m_SceneManager.State() != SceneState::Play)
 				DrawUITransformGizmo(m_UICanvasViewportBounds[0], m_UICanvasViewportBounds[1], m_UICanvasRenderSize);
 		}
 		else
