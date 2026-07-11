@@ -232,6 +232,7 @@ public:
 	void InvokeOnUIInputSubmit(std::string_view value);
 
 	void InvokeMethod(EntityMethodType methodType, const Payload& payload);
+	bool InvokeNamedMethod(std::string_view methodName, const Payload& payload = Payload::Null());
 
 	Ref<ScriptClass> GetScriptClass();
 
@@ -331,6 +332,7 @@ public:
 
 	static bool EntityClassExists(const std::string& fullClassName);
 	static void InvokeEntityMethod(EntityMethodType methodType, const Entity& entity, const Payload& payload = Payload::Null());
+	static bool InvokeEntityMethodByName(const Entity& entity, std::string_view methodName, const Payload& payload = Payload::Null());
 
 	static Scene* GetSceneContext();
 	static void SetRuntimeActiveSceneHandle(AssetHandle handle);

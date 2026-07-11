@@ -2966,6 +2966,28 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 				ImGui::Checkbox("##UIVisible", &component.m_Visible);
 				END_COMPONENT_TABLE_ROW();
 
+				BEGIN_COMPONENT_TABLE_ROW("Presets");
+				auto applyAnchorPreset = [&component](const glm::vec2& anchorMin, const glm::vec2& anchorMax, const glm::vec2& pivot, const glm::vec2& size)
+					{
+						component.m_AnchorMin = anchorMin;
+						component.m_AnchorMax = anchorMax;
+						component.m_Pivot = pivot;
+						component.m_AnchoredPosition = { 0.0f, 0.0f };
+						component.m_Size = size;
+					};
+				if (ImGui::SmallButton("Center"))
+					applyAnchorPreset({ 0.5f, 0.5f }, { 0.5f, 0.5f }, { 0.5f, 0.5f }, component.m_Size);
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Top Left"))
+					applyAnchorPreset({ 0.0f, 1.0f }, { 0.0f, 1.0f }, { 0.0f, 1.0f }, component.m_Size);
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Top Right"))
+					applyAnchorPreset({ 1.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 1.0f }, component.m_Size);
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Stretch"))
+					applyAnchorPreset({ 0.0f, 0.0f }, { 1.0f, 1.0f }, { 0.5f, 0.5f }, { 0.0f, 0.0f });
+				END_COMPONENT_TABLE_ROW();
+
 				BEGIN_COMPONENT_TABLE_ROW("Anchor Min");
 				ImGui::DragFloat2("##UIAnchorMin", glm::value_ptr(component.m_AnchorMin), 0.01f, 0.0f, 1.0f);
 				END_COMPONENT_TABLE_ROW();

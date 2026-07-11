@@ -701,6 +701,49 @@ void ScriptInstance::InvokeMethod(EntityMethodType methodType, const Payload& pa
 	ScriptClass::InvokeMethod(m_Instance, m_Methods[methodType], param ? &param : nullptr, MakeMethodContext(frenum::to_string_view(methodType)));
 }
 
+bool ScriptInstance::InvokeNamedMethod(std::string_view methodName, const Payload& payload)
+{
+	WHP_PROFILE_FUNCTION();
+	if (!m_Instance || methodName.empty())
+		return false;
+
+	std::string methodNameString(methodName);
+	bool usePayload = !payload.Empty();
+	MonoMethod* method = m_ScriptClass ? m_ScriptClass->GetMethod(methodNameString, usePayload ? 1 : 0) : nullptr;
+	if (!method && usePayload)
+	{
+		method = m_ScriptClass ? m_ScriptClass->GetMethod(methodNameString, 0) : nullptr;
+		usePayload = false;
+	}
+	if (!method)
+		return false;
+
+	void* param = nullptr;
+	MonoBoolean monoBool = 0;
+	MonoString* monoString = nullptr;
+	if (usePayload)
+	{
+		if (const bool* value = payload.As<bool>())
+		{
+			monoBool = *value ? 1 : 0;
+			param = &monoBool;
+		}
+		else if (const float* value = payload.As<float>())
+		{
+			param = const_cast<float*>(value);
+		}
+		else if (const std::string_view* value = payload.As<std::string_view>())
+		{
+			const std::string valueString(*value);
+			monoString = mono_string_new(s_ScriptEngineData->m_AppDomain, valueString.c_str());
+			param = monoString;
+		}
+	}
+
+	ScriptClass::InvokeMethod(m_Instance, method, param ? &param : nullptr, MakeMethodContext(methodNameString));
+	return true;
+}
+
 Ref<ScriptClass> ScriptInstance::GetScriptClass()
 {
 	return m_ScriptClass;
@@ -1382,6 +1425,24 @@ void ScriptEngine::InvokeEntityMethod(EntityMethodType methodType, const Entity&
 		s_ScriptEngineData->m_EntityInstances.erase(instanceIt);
 		s_ScriptEngineData->m_MissingInstanceWarnings.erase(static_cast<uint64_t>(uuid));
 	}
+}
+
+bool ScriptEngine::InvokeEntityMethodByName(const Entity& entity, std::string_view methodName, const Payload& payload)
+{
+	WHP_PROFILE_FUNCTION();
+	if (!s_ScriptEngineData || methodName.empty() || !entity || !entity.GetScene() || !entity.HasComponent<ScriptComponent>())
+		return false;
+
+	const UUID uuid = entity.GetUUID();
+	const auto& scriptComponent = entity.GetComponent<ScriptComponent>();
+	if (scriptComponent.m_ClassName.empty() || !EntityClassExists(scriptComponent.m_ClassName))
+		return false;
+
+	auto instanceIt = s_ScriptEngineData->m_EntityInstances.find(uuid);
+	if (instanceIt == s_ScriptEngineData->m_EntityInstances.end() || !instanceIt->second)
+		return false;
+
+	return instanceIt->second->InvokeNamedMethod(methodName, payload);
 }
 
 Scene* ScriptEngine::GetSceneContext()

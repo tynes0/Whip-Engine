@@ -182,6 +182,17 @@ namespace
 		return changed;
 	}
 
+	void InvokeUIRuntimeCallback(Entity entity, EntityMethodType fallbackMethod, const std::string& callbackName, const Payload& payload = Payload::Null())
+	{
+		if (!entity)
+			return;
+
+		if (!callbackName.empty() && ScriptEngine::InvokeEntityMethodByName(entity, callbackName, payload))
+			return;
+
+		ScriptEngine::InvokeEntityMethod(fallbackMethod, entity, payload);
+	}
+
 	float ResolveCanvasScale(const UICanvasComponent& canvas, const glm::vec2& viewportSize)
 	{
 		const glm::vec2 referenceResolution = glm::max(canvas.m_ReferenceResolution, glm::vec2(1.0f));
@@ -1241,7 +1252,7 @@ void Scene::UpdateRuntimeUI()
 		button.m_Pressed = pointer.m_Down;
 		button.m_ClickedThisFrame = pointer.m_Released;
 		if (button.m_ClickedThisFrame)
-			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIClick, Entity{ hoveredTarget.m_Entity, this });
+			InvokeUIRuntimeCallback(Entity{ hoveredTarget.m_Entity, this }, EntityMethodType::OnUIClick, button.m_OnClickCallback);
 	}
 
 	if (submitRequested && focusedEntity && focusedEntity.HasComponent<UIButtonComponent>() && pointer.m_Active)
@@ -1252,7 +1263,7 @@ void Scene::UpdateRuntimeUI()
 			button.m_Pressed = true;
 			button.m_ClickedThisFrame = true;
 			button.m_SubmittedThisFrame = true;
-			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIClick, focusedEntity);
+			InvokeUIRuntimeCallback(focusedEntity, EntityMethodType::OnUIClick, button.m_OnClickCallback);
 		}
 	}
 
@@ -1266,7 +1277,7 @@ void Scene::UpdateRuntimeUI()
 			toggle.m_Checked = !toggle.m_Checked;
 			toggle.m_ChangedThisFrame = true;
 			bool value = toggle.m_Checked;
-			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIToggle, Entity{ hoveredTarget.m_Entity, this }, Payload::Ref(value));
+			InvokeUIRuntimeCallback(Entity{ hoveredTarget.m_Entity, this }, EntityMethodType::OnUIToggle, toggle.m_OnValueChangedCallback, Payload::Ref(value));
 		}
 	}
 
@@ -1278,7 +1289,7 @@ void Scene::UpdateRuntimeUI()
 			toggle.m_Checked = !toggle.m_Checked;
 			toggle.m_ChangedThisFrame = true;
 			bool value = toggle.m_Checked;
-			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIToggle, focusedEntity, Payload::Ref(value));
+			InvokeUIRuntimeCallback(focusedEntity, EntityMethodType::OnUIToggle, toggle.m_OnValueChangedCallback, Payload::Ref(value));
 		}
 	}
 
@@ -1296,7 +1307,7 @@ void Scene::UpdateRuntimeUI()
 			if (slider.m_ChangedThisFrame)
 			{
 				float value = slider.m_Value;
-				ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUISlider, Entity{ hoveredTarget.m_Entity, this }, Payload::Ref(value));
+				InvokeUIRuntimeCallback(Entity{ hoveredTarget.m_Entity, this }, EntityMethodType::OnUISlider, slider.m_OnValueChangedCallback, Payload::Ref(value));
 			}
 		}
 	}
@@ -1315,7 +1326,7 @@ void Scene::UpdateRuntimeUI()
 		if (slider.m_ChangedThisFrame)
 		{
 			float value = slider.m_Value;
-			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUISlider, focusedEntity, Payload::Ref(value));
+			InvokeUIRuntimeCallback(focusedEntity, EntityMethodType::OnUISlider, slider.m_OnValueChangedCallback, Payload::Ref(value));
 		}
 	}
 
@@ -1331,13 +1342,13 @@ void Scene::UpdateRuntimeUI()
 		if (changed)
 		{
 			std::string_view textView(inputField.m_Text);
-			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIInputChanged, focusedEntity, Payload::Ref(textView));
+			InvokeUIRuntimeCallback(focusedEntity, EntityMethodType::OnUIInputChanged, inputField.m_OnValueChangedCallback, Payload::Ref(textView));
 		}
 		if (Input::IsKeyPressed(Key::Enter) || Input::IsKeyPressed(Key::KPEnter))
 		{
 			inputField.m_SubmittedThisFrame = true;
 			std::string_view textView(inputField.m_Text);
-			ScriptEngine::InvokeEntityMethod(EntityMethodType::OnUIInputSubmit, focusedEntity, Payload::Ref(textView));
+			InvokeUIRuntimeCallback(focusedEntity, EntityMethodType::OnUIInputSubmit, inputField.m_OnSubmitCallback, Payload::Ref(textView));
 		}
 		Input::SetRuntimeInputCapturedByUI(true);
 	}
