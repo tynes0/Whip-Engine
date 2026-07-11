@@ -1583,7 +1583,7 @@ void EditorLayer::RenderUICanvasView(Timestep ts)
 	m_UICanvasFramebuffer->ClearAttachment(1, -1);
 
 	activeScene->OnViewportResize(static_cast<uint32_t>(m_UICanvasRenderSize.x), static_cast<uint32_t>(m_UICanvasRenderSize.y));
-	activeScene->RenderUIOnly(true, m_SceneHierarchyPanel.GetSelectedEntityIds());
+	activeScene->RenderUIOnly(UIRenderVisibilityMode::CanvasEditor, m_SceneHierarchyPanel.GetSelectedEntityIds());
 
 	m_UICanvasFramebuffer->Unbind();
 }
@@ -1609,7 +1609,7 @@ void EditorLayer::RenderSceneView(Timestep ts)
 		m_EditorCamera.OnUpdate(ts);
 
 	DrawEditorGrid();
-	activeScene->RenderScene(m_EditorCamera, m_UIEditorMode, true);
+	activeScene->RenderScene(m_EditorCamera, m_UIEditorMode, UIRenderVisibilityMode::SceneEditor);
 	OnOverlayRender();
 
 	m_SceneFramebuffer->Unbind();

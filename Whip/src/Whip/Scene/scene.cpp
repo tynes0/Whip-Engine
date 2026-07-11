@@ -24,6 +24,7 @@
 #include <Whip/Scene/Entity.h>
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <vector>
 
@@ -226,22 +227,17 @@ namespace
 		return ResolveUIScale(scene, registry, static_cast<entt::entity>(parent), viewportSize, depth + 1);
 	}
 
-	bool IsUIBranchVisible(Scene& scene, entt::registry& registry, entt::entity entity, bool editorVisibility = false, uint32_t depth = 0)
+	bool IsUIBranchVisible(Scene& scene, entt::registry& registry, entt::entity entity, UIRenderVisibilityMode visibilityMode = UIRenderVisibilityMode::Runtime, uint32_t depth = 0)
 	{
 		if (registry.any_of<UITransformComponent>(entity) && !registry.get<UITransformComponent>(entity).m_Visible)
 			return false;
 		if (registry.any_of<UICanvasComponent>(entity))
 		{
 			const auto& canvas = registry.get<UICanvasComponent>(entity);
-			if (editorVisibility)
-			{
-				if (!canvas.m_ShowInEditor)
-					return false;
-			}
-			else if (!canvas.m_Visible)
-			{
+			if (visibilityMode == UIRenderVisibilityMode::Runtime && !canvas.m_Visible)
 				return false;
-			}
+			if (visibilityMode == UIRenderVisibilityMode::SceneEditor && (!canvas.m_Visible || !canvas.m_ShowInEditor))
+				return false;
 		}
 		if (depth >= 32 || !registry.any_of<HierarchyComponent>(entity))
 			return true;
@@ -254,7 +250,7 @@ namespace
 		if (!parent)
 			return true;
 
-		return IsUIBranchVisible(scene, registry, static_cast<entt::entity>(parent), editorVisibility, depth + 1);
+		return IsUIBranchVisible(scene, registry, static_cast<entt::entity>(parent), visibilityMode, depth + 1);
 	}
 
 	UIRect BuildUIRect(const UITransformComponent& transform, const glm::vec2& containerMin, const glm::vec2& containerSize, float uiScale)
@@ -385,26 +381,31 @@ namespace
 			return;
 		}
 
-		const float diameter = safeRadius * 2.0f;
-		const UIRect horizontal = MakeUIRect(rect.m_Center, { std::max(rect.m_Size.x - diameter, 0.0f), rect.m_Size.y });
-		const UIRect vertical = MakeUIRect(rect.m_Center, { rect.m_Size.x, std::max(rect.m_Size.y - diameter, 0.0f) });
+		const float middleHeight = std::max(rect.m_Size.y - safeRadius * 2.0f, 0.0f);
+		if (middleHeight > 0.0f)
+			Renderer2D::DrawQuad(BuildUISubTransform(rect, MakeUIRect(rect.m_Center, { rect.m_Size.x, middleHeight }), transform, z), color, entityId);
 
-		if (horizontal.m_Size.x > 0.0f && horizontal.m_Size.y > 0.0f)
-			Renderer2D::DrawQuad(BuildUISubTransform(rect, horizontal, transform, z), color, entityId);
-		if (vertical.m_Size.x > 0.0f && vertical.m_Size.y > 0.0f)
-			Renderer2D::DrawQuad(BuildUISubTransform(rect, vertical, transform, z), color, entityId);
+		const int segments = std::clamp(static_cast<int>(std::ceil(safeRadius / 3.0f)), 6, 24);
+		const float stripHeight = safeRadius / static_cast<float>(segments);
+		const float bottomCenterY = rect.m_Min.y + safeRadius;
 
-		const glm::vec2 cornerSize{ diameter, diameter };
-		const glm::vec2 cornerCenters[]
+		for (int i = 0; i < segments; ++i)
 		{
-			{ rect.m_Min.x + safeRadius, rect.m_Min.y + safeRadius },
-			{ rect.m_Max.x - safeRadius, rect.m_Min.y + safeRadius },
-			{ rect.m_Max.x - safeRadius, rect.m_Max.y - safeRadius },
-			{ rect.m_Min.x + safeRadius, rect.m_Max.y - safeRadius }
-		};
+			const float y0 = rect.m_Min.y + static_cast<float>(i) * stripHeight;
+			const float y1 = rect.m_Min.y + static_cast<float>(i + 1) * stripHeight;
+			const float y = (y0 + y1) * 0.5f;
+			const float dy = y - bottomCenterY;
+			const float halfWidth = std::sqrt(std::max(safeRadius * safeRadius - dy * dy, 0.0f));
+			const float inset = safeRadius - halfWidth;
+			const float width = std::max(rect.m_Size.x - inset * 2.0f, 0.0f);
+			if (width <= 0.0f)
+				continue;
 
-		for (const glm::vec2& center : cornerCenters)
-			Renderer2D::DrawCircle(BuildUISubTransform(rect, MakeUIRect(center, cornerSize), transform, z), color, 1.0f, 0.005f, entityId);
+			Renderer2D::DrawQuad(BuildUISubTransform(rect, MakeUIRect({ rect.m_Center.x, y }, { width, stripHeight }), transform, z), color, entityId);
+
+			const float topY = rect.m_Max.y - (y - rect.m_Min.y);
+			Renderer2D::DrawQuad(BuildUISubTransform(rect, MakeUIRect({ rect.m_Center.x, topY }, { width, stripHeight }), transform, z), color, entityId);
+		}
 	}
 
 	void DrawUIStyledRect(const UIRect& rect, const UITransformComponent& transform, float z, const glm::vec4& fillColor, int entityId, float radius, float borderThickness = 0.0f, const glm::vec4& borderColor = glm::vec4(0.0f))
@@ -1018,7 +1019,7 @@ void Scene::UpdateAnimators(Timestep ts)
 	}
 }
 
-void Scene::RenderScene(EditorCamera& cam, bool renderUIOverlay, bool editorUIVisibility)
+void Scene::RenderScene(EditorCamera& cam, bool renderUIOverlay, UIRenderVisibilityMode uiVisibilityMode)
 {
 	WHP_PROFILE_FUNCTION();
 	Renderer2D::BeginScene(cam);
@@ -1058,7 +1059,7 @@ void Scene::RenderScene(EditorCamera& cam, bool renderUIOverlay, bool editorUIVi
 
 	Renderer2D::EndScene();
 	if (renderUIOverlay)
-		RenderUIOverlay(editorUIVisibility);
+		RenderUIOverlay(uiVisibilityMode);
 }
 
 void Scene::RenderRuntimeScene()
@@ -1115,12 +1116,12 @@ void Scene::RenderRuntimeScene()
 	RenderUIOverlay();
 }
 
-void Scene::RenderUIOnly(bool editorUIVisibility, const std::vector<UUID>& selectedEntities)
+void Scene::RenderUIOnly(UIRenderVisibilityMode uiVisibilityMode, const std::vector<UUID>& selectedEntities)
 {
 	WHP_PROFILE_FUNCTION();
-	RenderUIOverlay(editorUIVisibility);
-	if (editorUIVisibility)
-		RenderUIOverlayDebug(selectedEntities);
+	RenderUIOverlay(uiVisibilityMode);
+	if (uiVisibilityMode != UIRenderVisibilityMode::Runtime)
+		RenderUIOverlayDebug(uiVisibilityMode, selectedEntities);
 }
 
 void Scene::UpdateRuntimeUI()
@@ -1576,7 +1577,7 @@ void Scene::UpdateUILayouts()
 	}
 }
 
-void Scene::RenderUIOverlay(bool editorUIVisibility)
+void Scene::RenderUIOverlay(UIRenderVisibilityMode uiVisibilityMode)
 {
 	WHP_PROFILE_FUNCTION();
 	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
@@ -1590,7 +1591,7 @@ void Scene::RenderUIOverlay(bool editorUIVisibility)
 		for (auto entity : view)
 		{
 			const auto& transform = view.get<UITransformComponent>(entity);
-			if (transform.m_Visible && IsUIBranchVisible(*this, m_Registry, entity, editorUIVisibility))
+			if (transform.m_Visible && IsUIBranchVisible(*this, m_Registry, entity, uiVisibilityMode))
 				items.push_back({ entity, transform.m_SortOrder });
 		}
 	}
@@ -1745,6 +1746,11 @@ void Scene::RenderUIOverlay(bool editorUIVisibility)
 
 void Scene::RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities)
 {
+	RenderUIOverlayDebug(UIRenderVisibilityMode::SceneEditor, selectedEntities);
+}
+
+void Scene::RenderUIOverlayDebug(UIRenderVisibilityMode uiVisibilityMode, const std::vector<UUID>& selectedEntities)
+{
 	WHP_PROFILE_FUNCTION();
 	if (m_ViewportWidth == 0 || m_ViewportHeight == 0)
 		return;
@@ -1758,7 +1764,9 @@ void Scene::RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities)
 	for (auto entity : canvasView)
 	{
 		const auto& canvas = m_Registry.get<UICanvasComponent>(entity);
-		if (!canvas.m_ShowInEditor || !IsUIBranchVisible(*this, m_Registry, entity, true))
+		if (uiVisibilityMode == UIRenderVisibilityMode::SceneEditor && (!canvas.m_ShowInEditor || !canvas.m_Visible))
+			continue;
+		if (!IsUIBranchVisible(*this, m_Registry, entity, uiVisibilityMode))
 			continue;
 
 		const auto& transform = m_Registry.get<UITransformComponent>(entity);
@@ -1781,7 +1789,7 @@ void Scene::RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities)
 	for (UUID selectedId : selectedEntities)
 	{
 		Entity selected = FindEntityByUUID(selectedId);
-		if (!selected || !selected.HasComponent<UITransformComponent>() || !IsUIBranchVisible(*this, m_Registry, static_cast<entt::entity>(selected), true))
+		if (!selected || !selected.HasComponent<UITransformComponent>() || !IsUIBranchVisible(*this, m_Registry, static_cast<entt::entity>(selected), uiVisibilityMode))
 			continue;
 
 		const auto& transform = selected.GetComponent<UITransformComponent>();

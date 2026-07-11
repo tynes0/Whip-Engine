@@ -22,6 +22,13 @@ class Entity;
 class SceneHierarchyPanel;
 struct AnimatorComponent;
 
+enum class UIRenderVisibilityMode : uint8_t
+{
+	Runtime = 0,
+	SceneEditor,
+	CanvasEditor
+};
+
 class Scene : public Asset
 {
 public:
@@ -68,9 +75,9 @@ public:
 	AnimatorRuntime* GetOrCreateAnimatorRuntime(Entity entityIn);
 	bool TryResolveUIRect(Entity entityIn, glm::vec2& center, glm::vec2& size);
 	bool ApplyUIRectTransform(Entity entityIn, const glm::vec2& center, const glm::vec2& size, float rotationDegrees);
-	void RenderScene(EditorCamera& cam, bool renderUIOverlay = true, bool editorUIVisibility = false);
+	void RenderScene(EditorCamera& cam, bool renderUIOverlay = true, UIRenderVisibilityMode uiVisibilityMode = UIRenderVisibilityMode::Runtime);
 	void RenderRuntimeScene();
-	void RenderUIOnly(bool editorUIVisibility = false, const std::vector<UUID>& selectedEntities = {});
+	void RenderUIOnly(UIRenderVisibilityMode uiVisibilityMode = UIRenderVisibilityMode::Runtime, const std::vector<UUID>& selectedEntities = {});
 	void RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities = {});
 
 	void OnRuntimeStart();
@@ -85,7 +92,8 @@ private:
 
 	void UpdateUILayouts();
 	void UpdateRuntimeUI();
-	void RenderUIOverlay(bool editorUIVisibility = false);
+	void RenderUIOverlay(UIRenderVisibilityMode uiVisibilityMode = UIRenderVisibilityMode::Runtime);
+	void RenderUIOverlayDebug(UIRenderVisibilityMode uiVisibilityMode, const std::vector<UUID>& selectedEntities);
 
 	template<class T>
 	void OnComponentAdded(Entity entityIn, T& component);
