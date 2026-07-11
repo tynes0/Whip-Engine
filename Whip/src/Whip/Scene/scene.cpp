@@ -320,6 +320,96 @@ namespace
 			* glm::scale(glm::mat4(1.0f), glm::vec3(rect.m_Size, 1.0f));
 	}
 
+	glm::mat4 BuildUISubTransform(const UIRect& parentRect, const UIRect& subRect, const UITransformComponent& transform, float z)
+	{
+		const float radians = glm::radians(transform.m_Rotation);
+		const float cosine = std::cos(radians);
+		const float sine = std::sin(radians);
+		const glm::vec2 localOffset = subRect.m_Center - parentRect.m_Center;
+		const glm::vec2 rotatedOffset
+		{
+			localOffset.x * cosine - localOffset.y * sine,
+			localOffset.x * sine + localOffset.y * cosine
+		};
+
+		return glm::translate(glm::mat4(1.0f), glm::vec3(parentRect.m_Center + rotatedOffset, z))
+			* glm::rotate(glm::mat4(1.0f), radians, glm::vec3(0.0f, 0.0f, 1.0f))
+			* glm::scale(glm::mat4(1.0f), glm::vec3(subRect.m_Size, 1.0f));
+	}
+
+	UIRect MakeUIRect(const glm::vec2& center, const glm::vec2& size)
+	{
+		UIRect rect;
+		rect.m_Center = center;
+		rect.m_Size = glm::max(size, glm::vec2(0.0f));
+		rect.m_Min = center - rect.m_Size * 0.5f;
+		rect.m_Max = center + rect.m_Size * 0.5f;
+		return rect;
+	}
+
+	UIRect InsetUIRect(const UIRect& rect, float inset)
+	{
+		const float safeInset = std::max(inset, 0.0f);
+		const glm::vec2 size = glm::max(rect.m_Size - glm::vec2(safeInset * 2.0f), glm::vec2(0.0f));
+		return MakeUIRect(rect.m_Center, size);
+	}
+
+	UIRect ExpandUIRect(const UIRect& rect, float amount)
+	{
+		const float safeAmount = std::max(amount, 0.0f);
+		return MakeUIRect(rect.m_Center, rect.m_Size + glm::vec2(safeAmount * 2.0f));
+	}
+
+	float ClampUIRadius(float radius, const UIRect& rect)
+	{
+		return glm::clamp(radius, 0.0f, std::min(rect.m_Size.x, rect.m_Size.y) * 0.5f);
+	}
+
+	void DrawUIRoundedRect(const UIRect& rect, const UITransformComponent& transform, float z, const glm::vec4& color, int entityId, float radius)
+	{
+		const float safeRadius = ClampUIRadius(radius, rect);
+		if (safeRadius <= 0.5f)
+		{
+			Renderer2D::DrawQuad(BuildUITransform(rect, transform, z), color, entityId);
+			return;
+		}
+
+		const float diameter = safeRadius * 2.0f;
+		const UIRect horizontal = MakeUIRect(rect.m_Center, { std::max(rect.m_Size.x - diameter, 0.0f), rect.m_Size.y });
+		const UIRect vertical = MakeUIRect(rect.m_Center, { rect.m_Size.x, std::max(rect.m_Size.y - diameter, 0.0f) });
+
+		if (horizontal.m_Size.x > 0.0f && horizontal.m_Size.y > 0.0f)
+			Renderer2D::DrawQuad(BuildUISubTransform(rect, horizontal, transform, z), color, entityId);
+		if (vertical.m_Size.x > 0.0f && vertical.m_Size.y > 0.0f)
+			Renderer2D::DrawQuad(BuildUISubTransform(rect, vertical, transform, z), color, entityId);
+
+		const glm::vec2 cornerSize{ diameter, diameter };
+		const glm::vec2 cornerCenters[]
+		{
+			{ rect.m_Min.x + safeRadius, rect.m_Min.y + safeRadius },
+			{ rect.m_Max.x - safeRadius, rect.m_Min.y + safeRadius },
+			{ rect.m_Max.x - safeRadius, rect.m_Max.y - safeRadius },
+			{ rect.m_Min.x + safeRadius, rect.m_Max.y - safeRadius }
+		};
+
+		for (const glm::vec2& center : cornerCenters)
+			Renderer2D::DrawCircle(BuildUISubTransform(rect, MakeUIRect(center, cornerSize), transform, z), color, 1.0f, 0.005f, entityId);
+	}
+
+	void DrawUIStyledRect(const UIRect& rect, const UITransformComponent& transform, float z, const glm::vec4& fillColor, int entityId, float radius, float borderThickness = 0.0f, const glm::vec4& borderColor = glm::vec4(0.0f))
+	{
+		const float safeBorder = glm::clamp(borderThickness, 0.0f, std::min(rect.m_Size.x, rect.m_Size.y) * 0.5f);
+		if (safeBorder > 0.0f && borderColor.a > 0.0f)
+		{
+			DrawUIRoundedRect(rect, transform, z, borderColor, entityId, radius);
+			const UIRect innerRect = InsetUIRect(rect, safeBorder);
+			DrawUIRoundedRect(innerRect, transform, z + 0.00002f, fillColor, entityId, std::max(radius - safeBorder, 0.0f));
+			return;
+		}
+
+		DrawUIRoundedRect(rect, transform, z, fillColor, entityId, radius);
+	}
+
 	Ref<Font> ResolveFont(AssetHandle handle)
 	{
 		if (handle != 0 && AssetManager::IsAssetHandleValid(handle) && AssetManager::GetAssetType(handle) == AssetType::Font)
@@ -330,10 +420,17 @@ namespace
 		return Font::GetDefault();
 	}
 
-	glm::vec2 MeasureUIText(const std::string& text, const Ref<Font>& font, float fontSize, float kerning, float lineSpacing)
+	struct UITextMetrics
+	{
+		glm::vec2 m_Size{ 0.0f };
+		float m_Top = 0.0f;
+		float m_Bottom = 0.0f;
+	};
+
+	UITextMetrics MeasureUIText(const std::string& text, const Ref<Font>& font, float fontSize, float kerning, float lineSpacing)
 	{
 		if (text.empty() || !font)
-			return { 0.0f, 0.0f };
+			return {};
 
 		const auto& fontGeometry = font->GetMsdfData()->m_FontGeometry;
 		const auto& metrics = fontGeometry.getMetrics();
@@ -341,6 +438,7 @@ namespace
 		const auto spaceGlyph = fontGeometry.getGlyph(' ');
 		const float spaceGlyphAdvance = spaceGlyph ? static_cast<float>(spaceGlyph->getAdvance()) : 1.0f;
 		const float lineHeight = static_cast<float>(fsScale * metrics.lineHeight + lineSpacing) * fontSize;
+		const float top = static_cast<float>(fsScale * metrics.ascenderY) * fontSize;
 
 		float maxWidth = 0.0f;
 		float currentWidth = 0.0f;
@@ -372,7 +470,8 @@ namespace
 		}
 
 		maxWidth = std::max(maxWidth, currentWidth);
-		return { maxWidth, std::max(lineHeight * static_cast<float>(lineCount), fontSize) };
+		const float bottom = static_cast<float>(fsScale * metrics.descenderY) * fontSize - lineHeight * static_cast<float>(lineCount - 1);
+		return { { maxWidth, std::max(top - bottom, fontSize) }, top, bottom };
 	}
 
 	void DrawUIText(const std::string& text, AssetHandle fontHandle, const glm::vec4& color, float fontSize, float kerning, float lineSpacing, UITextHorizontalAlignment horizontalAlignment, UITextVerticalAlignment verticalAlignment, const UIRect& rect, float z, int entityId)
@@ -382,7 +481,8 @@ namespace
 
 		const float safeFontSize = std::max(fontSize, 1.0f);
 		const Ref<Font> font = ResolveFont(fontHandle);
-		const glm::vec2 textSize = MeasureUIText(text, font, safeFontSize, kerning, lineSpacing);
+		const UITextMetrics textMetrics = MeasureUIText(text, font, safeFontSize, kerning, lineSpacing);
+		const glm::vec2 textSize = textMetrics.m_Size;
 		constexpr float padding = 8.0f;
 		float originX = rect.m_Min.x + padding;
 		if (horizontalAlignment == UITextHorizontalAlignment::Center)
@@ -392,11 +492,11 @@ namespace
 
 		float originY = rect.m_Min.y + std::max((rect.m_Size.y - safeFontSize) * 0.5f, 0.0f);
 		if (verticalAlignment == UITextVerticalAlignment::Top)
-			originY = rect.m_Max.y - safeFontSize - padding;
+			originY = rect.m_Max.y - padding - textMetrics.m_Top;
 		else if (verticalAlignment == UITextVerticalAlignment::Center)
-			originY = rect.m_Min.y + std::max((rect.m_Size.y - textSize.y) * 0.5f, 0.0f);
+			originY = rect.m_Center.y - (textMetrics.m_Top + textMetrics.m_Bottom) * 0.5f;
 		else if (verticalAlignment == UITextVerticalAlignment::Bottom)
-			originY = rect.m_Min.y + padding;
+			originY = rect.m_Min.y + padding - textMetrics.m_Bottom;
 
 		const glm::vec2 textOrigin{ originX, originY };
 		const glm::mat4 textTransform = glm::translate(glm::mat4(1.0f), glm::vec3(textOrigin, z))
@@ -1500,7 +1600,7 @@ void Scene::RenderUIOverlay()
 		if (m_Registry.any_of<UIPanelComponent>(entity))
 		{
 			const auto& panel = m_Registry.get<UIPanelComponent>(entity);
-			Renderer2D::DrawQuad(BuildUITransform(rect, transform, z + 0.0001f), panel.m_Color, entityId);
+			DrawUIStyledRect(rect, transform, z + 0.0001f, panel.m_Color, entityId, panel.m_Radius, panel.m_BorderThickness, panel.m_BorderColor);
 		}
 
 		if (m_Registry.any_of<UIImageComponent>(entity))
@@ -1526,9 +1626,9 @@ void Scene::RenderUIOverlay()
 			else if (button.m_Focused)
 				color = glm::mix(button.m_NormalColor, button.m_FocusColor, 0.25f);
 
-			Renderer2D::DrawQuad(BuildUITransform(rect, transform, z + 0.00025f), color, entityId);
 			if (button.m_Focused && button.m_Interactable)
-				Renderer2D::DrawRect(BuildUITransform(rect, transform, z + 0.00045f), button.m_FocusColor, entityId);
+				DrawUIRoundedRect(ExpandUIRect(rect, 3.0f), transform, z + 0.0002f, glm::vec4(button.m_FocusColor.r, button.m_FocusColor.g, button.m_FocusColor.b, 0.55f), entityId, button.m_Radius + 3.0f);
+			DrawUIStyledRect(rect, transform, z + 0.00025f, color, entityId, button.m_Radius, button.m_BorderThickness, button.m_BorderColor);
 			DrawUIText(button.m_Text, button.m_Font, button.m_TextColor, button.m_FontSize, 0.0f, 0.0f, button.m_TextHorizontalAlignment, button.m_TextVerticalAlignment, rect, z + 0.0005f, entityId);
 		}
 
@@ -1546,13 +1646,14 @@ void Scene::RenderUIOverlay()
 			if (!toggle.m_Interactable)
 				boxColor.a *= 0.55f;
 
-			Renderer2D::DrawQuad(BuildUITransform(boxRect, transform, z + 0.00025f), boxColor, entityId);
-			Renderer2D::DrawRect(BuildUITransform(boxRect, transform, z + 0.00035f), toggle.m_CheckColor, entityId);
+			DrawUIStyledRect(boxRect, transform, z + 0.00025f, boxColor, entityId, toggle.m_BoxRadius, 1.0f, glm::vec4(toggle.m_CheckColor.r, toggle.m_CheckColor.g, toggle.m_CheckColor.b, 0.72f));
 			if (toggle.m_Checked)
 			{
 				UIRect checkRect = boxRect;
 				checkRect.m_Size = glm::max(boxRect.m_Size - glm::vec2(10.0f), glm::vec2(4.0f));
-				Renderer2D::DrawQuad(BuildUITransform(checkRect, transform, z + 0.00045f), toggle.m_CheckColor, entityId);
+				checkRect.m_Min = checkRect.m_Center - checkRect.m_Size * 0.5f;
+				checkRect.m_Max = checkRect.m_Center + checkRect.m_Size * 0.5f;
+				DrawUIRoundedRect(checkRect, transform, z + 0.00045f, toggle.m_CheckColor, entityId, std::max(toggle.m_BoxRadius - 3.0f, 1.0f));
 			}
 
 			UIRect labelRect = rect;
@@ -1571,14 +1672,14 @@ void Scene::RenderUIOverlay()
 			trackRect.m_Center.y = rect.m_Center.y;
 			trackRect.m_Min.y = trackRect.m_Center.y - trackHeight * 0.5f;
 			trackRect.m_Max.y = trackRect.m_Center.y + trackHeight * 0.5f;
-			Renderer2D::DrawQuad(BuildUITransform(trackRect, transform, z + 0.00025f), slider.m_BackgroundColor, entityId);
+			DrawUIRoundedRect(trackRect, transform, z + 0.00025f, slider.m_BackgroundColor, entityId, slider.m_TrackRadius);
 
 			const float normalized = NormalizeSliderValue(slider);
 			UIRect fillRect = trackRect;
 			fillRect.m_Size.x = std::max(trackRect.m_Size.x * normalized, 1.0f);
 			fillRect.m_Center.x = trackRect.m_Min.x + fillRect.m_Size.x * 0.5f;
 			fillRect.m_Max.x = fillRect.m_Min.x + fillRect.m_Size.x;
-			Renderer2D::DrawQuad(BuildUITransform(fillRect, transform, z + 0.00035f), slider.m_FillColor, entityId);
+			DrawUIRoundedRect(fillRect, transform, z + 0.00035f, slider.m_FillColor, entityId, slider.m_TrackRadius);
 
 			UIRect handleRect;
 			const float handleSize = std::min(std::max(rect.m_Size.y * 0.55f, 18.0f), 34.0f);
@@ -1587,16 +1688,16 @@ void Scene::RenderUIOverlay()
 			handleRect.m_Min = handleRect.m_Center - handleRect.m_Size * 0.5f;
 			handleRect.m_Max = handleRect.m_Center + handleRect.m_Size * 0.5f;
 			glm::vec4 handleColor = slider.m_Hovered || slider.m_Focused ? glm::mix(slider.m_HandleColor, slider.m_FillColor, 0.25f) : slider.m_HandleColor;
-			Renderer2D::DrawQuad(BuildUITransform(handleRect, transform, z + 0.0005f), handleColor, entityId);
+			DrawUIRoundedRect(handleRect, transform, z + 0.0005f, handleColor, entityId, slider.m_HandleRadius);
 		}
 
 		if (m_Registry.any_of<UIInputFieldComponent>(entity))
 		{
 			const auto& inputField = m_Registry.get<UIInputFieldComponent>(entity);
 			const glm::vec4 backgroundColor = inputField.m_Focused ? inputField.m_FocusedColor : inputField.m_BackgroundColor;
-			Renderer2D::DrawQuad(BuildUITransform(rect, transform, z + 0.00025f), backgroundColor, entityId);
 			if (inputField.m_Focused || inputField.m_Hovered)
-				Renderer2D::DrawRect(BuildUITransform(rect, transform, z + 0.00035f), glm::vec4(0.35f, 0.62f, 0.88f, 0.95f), entityId);
+				DrawUIRoundedRect(ExpandUIRect(rect, 2.0f), transform, z + 0.0002f, glm::vec4(0.35f, 0.62f, 0.88f, 0.40f), entityId, inputField.m_Radius + 2.0f);
+			DrawUIStyledRect(rect, transform, z + 0.00025f, backgroundColor, entityId, inputField.m_Radius, inputField.m_BorderThickness, inputField.m_BorderColor);
 
 			const bool hasText = !inputField.m_Text.empty();
 			DrawUIText(hasText ? inputField.m_Text : inputField.m_Placeholder,

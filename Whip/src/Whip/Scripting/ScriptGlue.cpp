@@ -1927,6 +1927,18 @@ namespace
 		ent.GetComponent<UIButtonComponent>().m_Interactable = interactable;
 	}
 
+	float UIButtonComponentGetRadius(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIButtonComponent>().m_Radius;
+	}
+
+	void UIButtonComponentSetRadius(UUID entityId, float radius)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIButtonComponent>().m_Radius = std::max(radius, 0.0f);
+	}
+
 	bool UIButtonComponentIsHovered(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
@@ -1981,6 +1993,18 @@ namespace
 		ent.GetComponent<UIPanelComponent>().m_RaycastTarget = raycastTarget;
 	}
 
+	float UIPanelComponentGetRadius(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIPanelComponent>().m_Radius;
+	}
+
+	void UIPanelComponentSetRadius(UUID entityId, float radius)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIPanelComponent>().m_Radius = std::max(radius, 0.0f);
+	}
+
 	MonoString* UIToggleComponentGetLabel(UUID entityId)
 	{
 		Entity ent = detail::GetEntity(entityId);
@@ -2015,6 +2039,18 @@ namespace
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<UIToggleComponent>().m_Interactable = interactable;
+	}
+
+	float UIToggleComponentGetBoxRadius(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIToggleComponent>().m_BoxRadius;
+	}
+
+	void UIToggleComponentSetBoxRadius(UUID entityId, float radius)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIToggleComponent>().m_BoxRadius = std::max(radius, 0.0f);
 	}
 
 	bool UIToggleComponentIsHovered(UUID entityId)
@@ -2076,6 +2112,30 @@ namespace
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<UISliderComponent>().m_MaxValue = value;
+	}
+
+	float UISliderComponentGetTrackRadius(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_TrackRadius;
+	}
+
+	void UISliderComponentSetTrackRadius(UUID entityId, float radius)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UISliderComponent>().m_TrackRadius = std::max(radius, 0.0f);
+	}
+
+	float UISliderComponentGetHandleRadius(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UISliderComponent>().m_HandleRadius;
+	}
+
+	void UISliderComponentSetHandleRadius(UUID entityId, float radius)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UISliderComponent>().m_HandleRadius = std::max(radius, 0.0f);
 	}
 
 	bool UISliderComponentIsInteractable(UUID entityId)
@@ -2148,6 +2208,18 @@ namespace
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<UIInputFieldComponent>().m_Interactable = interactable;
+	}
+
+	float UIInputFieldComponentGetRadius(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UIInputFieldComponent>().m_Radius;
+	}
+
+	void UIInputFieldComponentSetRadius(UUID entityId, float radius)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UIInputFieldComponent>().m_Radius = std::max(radius, 0.0f);
 	}
 
 	bool UIInputFieldComponentIsHovered(UUID entityId)
@@ -2572,6 +2644,8 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UIPanelComponent_SetColor, UIPanelComponentSetColor);
 	ADD_INTERNAL_CALL(UIPanelComponent_IsRaycastTarget, UIPanelComponentIsRaycastTarget);
 	ADD_INTERNAL_CALL(UIPanelComponent_SetRaycastTarget, UIPanelComponentSetRaycastTarget);
+	ADD_INTERNAL_CALL(UIPanelComponent_GetRadius, UIPanelComponentGetRadius);
+	ADD_INTERNAL_CALL(UIPanelComponent_SetRadius, UIPanelComponentSetRadius);
 	ADD_INTERNAL_CALL(UITextComponent_GetText, UITextComponentGetText);
 	ADD_INTERNAL_CALL(UITextComponent_SetText, UITextComponentSetText);
 	ADD_INTERNAL_CALL(UITextComponent_GetColor, UITextComponentGetColor);
@@ -2582,6 +2656,8 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UIButtonComponent_SetText, UIButtonComponentSetText);
 	ADD_INTERNAL_CALL(UIButtonComponent_IsInteractable, UIButtonComponentIsInteractable);
 	ADD_INTERNAL_CALL(UIButtonComponent_SetInteractable, UIButtonComponentSetInteractable);
+	ADD_INTERNAL_CALL(UIButtonComponent_GetRadius, UIButtonComponentGetRadius);
+	ADD_INTERNAL_CALL(UIButtonComponent_SetRadius, UIButtonComponentSetRadius);
 	ADD_INTERNAL_CALL(UIButtonComponent_IsHovered, UIButtonComponentIsHovered);
 	ADD_INTERNAL_CALL(UIButtonComponent_IsPressed, UIButtonComponentIsPressed);
 	ADD_INTERNAL_CALL(UIButtonComponent_IsFocused, UIButtonComponentIsFocused);
@@ -2593,6 +2669,8 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UIToggleComponent_SetChecked, UIToggleComponentSetChecked);
 	ADD_INTERNAL_CALL(UIToggleComponent_IsInteractable, UIToggleComponentIsInteractable);
 	ADD_INTERNAL_CALL(UIToggleComponent_SetInteractable, UIToggleComponentSetInteractable);
+	ADD_INTERNAL_CALL(UIToggleComponent_GetBoxRadius, UIToggleComponentGetBoxRadius);
+	ADD_INTERNAL_CALL(UIToggleComponent_SetBoxRadius, UIToggleComponentSetBoxRadius);
 	ADD_INTERNAL_CALL(UIToggleComponent_IsHovered, UIToggleComponentIsHovered);
 	ADD_INTERNAL_CALL(UIToggleComponent_IsPressed, UIToggleComponentIsPressed);
 	ADD_INTERNAL_CALL(UIToggleComponent_IsFocused, UIToggleComponentIsFocused);
@@ -2603,6 +2681,10 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UISliderComponent_SetMinValue, UISliderComponentSetMinValue);
 	ADD_INTERNAL_CALL(UISliderComponent_GetMaxValue, UISliderComponentGetMaxValue);
 	ADD_INTERNAL_CALL(UISliderComponent_SetMaxValue, UISliderComponentSetMaxValue);
+	ADD_INTERNAL_CALL(UISliderComponent_GetTrackRadius, UISliderComponentGetTrackRadius);
+	ADD_INTERNAL_CALL(UISliderComponent_SetTrackRadius, UISliderComponentSetTrackRadius);
+	ADD_INTERNAL_CALL(UISliderComponent_GetHandleRadius, UISliderComponentGetHandleRadius);
+	ADD_INTERNAL_CALL(UISliderComponent_SetHandleRadius, UISliderComponentSetHandleRadius);
 	ADD_INTERNAL_CALL(UISliderComponent_IsInteractable, UISliderComponentIsInteractable);
 	ADD_INTERNAL_CALL(UISliderComponent_SetInteractable, UISliderComponentSetInteractable);
 	ADD_INTERNAL_CALL(UISliderComponent_IsHovered, UISliderComponentIsHovered);
@@ -2615,6 +2697,8 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UIInputFieldComponent_SetPlaceholder, UIInputFieldComponentSetPlaceholder);
 	ADD_INTERNAL_CALL(UIInputFieldComponent_IsInteractable, UIInputFieldComponentIsInteractable);
 	ADD_INTERNAL_CALL(UIInputFieldComponent_SetInteractable, UIInputFieldComponentSetInteractable);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_GetRadius, UIInputFieldComponentGetRadius);
+	ADD_INTERNAL_CALL(UIInputFieldComponent_SetRadius, UIInputFieldComponentSetRadius);
 	ADD_INTERNAL_CALL(UIInputFieldComponent_IsHovered, UIInputFieldComponentIsHovered);
 	ADD_INTERNAL_CALL(UIInputFieldComponent_IsFocused, UIInputFieldComponentIsFocused);
 	ADD_INTERNAL_CALL(UIInputFieldComponent_WasChangedThisFrame, UIInputFieldComponentWasChangedThisFrame);

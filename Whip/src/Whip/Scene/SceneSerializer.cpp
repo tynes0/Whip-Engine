@@ -566,6 +566,9 @@ namespace Utils
 
 			auto& panel = entityIn.GetComponent<UIPanelComponent>();
 			out << YAML::Key << "color" << YAML::Value << panel.m_Color;
+			out << YAML::Key << "border_color" << YAML::Value << panel.m_BorderColor;
+			out << YAML::Key << "radius" << YAML::Value << panel.m_Radius;
+			out << YAML::Key << "border_thickness" << YAML::Value << panel.m_BorderThickness;
 			out << YAML::Key << "raycast_target" << YAML::Value << panel.m_RaycastTarget;
 
 			out << YAML::EndMap; // ui_panel_component
@@ -618,6 +621,9 @@ namespace Utils
 			out << YAML::Key << "focus_color" << YAML::Value << button.m_FocusColor;
 			out << YAML::Key << "text_color" << YAML::Value << button.m_TextColor;
 			out << YAML::Key << "font_size" << YAML::Value << button.m_FontSize;
+			out << YAML::Key << "radius" << YAML::Value << button.m_Radius;
+			out << YAML::Key << "border_thickness" << YAML::Value << button.m_BorderThickness;
+			out << YAML::Key << "border_color" << YAML::Value << button.m_BorderColor;
 			out << YAML::Key << "text_horizontal_alignment" << YAML::Value << static_cast<int>(button.m_TextHorizontalAlignment);
 			out << YAML::Key << "text_vertical_alignment" << YAML::Value << static_cast<int>(button.m_TextVerticalAlignment);
 			out << YAML::Key << "interactable" << YAML::Value << button.m_Interactable;
@@ -641,6 +647,7 @@ namespace Utils
 			out << YAML::Key << "text_color" << YAML::Value << toggle.m_TextColor;
 			out << YAML::Key << "hovered_color" << YAML::Value << toggle.m_HoveredColor;
 			out << YAML::Key << "font_size" << YAML::Value << toggle.m_FontSize;
+			out << YAML::Key << "box_radius" << YAML::Value << toggle.m_BoxRadius;
 			out << YAML::Key << "checked" << YAML::Value << toggle.m_Checked;
 			out << YAML::Key << "interactable" << YAML::Value << toggle.m_Interactable;
 			out << YAML::Key << "raycast_target" << YAML::Value << toggle.m_RaycastTarget;
@@ -662,6 +669,8 @@ namespace Utils
 			out << YAML::Key << "background_color" << YAML::Value << slider.m_BackgroundColor;
 			out << YAML::Key << "fill_color" << YAML::Value << slider.m_FillColor;
 			out << YAML::Key << "handle_color" << YAML::Value << slider.m_HandleColor;
+			out << YAML::Key << "track_radius" << YAML::Value << slider.m_TrackRadius;
+			out << YAML::Key << "handle_radius" << YAML::Value << slider.m_HandleRadius;
 			out << YAML::Key << "interactable" << YAML::Value << slider.m_Interactable;
 			out << YAML::Key << "raycast_target" << YAML::Value << slider.m_RaycastTarget;
 			out << YAML::Key << "on_value_changed_callback" << YAML::Value << slider.m_OnValueChangedCallback;
@@ -683,6 +692,9 @@ namespace Utils
 			out << YAML::Key << "text_color" << YAML::Value << inputField.m_TextColor;
 			out << YAML::Key << "placeholder_color" << YAML::Value << inputField.m_PlaceholderColor;
 			out << YAML::Key << "font_size" << YAML::Value << inputField.m_FontSize;
+			out << YAML::Key << "radius" << YAML::Value << inputField.m_Radius;
+			out << YAML::Key << "border_thickness" << YAML::Value << inputField.m_BorderThickness;
+			out << YAML::Key << "border_color" << YAML::Value << inputField.m_BorderColor;
 			out << YAML::Key << "max_characters" << YAML::Value << inputField.m_MaxCharacters;
 			out << YAML::Key << "interactable" << YAML::Value << inputField.m_Interactable;
 			out << YAML::Key << "raycast_target" << YAML::Value << inputField.m_RaycastTarget;
@@ -1156,6 +1168,9 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 			{
 				auto& panel = deserializedEntity.AddComponent<UIPanelComponent>();
 				panel.m_Color = uiPanelComponent["color"].as<glm::vec4>(panel.m_Color);
+				panel.m_BorderColor = uiPanelComponent["border_color"].as<glm::vec4>(panel.m_BorderColor);
+				panel.m_Radius = uiPanelComponent["radius"].as<float>(panel.m_Radius);
+				panel.m_BorderThickness = uiPanelComponent["border_thickness"].as<float>(panel.m_BorderThickness);
 				panel.m_RaycastTarget = uiPanelComponent["raycast_target"].as<bool>(panel.m_RaycastTarget);
 			}
 
@@ -1196,6 +1211,9 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				button.m_FocusColor = uiButtonComponent["focus_color"].as<glm::vec4>(button.m_FocusColor);
 				button.m_TextColor = uiButtonComponent["text_color"].as<glm::vec4>(button.m_TextColor);
 				button.m_FontSize = uiButtonComponent["font_size"].as<float>(button.m_FontSize);
+				button.m_Radius = uiButtonComponent["radius"].as<float>(button.m_Radius);
+				button.m_BorderThickness = uiButtonComponent["border_thickness"].as<float>(button.m_BorderThickness);
+				button.m_BorderColor = uiButtonComponent["border_color"].as<glm::vec4>(button.m_BorderColor);
 				button.m_TextHorizontalAlignment = static_cast<UITextHorizontalAlignment>(uiButtonComponent["text_horizontal_alignment"].as<int>(static_cast<int>(button.m_TextHorizontalAlignment)));
 				button.m_TextVerticalAlignment = static_cast<UITextVerticalAlignment>(uiButtonComponent["text_vertical_alignment"].as<int>(static_cast<int>(button.m_TextVerticalAlignment)));
 				button.m_Interactable = uiButtonComponent["interactable"].as<bool>(button.m_Interactable);
@@ -1215,6 +1233,7 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				toggle.m_TextColor = uiToggleComponent["text_color"].as<glm::vec4>(toggle.m_TextColor);
 				toggle.m_HoveredColor = uiToggleComponent["hovered_color"].as<glm::vec4>(toggle.m_HoveredColor);
 				toggle.m_FontSize = uiToggleComponent["font_size"].as<float>(toggle.m_FontSize);
+				toggle.m_BoxRadius = uiToggleComponent["box_radius"].as<float>(toggle.m_BoxRadius);
 				toggle.m_Checked = uiToggleComponent["checked"].as<bool>(toggle.m_Checked);
 				toggle.m_Interactable = uiToggleComponent["interactable"].as<bool>(toggle.m_Interactable);
 				toggle.m_RaycastTarget = uiToggleComponent["raycast_target"].as<bool>(toggle.m_RaycastTarget);
@@ -1232,6 +1251,8 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				slider.m_BackgroundColor = uiSliderComponent["background_color"].as<glm::vec4>(slider.m_BackgroundColor);
 				slider.m_FillColor = uiSliderComponent["fill_color"].as<glm::vec4>(slider.m_FillColor);
 				slider.m_HandleColor = uiSliderComponent["handle_color"].as<glm::vec4>(slider.m_HandleColor);
+				slider.m_TrackRadius = uiSliderComponent["track_radius"].as<float>(slider.m_TrackRadius);
+				slider.m_HandleRadius = uiSliderComponent["handle_radius"].as<float>(slider.m_HandleRadius);
 				slider.m_Interactable = uiSliderComponent["interactable"].as<bool>(slider.m_Interactable);
 				slider.m_RaycastTarget = uiSliderComponent["raycast_target"].as<bool>(slider.m_RaycastTarget);
 				slider.m_OnValueChangedCallback = uiSliderComponent["on_value_changed_callback"].as<std::string>(slider.m_OnValueChangedCallback);
@@ -1249,6 +1270,9 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				inputField.m_TextColor = uiInputFieldComponent["text_color"].as<glm::vec4>(inputField.m_TextColor);
 				inputField.m_PlaceholderColor = uiInputFieldComponent["placeholder_color"].as<glm::vec4>(inputField.m_PlaceholderColor);
 				inputField.m_FontSize = uiInputFieldComponent["font_size"].as<float>(inputField.m_FontSize);
+				inputField.m_Radius = uiInputFieldComponent["radius"].as<float>(inputField.m_Radius);
+				inputField.m_BorderThickness = uiInputFieldComponent["border_thickness"].as<float>(inputField.m_BorderThickness);
+				inputField.m_BorderColor = uiInputFieldComponent["border_color"].as<glm::vec4>(inputField.m_BorderColor);
 				inputField.m_MaxCharacters = uiInputFieldComponent["max_characters"].as<int32_t>(inputField.m_MaxCharacters);
 				inputField.m_Interactable = uiInputFieldComponent["interactable"].as<bool>(inputField.m_Interactable);
 				inputField.m_RaycastTarget = uiInputFieldComponent["raycast_target"].as<bool>(inputField.m_RaycastTarget);

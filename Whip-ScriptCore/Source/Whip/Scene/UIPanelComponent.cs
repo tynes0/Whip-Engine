@@ -17,5 +17,11 @@ namespace Whip
 			get => InternalCalls.UIPanelComponent_IsRaycastTarget(entity.ID);
 			set => InternalCalls.UIPanelComponent_SetRaycastTarget(entity.ID, value);
 		}
+
+		public float Radius
+		{
+			get => InternalCalls.UIPanelComponent_GetRadius(entity.ID);
+			set => InternalCalls.UIPanelComponent_SetRadius(entity.ID, value);
+		}
 	}
 }

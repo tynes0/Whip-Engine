@@ -20,6 +20,12 @@ namespace Whip
 			set => InternalCalls.UIToggleComponent_SetInteractable(entity.ID, value);
 		}
 
+		public float BoxRadius
+		{
+			get => InternalCalls.UIToggleComponent_GetBoxRadius(entity.ID);
+			set => InternalCalls.UIToggleComponent_SetBoxRadius(entity.ID, value);
+		}
+
 		public bool Hovered => InternalCalls.UIToggleComponent_IsHovered(entity.ID);
 		public bool Pressed => InternalCalls.UIToggleComponent_IsPressed(entity.ID);
 		public bool Focused => InternalCalls.UIToggleComponent_IsFocused(entity.ID);

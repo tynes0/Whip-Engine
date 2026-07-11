@@ -168,6 +168,9 @@ struct UICanvasComponent
 struct UIPanelComponent
 {
 	glm::vec4 m_Color{ 0.05f, 0.08f, 0.10f, 0.86f };
+	glm::vec4 m_BorderColor{ 0.22f, 0.35f, 0.44f, 0.65f };
+	float m_Radius = 8.0f;
+	float m_BorderThickness = 0.0f;
 	bool m_RaycastTarget = false;
 
 	static constexpr std::string_view ScriptStructName = "UIPanelComponent";
@@ -222,6 +225,9 @@ struct UIButtonComponent
 	glm::vec4 m_FocusColor{ 0.42f, 0.68f, 0.94f, 1.0f };
 	glm::vec4 m_TextColor{ 1.0f, 1.0f, 1.0f, 1.0f };
 	float m_FontSize = 20.0f;
+	float m_Radius = 8.0f;
+	float m_BorderThickness = 1.0f;
+	glm::vec4 m_BorderColor{ 0.28f, 0.42f, 0.52f, 0.72f };
 	UITextHorizontalAlignment m_TextHorizontalAlignment = UITextHorizontalAlignment::Center;
 	UITextVerticalAlignment m_TextVerticalAlignment = UITextVerticalAlignment::Center;
 	bool m_Interactable = true;
@@ -246,6 +252,7 @@ struct UIToggleComponent
 	glm::vec4 m_TextColor{ 1.0f, 1.0f, 1.0f, 1.0f };
 	glm::vec4 m_HoveredColor{ 0.18f, 0.28f, 0.36f, 1.0f };
 	float m_FontSize = 20.0f;
+	float m_BoxRadius = 5.0f;
 	bool m_Checked = false;
 	bool m_Interactable = true;
 	bool m_RaycastTarget = true;
@@ -267,6 +274,8 @@ struct UISliderComponent
 	glm::vec4 m_BackgroundColor{ 0.08f, 0.11f, 0.14f, 1.0f };
 	glm::vec4 m_FillColor{ 0.30f, 0.58f, 0.88f, 1.0f };
 	glm::vec4 m_HandleColor{ 0.92f, 0.96f, 1.0f, 1.0f };
+	float m_TrackRadius = 6.0f;
+	float m_HandleRadius = 16.0f;
 	bool m_Interactable = true;
 	bool m_RaycastTarget = true;
 	bool m_Hovered = false;
@@ -288,6 +297,9 @@ struct UIInputFieldComponent
 	glm::vec4 m_TextColor{ 0.94f, 0.96f, 0.98f, 1.0f };
 	glm::vec4 m_PlaceholderColor{ 0.52f, 0.60f, 0.68f, 1.0f };
 	float m_FontSize = 20.0f;
+	float m_Radius = 7.0f;
+	float m_BorderThickness = 1.0f;
+	glm::vec4 m_BorderColor{ 0.22f, 0.34f, 0.42f, 0.82f };
 	int32_t m_MaxCharacters = 128;
 	bool m_Interactable = true;
 	bool m_RaycastTarget = true;

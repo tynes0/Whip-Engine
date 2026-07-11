@@ -20,6 +20,18 @@ namespace Whip
 			set => InternalCalls.UISliderComponent_SetMaxValue(entity.ID, value);
 		}
 
+		public float TrackRadius
+		{
+			get => InternalCalls.UISliderComponent_GetTrackRadius(entity.ID);
+			set => InternalCalls.UISliderComponent_SetTrackRadius(entity.ID, value);
+		}
+
+		public float HandleRadius
+		{
+			get => InternalCalls.UISliderComponent_GetHandleRadius(entity.ID);
+			set => InternalCalls.UISliderComponent_SetHandleRadius(entity.ID, value);
+		}
+
 		public bool Interactable
 		{
 			get => InternalCalls.UISliderComponent_IsInteractable(entity.ID);

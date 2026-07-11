@@ -20,6 +20,12 @@ namespace Whip
 			set => InternalCalls.UIInputFieldComponent_SetInteractable(entity.ID, value);
 		}
 
+		public float Radius
+		{
+			get => InternalCalls.UIInputFieldComponent_GetRadius(entity.ID);
+			set => InternalCalls.UIInputFieldComponent_SetRadius(entity.ID, value);
+		}
+
 		public bool Hovered => InternalCalls.UIInputFieldComponent_IsHovered(entity.ID);
 		public bool Focused => InternalCalls.UIInputFieldComponent_IsFocused(entity.ID);
 		public bool ChangedThisFrame => InternalCalls.UIInputFieldComponent_WasChangedThisFrame(entity.ID);

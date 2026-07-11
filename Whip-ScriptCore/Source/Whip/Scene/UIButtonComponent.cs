@@ -14,6 +14,12 @@ namespace Whip
 			set => InternalCalls.UIButtonComponent_SetInteractable(entity.ID, value);
 		}
 
+		public float Radius
+		{
+			get => InternalCalls.UIButtonComponent_GetRadius(entity.ID);
+			set => InternalCalls.UIButtonComponent_SetRadius(entity.ID, value);
+		}
+
 		public bool Hovered => InternalCalls.UIButtonComponent_IsHovered(entity.ID);
 		public bool Pressed => InternalCalls.UIButtonComponent_IsPressed(entity.ID);
 		public bool Focused => InternalCalls.UIButtonComponent_IsFocused(entity.ID);

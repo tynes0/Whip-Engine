@@ -573,6 +573,10 @@ namespace Whip
 		internal extern static bool UIPanelComponent_IsRaycastTarget(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UIPanelComponent_SetRaycastTarget(ulong entityID, bool raycastTarget);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UIPanelComponent_GetRadius(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIPanelComponent_SetRadius(ulong entityID, float radius);
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static string UITextComponent_GetText(ulong entityID);
@@ -595,6 +599,10 @@ namespace Whip
 		internal extern static bool UIButtonComponent_IsInteractable(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UIButtonComponent_SetInteractable(ulong entityID, bool interactable);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UIButtonComponent_GetRadius(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIButtonComponent_SetRadius(ulong entityID, float radius);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool UIButtonComponent_IsHovered(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -619,6 +627,10 @@ namespace Whip
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UIToggleComponent_SetInteractable(ulong entityID, bool interactable);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UIToggleComponent_GetBoxRadius(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIToggleComponent_SetBoxRadius(ulong entityID, float radius);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool UIToggleComponent_IsHovered(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool UIToggleComponent_IsPressed(ulong entityID);
@@ -639,6 +651,14 @@ namespace Whip
 		internal extern static float UISliderComponent_GetMaxValue(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UISliderComponent_SetMaxValue(ulong entityID, float value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UISliderComponent_GetTrackRadius(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UISliderComponent_SetTrackRadius(ulong entityID, float radius);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UISliderComponent_GetHandleRadius(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UISliderComponent_SetHandleRadius(ulong entityID, float radius);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool UISliderComponent_IsInteractable(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -664,6 +684,10 @@ namespace Whip
 		internal extern static bool UIInputFieldComponent_IsInteractable(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UIInputFieldComponent_SetInteractable(ulong entityID, bool interactable);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UIInputFieldComponent_GetRadius(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UIInputFieldComponent_SetRadius(ulong entityID, float radius);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static bool UIInputFieldComponent_IsHovered(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]

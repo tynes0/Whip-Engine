@@ -3027,6 +3027,9 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 	DrawComponent<UIPanelComponent>("UI Panel", entityIn, m_SceneChangeCallback, [](auto& component)
 		{
 			ImGui::ColorEdit4("Color", glm::value_ptr(component.m_Color));
+			ImGui::DragFloat("Radius", &component.m_Radius, 0.25f, 0.0f, 512.0f);
+			ImGui::DragFloat("Border Thickness", &component.m_BorderThickness, 0.25f, 0.0f, 128.0f);
+			ImGui::ColorEdit4("Border Color", glm::value_ptr(component.m_BorderColor));
 			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
 		});
 	ImGui::Spacing();
@@ -3141,12 +3144,15 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
 			ImGui::Checkbox("Keyboard Navigation", &component.m_NavigationEnabled);
 			ImGui::DragFloat("Font Size", &component.m_FontSize, 1.0f, 1.0f, 256.0f);
+			ImGui::DragFloat("Radius", &component.m_Radius, 0.25f, 0.0f, 512.0f);
+			ImGui::DragFloat("Border Thickness", &component.m_BorderThickness, 0.25f, 0.0f, 128.0f);
 			DrawUITextAlignmentControls(component.m_TextHorizontalAlignment, component.m_TextVerticalAlignment);
 			ImGui::ColorEdit4("Normal", glm::value_ptr(component.m_NormalColor));
 			ImGui::ColorEdit4("Hovered", glm::value_ptr(component.m_HoveredColor));
 			ImGui::ColorEdit4("Pressed", glm::value_ptr(component.m_PressedColor));
 			ImGui::ColorEdit4("Disabled", glm::value_ptr(component.m_DisabledColor));
 			ImGui::ColorEdit4("Focus", glm::value_ptr(component.m_FocusColor));
+			ImGui::ColorEdit4("Border", glm::value_ptr(component.m_BorderColor));
 			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
 			ImGui::InputText("On Click", &component.m_OnClickCallback);
 
@@ -3194,6 +3200,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::Checkbox("Raycast Target", &component.m_RaycastTarget);
 			ImGui::Checkbox("Keyboard Navigation", &component.m_NavigationEnabled);
 			ImGui::DragFloat("Font Size", &component.m_FontSize, 1.0f, 1.0f, 256.0f);
+			ImGui::DragFloat("Box Radius", &component.m_BoxRadius, 0.25f, 0.0f, 256.0f);
 			ImGui::InputText("On Value Changed", &component.m_OnValueChangedCallback);
 			ImGui::ColorEdit4("Box", glm::value_ptr(component.m_BoxColor));
 			ImGui::ColorEdit4("Check", glm::value_ptr(component.m_CheckColor));
@@ -3220,6 +3227,8 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::ColorEdit4("Background", glm::value_ptr(component.m_BackgroundColor));
 			ImGui::ColorEdit4("Fill", glm::value_ptr(component.m_FillColor));
 			ImGui::ColorEdit4("Handle", glm::value_ptr(component.m_HandleColor));
+			ImGui::DragFloat("Track Radius", &component.m_TrackRadius, 0.25f, 0.0f, 256.0f);
+			ImGui::DragFloat("Handle Radius", &component.m_HandleRadius, 0.25f, 0.0f, 256.0f);
 			ImGui::Separator();
 			ImGui::TextDisabled("Runtime");
 			ImGui::BeginDisabled();
@@ -3245,6 +3254,9 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::ColorEdit4("Focused", glm::value_ptr(component.m_FocusedColor));
 			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
 			ImGui::ColorEdit4("Placeholder", glm::value_ptr(component.m_PlaceholderColor));
+			ImGui::DragFloat("Radius", &component.m_Radius, 0.25f, 0.0f, 512.0f);
+			ImGui::DragFloat("Border Thickness", &component.m_BorderThickness, 0.25f, 0.0f, 128.0f);
+			ImGui::ColorEdit4("Border", glm::value_ptr(component.m_BorderColor));
 			ImGui::Separator();
 			ImGui::TextDisabled("Runtime");
 			ImGui::BeginDisabled();
