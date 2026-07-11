@@ -22,6 +22,16 @@ namespace Whip
 			set => InternalCalls.UITransformComponent_SetSize(entity.ID, value);
 		}
 
+		public Vector2 Scale
+		{
+			get
+			{
+				InternalCalls.UITransformComponent_GetScale(entity.ID, out Vector2 scale);
+				return scale;
+			}
+			set => InternalCalls.UITransformComponent_SetScale(entity.ID, value);
+		}
+
 		public Vector2 AnchorMin
 		{
 			get

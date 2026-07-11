@@ -907,7 +907,7 @@ void Scene::UpdateAnimators(Timestep ts)
 	}
 }
 
-void Scene::RenderScene(EditorCamera& cam)
+void Scene::RenderScene(EditorCamera& cam, bool renderUIOverlay)
 {
 	WHP_PROFILE_FUNCTION();
 	Renderer2D::BeginScene(cam);
@@ -946,7 +946,8 @@ void Scene::RenderScene(EditorCamera& cam)
 	}
 
 	Renderer2D::EndScene();
-	RenderUIOverlay();
+	if (renderUIOverlay)
+		RenderUIOverlay();
 }
 
 void Scene::RenderRuntimeScene()
@@ -1387,7 +1388,7 @@ void Scene::UpdateUILayouts()
 		if (children.empty())
 			continue;
 		if (layout.m_Reverse)
-			std::reverse(children.begin(), children.end());
+			std::ranges::reverse(children);
 
 		if (layout.m_Axis == UIStackLayoutComponent::Axis::Horizontal)
 		{

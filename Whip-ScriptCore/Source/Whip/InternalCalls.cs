@@ -487,6 +487,10 @@ namespace Whip
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UITransformComponent_SetSize(ulong entityID, Vector2 size);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_GetScale(ulong entityID, out Vector2 scale);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UITransformComponent_SetScale(ulong entityID, Vector2 scale);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UITransformComponent_GetAnchorMin(ulong entityID, out Vector2 anchor);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UITransformComponent_SetAnchorMin(ulong entityID, Vector2 anchor);
@@ -510,6 +514,39 @@ namespace Whip
 		internal extern static int UITransformComponent_GetSortOrder(ulong entityID);
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UITransformComponent_SetSortOrder(ulong entityID, int sortOrder);
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UICanvasComponent_IsVisible(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_SetVisible(ulong entityID, bool visible);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UICanvasComponent_IsShownInEditor(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_SetShownInEditor(ulong entityID, bool shown);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static bool UICanvasComponent_IsSafeAreaShownInEditor(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_SetSafeAreaShownInEditor(ulong entityID, bool shown);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static int UICanvasComponent_GetScaleMode(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_SetScaleMode(ulong entityID, int scaleMode);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_GetReferenceResolution(ulong entityID, out Vector2 resolution);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_SetReferenceResolution(ulong entityID, Vector2 resolution);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UICanvasComponent_GetMatchWidthOrHeight(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_SetMatchWidthOrHeight(ulong entityID, float value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static float UICanvasComponent_GetScaleFactor(ulong entityID);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_SetScaleFactor(ulong entityID, float value);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_GetSafeAreaInsets(ulong entityID, out Vector4 insets);
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		internal extern static void UICanvasComponent_SetSafeAreaInsets(ulong entityID, Vector4 insets);
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void UIImageComponent_GetColor(ulong entityID, out Vector4 color);

@@ -1630,6 +1630,18 @@ namespace
 		ent.GetComponent<UITransformComponent>().m_Size = *size;
 	}
 
+	void UITransformComponentGetScale(UUID entityId, glm::vec2* outScale)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outScale = ent.GetComponent<UITransformComponent>().m_Scale;
+	}
+
+	void UITransformComponentSetScale(UUID entityId, glm::vec2* scale)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UITransformComponent>().m_Scale = *scale;
+	}
+
 	void UITransformComponentGetAnchorMin(UUID entityId, glm::vec2* outAnchor)
 	{
 		Entity ent = detail::GetEntity(entityId);
@@ -1700,6 +1712,105 @@ namespace
 	{
 		Entity ent = detail::GetEntity(entityId);
 		ent.GetComponent<UITransformComponent>().m_SortOrder = sortOrder;
+	}
+
+	bool UICanvasComponentIsVisible(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UICanvasComponent>().m_Visible;
+	}
+
+	void UICanvasComponentSetVisible(UUID entityId, bool visible)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UICanvasComponent>().m_Visible = visible;
+	}
+
+	bool UICanvasComponentIsShownInEditor(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UICanvasComponent>().m_ShowInEditor;
+	}
+
+	void UICanvasComponentSetShownInEditor(UUID entityId, bool shown)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UICanvasComponent>().m_ShowInEditor = shown;
+	}
+
+	bool UICanvasComponentIsSafeAreaShownInEditor(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UICanvasComponent>().m_ShowSafeAreaInEditor;
+	}
+
+	void UICanvasComponentSetSafeAreaShownInEditor(UUID entityId, bool shown)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UICanvasComponent>().m_ShowSafeAreaInEditor = shown;
+	}
+
+	int UICanvasComponentGetScaleMode(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return static_cast<int>(ent.GetComponent<UICanvasComponent>().m_ScaleMode);
+	}
+
+	void UICanvasComponentSetScaleMode(UUID entityId, int scaleMode)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		auto& canvas = ent.GetComponent<UICanvasComponent>();
+		canvas.m_ScaleMode = scaleMode == static_cast<int>(UICanvasComponent::ScaleMode::ConstantPixelSize)
+			? UICanvasComponent::ScaleMode::ConstantPixelSize
+			: UICanvasComponent::ScaleMode::ScaleWithScreenSize;
+	}
+
+	void UICanvasComponentGetReferenceResolution(UUID entityId, glm::vec2* outResolution)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outResolution = ent.GetComponent<UICanvasComponent>().m_ReferenceResolution;
+	}
+
+	void UICanvasComponentSetReferenceResolution(UUID entityId, glm::vec2* resolution)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UICanvasComponent>().m_ReferenceResolution = glm::max(*resolution, glm::vec2(1.0f));
+	}
+
+	float UICanvasComponentGetMatchWidthOrHeight(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UICanvasComponent>().m_MatchWidthOrHeight;
+	}
+
+	void UICanvasComponentSetMatchWidthOrHeight(UUID entityId, float value)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UICanvasComponent>().m_MatchWidthOrHeight = glm::clamp(value, 0.0f, 1.0f);
+	}
+
+	float UICanvasComponentGetScaleFactor(UUID entityId)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		return ent.GetComponent<UICanvasComponent>().m_ScaleFactor;
+	}
+
+	void UICanvasComponentSetScaleFactor(UUID entityId, float value)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UICanvasComponent>().m_ScaleFactor = glm::max(value, 0.01f);
+	}
+
+	void UICanvasComponentGetSafeAreaInsets(UUID entityId, glm::vec4* outInsets)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		*outInsets = ent.GetComponent<UICanvasComponent>().m_SafeAreaInsets;
+	}
+
+	void UICanvasComponentSetSafeAreaInsets(UUID entityId, glm::vec4* insets)
+	{
+		Entity ent = detail::GetEntity(entityId);
+		ent.GetComponent<UICanvasComponent>().m_SafeAreaInsets = glm::clamp(*insets, glm::vec4(0.0f), glm::vec4(0.45f));
 	}
 
 	void UIImageComponentGetColor(UUID entityId, glm::vec4* outColor)
@@ -2419,6 +2530,8 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UITransformComponent_SetAnchoredPosition, UITransformComponentSetAnchoredPosition);
 	ADD_INTERNAL_CALL(UITransformComponent_GetSize, UITransformComponentGetSize);
 	ADD_INTERNAL_CALL(UITransformComponent_SetSize, UITransformComponentSetSize);
+	ADD_INTERNAL_CALL(UITransformComponent_GetScale, UITransformComponentGetScale);
+	ADD_INTERNAL_CALL(UITransformComponent_SetScale, UITransformComponentSetScale);
 	ADD_INTERNAL_CALL(UITransformComponent_GetAnchorMin, UITransformComponentGetAnchorMin);
 	ADD_INTERNAL_CALL(UITransformComponent_SetAnchorMin, UITransformComponentSetAnchorMin);
 	ADD_INTERNAL_CALL(UITransformComponent_GetAnchorMax, UITransformComponentGetAnchorMax);
@@ -2431,6 +2544,22 @@ void ScriptGlue::RegisterFunctions()
 	ADD_INTERNAL_CALL(UITransformComponent_SetRotation, UITransformComponentSetRotation);
 	ADD_INTERNAL_CALL(UITransformComponent_GetSortOrder, UITransformComponentGetSortOrder);
 	ADD_INTERNAL_CALL(UITransformComponent_SetSortOrder, UITransformComponentSetSortOrder);
+	ADD_INTERNAL_CALL(UICanvasComponent_IsVisible, UICanvasComponentIsVisible);
+	ADD_INTERNAL_CALL(UICanvasComponent_SetVisible, UICanvasComponentSetVisible);
+	ADD_INTERNAL_CALL(UICanvasComponent_IsShownInEditor, UICanvasComponentIsShownInEditor);
+	ADD_INTERNAL_CALL(UICanvasComponent_SetShownInEditor, UICanvasComponentSetShownInEditor);
+	ADD_INTERNAL_CALL(UICanvasComponent_IsSafeAreaShownInEditor, UICanvasComponentIsSafeAreaShownInEditor);
+	ADD_INTERNAL_CALL(UICanvasComponent_SetSafeAreaShownInEditor, UICanvasComponentSetSafeAreaShownInEditor);
+	ADD_INTERNAL_CALL(UICanvasComponent_GetScaleMode, UICanvasComponentGetScaleMode);
+	ADD_INTERNAL_CALL(UICanvasComponent_SetScaleMode, UICanvasComponentSetScaleMode);
+	ADD_INTERNAL_CALL(UICanvasComponent_GetReferenceResolution, UICanvasComponentGetReferenceResolution);
+	ADD_INTERNAL_CALL(UICanvasComponent_SetReferenceResolution, UICanvasComponentSetReferenceResolution);
+	ADD_INTERNAL_CALL(UICanvasComponent_GetMatchWidthOrHeight, UICanvasComponentGetMatchWidthOrHeight);
+	ADD_INTERNAL_CALL(UICanvasComponent_SetMatchWidthOrHeight, UICanvasComponentSetMatchWidthOrHeight);
+	ADD_INTERNAL_CALL(UICanvasComponent_GetScaleFactor, UICanvasComponentGetScaleFactor);
+	ADD_INTERNAL_CALL(UICanvasComponent_SetScaleFactor, UICanvasComponentSetScaleFactor);
+	ADD_INTERNAL_CALL(UICanvasComponent_GetSafeAreaInsets, UICanvasComponentGetSafeAreaInsets);
+	ADD_INTERNAL_CALL(UICanvasComponent_SetSafeAreaInsets, UICanvasComponentSetSafeAreaInsets);
 	ADD_INTERNAL_CALL(UIImageComponent_GetColor, UIImageComponentGetColor);
 	ADD_INTERNAL_CALL(UIImageComponent_SetColor, UIImageComponentSetColor);
 	ADD_INTERNAL_CALL(UIImageComponent_GetTextureHandle, UIImageComponentGetTextureHandle);

@@ -756,6 +756,7 @@ void EditorProjectManager::LoadEditorPreferences()
 	{
 		layer.m_UISettings.SetShowPhysicsColliders(editor["show_physics_colliders"].as<bool>(layer.m_UISettings.GetShowPhysicsColliders()));
 		layer.m_UISettings.SetShowEditorGrid(editor["show_editor_grid"].as<bool>(layer.m_UISettings.GetShowEditorGrid()));
+		layer.m_UIEditorMode = editor["ui_editor_mode"].as<bool>(layer.m_UIEditorMode);
 		layer.m_UISettings.SetStepFrame(editor["step_frame"].as<int>(layer.m_UISettings.GetStepFrame()));
 		layer.m_UISettings.SetTheme(ThemeFromString(editor["theme"].as<std::string>(UI::UISettings::GetThemeName(layer.m_UISettings.GetTheme()))));
 		if (YAML::Node assistant = editor["assistant"])
@@ -884,6 +885,7 @@ void EditorProjectManager::SaveEditorPreferences() const
 	out << YAML::Key << "editor" << YAML::Value << YAML::BeginMap;
 	out << YAML::Key << "show_physics_colliders" << YAML::Value << layer.m_UISettings.GetShowPhysicsColliders();
 	out << YAML::Key << "show_editor_grid" << YAML::Value << layer.m_UISettings.GetShowEditorGrid();
+	out << YAML::Key << "ui_editor_mode" << YAML::Value << layer.m_UIEditorMode;
 	out << YAML::Key << "step_frame" << YAML::Value << layer.m_UISettings.GetStepFrame();
 	out << YAML::Key << "theme" << YAML::Value << UI::UISettings::GetThemeName(layer.m_UISettings.GetTheme());
 	{

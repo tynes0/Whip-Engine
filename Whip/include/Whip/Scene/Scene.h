@@ -68,7 +68,7 @@ public:
 	AnimatorRuntime* GetOrCreateAnimatorRuntime(Entity entityIn);
 	bool TryResolveUIRect(Entity entityIn, glm::vec2& center, glm::vec2& size);
 	bool ApplyUIRectTransform(Entity entityIn, const glm::vec2& center, const glm::vec2& size, float rotationDegrees);
-	void RenderScene(EditorCamera& cam);
+	void RenderScene(EditorCamera& cam, bool renderUIOverlay = true);
 	void RenderRuntimeScene();
 	void RenderUIOverlayDebug(const std::vector<UUID>& selectedEntities = {});
 

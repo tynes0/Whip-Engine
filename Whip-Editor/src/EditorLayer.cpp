@@ -1541,7 +1541,7 @@ void EditorLayer::RenderSceneView(Timestep ts)
 		m_EditorCamera.OnUpdate(ts);
 
 	DrawEditorGrid();
-	activeScene->RenderScene(m_EditorCamera);
+	activeScene->RenderScene(m_EditorCamera, m_UIEditorMode);
 	OnOverlayRender();
 
 	m_SceneFramebuffer->Unbind();
@@ -1583,9 +1583,12 @@ void EditorLayer::DrawGameViewToolbar()
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton(m_UIEditorMode ? "UI Mode: On" : "UI Mode: Off"))
+	{
 		m_UIEditorMode = !m_UIEditorMode;
+		m_ProjectManager.SaveEditorPreferences();
+	}
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Shows UI bounds and keeps UI editing affordances visible in Scene view.");
+		ImGui::SetTooltip("Ctrl+U toggles Scene view UI overlay and UI editing affordances.");
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton(m_GameViewSafeAreaPreview ? "Safe Area: On" : "Safe Area: Off"))
@@ -1828,7 +1831,7 @@ void EditorLayer::OnImGuiRender()
 
 			ImGuizmo::OPERATION operation = static_cast<ImGuizmo::OPERATION>(m_GizmoType);
 
-			if (selectedEntity.HasComponent<UITransformComponent>())
+			if (selectedEntity.HasComponent<UITransformComponent>() && m_UIEditorMode)
 			{
 				glm::vec2 baseCenter{ 0.0f };
 				glm::vec2 baseSize{ 1.0f };
@@ -1898,7 +1901,7 @@ void EditorLayer::OnImGuiRender()
 					}
 				}
 			}
-			else if (selectedEntity.HasComponent<TransformComponent>())
+			else if (!selectedEntity.HasComponent<UITransformComponent>() && selectedEntity.HasComponent<TransformComponent>())
 			{
 				ImGuizmo::SetOrthographic(false);
 				const glm::mat4& cameraProjection = m_EditorCamera.GetProjection();
@@ -2783,6 +2786,25 @@ void EditorLayer::RegisterEditorShortcuts()
 		},
 		[this]() { return HasProjectLoaded(); },
 		[this]() { return m_ViewportFocused; });
+	m_ShortcutManager.Add(
+		EditorShortcutScope::Viewport,
+		"viewport.toggle_ui_edit_mode",
+		"Toggle UI Edit Mode",
+		"Viewport",
+		{
+			.m_Key = Key::U,
+			.m_Ctrl = true,
+			.m_Shift = false,
+			.m_Alt = false
+		},
+		[this]()
+		{
+			m_UIEditorMode = !m_UIEditorMode;
+			m_ProjectManager.SaveEditorPreferences();
+			return true;
+		},
+		[this]() { return HasProjectLoaded() && m_SceneManager.State() != SceneState::Play; },
+		[this]() { return m_ViewportFocused || m_GameViewportFocused; });
 	m_ShortcutManager.Add(
 		EditorShortcutScope::Viewport,
 		"viewport.toggle_cursor_mode",
