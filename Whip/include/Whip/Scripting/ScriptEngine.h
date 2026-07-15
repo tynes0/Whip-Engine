@@ -76,7 +76,12 @@ FrenumClassInNamespace(whip, EntityMethodType, uint8_t,
 	OnUIToggle,
 	OnUISlider,
 	OnUIInputChanged,
-	OnUIInputSubmit
+	OnUIInputSubmit,
+	OnUIPointerEnter,
+	OnUIPointerExit,
+	OnUIPointerDown,
+	OnUIPointerUp,
+	OnUIPointerDrag
 )
 
 struct ScriptField
@@ -230,6 +235,11 @@ public:
 	void InvokeOnUISlider(float value);
 	void InvokeOnUIInputChanged(std::string_view value);
 	void InvokeOnUIInputSubmit(std::string_view value);
+	void InvokeOnUIPointerEnter();
+	void InvokeOnUIPointerExit();
+	void InvokeOnUIPointerDown();
+	void InvokeOnUIPointerUp();
+	void InvokeOnUIPointerDrag();
 
 	void InvokeMethod(EntityMethodType methodType, const Payload& payload);
 	bool InvokeNamedMethod(std::string_view methodName, const Payload& payload = Payload::Null());

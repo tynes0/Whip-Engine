@@ -7,6 +7,9 @@
 
 #include <glm/glm.hpp>
 
+#include <string>
+#include <string_view>
+
 _WHIP_START
 
 class Input
@@ -53,6 +56,8 @@ public:
 	WHP_NODISCARD static bool IsCursorVisible();
 	static void SetCursorShape(CursorShape shape);
 	WHP_NODISCARD static CursorShape GetCursorShape();
+	WHP_NODISCARD static std::string GetClipboardText();
+	static void SetClipboardText(std::string_view text);
 };
 
 _WHIP_END

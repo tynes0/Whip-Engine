@@ -630,6 +630,11 @@ namespace Utils
 			out << YAML::Key << "raycast_target" << YAML::Value << button.m_RaycastTarget;
 			out << YAML::Key << "navigation_enabled" << YAML::Value << button.m_NavigationEnabled;
 			out << YAML::Key << "on_click_callback" << YAML::Value << button.m_OnClickCallback;
+			out << YAML::Key << "on_pointer_enter_callback" << YAML::Value << button.m_PointerEvents.m_OnPointerEnterCallback;
+			out << YAML::Key << "on_pointer_exit_callback" << YAML::Value << button.m_PointerEvents.m_OnPointerExitCallback;
+			out << YAML::Key << "on_pointer_down_callback" << YAML::Value << button.m_PointerEvents.m_OnPointerDownCallback;
+			out << YAML::Key << "on_pointer_up_callback" << YAML::Value << button.m_PointerEvents.m_OnPointerUpCallback;
+			out << YAML::Key << "on_pointer_drag_callback" << YAML::Value << button.m_PointerEvents.m_OnPointerDragCallback;
 
 			out << YAML::EndMap; // ui_button_component
 		}
@@ -653,6 +658,11 @@ namespace Utils
 			out << YAML::Key << "raycast_target" << YAML::Value << toggle.m_RaycastTarget;
 			out << YAML::Key << "navigation_enabled" << YAML::Value << toggle.m_NavigationEnabled;
 			out << YAML::Key << "on_value_changed_callback" << YAML::Value << toggle.m_OnValueChangedCallback;
+			out << YAML::Key << "on_pointer_enter_callback" << YAML::Value << toggle.m_PointerEvents.m_OnPointerEnterCallback;
+			out << YAML::Key << "on_pointer_exit_callback" << YAML::Value << toggle.m_PointerEvents.m_OnPointerExitCallback;
+			out << YAML::Key << "on_pointer_down_callback" << YAML::Value << toggle.m_PointerEvents.m_OnPointerDownCallback;
+			out << YAML::Key << "on_pointer_up_callback" << YAML::Value << toggle.m_PointerEvents.m_OnPointerUpCallback;
+			out << YAML::Key << "on_pointer_drag_callback" << YAML::Value << toggle.m_PointerEvents.m_OnPointerDragCallback;
 
 			out << YAML::EndMap; // ui_toggle_component
 		}
@@ -674,6 +684,11 @@ namespace Utils
 			out << YAML::Key << "interactable" << YAML::Value << slider.m_Interactable;
 			out << YAML::Key << "raycast_target" << YAML::Value << slider.m_RaycastTarget;
 			out << YAML::Key << "on_value_changed_callback" << YAML::Value << slider.m_OnValueChangedCallback;
+			out << YAML::Key << "on_pointer_enter_callback" << YAML::Value << slider.m_PointerEvents.m_OnPointerEnterCallback;
+			out << YAML::Key << "on_pointer_exit_callback" << YAML::Value << slider.m_PointerEvents.m_OnPointerExitCallback;
+			out << YAML::Key << "on_pointer_down_callback" << YAML::Value << slider.m_PointerEvents.m_OnPointerDownCallback;
+			out << YAML::Key << "on_pointer_up_callback" << YAML::Value << slider.m_PointerEvents.m_OnPointerUpCallback;
+			out << YAML::Key << "on_pointer_drag_callback" << YAML::Value << slider.m_PointerEvents.m_OnPointerDragCallback;
 
 			out << YAML::EndMap; // ui_slider_component
 		}
@@ -691,6 +706,8 @@ namespace Utils
 			out << YAML::Key << "focused_color" << YAML::Value << inputField.m_FocusedColor;
 			out << YAML::Key << "text_color" << YAML::Value << inputField.m_TextColor;
 			out << YAML::Key << "placeholder_color" << YAML::Value << inputField.m_PlaceholderColor;
+			out << YAML::Key << "selection_color" << YAML::Value << inputField.m_SelectionColor;
+			out << YAML::Key << "caret_color" << YAML::Value << inputField.m_CaretColor;
 			out << YAML::Key << "font_size" << YAML::Value << inputField.m_FontSize;
 			out << YAML::Key << "radius" << YAML::Value << inputField.m_Radius;
 			out << YAML::Key << "border_thickness" << YAML::Value << inputField.m_BorderThickness;
@@ -700,6 +717,11 @@ namespace Utils
 			out << YAML::Key << "raycast_target" << YAML::Value << inputField.m_RaycastTarget;
 			out << YAML::Key << "on_submit_callback" << YAML::Value << inputField.m_OnSubmitCallback;
 			out << YAML::Key << "on_value_changed_callback" << YAML::Value << inputField.m_OnValueChangedCallback;
+			out << YAML::Key << "on_pointer_enter_callback" << YAML::Value << inputField.m_PointerEvents.m_OnPointerEnterCallback;
+			out << YAML::Key << "on_pointer_exit_callback" << YAML::Value << inputField.m_PointerEvents.m_OnPointerExitCallback;
+			out << YAML::Key << "on_pointer_down_callback" << YAML::Value << inputField.m_PointerEvents.m_OnPointerDownCallback;
+			out << YAML::Key << "on_pointer_up_callback" << YAML::Value << inputField.m_PointerEvents.m_OnPointerUpCallback;
+			out << YAML::Key << "on_pointer_drag_callback" << YAML::Value << inputField.m_PointerEvents.m_OnPointerDragCallback;
 
 			out << YAML::EndMap; // ui_input_field_component
 		}
@@ -1220,6 +1242,11 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				button.m_RaycastTarget = uiButtonComponent["raycast_target"].as<bool>(button.m_RaycastTarget);
 				button.m_NavigationEnabled = uiButtonComponent["navigation_enabled"].as<bool>(button.m_NavigationEnabled);
 				button.m_OnClickCallback = uiButtonComponent["on_click_callback"].as<std::string>(button.m_OnClickCallback);
+				button.m_PointerEvents.m_OnPointerEnterCallback = uiButtonComponent["on_pointer_enter_callback"].as<std::string>(button.m_PointerEvents.m_OnPointerEnterCallback);
+				button.m_PointerEvents.m_OnPointerExitCallback = uiButtonComponent["on_pointer_exit_callback"].as<std::string>(button.m_PointerEvents.m_OnPointerExitCallback);
+				button.m_PointerEvents.m_OnPointerDownCallback = uiButtonComponent["on_pointer_down_callback"].as<std::string>(button.m_PointerEvents.m_OnPointerDownCallback);
+				button.m_PointerEvents.m_OnPointerUpCallback = uiButtonComponent["on_pointer_up_callback"].as<std::string>(button.m_PointerEvents.m_OnPointerUpCallback);
+				button.m_PointerEvents.m_OnPointerDragCallback = uiButtonComponent["on_pointer_drag_callback"].as<std::string>(button.m_PointerEvents.m_OnPointerDragCallback);
 			}
 
 			auto uiToggleComponent = entityNode["ui_toggle_component"];
@@ -1239,6 +1266,11 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				toggle.m_RaycastTarget = uiToggleComponent["raycast_target"].as<bool>(toggle.m_RaycastTarget);
 				toggle.m_NavigationEnabled = uiToggleComponent["navigation_enabled"].as<bool>(toggle.m_NavigationEnabled);
 				toggle.m_OnValueChangedCallback = uiToggleComponent["on_value_changed_callback"].as<std::string>(toggle.m_OnValueChangedCallback);
+				toggle.m_PointerEvents.m_OnPointerEnterCallback = uiToggleComponent["on_pointer_enter_callback"].as<std::string>(toggle.m_PointerEvents.m_OnPointerEnterCallback);
+				toggle.m_PointerEvents.m_OnPointerExitCallback = uiToggleComponent["on_pointer_exit_callback"].as<std::string>(toggle.m_PointerEvents.m_OnPointerExitCallback);
+				toggle.m_PointerEvents.m_OnPointerDownCallback = uiToggleComponent["on_pointer_down_callback"].as<std::string>(toggle.m_PointerEvents.m_OnPointerDownCallback);
+				toggle.m_PointerEvents.m_OnPointerUpCallback = uiToggleComponent["on_pointer_up_callback"].as<std::string>(toggle.m_PointerEvents.m_OnPointerUpCallback);
+				toggle.m_PointerEvents.m_OnPointerDragCallback = uiToggleComponent["on_pointer_drag_callback"].as<std::string>(toggle.m_PointerEvents.m_OnPointerDragCallback);
 			}
 
 			auto uiSliderComponent = entityNode["ui_slider_component"];
@@ -1256,6 +1288,11 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				slider.m_Interactable = uiSliderComponent["interactable"].as<bool>(slider.m_Interactable);
 				slider.m_RaycastTarget = uiSliderComponent["raycast_target"].as<bool>(slider.m_RaycastTarget);
 				slider.m_OnValueChangedCallback = uiSliderComponent["on_value_changed_callback"].as<std::string>(slider.m_OnValueChangedCallback);
+				slider.m_PointerEvents.m_OnPointerEnterCallback = uiSliderComponent["on_pointer_enter_callback"].as<std::string>(slider.m_PointerEvents.m_OnPointerEnterCallback);
+				slider.m_PointerEvents.m_OnPointerExitCallback = uiSliderComponent["on_pointer_exit_callback"].as<std::string>(slider.m_PointerEvents.m_OnPointerExitCallback);
+				slider.m_PointerEvents.m_OnPointerDownCallback = uiSliderComponent["on_pointer_down_callback"].as<std::string>(slider.m_PointerEvents.m_OnPointerDownCallback);
+				slider.m_PointerEvents.m_OnPointerUpCallback = uiSliderComponent["on_pointer_up_callback"].as<std::string>(slider.m_PointerEvents.m_OnPointerUpCallback);
+				slider.m_PointerEvents.m_OnPointerDragCallback = uiSliderComponent["on_pointer_drag_callback"].as<std::string>(slider.m_PointerEvents.m_OnPointerDragCallback);
 			}
 
 			auto uiInputFieldComponent = entityNode["ui_input_field_component"];
@@ -1269,6 +1306,8 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				inputField.m_FocusedColor = uiInputFieldComponent["focused_color"].as<glm::vec4>(inputField.m_FocusedColor);
 				inputField.m_TextColor = uiInputFieldComponent["text_color"].as<glm::vec4>(inputField.m_TextColor);
 				inputField.m_PlaceholderColor = uiInputFieldComponent["placeholder_color"].as<glm::vec4>(inputField.m_PlaceholderColor);
+				inputField.m_SelectionColor = uiInputFieldComponent["selection_color"].as<glm::vec4>(inputField.m_SelectionColor);
+				inputField.m_CaretColor = uiInputFieldComponent["caret_color"].as<glm::vec4>(inputField.m_CaretColor);
 				inputField.m_FontSize = uiInputFieldComponent["font_size"].as<float>(inputField.m_FontSize);
 				inputField.m_Radius = uiInputFieldComponent["radius"].as<float>(inputField.m_Radius);
 				inputField.m_BorderThickness = uiInputFieldComponent["border_thickness"].as<float>(inputField.m_BorderThickness);
@@ -1278,6 +1317,11 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 				inputField.m_RaycastTarget = uiInputFieldComponent["raycast_target"].as<bool>(inputField.m_RaycastTarget);
 				inputField.m_OnSubmitCallback = uiInputFieldComponent["on_submit_callback"].as<std::string>(inputField.m_OnSubmitCallback);
 				inputField.m_OnValueChangedCallback = uiInputFieldComponent["on_value_changed_callback"].as<std::string>(inputField.m_OnValueChangedCallback);
+				inputField.m_PointerEvents.m_OnPointerEnterCallback = uiInputFieldComponent["on_pointer_enter_callback"].as<std::string>(inputField.m_PointerEvents.m_OnPointerEnterCallback);
+				inputField.m_PointerEvents.m_OnPointerExitCallback = uiInputFieldComponent["on_pointer_exit_callback"].as<std::string>(inputField.m_PointerEvents.m_OnPointerExitCallback);
+				inputField.m_PointerEvents.m_OnPointerDownCallback = uiInputFieldComponent["on_pointer_down_callback"].as<std::string>(inputField.m_PointerEvents.m_OnPointerDownCallback);
+				inputField.m_PointerEvents.m_OnPointerUpCallback = uiInputFieldComponent["on_pointer_up_callback"].as<std::string>(inputField.m_PointerEvents.m_OnPointerUpCallback);
+				inputField.m_PointerEvents.m_OnPointerDragCallback = uiInputFieldComponent["on_pointer_drag_callback"].as<std::string>(inputField.m_PointerEvents.m_OnPointerDragCallback);
 			}
 
 			auto uiStackLayoutComponent = entityNode["ui_stack_layout_component"];

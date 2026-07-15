@@ -433,6 +433,24 @@ namespace
 			verticalAlignment = static_cast<UITextVerticalAlignment>(vertical);
 	}
 
+	void DrawUIPointerEventControls(UIPointerEventState& pointerEvents)
+	{
+		if (ImGui::TreeNodeEx("Pointer Events", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth))
+		{
+			ImGui::InputText("On Pointer Enter", &pointerEvents.m_OnPointerEnterCallback);
+			ImGui::InputText("On Pointer Exit", &pointerEvents.m_OnPointerExitCallback);
+			ImGui::InputText("On Pointer Down", &pointerEvents.m_OnPointerDownCallback);
+			ImGui::InputText("On Pointer Up", &pointerEvents.m_OnPointerUpCallback);
+			ImGui::InputText("On Pointer Drag", &pointerEvents.m_OnPointerDragCallback);
+			ImGui::TextDisabled("Empty callback names fall back to UIEntity virtual methods.");
+			ImGui::BeginDisabled();
+			ImGui::Checkbox("Pointer Inside", &pointerEvents.m_PointerInside);
+			ImGui::Checkbox("Dragging", &pointerEvents.m_Dragging);
+			ImGui::EndDisabled();
+			ImGui::TreePop();
+		}
+	}
+
 	template<typename T, typename UIFunction>
 	void DrawComponent(const std::string& name, Entity entityIn, const std::function<void()>& beforeChange, UIFunction uiFunction)
 	{
@@ -3155,6 +3173,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::ColorEdit4("Border", glm::value_ptr(component.m_BorderColor));
 			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
 			ImGui::InputText("On Click", &component.m_OnClickCallback);
+			DrawUIPointerEventControls(component.m_PointerEvents);
 
 			std::string label = "None";
 			bool isFontValid = false;
@@ -3206,6 +3225,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::ColorEdit4("Check", glm::value_ptr(component.m_CheckColor));
 			ImGui::ColorEdit4("Hovered", glm::value_ptr(component.m_HoveredColor));
 			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
+			DrawUIPointerEventControls(component.m_PointerEvents);
 			ImGui::Separator();
 			ImGui::TextDisabled("Runtime");
 			ImGui::BeginDisabled();
@@ -3229,6 +3249,7 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::ColorEdit4("Handle", glm::value_ptr(component.m_HandleColor));
 			ImGui::DragFloat("Track Radius", &component.m_TrackRadius, 0.25f, 0.0f, 256.0f);
 			ImGui::DragFloat("Handle Radius", &component.m_HandleRadius, 0.25f, 0.0f, 256.0f);
+			DrawUIPointerEventControls(component.m_PointerEvents);
 			ImGui::Separator();
 			ImGui::TextDisabled("Runtime");
 			ImGui::BeginDisabled();
@@ -3254,9 +3275,12 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::ColorEdit4("Focused", glm::value_ptr(component.m_FocusedColor));
 			ImGui::ColorEdit4("Text Color", glm::value_ptr(component.m_TextColor));
 			ImGui::ColorEdit4("Placeholder", glm::value_ptr(component.m_PlaceholderColor));
+			ImGui::ColorEdit4("Selection", glm::value_ptr(component.m_SelectionColor));
+			ImGui::ColorEdit4("Caret", glm::value_ptr(component.m_CaretColor));
 			ImGui::DragFloat("Radius", &component.m_Radius, 0.25f, 0.0f, 512.0f);
 			ImGui::DragFloat("Border Thickness", &component.m_BorderThickness, 0.25f, 0.0f, 128.0f);
 			ImGui::ColorEdit4("Border", glm::value_ptr(component.m_BorderColor));
+			DrawUIPointerEventControls(component.m_PointerEvents);
 			ImGui::Separator();
 			ImGui::TextDisabled("Runtime");
 			ImGui::BeginDisabled();
@@ -3264,6 +3288,9 @@ void SceneHierarchyPanel::DrawComponents(Entity entityIn)
 			ImGui::Checkbox("Focused", &component.m_Focused);
 			ImGui::Checkbox("Changed This Frame", &component.m_ChangedThisFrame);
 			ImGui::Checkbox("Submitted This Frame", &component.m_SubmittedThisFrame);
+			ImGui::InputInt("Caret Index", &component.m_CaretIndex);
+			ImGui::InputInt("Selection Anchor", &component.m_SelectionAnchor);
+			ImGui::Checkbox("Selecting", &component.m_Selecting);
 			ImGui::EndDisabled();
 		});
 	ImGui::Spacing();

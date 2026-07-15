@@ -335,4 +335,24 @@ WHP_NODISCARD CursorShape Input::GetCursorShape()
 	return Application::Get().GetWindow().GetCursorShape();
 }
 
+WHP_NODISCARD std::string Input::GetClipboardText()
+{
+	GLFWwindow* window = GetGLFWWindow();
+	if (!window)
+		return {};
+
+	const char* text = glfwGetClipboardString(window);
+	return text ? std::string(text) : std::string();
+}
+
+void Input::SetClipboardText(std::string_view text)
+{
+	GLFWwindow* window = GetGLFWWindow();
+	if (!window)
+		return;
+
+	const std::string value(text);
+	glfwSetClipboardString(window, value.c_str());
+}
+
 _WHIP_END

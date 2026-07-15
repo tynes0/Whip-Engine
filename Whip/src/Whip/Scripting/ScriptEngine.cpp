@@ -540,6 +540,11 @@ ScriptInstance::ScriptInstance(const Ref<ScriptClass>& scriptClass, Entity entit
 	m_Methods[EntityMethodType::OnUISlider] = scriptClass->GetMethod("OnUISlider", 1);
 	m_Methods[EntityMethodType::OnUIInputChanged] = scriptClass->GetMethod("OnUIInputChanged", 1);
 	m_Methods[EntityMethodType::OnUIInputSubmit] = scriptClass->GetMethod("OnUIInputSubmit", 1);
+	m_Methods[EntityMethodType::OnUIPointerEnter] = scriptClass->GetMethod("OnUIPointerEnter", 0);
+	m_Methods[EntityMethodType::OnUIPointerExit] = scriptClass->GetMethod("OnUIPointerExit", 0);
+	m_Methods[EntityMethodType::OnUIPointerDown] = scriptClass->GetMethod("OnUIPointerDown", 0);
+	m_Methods[EntityMethodType::OnUIPointerUp] = scriptClass->GetMethod("OnUIPointerUp", 0);
+	m_Methods[EntityMethodType::OnUIPointerDrag] = scriptClass->GetMethod("OnUIPointerDrag", 0);
 	if (!m_Instance)
 		return;
 
@@ -660,6 +665,41 @@ void ScriptInstance::InvokeOnUIInputSubmit(std::string_view value)
 		void* param = monoString;
 		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIInputSubmit], &param, MakeMethodContext("OnUIInputSubmit"));
 	}
+}
+
+void ScriptInstance::InvokeOnUIPointerEnter()
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUIPointerEnter])
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIPointerEnter], nullptr, MakeMethodContext("OnUIPointerEnter"));
+}
+
+void ScriptInstance::InvokeOnUIPointerExit()
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUIPointerExit])
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIPointerExit], nullptr, MakeMethodContext("OnUIPointerExit"));
+}
+
+void ScriptInstance::InvokeOnUIPointerDown()
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUIPointerDown])
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIPointerDown], nullptr, MakeMethodContext("OnUIPointerDown"));
+}
+
+void ScriptInstance::InvokeOnUIPointerUp()
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUIPointerUp])
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIPointerUp], nullptr, MakeMethodContext("OnUIPointerUp"));
+}
+
+void ScriptInstance::InvokeOnUIPointerDrag()
+{
+	WHP_PROFILE_FUNCTION();
+	if (m_Instance && m_Methods[EntityMethodType::OnUIPointerDrag])
+		ScriptClass::InvokeMethod(m_Instance, m_Methods[EntityMethodType::OnUIPointerDrag], nullptr, MakeMethodContext("OnUIPointerDrag"));
 }
 
 void ScriptInstance::InvokeMethod(EntityMethodType methodType, const Payload& payload)

@@ -16,6 +16,7 @@
 #include <Whip/Animation/AnimationManager.h>
 #include <Whip/Animation/AnimationController.h>
 #include <Whip/Asset/AssetManager.h>
+#include <Whip/Utils/PlatformUtils.h>
 
 #include <glm/glm.hpp>
 
@@ -137,18 +138,107 @@ namespace
 		return glm::mix(slider.m_MinValue, slider.m_MaxValue, normalized);
 	}
 
-	bool AppendRuntimeTextInput(std::string& text, int32_t maxCharacters)
+	bool IsRuntimeControlHeld()
 	{
-		bool changed = false;
-		const bool shiftHeld = Input::IsKeyDown(Key::LeftShift) || Input::IsKeyDown(Key::RightShift);
-		auto appendCharacter = [&](char character)
+		return Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl);
+	}
+
+	bool IsRuntimeShiftHeld()
+	{
+		return Input::IsKeyDown(Key::LeftShift) || Input::IsKeyDown(Key::RightShift);
+	}
+
+	int32_t ClampTextIndex(int32_t value, const std::string& text)
+	{
+		return std::clamp(value, 0, static_cast<int32_t>(text.size()));
+	}
+
+	void NormalizeInputFieldSelection(UIInputFieldComponent& inputField)
+	{
+		inputField.m_CaretIndex = ClampTextIndex(inputField.m_CaretIndex, inputField.m_Text);
+		inputField.m_SelectionAnchor = ClampTextIndex(inputField.m_SelectionAnchor, inputField.m_Text);
+	}
+
+	bool HasTextSelection(const UIInputFieldComponent& inputField)
+	{
+		return inputField.m_CaretIndex != inputField.m_SelectionAnchor;
+	}
+
+	std::pair<int32_t, int32_t> GetTextSelectionRange(const UIInputFieldComponent& inputField)
+	{
+		const int32_t start = std::min(inputField.m_CaretIndex, inputField.m_SelectionAnchor);
+		const int32_t end = std::max(inputField.m_CaretIndex, inputField.m_SelectionAnchor);
+		return { start, end };
+	}
+
+	std::string SanitizeInputText(std::string_view text)
+	{
+		std::string sanitized;
+		sanitized.reserve(text.size());
+		for (char character : text)
+		{
+			if (character == '\r' || character == '\n')
+				continue;
+			if (character == '\t')
 			{
-				if (maxCharacters <= 0 || text.size() < static_cast<size_t>(maxCharacters))
-				{
-					text.push_back(character);
-					changed = true;
-				}
-			};
+				sanitized.push_back(' ');
+				continue;
+			}
+			if (static_cast<unsigned char>(character) >= 32)
+				sanitized.push_back(character);
+		}
+		return sanitized;
+	}
+
+	std::string ClampInputInsertion(std::string_view text, const UIInputFieldComponent& inputField, int32_t replacedLength = 0)
+	{
+		std::string sanitized = SanitizeInputText(text);
+		if (inputField.m_MaxCharacters <= 0)
+			return sanitized;
+
+		const int32_t available = std::max(inputField.m_MaxCharacters - (static_cast<int32_t>(inputField.m_Text.size()) - replacedLength), 0);
+		if (static_cast<int32_t>(sanitized.size()) > available)
+			sanitized.resize(static_cast<size_t>(available));
+		return sanitized;
+	}
+
+	bool DeleteInputFieldSelection(UIInputFieldComponent& inputField)
+	{
+		NormalizeInputFieldSelection(inputField);
+		if (!HasTextSelection(inputField))
+			return false;
+
+		const auto [start, end] = GetTextSelectionRange(inputField);
+		inputField.m_Text.erase(static_cast<size_t>(start), static_cast<size_t>(end - start));
+		inputField.m_CaretIndex = start;
+		inputField.m_SelectionAnchor = start;
+		return true;
+	}
+
+	bool InsertInputFieldText(UIInputFieldComponent& inputField, std::string_view insertedText)
+	{
+		NormalizeInputFieldSelection(inputField);
+		const auto [selectionStart, selectionEnd] = GetTextSelectionRange(inputField);
+		const int32_t replacedLength = selectionEnd - selectionStart;
+		std::string text = ClampInputInsertion(insertedText, inputField, replacedLength);
+		if (text.empty() && replacedLength == 0)
+			return false;
+
+		if (replacedLength > 0)
+			inputField.m_Text.erase(static_cast<size_t>(selectionStart), static_cast<size_t>(replacedLength));
+		if (!text.empty())
+			inputField.m_Text.insert(static_cast<size_t>(selectionStart), text);
+
+		inputField.m_CaretIndex = selectionStart + static_cast<int32_t>(text.size());
+		inputField.m_SelectionAnchor = inputField.m_CaretIndex;
+		return true;
+	}
+
+	std::string CollectRuntimeTextInput()
+	{
+		std::string text;
+		const bool shiftHeld = IsRuntimeShiftHeld();
+		auto appendCharacter = [&](char character) { text.push_back(character); };
 
 		for (int key = Key::A; key <= Key::Z; ++key)
 		{
@@ -159,9 +249,15 @@ namespace
 			}
 		}
 
+		const char shiftedDigits[] = { ')', '!', '@', '#', '$', '%', '^', '&', '*', '(' };
 		for (int key = Key::D0; key <= Key::D9; ++key)
+		{
 			if (Input::IsKeyPressed(key))
-				appendCharacter(static_cast<char>('0' + (key - Key::D0)));
+			{
+				const int digitIndex = key - Key::D0;
+				appendCharacter(shiftHeld ? shiftedDigits[digitIndex] : static_cast<char>('0' + digitIndex));
+			}
+		}
 
 		for (int key = Key::KP0; key <= Key::KP9; ++key)
 			if (Input::IsKeyPressed(key))
@@ -172,15 +268,36 @@ namespace
 		if (Input::IsKeyPressed(Key::Minus))
 			appendCharacter(shiftHeld ? '_' : '-');
 		if (Input::IsKeyPressed(Key::Period))
-			appendCharacter('.');
+			appendCharacter(shiftHeld ? '>' : '.');
 		if (Input::IsKeyPressed(Key::Comma))
-			appendCharacter(',');
-		if (Input::IsKeyPressed(Key::Backspace) && !text.empty())
-		{
-			text.pop_back();
-			changed = true;
-		}
-		return changed;
+			appendCharacter(shiftHeld ? '<' : ',');
+		if (Input::IsKeyPressed(Key::Slash))
+			appendCharacter(shiftHeld ? '?' : '/');
+		if (Input::IsKeyPressed(Key::Semicolon))
+			appendCharacter(shiftHeld ? ':' : ';');
+		if (Input::IsKeyPressed(Key::Apostrophe))
+			appendCharacter(shiftHeld ? '"' : '\'');
+		if (Input::IsKeyPressed(Key::LeftBracket))
+			appendCharacter(shiftHeld ? '{' : '[');
+		if (Input::IsKeyPressed(Key::RightBracket))
+			appendCharacter(shiftHeld ? '}' : ']');
+		if (Input::IsKeyPressed(Key::Backslash))
+			appendCharacter(shiftHeld ? '|' : '\\');
+		if (Input::IsKeyPressed(Key::GraveAccent))
+			appendCharacter(shiftHeld ? '~' : '`');
+		if (Input::IsKeyPressed(Key::Equal))
+			appendCharacter(shiftHeld ? '+' : '=');
+		if (Input::IsKeyPressed(Key::KPDecimal))
+			appendCharacter('.');
+		if (Input::IsKeyPressed(Key::KPDivide))
+			appendCharacter('/');
+		if (Input::IsKeyPressed(Key::KPMultiply))
+			appendCharacter('*');
+		if (Input::IsKeyPressed(Key::KPSubtract))
+			appendCharacter('-');
+		if (Input::IsKeyPressed(Key::KPAdd))
+			appendCharacter('+');
+		return text;
 	}
 
 	void InvokeUIRuntimeCallback(Entity entity, EntityMethodType fallbackMethod, const std::string& callbackName, const Payload& payload = Payload::Null())
@@ -192,6 +309,34 @@ namespace
 			return;
 
 		ScriptEngine::InvokeEntityMethod(fallbackMethod, entity, payload);
+	}
+
+	void DispatchUIPointerEvents(Scene* scene, entt::entity entity, UIPointerEventState& events, bool hovered, const UIPointerState& pointer)
+	{
+		Entity uiEntity{ entity, scene };
+		if (hovered && !events.m_PointerInside)
+			InvokeUIRuntimeCallback(uiEntity, EntityMethodType::OnUIPointerEnter, events.m_OnPointerEnterCallback);
+		else if (!hovered && events.m_PointerInside)
+			InvokeUIRuntimeCallback(uiEntity, EntityMethodType::OnUIPointerExit, events.m_OnPointerExitCallback);
+		events.m_PointerInside = hovered;
+
+		if (hovered && pointer.m_Pressed)
+		{
+			events.m_Dragging = true;
+			InvokeUIRuntimeCallback(uiEntity, EntityMethodType::OnUIPointerDown, events.m_OnPointerDownCallback);
+		}
+
+		if (events.m_Dragging && pointer.m_Down && !pointer.m_Pressed)
+			InvokeUIRuntimeCallback(uiEntity, EntityMethodType::OnUIPointerDrag, events.m_OnPointerDragCallback);
+
+		if (events.m_Dragging && pointer.m_Released)
+		{
+			InvokeUIRuntimeCallback(uiEntity, EntityMethodType::OnUIPointerUp, events.m_OnPointerUpCallback);
+			events.m_Dragging = false;
+		}
+
+		if (!pointer.m_Active || (!pointer.m_Down && !pointer.m_Released))
+			events.m_Dragging = false;
 	}
 
 	float ResolveCanvasScale(const UICanvasComponent& canvas, const glm::vec2& viewportSize)
@@ -488,14 +633,44 @@ namespace
 		return { { maxWidth, std::max(top - bottom, fontSize) }, top, bottom };
 	}
 
-	void DrawUIText(const std::string& text, AssetHandle fontHandle, const glm::vec4& color, float fontSize, float kerning, float lineSpacing, UITextHorizontalAlignment horizontalAlignment, UITextVerticalAlignment verticalAlignment, const UIRect& rect, float z, int entityId)
+	float MeasureUITextAdvance(const std::string& text, const Ref<Font>& font, float fontSize, float kerning, size_t characterCount)
 	{
-		if (text.empty())
-			return;
+		if (!font || characterCount == 0 || text.empty())
+			return 0.0f;
 
-		const float safeFontSize = std::max(fontSize, 1.0f);
-		const Ref<Font> font = ResolveFont(fontHandle);
-		const UITextMetrics textMetrics = MeasureUIText(text, font, safeFontSize, kerning, lineSpacing);
+		const auto& fontGeometry = font->GetMsdfData()->m_FontGeometry;
+		const auto& metrics = fontGeometry.getMetrics();
+		const double fsScale = 1.0 / (metrics.ascenderY - metrics.descenderY);
+		const auto spaceGlyph = fontGeometry.getGlyph(' ');
+		const float spaceGlyphAdvance = spaceGlyph ? static_cast<float>(spaceGlyph->getAdvance()) : 1.0f;
+		float width = 0.0f;
+		const size_t count = std::min(characterCount, text.size());
+		for (size_t i = 0; i < count; ++i)
+		{
+			const char character = text[i];
+			if (character == '\r')
+				continue;
+			if (character == '\n')
+				break;
+			if (character == '\t')
+			{
+				width += 4.0f * (static_cast<float>(fsScale) * spaceGlyphAdvance + kerning) * fontSize;
+				continue;
+			}
+
+			double advance = spaceGlyphAdvance;
+			if (const auto glyph = fontGeometry.getGlyph(character))
+				advance = glyph->getAdvance();
+			if (i < count - 1)
+				fontGeometry.getAdvance(advance, character, text[i + 1]);
+			width += (static_cast<float>(fsScale * advance) + kerning) * fontSize;
+		}
+		return width;
+	}
+
+	glm::vec2 ResolveUITextOrigin(const std::string& text, const Ref<Font>& font, float fontSize, float kerning, float lineSpacing, UITextHorizontalAlignment horizontalAlignment, UITextVerticalAlignment verticalAlignment, const UIRect& rect)
+	{
+		const UITextMetrics textMetrics = MeasureUIText(text, font, fontSize, kerning, lineSpacing);
 		const glm::vec2 textSize = textMetrics.m_Size;
 		constexpr float padding = 8.0f;
 		float originX = rect.m_Min.x + padding;
@@ -504,7 +679,7 @@ namespace
 		else if (horizontalAlignment == UITextHorizontalAlignment::Right)
 			originX = rect.m_Max.x - textSize.x - padding;
 
-		float originY = rect.m_Min.y + std::max((rect.m_Size.y - safeFontSize) * 0.5f, 0.0f);
+		float originY = rect.m_Min.y + std::max((rect.m_Size.y - fontSize) * 0.5f, 0.0f);
 		if (verticalAlignment == UITextVerticalAlignment::Top)
 			originY = rect.m_Max.y - padding - textMetrics.m_Top;
 		else if (verticalAlignment == UITextVerticalAlignment::Center)
@@ -512,7 +687,145 @@ namespace
 		else if (verticalAlignment == UITextVerticalAlignment::Bottom)
 			originY = rect.m_Min.y + padding - textMetrics.m_Bottom;
 
-		const glm::vec2 textOrigin{ originX, originY };
+		return { originX, originY };
+	}
+
+	int32_t GetInputTextIndexFromPoint(const UIInputFieldComponent& inputField, const UIRect& rect, const glm::vec2& point)
+	{
+		const Ref<Font> font = ResolveFont(inputField.m_Font);
+		const float safeFontSize = std::max(inputField.m_FontSize, 1.0f);
+		const glm::vec2 origin = ResolveUITextOrigin(inputField.m_Text, font, safeFontSize, 0.0f, 0.0f, UITextHorizontalAlignment::Left, UITextVerticalAlignment::Center, rect);
+		const float localX = glm::clamp(point.x - origin.x, 0.0f, std::max(rect.m_Size.x - 16.0f, 1.0f));
+
+		int32_t bestIndex = 0;
+		float bestDistance = std::abs(localX);
+		for (size_t index = 1; index <= inputField.m_Text.size(); ++index)
+		{
+			const float advance = MeasureUITextAdvance(inputField.m_Text, font, safeFontSize, 0.0f, index);
+			const float distance = std::abs(localX - advance);
+			if (distance < bestDistance)
+			{
+				bestDistance = distance;
+				bestIndex = static_cast<int32_t>(index);
+			}
+		}
+		return bestIndex;
+	}
+
+	bool ProcessRuntimeInputFieldEditing(UIInputFieldComponent& inputField, const UIPointerState& pointer, const UIRect& rect, bool pressedOnField)
+	{
+		NormalizeInputFieldSelection(inputField);
+		bool changed = false;
+		const bool controlHeld = IsRuntimeControlHeld();
+		const bool shiftHeld = IsRuntimeShiftHeld();
+
+		if (pressedOnField)
+		{
+			const int32_t clickedIndex = GetInputTextIndexFromPoint(inputField, rect, pointer.m_Position);
+			inputField.m_CaretIndex = clickedIndex;
+			if (!shiftHeld)
+				inputField.m_SelectionAnchor = clickedIndex;
+			inputField.m_Selecting = true;
+		}
+		else if (!pointer.m_Down)
+		{
+			inputField.m_Selecting = false;
+		}
+
+		if (inputField.m_Selecting && pointer.m_Active && pointer.m_Down)
+			inputField.m_CaretIndex = GetInputTextIndexFromPoint(inputField, rect, pointer.m_Position);
+
+		auto moveCaret = [&](int32_t newIndex)
+			{
+				inputField.m_CaretIndex = ClampTextIndex(newIndex, inputField.m_Text);
+				if (!shiftHeld)
+					inputField.m_SelectionAnchor = inputField.m_CaretIndex;
+			};
+
+		if (controlHeld && Input::IsKeyPressed(Key::A))
+		{
+			inputField.m_SelectionAnchor = 0;
+			inputField.m_CaretIndex = static_cast<int32_t>(inputField.m_Text.size());
+		}
+		else if (controlHeld && Input::IsKeyPressed(Key::C))
+		{
+			if (HasTextSelection(inputField))
+			{
+				const auto [start, end] = GetTextSelectionRange(inputField);
+				Input::SetClipboardText(std::string_view(inputField.m_Text).substr(static_cast<size_t>(start), static_cast<size_t>(end - start)));
+			}
+		}
+		else if (controlHeld && Input::IsKeyPressed(Key::X))
+		{
+			if (HasTextSelection(inputField))
+			{
+				const auto [start, end] = GetTextSelectionRange(inputField);
+				Input::SetClipboardText(std::string_view(inputField.m_Text).substr(static_cast<size_t>(start), static_cast<size_t>(end - start)));
+				changed |= DeleteInputFieldSelection(inputField);
+			}
+		}
+		else if (controlHeld && Input::IsKeyPressed(Key::V))
+		{
+			changed |= InsertInputFieldText(inputField, Input::GetClipboardText());
+		}
+		else
+		{
+			if (Input::IsKeyPressed(Key::Home))
+				moveCaret(0);
+			if (Input::IsKeyPressed(Key::End))
+				moveCaret(static_cast<int32_t>(inputField.m_Text.size()));
+			if (Input::IsKeyPressed(Key::Left))
+				moveCaret(controlHeld ? 0 : inputField.m_CaretIndex - 1);
+			if (Input::IsKeyPressed(Key::Right))
+				moveCaret(controlHeld ? static_cast<int32_t>(inputField.m_Text.size()) : inputField.m_CaretIndex + 1);
+
+			if (Input::IsKeyPressed(Key::Backspace))
+			{
+				if (HasTextSelection(inputField))
+				{
+					changed |= DeleteInputFieldSelection(inputField);
+				}
+				else if (inputField.m_CaretIndex > 0)
+				{
+					inputField.m_Text.erase(static_cast<size_t>(inputField.m_CaretIndex - 1), 1);
+					--inputField.m_CaretIndex;
+					inputField.m_SelectionAnchor = inputField.m_CaretIndex;
+					changed = true;
+				}
+			}
+			if (Input::IsKeyPressed(Key::Delete))
+			{
+				if (HasTextSelection(inputField))
+				{
+					changed |= DeleteInputFieldSelection(inputField);
+				}
+				else if (inputField.m_CaretIndex < static_cast<int32_t>(inputField.m_Text.size()))
+				{
+					inputField.m_Text.erase(static_cast<size_t>(inputField.m_CaretIndex), 1);
+					changed = true;
+				}
+			}
+
+			if (!controlHeld)
+			{
+				const std::string typedText = CollectRuntimeTextInput();
+				if (!typedText.empty())
+					changed |= InsertInputFieldText(inputField, typedText);
+			}
+		}
+
+		NormalizeInputFieldSelection(inputField);
+		return changed;
+	}
+
+	void DrawUIText(const std::string& text, AssetHandle fontHandle, const glm::vec4& color, float fontSize, float kerning, float lineSpacing, UITextHorizontalAlignment horizontalAlignment, UITextVerticalAlignment verticalAlignment, const UIRect& rect, float z, int entityId)
+	{
+		if (text.empty())
+			return;
+
+		const float safeFontSize = std::max(fontSize, 1.0f);
+		const Ref<Font> font = ResolveFont(fontHandle);
+		const glm::vec2 textOrigin = ResolveUITextOrigin(text, font, safeFontSize, kerning, lineSpacing, horizontalAlignment, verticalAlignment, rect);
 		const glm::mat4 textTransform = glm::translate(glm::mat4(1.0f), glm::vec3(textOrigin, z))
 			* glm::scale(glm::mat4(1.0f), glm::vec3(safeFontSize, safeFontSize, 1.0f));
 		Renderer2D::DrawString(text, font, textTransform, { color, kerning, lineSpacing }, entityId);
@@ -1293,6 +1606,33 @@ void Scene::UpdateRuntimeUI()
 				navigableControls.push_back(entity);
 		}
 	}
+	else
+	{
+		for (auto entity : buttonView)
+		{
+			auto [transform, button] = buttonView.get<UITransformComponent, UIButtonComponent>(entity);
+			if (transform.m_Visible && button.m_Interactable && button.m_RaycastTarget && button.m_NavigationEnabled && IsUIBranchVisible(*this, m_Registry, entity))
+				navigableControls.push_back(entity);
+		}
+		for (auto entity : toggleView)
+		{
+			auto [transform, toggle] = toggleView.get<UITransformComponent, UIToggleComponent>(entity);
+			if (transform.m_Visible && toggle.m_Interactable && toggle.m_RaycastTarget && toggle.m_NavigationEnabled && IsUIBranchVisible(*this, m_Registry, entity))
+				navigableControls.push_back(entity);
+		}
+		for (auto entity : sliderView)
+		{
+			auto [transform, slider] = sliderView.get<UITransformComponent, UISliderComponent>(entity);
+			if (transform.m_Visible && slider.m_Interactable && slider.m_RaycastTarget && IsUIBranchVisible(*this, m_Registry, entity))
+				navigableControls.push_back(entity);
+		}
+		for (auto entity : inputFieldView)
+		{
+			auto [transform, inputField] = inputFieldView.get<UITransformComponent, UIInputFieldComponent>(entity);
+			if (transform.m_Visible && inputField.m_Interactable && inputField.m_RaycastTarget && IsUIBranchVisible(*this, m_Registry, entity))
+				navigableControls.push_back(entity);
+		}
+	}
 
 	std::sort(navigableControls.begin(), navigableControls.end(), [&](entt::entity left, entt::entity right)
 		{
@@ -1337,7 +1677,8 @@ void Scene::UpdateRuntimeUI()
 	const bool nextRequested = (Input::IsKeyPressed(Key::Tab) && !shiftHeld) || Input::IsKeyPressed(Key::Down) || Input::IsKeyPressed(Key::Right);
 	const bool previousRequested = (Input::IsKeyPressed(Key::Tab) && shiftHeld) || Input::IsKeyPressed(Key::Up) || Input::IsKeyPressed(Key::Left);
 	const bool submitRequested = Input::IsKeyPressed(Key::Enter) || Input::IsKeyPressed(Key::KPEnter) || Input::IsKeyPressed(Key::Space);
-	const bool navigationUsed = pointer.m_Active && !navigableControls.empty() && (nextRequested || previousRequested || submitRequested);
+	const bool focusedInputActive = focusedEntity && focusedEntity.HasComponent<UIInputFieldComponent>();
+	const bool navigationUsed = pointer.m_Active && !focusedInputActive && !navigableControls.empty() && (nextRequested || previousRequested || submitRequested);
 	if (navigationUsed)
 	{
 		capturedByUI = true;
@@ -1372,6 +1713,31 @@ void Scene::UpdateRuntimeUI()
 	{
 		if (!focusedEntity || static_cast<entt::entity>(focusedEntity) != entity)
 			m_Registry.get<UIInputFieldComponent>(entity).m_Focused = false;
+	}
+
+	for (auto entity : buttonView)
+	{
+		auto [transform, button] = buttonView.get<UITransformComponent, UIButtonComponent>(entity);
+		const bool active = transform.m_Visible && button.m_Interactable && button.m_RaycastTarget && IsUIBranchVisible(*this, m_Registry, entity);
+		DispatchUIPointerEvents(this, entity, button.m_PointerEvents, active && hoveredTarget.m_Entity == entity && hoveredTarget.m_Kind == UIControlKind::Button, pointer);
+	}
+	for (auto entity : toggleView)
+	{
+		auto [transform, toggle] = toggleView.get<UITransformComponent, UIToggleComponent>(entity);
+		const bool active = transform.m_Visible && toggle.m_Interactable && toggle.m_RaycastTarget && IsUIBranchVisible(*this, m_Registry, entity);
+		DispatchUIPointerEvents(this, entity, toggle.m_PointerEvents, active && hoveredTarget.m_Entity == entity && hoveredTarget.m_Kind == UIControlKind::Toggle, pointer);
+	}
+	for (auto entity : sliderView)
+	{
+		auto [transform, slider] = sliderView.get<UITransformComponent, UISliderComponent>(entity);
+		const bool active = transform.m_Visible && slider.m_Interactable && slider.m_RaycastTarget && IsUIBranchVisible(*this, m_Registry, entity);
+		DispatchUIPointerEvents(this, entity, slider.m_PointerEvents, active && hoveredTarget.m_Entity == entity && hoveredTarget.m_Kind == UIControlKind::Slider, pointer);
+	}
+	for (auto entity : inputFieldView)
+	{
+		auto [transform, inputField] = inputFieldView.get<UITransformComponent, UIInputFieldComponent>(entity);
+		const bool active = transform.m_Visible && inputField.m_Interactable && inputField.m_RaycastTarget && IsUIBranchVisible(*this, m_Registry, entity);
+		DispatchUIPointerEvents(this, entity, inputField.m_PointerEvents, active && hoveredTarget.m_Entity == entity && hoveredTarget.m_Kind == UIControlKind::InputField, pointer);
 	}
 
 	if (hoveredTarget.m_Entity != entt::null && hoveredTarget.m_Kind == UIControlKind::Button)
@@ -1466,7 +1832,9 @@ void Scene::UpdateRuntimeUI()
 	{
 		auto& inputField = focusedEntity.GetComponent<UIInputFieldComponent>();
 		capturedByUI = true;
-		const bool changed = AppendRuntimeTextInput(inputField.m_Text, inputField.m_MaxCharacters);
+		const UIRect rect = ResolveUIRect(*this, m_Registry, static_cast<entt::entity>(focusedEntity), viewportSize);
+		const bool pressedOnField = hoveredTarget.m_Entity == static_cast<entt::entity>(focusedEntity) && hoveredTarget.m_Kind == UIControlKind::InputField && pointer.m_Pressed;
+		const bool changed = ProcessRuntimeInputFieldEditing(inputField, pointer, rect, pressedOnField);
 		inputField.m_ChangedThisFrame = changed;
 		if (changed)
 		{
@@ -1728,6 +2096,26 @@ void Scene::RenderUIOverlay(UIRenderVisibilityMode uiVisibilityMode)
 			DrawUIStyledRect(rect, transform, z + 0.00025f, backgroundColor, entityId, inputField.m_Radius, inputField.m_BorderThickness, inputField.m_BorderColor);
 
 			const bool hasText = !inputField.m_Text.empty();
+			const Ref<Font> inputFont = ResolveFont(inputField.m_Font);
+			const float safeFontSize = std::max(inputField.m_FontSize, 1.0f);
+			const glm::vec2 textOrigin = ResolveUITextOrigin(inputField.m_Text, inputFont, safeFontSize, 0.0f, 0.0f, UITextHorizontalAlignment::Left, UITextVerticalAlignment::Center, rect);
+			const int32_t caretIndex = ClampTextIndex(inputField.m_CaretIndex, inputField.m_Text);
+			const int32_t selectionAnchor = ClampTextIndex(inputField.m_SelectionAnchor, inputField.m_Text);
+			if (inputField.m_Focused && caretIndex != selectionAnchor)
+			{
+				const int32_t selectionStart = std::min(caretIndex, selectionAnchor);
+				const int32_t selectionEnd = std::max(caretIndex, selectionAnchor);
+				const float startX = textOrigin.x + MeasureUITextAdvance(inputField.m_Text, inputFont, safeFontSize, 0.0f, static_cast<size_t>(selectionStart));
+				const float endX = textOrigin.x + MeasureUITextAdvance(inputField.m_Text, inputFont, safeFontSize, 0.0f, static_cast<size_t>(selectionEnd));
+				const float minX = glm::clamp(startX, rect.m_Min.x + 6.0f, rect.m_Max.x - 6.0f);
+				const float maxX = glm::clamp(endX, rect.m_Min.x + 6.0f, rect.m_Max.x - 6.0f);
+				if (maxX > minX)
+				{
+					const UIRect selectionRect = MakeUIRect({ (minX + maxX) * 0.5f, rect.m_Center.y }, { maxX - minX, std::min(safeFontSize + 8.0f, std::max(rect.m_Size.y - 8.0f, 1.0f)) });
+					Renderer2D::DrawQuad(BuildUISubTransform(rect, selectionRect, transform, z + 0.00042f), inputField.m_SelectionColor, entityId);
+				}
+			}
+
 			DrawUIText(hasText ? inputField.m_Text : inputField.m_Placeholder,
 				inputField.m_Font,
 				hasText ? inputField.m_TextColor : inputField.m_PlaceholderColor,
@@ -1739,6 +2127,14 @@ void Scene::RenderUIOverlay(UIRenderVisibilityMode uiVisibilityMode)
 				rect,
 				z + 0.00055f,
 				entityId);
+
+			const bool caretVisible = inputField.m_Focused && std::fmod(Time::GetTime(), 1.0f) < 0.55f;
+			if (caretVisible)
+			{
+				const float caretX = glm::clamp(textOrigin.x + MeasureUITextAdvance(inputField.m_Text, inputFont, safeFontSize, 0.0f, static_cast<size_t>(caretIndex)), rect.m_Min.x + 6.0f, rect.m_Max.x - 6.0f);
+				const UIRect caretRect = MakeUIRect({ caretX, rect.m_Center.y }, { 2.0f, std::min(safeFontSize + 10.0f, std::max(rect.m_Size.y - 8.0f, 1.0f)) });
+				Renderer2D::DrawQuad(BuildUISubTransform(rect, caretRect, transform, z + 0.00075f), inputField.m_CaretColor, entityId);
+			}
 		}
 
 		if (m_Registry.any_of<UITextComponent>(entity))

@@ -214,6 +214,17 @@ struct UITextComponent
 	static constexpr std::string_view ScriptStructName = "UITextComponent";
 };
 
+struct UIPointerEventState
+{
+	std::string m_OnPointerEnterCallback;
+	std::string m_OnPointerExitCallback;
+	std::string m_OnPointerDownCallback;
+	std::string m_OnPointerUpCallback;
+	std::string m_OnPointerDragCallback;
+	bool m_PointerInside = false;
+	bool m_Dragging = false;
+};
+
 struct UIButtonComponent
 {
 	std::string m_Text = "Button";
@@ -238,6 +249,7 @@ struct UIButtonComponent
 	bool m_Focused = false;
 	bool m_ClickedThisFrame = false;
 	bool m_SubmittedThisFrame = false;
+	UIPointerEventState m_PointerEvents;
 	std::string m_OnClickCallback;
 
 	static constexpr std::string_view ScriptStructName = "UIButtonComponent";
@@ -261,6 +273,7 @@ struct UIToggleComponent
 	bool m_Pressed = false;
 	bool m_Focused = false;
 	bool m_ChangedThisFrame = false;
+	UIPointerEventState m_PointerEvents;
 	std::string m_OnValueChangedCallback;
 
 	static constexpr std::string_view ScriptStructName = "UIToggleComponent";
@@ -282,6 +295,7 @@ struct UISliderComponent
 	bool m_Pressed = false;
 	bool m_Focused = false;
 	bool m_ChangedThisFrame = false;
+	UIPointerEventState m_PointerEvents;
 	std::string m_OnValueChangedCallback;
 
 	static constexpr std::string_view ScriptStructName = "UISliderComponent";
@@ -296,17 +310,23 @@ struct UIInputFieldComponent
 	glm::vec4 m_FocusedColor{ 0.11f, 0.18f, 0.24f, 1.0f };
 	glm::vec4 m_TextColor{ 0.94f, 0.96f, 0.98f, 1.0f };
 	glm::vec4 m_PlaceholderColor{ 0.52f, 0.60f, 0.68f, 1.0f };
+	glm::vec4 m_SelectionColor{ 0.30f, 0.56f, 0.86f, 0.48f };
+	glm::vec4 m_CaretColor{ 0.88f, 0.95f, 1.0f, 1.0f };
 	float m_FontSize = 20.0f;
 	float m_Radius = 7.0f;
 	float m_BorderThickness = 1.0f;
 	glm::vec4 m_BorderColor{ 0.22f, 0.34f, 0.42f, 0.82f };
 	int32_t m_MaxCharacters = 128;
+	int32_t m_CaretIndex = 0;
+	int32_t m_SelectionAnchor = 0;
+	bool m_Selecting = false;
 	bool m_Interactable = true;
 	bool m_RaycastTarget = true;
 	bool m_Hovered = false;
 	bool m_Focused = false;
 	bool m_SubmittedThisFrame = false;
 	bool m_ChangedThisFrame = false;
+	UIPointerEventState m_PointerEvents;
 	std::string m_OnSubmitCallback;
 	std::string m_OnValueChangedCallback;
 
