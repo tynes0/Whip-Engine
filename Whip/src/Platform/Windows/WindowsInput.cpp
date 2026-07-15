@@ -23,6 +23,7 @@ namespace
 		glm::vec2 m_MouseDelta{ 0.0f };
 		glm::vec2 m_ViewportMin{ 0.0f };
 		glm::vec2 m_ViewportMax{ 0.0f };
+		glm::vec2 m_ViewportLogicalSize{ 0.0f };
 
 		float m_ScrollDeltaX = 0.0f;
 		float m_ScrollDeltaY = 0.0f;
@@ -208,7 +209,13 @@ WHP_NODISCARD float Input::GetMouseDeltaY()
 
 WHP_NODISCARD glm::vec2 Input::GetMouseViewportPosition()
 {
-	return s_InputData.m_CurrentMousePosition - s_InputData.m_ViewportMin;
+	const glm::vec2 localPosition = s_InputData.m_CurrentMousePosition - s_InputData.m_ViewportMin;
+	const glm::vec2 displaySize = glm::max(s_InputData.m_ViewportMax - s_InputData.m_ViewportMin, glm::vec2(1.0f));
+	const glm::vec2 logicalSize = glm::max(s_InputData.m_ViewportLogicalSize, glm::vec2(1.0f));
+	return {
+		localPosition.x * (logicalSize.x / displaySize.x),
+		localPosition.y * (logicalSize.y / displaySize.y)
+	};
 }
 
 WHP_NODISCARD bool Input::IsMouseInsideViewport()
@@ -237,10 +244,16 @@ WHP_NODISCARD float Input::GetScrollDeltaY()
 
 void Input::SetViewportState(bool hovered, bool focused, const glm::vec2& min, const glm::vec2& max)
 {
+	SetViewportState(hovered, focused, min, max, max - min);
+}
+
+void Input::SetViewportState(bool hovered, bool focused, const glm::vec2& min, const glm::vec2& max, const glm::vec2& logicalSize)
+{
 	s_InputData.m_ViewportHovered = hovered;
 	s_InputData.m_ViewportFocused = focused;
 	s_InputData.m_ViewportMin = min;
 	s_InputData.m_ViewportMax = max;
+	s_InputData.m_ViewportLogicalSize = glm::max(logicalSize, glm::vec2(1.0f));
 }
 
 WHP_NODISCARD bool Input::IsViewportHovered()

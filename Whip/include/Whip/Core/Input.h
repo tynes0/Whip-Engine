@@ -38,6 +38,7 @@ public:
 	WHP_NODISCARD static float GetScrollDeltaY();
 
 	static void SetViewportState(bool hovered, bool focused, const glm::vec2& min, const glm::vec2& max);
+	static void SetViewportState(bool hovered, bool focused, const glm::vec2& min, const glm::vec2& max, const glm::vec2& logicalSize);
 	WHP_NODISCARD static bool IsViewportHovered();
 	WHP_NODISCARD static bool IsViewportFocused();
 	static void SetRuntimeInputEnabled(bool enabled);

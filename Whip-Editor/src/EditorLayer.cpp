@@ -2223,7 +2223,7 @@ void EditorLayer::OnImGuiRender()
 
 		const bool runtimeViewport = m_SceneManager.State() == SceneState::Play || m_SceneManager.State() == SceneState::Simulate;
 		if (runtimeViewport)
-			Input::SetViewportState(m_GameViewportHovered, m_GameViewportFocused, m_GameViewportBounds[0], m_GameViewportBounds[1]);
+			Input::SetViewportState(m_GameViewportHovered, m_GameViewportFocused, m_GameViewportBounds[0], m_GameViewportBounds[1], m_GameRenderSize);
 		else if (m_GameViewportHovered)
 			ImGui::SetTooltip("Play or simulate to route input through Game view.");
 
